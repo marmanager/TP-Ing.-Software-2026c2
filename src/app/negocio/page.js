@@ -6,7 +6,9 @@
 // No toca los datos: los casos siguen diciendo lo que decían. Es un
 // diccionario de etiquetas, no un motor de configuración.
 
+import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset } from "@/lib/presets";
@@ -14,9 +16,16 @@ import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function MiNegocio() {
+  const router = useRouter();
   const datos = useDatos();
   const { cargando, negocio, fuente, casos, clientes, insumos, turnos } = datos;
+  const { esDemo, usuario, cerrarSesion } = useAuth();
   useTitulo("Mi negocio");
+
+  async function salir() {
+    await cerrarSesion();
+    router.replace("/iniciar-sesion");
+  }
 
   if (cargando) return <Cargando />;
 
@@ -140,6 +149,39 @@ export default function MiNegocio() {
             <div className="mt-4">
               <Boton icono="deshacer" onClick={datos.reiniciar}>
                 Volver a los datos de ejemplo
+              </Boton>
+            </div>
+          </>
+        )}
+      </Tarjeta>
+
+      <TituloSeccion className="mt-12">Tu cuenta</TituloSeccion>
+      <Tarjeta>
+        {esDemo ? (
+          <>
+            <p className="flex items-center gap-2 font-bold text-espera">
+              <Icono nombre="alerta" className="size-6" />
+              Estás en el modo de ejemplo
+            </p>
+            <p className="mt-2 max-w-[65ch] text-tinta-media">
+              Los datos son de muestra y viven en este navegador. Al salir volvés a la
+              pantalla de entrada.
+            </p>
+            <div className="mt-4">
+              <Boton icono="salir" onClick={salir}>
+                Salir del modo de ejemplo
+              </Boton>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-tinta-media">
+              Entraste con{" "}
+              <span className="font-bold text-tinta">{usuario?.email ?? "tu cuenta"}</span>.
+            </p>
+            <div className="mt-4">
+              <Boton icono="salir" onClick={salir}>
+                Cerrar sesión
               </Boton>
             </div>
           </>
