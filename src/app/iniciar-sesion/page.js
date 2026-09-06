@@ -6,6 +6,7 @@
 // de ejemplo, sin contraseña. El formulario de mail y contraseña llega en
 // SCRUM-9.
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Boton, Tarjeta, TituloPantalla } from "@/componentes/ui";
@@ -38,6 +39,14 @@ export default function IniciarSesion() {
           </Boton>
         </div>
       </Tarjeta>
+
+      <p className="mt-6 text-tinta-media">
+        ¿No tenés cuenta?{" "}
+        <Link href="/crear-cuenta" className="font-bold text-azul">
+          Creá una
+        </Link>
+        .
+      </p>
     </>
   );
 }
