@@ -14,11 +14,9 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { preset } from "@/lib/presets";
+import { telefonoValido } from "@/lib/validaciones";
 import { Boton, BotonPrincipalFijo, Campo, Cargando } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
-
-// "Con característica, sin el 0 ni el 15": diez dígitos que no arrancan en 0.
-const telefonoValido = (valor) => /^\d{10}$/.test(valor.replace(/\D/g, "")) && !valor.trim().startsWith("0");
 
 export default function CasoNuevo() {
   const router = useRouter();

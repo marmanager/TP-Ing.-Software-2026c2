@@ -10,7 +10,8 @@
 // a que alguien reparta las claves, y para que la demo no dependa del wifi.
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { supabase, haySupabase } from "./supabase";
+import { supabase } from "./supabase";
+import { useAuth } from "./auth";
 import { construirSemilla } from "./semilla";
 
 const LLAVE = "marmanager.datos.v1";
@@ -32,76 +33,130 @@ const nuevoId = () =>
     ? crypto.randomUUID()
     : "id" + Math.random().toString(36).slice(2);
 
-async function leerDeSupabase() {
-  const tablas = ["negocio", "empleado", "cliente", "caso", "paso", "evento", "insumo", "turno"];
-  const respuestas = await Promise.all(tablas.map((t) => supabase.from(t).select("*")));
+// Lee sólo lo del negocio del usuario. No es aislamiento real (eso son las
+// políticas RLS del Sprint 2): la clave anónima sigue pudiendo leer todo,
+// pero las pantallas ya trabajan con un solo negocio a la vez.
+async function leerDeSupabase(negocioId) {
+  const [negocio, empleados, clientes, casos, insumos, turnos] = await Promise.all([
+    supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
+    supabase.from("empleado").select("*").eq("negocio_id", negocioId),
+    supabase.from("cliente").select("*").eq("negocio_id", negocioId),
+    supabase.from("caso").select("*").eq("negocio_id", negocioId),
+    supabase.from("insumo").select("*").eq("negocio_id", negocioId),
+    supabase.from("turno").select("*").eq("negocio_id", negocioId),
+  ]);
 
-  const conError = respuestas.find((r) => r.error);
+  const conError = [negocio, empleados, clientes, casos, insumos, turnos].find((r) => r.error);
   if (conError) throw conError.error;
 
-  const [negocio, empleados, clientes, casos, pasos, eventos, insumos, turnos] = respuestas.map(
-    (r) => r.data ?? []
-  );
+  // "paso" y "evento" cuelgan del caso, no del negocio.
+  const idsCaso = (casos.data ?? []).map((c) => c.id);
+  let pasos = [];
+  let eventos = [];
+  if (idsCaso.length) {
+    const [p, ev] = await Promise.all([
+      supabase.from("paso").select("*").in("caso_id", idsCaso),
+      supabase.from("evento").select("*").in("caso_id", idsCaso),
+    ]);
+    if (p.error) throw p.error;
+    if (ev.error) throw ev.error;
+    pasos = p.data ?? [];
+    eventos = ev.data ?? [];
+  }
 
   return {
-    negocio: negocio[0] ?? null,
-    empleados,
-    clientes,
-    casos,
+    negocio: negocio.data ?? null,
+    empleados: empleados.data ?? [],
+    clientes: clientes.data ?? [],
+    casos: casos.data ?? [],
     pasos,
     eventos,
-    insumos,
-    turnos,
+    insumos: insumos.data ?? [],
+    turnos: turnos.data ?? [],
   };
 }
 
 export function DatosProvider({ children }) {
+  const { esDemo, usuario, cargando: authCargando } = useAuth();
   const [datos, setDatos] = useState(VACIO);
   const [cargando, setCargando] = useState(true);
-  const [fuente, setFuente] = useState(haySupabase ? "supabase" : "local");
+  const [fuente, setFuente] = useState("local");
   const [aviso, setAviso] = useState(null);
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
   const [exito, setExito] = useState(null);
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
-  // lo que renderiza el servidor y lo que renderiza el cliente.
+  // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
+  // la sesión resuelva y carga según el modo (ejemplo o Supabase).
   useEffect(() => {
     let vivo = true;
+    if (authCargando) {
+      return () => {
+        vivo = false;
+      };
+    }
 
     (async () => {
-      if (haySupabase) {
-        try {
-          const traido = await leerDeSupabase();
-          if (!vivo) return;
-          if (traido.negocio) {
-            setDatos(traido);
-            setFuente("supabase");
-            setCargando(false);
-            return;
-          }
-          setAviso(
-            "La base de Supabase está vacía. Corré supabase/002_seed.sql para cargar los datos de ejemplo. Mientras tanto mostramos los datos locales."
-          );
-        } catch (e) {
-          if (!vivo) return;
-          setAviso(
-            "No se pudo leer la base de Supabase. Seguimos con los datos de ejemplo guardados en este navegador."
-          );
-        }
+      // Sin entrar: no hay nada que cargar. La Guardia manda a iniciar sesión.
+      if (!esDemo && !usuario) {
+        if (!vivo) return;
+        setDatos(VACIO);
+        setCargando(false);
+        return;
       }
 
-      const guardado = typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
-      if (!vivo) return;
-      setDatos(guardado ? JSON.parse(guardado) : construirSemilla());
-      setFuente("local");
-      setCargando(false);
+      // Modo de ejemplo: datos de muestra guardados en el navegador.
+      if (esDemo) {
+        const guardado =
+          typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
+        if (!vivo) return;
+        setDatos(guardado ? JSON.parse(guardado) : construirSemilla());
+        setFuente("local");
+        setCargando(false);
+        return;
+      }
+
+      // Cuenta real todavía sin negocio: la Guardia manda a crearlo.
+      if (!usuario.negocio_id) {
+        if (!vivo) return;
+        setDatos(VACIO);
+        setFuente("supabase");
+        setCargando(false);
+        return;
+      }
+
+      // Cuenta real con negocio: se lee de Supabase, sólo lo de ese negocio.
+      try {
+        const traido = await leerDeSupabase(usuario.negocio_id);
+        if (!vivo) return;
+        if (traido.negocio) {
+          setDatos(traido);
+          setFuente("supabase");
+          setCargando(false);
+          return;
+        }
+        setAviso(
+          "Tu negocio todavía no aparece en la base. Esperá unos segundos y volvé a entrar."
+        );
+        setDatos(VACIO);
+        setFuente("supabase");
+        setCargando(false);
+      } catch (e) {
+        if (!vivo) return;
+        setAviso(
+          "No se pudo leer la base de Supabase. Fijate la conexión y volvé a entrar."
+        );
+        setDatos(VACIO);
+        setFuente("supabase");
+        setCargando(false);
+      }
     })();
 
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [authCargando, esDemo, usuario]);
 
   // En modo local, todo lo que se toca queda guardado en el navegador.
   useEffect(() => {
