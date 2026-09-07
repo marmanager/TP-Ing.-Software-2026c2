@@ -121,5 +121,7 @@ export function construirSemilla() {
     { id: "t6", negocio_id: "b0", cliente_id: "c3", caso_id: "k251", motivo: "Retirar el diagnóstico", empieza_en: enDias(2, 9, 30), minutos: 30, estado: "agendado" },
   ];
 
-  return { negocio, empleados, clientes, casos, pasos, eventos, insumos, turnos };
+  // Las invitaciones necesitan cuentas de verdad, así que el modo de ejemplo
+  // no trae ninguna.
+  return { negocio, empleados, clientes, casos, pasos, eventos, insumos, turnos, invitaciones: [] };
 }

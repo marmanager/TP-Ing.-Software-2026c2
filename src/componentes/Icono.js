@@ -151,6 +151,12 @@ const TRAZOS = {
       <path d="M3 7l9 6 9-6" />
     </>
   ),
+  copiar: (
+    <>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M15 5H5a2 2 0 0 0-2 2v10" />
+    </>
+  ),
   candado: (
     <>
       <rect x="4" y="10" width="16" height="11" rx="2" />

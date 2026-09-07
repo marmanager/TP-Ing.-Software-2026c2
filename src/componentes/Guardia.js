@@ -28,6 +28,11 @@ const RUTAS_ENTRADA = [
 const RUTA_NEGOCIO = "/crear-negocio";
 const RUTA_CONFIRMAR = "/confirma-tu-mail";
 
+// "/unirme/<código>" se abre desde el link de una invitación, así que tiene
+// que ser alcanzable en cualquier estado: sin cuenta, con cuenta y sin
+// negocio, o con negocio. La pantalla explica qué pasa en cada caso.
+const esInvitacion = (ruta) => ruta.startsWith("/unirme");
+
 export default function Guardia({ children }) {
   const { cargando, esDemo, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
   const ruta = usePathname();
@@ -40,13 +45,13 @@ export default function Guardia({ children }) {
   let destino = null;
   if (!cargando) {
     if (!hayEntrada) {
-      if (!RUTAS_ENTRADA.includes(ruta)) destino = "/iniciar-sesion";
+      if (!RUTAS_ENTRADA.includes(ruta) && !esInvitacion(ruta)) destino = "/iniciar-sesion";
     } else if (recuperando && ruta === "/nueva-contrasena") {
       destino = null;
     } else if (!esDemo && necesitaConfirmarMail) {
       if (ruta !== RUTA_CONFIRMAR) destino = RUTA_CONFIRMAR;
     } else if (!tieneNegocio) {
-      if (ruta !== RUTA_NEGOCIO) destino = RUTA_NEGOCIO;
+      if (ruta !== RUTA_NEGOCIO && !esInvitacion(ruta)) destino = RUTA_NEGOCIO;
     } else if (RUTAS_ENTRADA.includes(ruta)) {
       // Con negocio ya creado, /crear-negocio se puede visitar (avisa que ya
       // hay uno); las demás pantallas de entrada llevan a Hoy.
@@ -74,7 +79,8 @@ export default function Guardia({ children }) {
     (!esDemo && necesitaConfirmarMail) ||
     !tieneNegocio ||
     RUTAS_ENTRADA.includes(ruta) ||
-    ruta === RUTA_NEGOCIO;
+    ruta === RUTA_NEGOCIO ||
+    esInvitacion(ruta);
 
   if (enEntrada) return <PantallaEntrada>{children}</PantallaEntrada>;
 

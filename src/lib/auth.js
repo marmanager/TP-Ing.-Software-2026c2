@@ -17,7 +17,35 @@ import { supabase, haySupabase } from "./supabase";
 
 const LLAVE_DEMO = "marmanager.demo.v1";
 const LLAVE_MAIL = "marmanager.mail-a-confirmar";
+const LLAVE_INVITACION = "marmanager.invitacion";
 const Contexto = createContext(null);
+
+// Si alguien llegó por una invitación y tuvo que crearse la cuenta primero,
+// nos guardamos el código para no hacerle buscar el link de nuevo.
+export function recordarInvitacion(codigo) {
+  try {
+    window.sessionStorage.setItem(LLAVE_INVITACION, codigo);
+  } catch {
+    // Si el navegador no deja guardar, siempre queda volver a abrir el link.
+  }
+}
+
+export function invitacionPendiente() {
+  try {
+    return window.sessionStorage.getItem(LLAVE_INVITACION);
+  } catch {
+    return null;
+  }
+}
+
+export function olvidarInvitacion() {
+  try {
+    window.sessionStorage.removeItem(LLAVE_INVITACION);
+  } catch {
+    // No pasa nada: en el peor caso se vuelve a ofrecer una invitación usada,
+    // y la pantalla de unirme avisa que ya no sirve.
+  }
+}
 
 // A qué mail hay que confirmar. Se guarda al crear la cuenta, porque en ese
 // momento todavía no hay sesión de donde sacarlo. Vive sólo en esta pestaña.
@@ -67,6 +95,7 @@ export function AuthProvider({ children }) {
       telefono: user.user_metadata?.telefono ?? null,
       nombre: user.user_metadata?.nombre ?? null,
       negocio_id: null,
+      rol: "duenio",
     };
     const { data, error } = await supabase
       .from("usuario")
@@ -230,6 +259,49 @@ export function AuthProvider({ children }) {
       // refresca lo que hay en pantalla, para no leer de nuevo.
       anotarNegocio(negocioId) {
         setUsuario((u) => (u ? { ...u, negocio_id: negocioId } : u));
+      },
+
+      // Vuelve a leer la fila de `usuario`. Se usa después de aceptar una
+      // invitación, donde cambian el negocio y el rol de una sola vez.
+      async refrescarUsuario() {
+        if (!sesion?.user) return { ok: false };
+        const u = await traerUsuario(sesion.user);
+        setUsuario(u);
+        return { ok: true, usuario: u };
+      },
+
+      // Mira una invitación con sólo el código, sin pertenecer al negocio.
+      async verInvitacion(codigo) {
+        if (!haySupabase) {
+          return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
+        }
+        const { data, error } = await supabase.rpc("ver_invitacion", { p_codigo: codigo });
+        if (error) return { ok: false, error: traducir(error) };
+        const fila = Array.isArray(data) ? data[0] : data;
+        if (!fila) return { ok: false, error: "Este link no existe. Fijate que esté completo." };
+        return {
+          ok: true,
+          negocio: fila.negocio_nombre,
+          rol: fila.rol,
+          sirve: fila.sirve,
+          motivo: fila.motivo,
+        };
+      },
+
+      async aceptarInvitacion(codigo, nombre) {
+        if (!haySupabase) {
+          return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
+        }
+        const { error } = await supabase.rpc("aceptar_invitacion", {
+          p_codigo: codigo,
+          p_nombre: nombre ?? null,
+        });
+        // Los mensajes de esta función ya están escritos para leerse.
+        if (error) return { ok: false, error: error.message };
+        olvidarInvitacion();
+        const refrescado = await traerUsuario(sesion.user);
+        setUsuario(refrescado);
+        return { ok: true };
       },
     }),
     [esDemo, sesion]

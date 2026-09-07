@@ -65,9 +65,18 @@ export default function Equipo() {
             anotarlos para poder asignarles un caso.
           </p>
         </div>
-        <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
-          {abierto ? "Cerrar el alta" : "Sumar a alguien"}
-        </Boton>
+        <div className="flex flex-wrap gap-3">
+          <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
+            {abierto ? "Cerrar el alta" : "Sumar a alguien"}
+          </Boton>
+          <Link
+            href="/equipo/invitaciones"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
+          >
+            <Icono nombre="sobre" />
+            Invitar a que entre con su cuenta
+          </Link>
+        </div>
       </div>
 
       {abierto && (

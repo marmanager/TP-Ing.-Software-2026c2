@@ -25,6 +25,7 @@ const VACIO = {
   eventos: [],
   insumos: [],
   turnos: [],
+  invitaciones: [],
 };
 
 const Contexto = createContext(null);
@@ -49,14 +50,16 @@ const conModulos = (negocio) =>
 // políticas RLS del Sprint 2): la clave anónima sigue pudiendo leer todo,
 // pero las pantallas ya trabajan con un solo negocio a la vez.
 async function leerDeSupabase(negocioId) {
-  const [negocio, empleados, clientes, casos, insumos, turnos] = await Promise.all([
-    supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
-    supabase.from("empleado").select("*").eq("negocio_id", negocioId),
-    supabase.from("cliente").select("*").eq("negocio_id", negocioId),
-    supabase.from("caso").select("*").eq("negocio_id", negocioId),
-    supabase.from("insumo").select("*").eq("negocio_id", negocioId),
-    supabase.from("turno").select("*").eq("negocio_id", negocioId),
-  ]);
+  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones] =
+    await Promise.all([
+      supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
+      supabase.from("empleado").select("*").eq("negocio_id", negocioId),
+      supabase.from("cliente").select("*").eq("negocio_id", negocioId),
+      supabase.from("caso").select("*").eq("negocio_id", negocioId),
+      supabase.from("insumo").select("*").eq("negocio_id", negocioId),
+      supabase.from("turno").select("*").eq("negocio_id", negocioId),
+      supabase.from("invitacion").select("*").eq("negocio_id", negocioId),
+    ]);
 
   const conError = [negocio, empleados, clientes, casos, insumos, turnos].find((r) => r.error);
   if (conError) throw conError.error;
@@ -85,6 +88,8 @@ async function leerDeSupabase(negocioId) {
     eventos,
     insumos: insumos.data ?? [],
     turnos: turnos.data ?? [],
+    // Si la migración de invitaciones todavía no corrió, el resto anda igual.
+    invitaciones: invitaciones.error ? [] : (invitaciones.data ?? []),
   };
 }
 
@@ -123,7 +128,11 @@ export function DatosProvider({ children }) {
         const guardado =
           typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
         if (!vivo) return;
-        const local = guardado ? JSON.parse(guardado) : construirSemilla();
+        // Sobre VACIO, para que a una copia guardada antes de que existiera
+        // una lista no le falte la clave y rompa la pantalla que la usa.
+        const local = guardado
+          ? { ...VACIO, ...JSON.parse(guardado) }
+          : construirSemilla();
         setDatos({ ...local, negocio: conModulos(local.negocio) });
         setFuente("local");
         setCargando(false);
@@ -406,6 +415,52 @@ export function DatosProvider({ children }) {
           ),
         }));
         borrar("empleado", empleadoId);
+      },
+
+      // ---------- invitaciones ----------
+      // El código lo genera la base, no el navegador: tiene que ser difícil
+      // de adivinar y no depender de lo que corra en la máquina de nadie.
+      async crearInvitacion({ rol, usosMaximos, dias }) {
+        if (!enSupabase()) {
+          return {
+            ok: false,
+            error: "Para invitar a alguien hace falta conectar la base de Supabase.",
+          };
+        }
+        const vence = new Date();
+        vence.setDate(vence.getDate() + (Number(dias) || 7));
+
+        const { data, error } = await supabase
+          .from("invitacion")
+          .insert({
+            negocio_id: datos.negocio.id,
+            rol: rol || "tecnico",
+            usos_maximos: Number(usosMaximos) || 1,
+            vence_en: vence.toISOString(),
+          })
+          .select("*")
+          .single();
+
+        if (error) {
+          return {
+            ok: false,
+            error:
+              "No se pudo crear la invitación. Sólo el dueño del negocio puede invitar gente.",
+          };
+        }
+        setDatos((d) => ({ ...d, invitaciones: [data, ...d.invitaciones] }));
+        return { ok: true, invitacion: data };
+      },
+
+      // No se borra: se anula, así queda el rastro de a quién se invitó.
+      anularInvitacion(id) {
+        setDatos((d) => ({
+          ...d,
+          invitaciones: d.invitaciones.map((i) =>
+            i.id === id ? { ...i, anulada: true } : i
+          ),
+        }));
+        escribir("invitacion", { id, anulada: true });
       },
 
       // ---------- clientes ----------

@@ -6,10 +6,10 @@
 // El preset renombra los estados y decide qué módulos vienen prendidos
 // (SCRUM-23/25). No se puede seguir sin elegir un rubro (SCRUM-24).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+import { useAuth, invitacionPendiente } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { RUBROS, preset } from "@/lib/presets";
@@ -27,6 +27,11 @@ export default function CrearNegocio() {
   const [rubro, setRubro] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [errorGeneral, setErrorGeneral] = useState(null);
+  // Si llegó por una invitación y se creó la cuenta en el camino, capaz no
+  // quiere un negocio propio sino sumarse al que lo invitó.
+  const [invitacion, setInvitacion] = useState(null);
+
+  useEffect(() => setInvitacion(invitacionPendiente()), []);
 
   if (esDemo) {
     return <YaHayNegocio texto="Estás en el modo de ejemplo, que ya trae un negocio armado." />;
@@ -62,6 +67,27 @@ export default function CrearNegocio() {
       <TituloPantalla apoyo="Un paso y entrás. Todo esto lo cambiás después desde Mi negocio.">
         Crear tu negocio
       </TituloPantalla>
+
+      {invitacion && (
+        <Tarjeta className="mb-6">
+          <p className="flex items-start gap-2 font-bold text-cuerpo">
+            <Icono nombre="personas" className="mt-0.5 size-6" />
+            <span>¿Venías por una invitación?</span>
+          </p>
+          <p className="mt-2 max-w-[65ch] text-tinta-media">
+            Si alguien te invitó a su negocio, no hace falta que crees uno propio.
+          </p>
+          <div className="mt-4">
+            <Link
+              href={`/unirme/${invitacion}`}
+              className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+            >
+              <Icono nombre="volver" />
+              Volver a la invitación
+            </Link>
+          </div>
+        </Tarjeta>
+      )}
 
       <Tarjeta>
         <Campo
