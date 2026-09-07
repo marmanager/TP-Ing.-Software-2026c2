@@ -415,6 +415,12 @@ export function DatosProvider({ children }) {
         escribir("negocio", { id: datos.negocio?.id, rubro });
       },
 
+      // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
+      cambiarModulos(claves) {
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));
+        escribir("negocio", { id: datos.negocio?.id, modulos_activos: claves });
+      },
+
       // Vuelve al estado inicial conocido. Se usa antes de la demo.
       reiniciar() {
         if (fuente !== "local") {

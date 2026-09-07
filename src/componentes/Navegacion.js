@@ -10,6 +10,9 @@
 // días, y a los clientes se llega desde cualquier caso.
 //
 // El destino activo se marca con color Y con peso, no sólo con color.
+//
+// Los destinos con "modulo" sólo aparecen si ese módulo está prendido en
+// "Mi negocio" (SCRUM-38). El resto es núcleo y está siempre.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,19 +22,26 @@ import { useDatos } from "@/lib/datos";
 const DESTINOS = [
   { href: "/", icono: "sol", palabra: "Hoy", celular: true },
   { href: "/casos", icono: "carpeta", palabra: "Casos", celular: true },
-  { href: "/agenda", icono: "calendario", palabra: "Agenda", celular: true },
+  { href: "/agenda", icono: "calendario", palabra: "Agenda", celular: true, modulo: "agenda" },
   { href: "/clientes", icono: "persona", palabra: "Clientes" },
-  { href: "/inventario", icono: "cajas", palabra: "Inventario" },
-  { href: "/aprobar", icono: "persona-check", palabra: "A aprobar" },
-  { href: "/equipo", icono: "personas", palabra: "Equipo" },
+  { href: "/inventario", icono: "cajas", palabra: "Inventario", modulo: "inventario" },
+  { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
+  { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/negocio", icono: "tienda", palabra: "Mi negocio", celular: true },
 ];
 
 const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(href));
 
+// Deja pasar el núcleo y sólo los módulos prendidos.
+const conModulo = (destinos, negocio) => {
+  const activos = negocio?.modulos_activos ?? [];
+  return destinos.filter((d) => !d.modulo || activos.includes(d.modulo));
+};
+
 export function BarraLateral() {
   const ruta = usePathname();
   const { negocio } = useDatos();
+  const destinos = conModulo(DESTINOS, negocio);
 
   return (
     <nav
@@ -48,7 +58,7 @@ export function BarraLateral() {
       </div>
 
       <ul className="flex flex-col gap-1">
-        {DESTINOS.map((d) => {
+        {destinos.map((d) => {
           const acá = activo(ruta, d.href);
           return (
             <li key={d.href}>
@@ -75,7 +85,8 @@ export function BarraLateral() {
 
 export function BarraCelular() {
   const ruta = usePathname();
-  const destinos = DESTINOS.filter((d) => d.celular);
+  const { negocio } = useDatos();
+  const destinos = conModulo(DESTINOS, negocio).filter((d) => d.celular);
 
   return (
     <nav

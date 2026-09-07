@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset } from "@/lib/presets";
+import { LISTA_MODULOS } from "@/lib/modulos";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
@@ -30,6 +31,14 @@ export default function MiNegocio() {
   if (cargando) return <Cargando />;
 
   const actual = preset(negocio?.rubro);
+  const modulosActivos = negocio?.modulos_activos ?? [];
+
+  const alternarModulo = (clave) => {
+    const nueva = modulosActivos.includes(clave)
+      ? modulosActivos.filter((c) => c !== clave)
+      : [...modulosActivos, clave];
+    datos.cambiarModulos(nueva);
+  };
 
   return (
     <>
@@ -93,6 +102,46 @@ export default function MiNegocio() {
                   {r.nombre}
                 </span>
                 <span className="mt-1 block text-tinta-media">{r.queEs}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <TituloSeccion>Módulos</TituloSeccion>
+      <p className="-mt-2 mb-4 max-w-[65ch] text-tinta-media">
+        Secciones que podés tener o no. Hoy, Casos, Clientes y Mi negocio están siempre.
+        Apagar un módulo lo saca de la navegación; los datos que ya cargaste quedan.
+      </p>
+      <ul className="mb-12 grid gap-3 sm:grid-cols-2">
+        {LISTA_MODULOS.map((m) => {
+          const prendido = modulosActivos.includes(m.clave);
+          return (
+            <li key={m.clave}>
+              <button
+                type="button"
+                aria-pressed={prendido}
+                onClick={() => alternarModulo(m.clave)}
+                className={[
+                  "flex h-full w-full cursor-pointer flex-col rounded-tarjeta border-2 p-4 text-left sm:p-6",
+                  prendido
+                    ? "border-azul bg-azul-claro"
+                    : "border-borde bg-tarjeta hover:bg-superficie",
+                ].join(" ")}
+              >
+                <span className="flex items-center gap-2 font-bold text-subtitulo">
+                  <Icono nombre={m.icono} className="size-6" />
+                  {m.nombre}
+                </span>
+                <span className="mt-1 block text-tinta-media">{m.descripcion}</span>
+                <span
+                  className={`mt-3 flex items-center gap-1.5 font-bold text-etiqueta ${
+                    prendido ? "text-azul" : "text-tinta-suave"
+                  }`}
+                >
+                  <Icono nombre={prendido ? "listo" : "cruz"} className="size-5" />
+                  {prendido ? "Prendido" : "Apagado"}
+                </span>
               </button>
             </li>
           );
