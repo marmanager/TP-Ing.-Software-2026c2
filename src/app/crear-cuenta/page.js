@@ -26,7 +26,6 @@ export default function CrearCuenta() {
   const [tocado, setTocado] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [errorGeneral, setErrorGeneral] = useState(null);
-  const [avisadoAlMail, setAvisadoAlMail] = useState(null);
 
   // Cada vez que se toca un campo, se borra el error general del último intento.
   const alEscribir = (set) => (e) => {
@@ -72,40 +71,7 @@ export default function CrearCuenta() {
       setErrorGeneral(r.error);
       return;
     }
-    if (r.necesitaConfirmar) {
-      setAvisadoAlMail(r.email);
-      return;
-    }
-    router.replace("/crear-negocio");
-  }
-
-  if (avisadoAlMail) {
-    return (
-      <>
-        <TituloPantalla apoyo="Falta un paso y ya entrás.">Confirmá tu mail</TituloPantalla>
-        <Tarjeta>
-          <p className="flex items-start gap-2 font-bold text-completo">
-            <Icono nombre="sobre" className="mt-0.5 size-6" />
-            <span>
-              Te mandamos un mail a {avisadoAlMail}. Abrilo y tocá el enlace para confirmar
-              la cuenta.
-            </span>
-          </p>
-          <p className="mt-3 text-tinta-media">
-            Si no aparece en unos minutos, fijate en la carpeta de correo no deseado.
-          </p>
-          <div className="mt-6">
-            <Link
-              href="/iniciar-sesion"
-              className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
-            >
-              <Icono nombre="volver" />
-              Volver a iniciar sesión
-            </Link>
-          </div>
-        </Tarjeta>
-      </>
-    );
+    router.replace(r.necesitaConfirmar ? "/confirma-tu-mail" : "/crear-negocio");
   }
 
   return (

@@ -16,11 +16,14 @@ import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 
+// Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
+// acá porque con la verificación prendida el alta no deja sesión abierta.
 const RUTAS_ENTRADA = [
   "/iniciar-sesion",
   "/crear-cuenta",
   "/recuperar-contrasena",
   "/nueva-contrasena",
+  "/confirma-tu-mail",
 ];
 const RUTA_NEGOCIO = "/crear-negocio";
 const RUTA_CONFIRMAR = "/confirma-tu-mail";
@@ -44,7 +47,7 @@ export default function Guardia({ children }) {
       if (ruta !== RUTA_CONFIRMAR) destino = RUTA_CONFIRMAR;
     } else if (!tieneNegocio) {
       if (ruta !== RUTA_NEGOCIO) destino = RUTA_NEGOCIO;
-    } else if (RUTAS_ENTRADA.includes(ruta) || ruta === RUTA_CONFIRMAR) {
+    } else if (RUTAS_ENTRADA.includes(ruta)) {
       // Con negocio ya creado, /crear-negocio se puede visitar (avisa que ya
       // hay uno); las demás pantallas de entrada llevan a Hoy.
       destino = "/";
@@ -71,8 +74,7 @@ export default function Guardia({ children }) {
     (!esDemo && necesitaConfirmarMail) ||
     !tieneNegocio ||
     RUTAS_ENTRADA.includes(ruta) ||
-    ruta === RUTA_NEGOCIO ||
-    ruta === RUTA_CONFIRMAR;
+    ruta === RUTA_NEGOCIO;
 
   if (enEntrada) return <PantallaEntrada>{children}</PantallaEntrada>;
 

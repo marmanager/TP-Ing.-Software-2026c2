@@ -16,7 +16,18 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase, haySupabase } from "./supabase";
 
 const LLAVE_DEMO = "marmanager.demo.v1";
+const LLAVE_MAIL = "marmanager.mail-a-confirmar";
 const Contexto = createContext(null);
+
+// A qué mail hay que confirmar. Se guarda al crear la cuenta, porque en ese
+// momento todavía no hay sesión de donde sacarlo. Vive sólo en esta pestaña.
+export function mailAConfirmar() {
+  try {
+    return window.sessionStorage.getItem(LLAVE_MAIL);
+  } catch {
+    return null;
+  }
+}
 
 // Un mensaje dice qué hacer, no sólo que algo falló (cartilla, sección 07).
 function traducir(error) {
@@ -140,7 +151,15 @@ export function AuthProvider({ children }) {
         // prendida todavía no hay sesión, y las políticas de RLS piden una.
         // La crea traerUsuario() en el primer ingreso, con el teléfono que
         // viaja en los datos de la cuenta.
-        if (!data.session) return { ok: true, necesitaConfirmar: true, email: email.trim() };
+        if (!data.session) {
+          try {
+            window.sessionStorage.setItem(LLAVE_MAIL, email.trim());
+          } catch {
+            // Si el navegador no deja guardar, la pantalla de confirmación
+            // muestra el texto sin el mail y se sigue entendiendo.
+          }
+          return { ok: true, necesitaConfirmar: true, email: email.trim() };
+        }
         return { ok: true, necesitaConfirmar: false };
       },
 
