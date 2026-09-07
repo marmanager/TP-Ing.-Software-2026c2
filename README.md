@@ -44,7 +44,9 @@ Para salir del modo de ejemplo, "Mi negocio" → "Salir del modo de ejemplo".
    de *Project Settings → API*.
 4. Reiniciar `npm run dev`.
 
-En "Mi negocio" se ve de dónde están saliendo los datos en cada momento.
+Con las claves cargadas, la pantalla de entrada pide mail y contraseña. Sin ellas
+sólo queda el modo de ejemplo. La aplicación no dice en pantalla de dónde salen
+los datos: es información de desarrollo, no del negocio.
 
 `002_seed.sql` borra y recrea todo: sirve para volver al estado inicial conocido,
 por ejemplo justo antes de una demo.
