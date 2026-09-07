@@ -17,7 +17,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { pesos, totalesDeCaso } from "@/lib/estados";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
@@ -32,7 +34,12 @@ const DICHO = {
 export default function AprobarPasos() {
   const { id } = useParams();
   const { cargando, casos, clientes, pasos, negocio, responderPaso } = useDatos();
+  const { usuario } = useAuth();
   const [mostrandoMensaje, setMostrandoMensaje] = useState(false);
+
+  // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
+  // técnico ve los pasos, porque son la lista de lo que tiene que hacer.
+  const puedeResponder = puede(usuario?.rol, "cargarDatos");
 
   const caso = casos.find((c) => c.id === id);
   useTitulo(caso ? `Pasos del caso ${caso.numero}` : "Pasos");
@@ -92,7 +99,9 @@ export default function AprobarPasos() {
 
       <TituloSeccion className="mt-10">Pasos a aprobar</TituloSeccion>
       <p className="-mt-2 mb-4 text-tinta-media">
-        Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante.
+        {puedeResponder
+          ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
+          : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.cargarDatos}`}
       </p>
 
       {mios.length === 0 ? (
@@ -121,7 +130,7 @@ export default function AprobarPasos() {
                     {dicho.texto}
                   </p>
 
-                  {paso.estado === "esperando" ? (
+                  {!puedeResponder ? null : paso.estado === "esperando" ? (
                     // 52 px de alto, 10 px en medio: para no equivocarse de dedo.
                     <div className="mt-3 flex gap-2.5">
                       <Boton

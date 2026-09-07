@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
 import { telefonoValido } from "@/lib/validaciones";
 import Icono from "@/componentes/Icono";
@@ -11,6 +13,8 @@ import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/compone
 
 export default function Clientes() {
   const { cargando, clientes, casos, agregarCliente, avisarExito } = useDatos();
+  const { usuario } = useAuth();
+  const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
@@ -54,12 +58,14 @@ export default function Clientes() {
             Todo el que alguna vez trajo un trabajo, con su teléfono a mano.
           </p>
         </div>
-        <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
-          {abierto ? "Cerrar el alta" : "Dar de alta un cliente"}
-        </Boton>
+        {puedeCargar && (
+          <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
+            {abierto ? "Cerrar el alta" : "Dar de alta un cliente"}
+          </Boton>
+        )}
       </div>
 
-      {abierto && (
+      {abierto && puedeCargar && (
         <Tarjeta className="mb-8 max-w-[560px]">
           <TituloSeccion>Nuevo cliente</TituloSeccion>
           <Campo

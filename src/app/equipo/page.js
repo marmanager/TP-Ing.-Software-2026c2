@@ -12,7 +12,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
 import { ORDEN_ROLES, etiquetaRol } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
@@ -22,7 +24,12 @@ import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/compone
 export default function Equipo() {
   const datos = useDatos();
   const { cargando, empleados, casos, negocio, avisarExito } = datos;
+  const { usuario } = useAuth();
   useTitulo("Equipo");
+
+  // Sumar y sacar gente lo hace el dueño. La base también lo rechaza
+  // (007_permisos.sql); acá sólo evitamos ofrecer un botón que va a fallar.
+  const puedeManejar = puede(usuario?.rol, "manejarEquipo");
 
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
@@ -61,25 +68,28 @@ export default function Equipo() {
         <div>
           <h1 className="text-pantalla">Equipo</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
-            Quién está trabajando en qué. No hace falta que tengan cuenta: alcanza con
-            anotarlos para poder asignarles un caso.
+            {puedeManejar
+              ? "Quién está trabajando en qué. No hace falta que tengan cuenta: alcanza con anotarlos para poder asignarles un caso."
+              : `Quién está trabajando en qué. ${QUIEN_PUEDE.manejarEquipo}`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
-            {abierto ? "Cerrar el alta" : "Sumar a alguien"}
-          </Boton>
-          <Link
-            href="/equipo/invitaciones"
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
-          >
-            <Icono nombre="sobre" />
-            Invitar a que entre con su cuenta
-          </Link>
-        </div>
+        {puedeManejar && (
+          <div className="flex flex-wrap gap-3">
+            <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
+              {abierto ? "Cerrar el alta" : "Sumar a alguien"}
+            </Boton>
+            <Link
+              href="/equipo/invitaciones"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
+            >
+              <Icono nombre="sobre" />
+              Invitar a que entre con su cuenta
+            </Link>
+          </div>
+        )}
       </div>
 
-      {abierto && (
+      {abierto && puedeManejar && (
         <Tarjeta className="mb-8 max-w-[560px]">
           <TituloSeccion>Alguien nuevo en el equipo</TituloSeccion>
           <Campo
@@ -136,31 +146,37 @@ export default function Equipo() {
                     <p className="font-bold text-subtitulo">{e.nombre}</p>
                   </div>
 
-                  <div className="mt-4">
-                    <label
-                      htmlFor={`rol-${e.id}`}
-                      className="block font-bold text-etiqueta text-tinta-media"
-                    >
-                      Qué hace
-                    </label>
-                    <select
-                      id={`rol-${e.id}`}
-                      value={e.rol}
-                      onChange={(ev) => {
-                        datos.cambiarRolEmpleado(e.id, ev.target.value);
-                        avisarExito(
-                          `${e.nombre} ahora figura como ${etiquetaRol(rubro, ev.target.value).toLowerCase()}.`
-                        );
-                      }}
-                      className="mt-1 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
-                    >
-                      {ORDEN_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {etiquetaRol(rubro, r)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {puedeManejar ? (
+                    <div className="mt-4">
+                      <label
+                        htmlFor={`rol-${e.id}`}
+                        className="block font-bold text-etiqueta text-tinta-media"
+                      >
+                        Qué hace
+                      </label>
+                      <select
+                        id={`rol-${e.id}`}
+                        value={e.rol}
+                        onChange={(ev) => {
+                          datos.cambiarRolEmpleado(e.id, ev.target.value);
+                          avisarExito(
+                            `${e.nombre} ahora figura como ${etiquetaRol(rubro, ev.target.value).toLowerCase()}.`
+                          );
+                        }}
+                        className="mt-1 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
+                      >
+                        {ORDEN_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {etiquetaRol(rubro, r)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-apoyo text-tinta-suave">
+                      {etiquetaRol(rubro, e.rol)}
+                    </p>
+                  )}
 
                   <p className="mt-4 text-tinta-media">
                     {suyos.length === 0
@@ -184,7 +200,7 @@ export default function Equipo() {
                     </ul>
                   )}
 
-                  {sacando === e.id ? (
+                  {!puedeManejar ? null : sacando === e.id ? (
                     <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                       <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
                       <p className="mt-1 text-tinta-media">
