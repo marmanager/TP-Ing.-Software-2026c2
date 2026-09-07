@@ -5,10 +5,9 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { estaAbierto } from "@/lib/estados";
+import { telefonoValido } from "@/lib/validaciones";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
-
-const telefonoValido = (v) => /^\d{10}$/.test(v.replace(/\D/g, "")) && !v.trim().startsWith("0");
 
 export default function Clientes() {
   const { cargando, clientes, casos, agregarCliente, avisarExito } = useDatos();

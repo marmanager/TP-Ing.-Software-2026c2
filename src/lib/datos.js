@@ -371,6 +371,43 @@ export function DatosProvider({ children }) {
         borrar("insumo", insumoId);
       },
 
+      // ---------- equipo ----------
+      // Un empleado es quien puede quedar como responsable de un caso. No
+      // necesita cuenta: el taller chico quiere anotar a Diego sin que Diego
+      // use el sistema. Atarlo a una cuenta es de la invitación (SCRUM-34).
+      agregarEmpleado({ nombre, rol }) {
+        const empleado = {
+          id: nuevoId(),
+          negocio_id: datos.negocio.id,
+          nombre,
+          rol: rol || "tecnico",
+        };
+        setDatos((d) => ({ ...d, empleados: [...d.empleados, empleado] }));
+        escribir("empleado", empleado, { insertar: true });
+        return empleado;
+      },
+
+      cambiarRolEmpleado(empleadoId, rol) {
+        setDatos((d) => ({
+          ...d,
+          empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol } : e)),
+        }));
+        escribir("empleado", { id: empleadoId, rol });
+      },
+
+      // Los casos que tenía quedan sin responsable, no se borran: la base los
+      // pone en null sola (on delete set null).
+      eliminarEmpleado(empleadoId) {
+        setDatos((d) => ({
+          ...d,
+          empleados: d.empleados.filter((e) => e.id !== empleadoId),
+          casos: d.casos.map((c) =>
+            c.responsable_id === empleadoId ? { ...c, responsable_id: null } : c
+          ),
+        }));
+        borrar("empleado", empleadoId);
+      },
+
       // ---------- clientes ----------
       agregarCliente({ nombre, telefono, notas }) {
         const cliente = {
