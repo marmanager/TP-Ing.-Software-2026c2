@@ -70,6 +70,11 @@ create table if not exists caso (
   numero          integer     not null,
   cliente_id      uuid        references cliente (id) on delete set null,
   servicio        text        not null,
+  -- Cómo reconoce el negocio a lo que entró: la patente, el número de ficha
+  -- o el de serie. Cómo se llama lo dice el preset del rubro.
+  identificador   text,
+  -- Qué se encontró al revisar, distinto de lo que pidió el cliente.
+  diagnostico     text,
   estado          text        not null default 'nuevo'
                   check (estado in ('nuevo', 'en_proceso', 'esperando', 'revision_final', 'completado')),
   responsable_id  uuid        references empleado (id) on delete set null,

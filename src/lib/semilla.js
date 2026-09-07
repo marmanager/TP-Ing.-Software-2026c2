@@ -52,16 +52,16 @@ export function construirSemilla() {
   ];
 
   const casos = [
-    { id: "k248", negocio_id: "b0", numero: 248, cliente_id: "c1", servicio: "Revisión general", estado: "esperando", responsable_id: "e1", que_falta: "Espera respuesta del cliente", abierto_en: hace(dias(4)) },
-    { id: "k245", negocio_id: "b0", numero: 245, cliente_id: "c2", servicio: "Cambio de pieza", estado: "esperando", responsable_id: null, que_falta: "El insumo llega mañana", abierto_en: hace(dias(6)) },
-    { id: "k251", negocio_id: "b0", numero: 251, cliente_id: "c3", servicio: "Diagnóstico", estado: "en_proceso", responsable_id: "e2", que_falta: "Diagnóstico a medio cargar", abierto_en: hace(dias(1)) },
-    { id: "k239", negocio_id: "b0", numero: 239, cliente_id: "c4", servicio: "Reparación", estado: "revision_final", responsable_id: "e3", que_falta: "Control antes de entregar", abierto_en: hace(dias(9)) },
-    { id: "k249", negocio_id: "b0", numero: 249, cliente_id: "c7", servicio: "Service de 40.000 km", estado: "revision_final", responsable_id: "e1", que_falta: "Control antes de entregar", abierto_en: hace(dias(5)) },
-    { id: "k252", negocio_id: "b0", numero: 252, cliente_id: "c8", servicio: "Frenos delanteros", estado: "en_proceso", responsable_id: "e2", que_falta: "Está en el taller", abierto_en: hace(dias(2)) },
-    { id: "k253", negocio_id: "b0", numero: 253, cliente_id: "c5", servicio: "Primera consulta", estado: "nuevo", responsable_id: null, que_falta: "Asignar a alguien del equipo", abierto_en: hace(hs(3)) },
-    { id: "k254", negocio_id: "b0", numero: 254, cliente_id: "c9", servicio: "Cambio de correa", estado: "nuevo", responsable_id: null, que_falta: "Asignar a alguien del equipo", abierto_en: hace(hs(1)) },
-    { id: "k255", negocio_id: "b0", numero: 255, cliente_id: "ca", servicio: "Alineación y balanceo", estado: "en_proceso", responsable_id: "e3", que_falta: "Está en el taller", abierto_en: hace(dias(1)) },
-    { id: "k232", negocio_id: "b0", numero: 232, cliente_id: "c6", servicio: "Mantenimiento", estado: "completado", responsable_id: null, que_falta: "Cobrado el viernes", abierto_en: hace(dias(14)) },
+    { id: "k248", negocio_id: "b0", numero: 248, identificador: "AB 123 CD", cliente_id: "c1", servicio: "Revisión general", diagnostico: "La correa de distribución está flojo y las pastillas delanteras al límite. Se sacaron 3 fotos.", estado: "esperando", responsable_id: "e1", que_falta: "Espera respuesta del cliente", abierto_en: hace(dias(4)) },
+    { id: "k245", negocio_id: "b0", numero: 245, identificador: "AC 456 EF", cliente_id: "c2", servicio: "Cambio de pieza", estado: "esperando", responsable_id: null, que_falta: "El insumo llega mañana", abierto_en: hace(dias(6)) },
+    { id: "k251", negocio_id: "b0", numero: 251, identificador: "AD 789 GH", cliente_id: "c3", servicio: "Diagnóstico", estado: "en_proceso", responsable_id: "e2", que_falta: "Diagnóstico a medio cargar", abierto_en: hace(dias(1)) },
+    { id: "k239", negocio_id: "b0", numero: 239, identificador: "AA 321 BC", cliente_id: "c4", servicio: "Reparación", estado: "revision_final", responsable_id: "e3", que_falta: "Control antes de entregar", abierto_en: hace(dias(9)) },
+    { id: "k249", negocio_id: "b0", numero: 249, identificador: "AE 654 JK", cliente_id: "c7", servicio: "Service de 40.000 km", estado: "revision_final", responsable_id: "e1", que_falta: "Control antes de entregar", abierto_en: hace(dias(5)) },
+    { id: "k252", negocio_id: "b0", numero: 252, identificador: "AF 987 LM", cliente_id: "c8", servicio: "Frenos delanteros", estado: "en_proceso", responsable_id: "e2", que_falta: "Está en el taller", abierto_en: hace(dias(2)) },
+    { id: "k253", negocio_id: "b0", numero: 253, identificador: "AG 147 NP", cliente_id: "c5", servicio: "Primera consulta", estado: "nuevo", responsable_id: null, que_falta: "Asignar a alguien del equipo", abierto_en: hace(hs(3)) },
+    { id: "k254", negocio_id: "b0", numero: 254, identificador: "AH 258 QR", cliente_id: "c9", servicio: "Cambio de correa", estado: "nuevo", responsable_id: null, que_falta: "Asignar a alguien del equipo", abierto_en: hace(hs(1)) },
+    { id: "k255", negocio_id: "b0", numero: 255, identificador: "AI 369 ST", cliente_id: "ca", servicio: "Alineación y balanceo", estado: "en_proceso", responsable_id: "e3", que_falta: "Está en el taller", abierto_en: hace(dias(1)) },
+    { id: "k232", negocio_id: "b0", numero: 232, identificador: "AJ 741 UV", cliente_id: "c6", servicio: "Mantenimiento", estado: "completado", responsable_id: null, que_falta: "Cobrado el viernes", abierto_en: hace(dias(14)) },
   ];
 
   const pasos = [

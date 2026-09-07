@@ -34,6 +34,7 @@ export const PRESETS = {
       "Alineación y balanceo",
     ],
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
+    identificador: { nombre: "Patente", ejemplo: "AB 123 CD" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
   },
 
@@ -61,6 +62,7 @@ export const PRESETS = {
       "Seguimiento de tratamiento",
     ],
     modulos: ["agenda", "presupuesto"],
+    identificador: { nombre: "Número de ficha", ejemplo: "1042" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
   },
 
@@ -88,6 +90,7 @@ export const PRESETS = {
       "Limpieza y mantenimiento",
     ],
     modulos: ["inventario", "equipo", "presupuesto"],
+    identificador: { nombre: "Número de serie", ejemplo: "SN-48219" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
   },
 };
@@ -107,6 +110,10 @@ export const etiquetaEstado = (rubro, estado) =>
 // Lo mismo para los roles del equipo: el que arregla autos es "Mecánico" en
 // un taller y "Profesional" en un consultorio.
 export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
+
+// Cómo llama cada rubro a lo que identifica el caso: la patente del auto, el
+// número de ficha del paciente, el número de serie del equipo.
+export const comoSeIdentifica = (rubro) => preset(rubro).identificador;
 
 // El "qué falta" de un caso, en el idioma de su rubro.
 //

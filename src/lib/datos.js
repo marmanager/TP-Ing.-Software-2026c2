@@ -308,6 +308,31 @@ export function DatosProvider({ children }) {
         anotar(casoId, "Asignaron el caso", `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`, "persona-mas", "Mostrador");
       },
 
+      // ---------- diagnóstico e identificador (SCRUM-50 y SCRUM-51) ----------
+      // "servicio" es lo que pidió el cliente; "diagnostico" es lo que se
+      // encontró al revisar. Son dos cosas distintas y las dos quedan.
+      cargarDiagnostico(casoId, diagnostico) {
+        const antes = datos.casos.find((c) => c.id === casoId)?.diagnostico;
+        parchearCaso(casoId, { diagnostico });
+        anotar(
+          casoId,
+          antes ? "Corrigieron el diagnóstico" : "Cargaron el diagnóstico",
+          diagnostico,
+          "diagnostico",
+          "Del taller"
+        );
+      },
+
+      ponerIdentificador(casoId, identificador) {
+        parchearCaso(casoId, { identificador });
+      },
+
+      // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
+      // historial se agrega, nunca se reescribe.
+      anotarNota(casoId, texto) {
+        anotar(casoId, "Anotaron algo", texto, "nota", "Mostrador");
+      },
+
       cambiarEstado(casoId, estado, queFalta, textoHistorial) {
         parchearCaso(casoId, { estado, que_falta: queFalta });
         anotar(casoId, textoHistorial.titulo, textoHistorial.detalle, textoHistorial.icono);
