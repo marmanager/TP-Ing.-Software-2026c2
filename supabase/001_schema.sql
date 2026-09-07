@@ -18,12 +18,17 @@
 -- no cambia ni el color ni el ícono (regla de la cartilla, sección 02).
 -- "modulos_activos" es la lista de módulos prendidos (SCRUM-38); el preset
 -- la deja cargada al crear el negocio (SCRUM-12).
+-- "inicio" es cómo quedó acomodada la pantalla de entrada: qué módulos se
+-- ven, dónde, de qué tamaño y con qué filtro, sobre una grilla de seis
+-- columnas. null quiere decir que nadie la tocó todavía, y entonces vale el
+-- orden por defecto. El formato está explicado en 006_inicio.sql.
 create table if not exists negocio (
   id              uuid primary key default gen_random_uuid(),
   nombre          text        not null,
   rubro           text        not null default 'taller'
                   check (rubro in ('taller', 'medicina', 'service')),
   modulos_activos jsonb       not null default '[]'::jsonb,
+  inicio          jsonb,
   creado_en       timestamptz not null default now()
 );
 

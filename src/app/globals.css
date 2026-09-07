@@ -140,3 +140,45 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   La grilla del Inicio.
+
+   En celular no hay grilla: una sola columna y los módulos se leen en el
+   orden en que quedaron, como manda la sección 04 de la cartilla. Recién en
+   escritorio cada módulo toma el lugar que le pusieron.
+
+   El lugar viaja en variables (--x, --y, --ancho, --alto) y no en clases
+   porque son coordenadas libres: no hay una clase de Tailwind por cada celda
+   posible de una grilla de seis columnas.
+
+   --alto-fila tiene que coincidir con ALTO_FILA de src/lib/inicio.js: es la
+   misma medida contada dos veces, una para dibujar y otra para saber cuántas
+   celdas se arrastró el mouse.
+   ============================================================ */
+
+.grilla-inicio {
+  --alto-fila: 112px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 48rem) {
+  .grilla-inicio {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: var(--alto-fila);
+  }
+
+  .modulo-ubicado {
+    grid-column: calc(var(--x) + 1) / span var(--ancho);
+    grid-row: calc(var(--y) + 1) / span var(--alto);
+  }
+}
+
+/* Mientras se arrastra, el módulo va arriba de todo y no dispara el hover
+   de los que pasa por encima. */
+.modulo-agarrado {
+  z-index: 10;
+  cursor: grabbing;
+}

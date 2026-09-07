@@ -6,7 +6,7 @@
 // secciones que el negocio necesite, siempre con ícono y palabra.
 //
 // Celular: cuatro destinos abajo, nunca un menú escondido. El máximo es cuatro;
-// elegimos Hoy · Casos · Agenda · Mi negocio porque la agenda se usa todos los
+// elegimos Inicio · Casos · Agenda · Mi negocio porque la agenda se usa todos los
 // días, y a los clientes se llega desde cualquier caso.
 //
 // El destino activo se marca con color Y con peso, no sólo con color.
@@ -20,7 +20,7 @@ import Icono from "./Icono";
 import { useDatos } from "@/lib/datos";
 
 const DESTINOS = [
-  { href: "/", icono: "sol", palabra: "Hoy", celular: true },
+  { href: "/", icono: "sol", palabra: "Inicio", celular: true },
   { href: "/casos", icono: "carpeta", palabra: "Casos", celular: true },
   { href: "/agenda", icono: "calendario", palabra: "Agenda", celular: true, modulo: "agenda" },
   { href: "/clientes", icono: "persona", palabra: "Clientes" },
