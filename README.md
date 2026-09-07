@@ -90,11 +90,12 @@ lector de pantalla la lee siempre.
 ## Login
 
 La entrada al sistema es del Sprint 1: crear cuenta (mail + teléfono + contraseña),
-iniciar sesión, crear el negocio y elegir el preset del rubro, y cerrar sesión.
-El modo de ejemplo entra sin cuenta con los datos de muestra del navegador.
+verificar el mail, iniciar sesión, recuperar la contraseña, crear el negocio y
+elegir el preset del rubro, y cerrar sesión. El modo de ejemplo entra sin cuenta
+con los datos de muestra del navegador.
 
-Todavía pendiente: verificación de mail y recuperación de contraseña (dependen de
-prender el mail en el panel de Supabase). Google Auth queda fuera de esta tanda.
+La verificación de mail y la recuperación de contraseña necesitan el mail prendido
+en el panel de Supabase (ver el paso 2 de "Conectar la base").
 
 ## Aislamiento por negocio
 
@@ -110,8 +111,8 @@ por eso `negocio` no tiene política de alta: no se pueden crear negocios suelto
 
 ## Lo que todavía no está
 
-Verificación de mail y recuperación de contraseña, y Google Auth. Tampoco hay
-invitación de compañeros al mismo negocio: por ahora cada cuenta tiene el suyo.
+Google Auth. Tampoco hay invitación de compañeros al mismo negocio ni alta de
+empleados: por ahora cada cuenta tiene su negocio y los casos quedan sin asignar.
 
 ## Deploy
 
