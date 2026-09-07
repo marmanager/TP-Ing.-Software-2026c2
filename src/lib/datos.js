@@ -34,6 +34,17 @@ const nuevoId = () =>
     ? crypto.randomUUID()
     : "id" + Math.random().toString(36).slice(2);
 
+// Un negocio guardado antes de que existieran los módulos no trae la lista.
+// En ese caso valen los del preset de su rubro: si dejáramos la lista vacía,
+// la navegación se quedaría sin secciones de golpe.
+//
+// Una lista vacía de verdad sí se respeta: es alguien que apagó todo a mano,
+// y siempre puede volver a prenderlos desde "Mi negocio".
+const conModulos = (negocio) =>
+  negocio && !Array.isArray(negocio.modulos_activos)
+    ? { ...negocio, modulos_activos: preset(negocio.rubro).modulos ?? [] }
+    : negocio;
+
 // Lee sólo lo del negocio del usuario. No es aislamiento real (eso son las
 // políticas RLS del Sprint 2): la clave anónima sigue pudiendo leer todo,
 // pero las pantallas ya trabajan con un solo negocio a la vez.
@@ -66,7 +77,7 @@ async function leerDeSupabase(negocioId) {
   }
 
   return {
-    negocio: negocio.data ?? null,
+    negocio: conModulos(negocio.data ?? null),
     empleados: empleados.data ?? [],
     clientes: clientes.data ?? [],
     casos: casos.data ?? [],
@@ -112,7 +123,8 @@ export function DatosProvider({ children }) {
         const guardado =
           typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
         if (!vivo) return;
-        setDatos(guardado ? JSON.parse(guardado) : construirSemilla());
+        const local = guardado ? JSON.parse(guardado) : construirSemilla();
+        setDatos({ ...local, negocio: conModulos(local.negocio) });
         setFuente("local");
         setCargando(false);
         return;
