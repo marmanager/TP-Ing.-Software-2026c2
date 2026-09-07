@@ -47,7 +47,7 @@ export default function Modulos() {
       <TituloPantalla apoyo="Las secciones que usa tu negocio.">Módulos</TituloPantalla>
 
       <p className="mb-8 max-w-[65ch] text-tinta-media">
-        Hoy, Casos, Clientes y Mi negocio están siempre. El resto los prendés y apagás
+        Inicio, Casos, Clientes y Mi negocio están siempre. El resto los prendés y apagás
         según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste.
       </p>
 

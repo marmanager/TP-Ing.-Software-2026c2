@@ -23,7 +23,7 @@ const sourceSans = Source_Sans_3({
 });
 
 export const metadata = {
-  title: "Hoy",
+  title: "Inicio",
   description: "Sistema de gestión de casos para negocios de servicio.",
 };
 

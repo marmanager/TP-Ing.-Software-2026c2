@@ -120,7 +120,7 @@ export default function MiNegocio() {
         <p className="mt-1 max-w-[65ch] text-apoyo text-tinta-suave">
           {prendidos.length
             ? prendidos.map((m) => m.nombre).join(" · ")
-            : "Ninguno. Estás usando sólo Hoy, Casos, Clientes y Mi negocio."}
+            : "Ninguno. Estás usando sólo Inicio, Casos, Clientes y Mi negocio."}
         </p>
         <div className="mt-4">
           <Link
