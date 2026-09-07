@@ -13,7 +13,7 @@ import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { ESTADOS, pesos, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
-import { preset } from "@/lib/presets";
+import { preset, queFaltaPara } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -167,7 +167,7 @@ export default function VerCaso() {
           <Boton
             icono="listo"
             onClick={() =>
-              datos.cambiarEstado(caso.id, "revision_final", "Control antes de entregar", {
+              datos.cambiarEstado(caso.id, "revision_final", queFaltaPara(negocio?.rubro, "revision_final"), {
                 titulo: "Terminó el trabajo",
                 detalle: "Pasa al control final.",
                 icono: "nota",
@@ -191,7 +191,7 @@ export default function VerCaso() {
           <Boton
             icono="llave"
             onClick={() =>
-              datos.cambiarEstado(caso.id, "en_proceso", "Está en el taller", {
+              datos.cambiarEstado(caso.id, "en_proceso", queFaltaPara(negocio?.rubro, "en_proceso"), {
                 titulo: "Volvió al trabajo",
                 detalle: "Se destrabó lo que estaba esperando.",
                 icono: "llave",

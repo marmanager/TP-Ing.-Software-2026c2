@@ -14,8 +14,9 @@
 truncate turno, insumo, evento, paso, caso, empleado, cliente, negocio restart identity cascade;
 
 -- ---------- negocio ----------
-insert into negocio (id, nombre, rubro) values
-  ('00000000-0000-0000-0000-0000000000b0', 'Taller Sur', 'taller');
+insert into negocio (id, nombre, rubro, modulos_activos) values
+  ('00000000-0000-0000-0000-0000000000b0', 'Taller Sur', 'taller',
+   '["agenda", "inventario", "equipo", "presupuesto"]'::jsonb);
 
 -- ---------- empleados ----------
 insert into empleado (id, negocio_id, nombre, rol) values

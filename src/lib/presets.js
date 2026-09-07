@@ -1,8 +1,9 @@
 // Presets de rubro (cartilla, sección 02).
 //
-// Un preset es un diccionario de etiquetas, no un motor de configuración.
-// Renombra los estados y trae los motivos frecuentes del oficio. No puede
-// agregar un sexto estado, ni cambiar un ícono, ni tocar los datos de un caso.
+// Un preset es un diccionario de etiquetas más el paquete de módulos que
+// vienen prendidos. Renombra los estados y trae los motivos frecuentes del
+// oficio. No puede agregar un sexto estado, ni cambiar un ícono, ni tocar los
+// datos de un caso.
 //
 // En el Sprint 1 ningún preset esconde estados: si escondiera uno, los casos
 // sembrados en ese estado desaparecerían de la lista en vivo.
@@ -32,31 +33,33 @@ export const PRESETS = {
       "Luz de tablero encendida",
       "Alineación y balanceo",
     ],
+    modulos: ["agenda", "inventario", "equipo", "presupuesto"],
   },
 
-  veterinaria: {
-    clave: "veterinaria",
-    nombre: "Veterinaria",
-    queEs: "Mascotas que llegan a consulta, se atienden y se dan de alta.",
+  medicina: {
+    clave: "medicina",
+    nombre: "Medicina",
+    queEs: "Pacientes que sacan turno, se atienden y se les da el alta.",
     etiquetas: {
       nuevo: "Turno pedido",
       en_proceso: "En consulta",
       esperando: "Esperando",
       revision_final: "Control final",
-      completado: "De alta",
+      completado: "Dado de alta",
     },
     explica: {
-      esperando: "El resultado del análisis",
+      esperando: "El estudio o el turno con el especialista",
       revision_final: "Control antes del alta",
     },
     motivos: [
-      "Consulta general",
-      "Vacunación",
-      "No come",
-      "Control post operatorio",
-      "Análisis de sangre",
-      "Desparasitación",
+      "Primera consulta",
+      "Control",
+      "Renovación de receta",
+      "Resultado de estudios",
+      "Certificado médico",
+      "Seguimiento de tratamiento",
     ],
+    modulos: ["agenda", "presupuesto"],
   },
 
   service: {
@@ -82,6 +85,7 @@ export const PRESETS = {
       "Presupuesto de reparación",
       "Limpieza y mantenimiento",
     ],
+    modulos: ["inventario", "equipo", "presupuesto"],
   },
 };
 
@@ -92,3 +96,26 @@ export const preset = (rubro) => PRESETS[rubro] ?? PRESETS.taller;
 // La palabra que ve el usuario para un estado, en el idioma de su rubro.
 export const etiquetaEstado = (rubro, estado) =>
   preset(rubro).etiquetas[estado] ?? estado;
+
+// El "qué falta" de un caso, en el idioma de su rubro.
+//
+// A diferencia de las etiquetas, este texto NO se recalcula al mostrarlo:
+// queda guardado en el caso. Por eso tiene que escribirse desde acá y no a
+// mano en cada pantalla, o un negocio de medicina termina con casos que
+// dicen "Está en el taller".
+//
+// Los estados que dependen de algo de afuera ("esperando") o de una nota
+// puntual los escribe quien los produce, porque no hay un texto único.
+export function queFaltaPara(rubro, estado) {
+  const p = preset(rubro);
+  switch (estado) {
+    case "nuevo":
+      return "Asignar a alguien del equipo";
+    case "en_proceso":
+      return p.etiquetas.en_proceso;
+    case "revision_final":
+      return p.explica.revision_final;
+    default:
+      return "";
+  }
+}

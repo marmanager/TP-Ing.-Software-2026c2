@@ -1,26 +1,58 @@
 "use client";
 
-// "Mi negocio" — acá vive el preset del rubro.
+// "Mi negocio" — la configuración del negocio (SCRUM-88).
 //
-// Cambiar de rubro renombra los estados y trae otros motivos frecuentes.
-// No toca los datos: los casos siguen diciendo lo que decían. Es un
-// diccionario de etiquetas, no un motor de configuración.
+// El rubro no se cambia de taquito: se elige al crear el negocio, y acá se
+// muestra como un dato. Cambiarlo es posible —alguien se pudo equivocar al
+// registrarse— pero pasa por una confirmación que dice qué se toca y qué no.
+//
+// Los módulos tienen pantalla propia: acá queda el resumen y el enlace.
 
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset } from "@/lib/presets";
+import { LISTA_MODULOS } from "@/lib/modulos";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function MiNegocio() {
+  const router = useRouter();
   const datos = useDatos();
-  const { cargando, negocio, fuente, casos, clientes, insumos, turnos } = datos;
+  const { cargando, negocio, casos, clientes, insumos, turnos } = datos;
+  const { esDemo, usuario, cerrarSesion } = useAuth();
   useTitulo("Mi negocio");
+
+  // Cambiar el rubro va en dos pasos: elegir y confirmar.
+  const [cambiandoRubro, setCambiandoRubro] = useState(false);
+  const [rubroElegido, setRubroElegido] = useState(null);
+
+  async function salir() {
+    await cerrarSesion();
+    router.replace("/iniciar-sesion");
+  }
 
   if (cargando) return <Cargando />;
 
   const actual = preset(negocio?.rubro);
+  const modulosActivos = negocio?.modulos_activos ?? [];
+  const prendidos = LISTA_MODULOS.filter((m) => modulosActivos.includes(m.clave));
+  const nuevo = rubroElegido ? preset(rubroElegido) : null;
+
+  function cerrarCambioDeRubro() {
+    setCambiandoRubro(false);
+    setRubroElegido(null);
+  }
+
+  function confirmarRubro() {
+    datos.cambiarRubro(rubroElegido);
+    datos.avisarExito(`Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}.`);
+    cerrarCambioDeRubro();
+  }
 
   return (
     <>
@@ -29,7 +61,7 @@ export default function MiNegocio() {
         Cómo se llaman las cosas en tu oficio, y qué tenés cargado hasta ahora.
       </p>
 
-      <Tarjeta className="mb-8">
+      <Tarjeta className="mb-12">
         <div className="flex items-center gap-3">
           <span className="flex size-12 items-center justify-center rounded-campo bg-azul text-white">
             <Icono nombre="tienda" />
@@ -55,41 +87,6 @@ export default function MiNegocio() {
         </dl>
       </Tarjeta>
 
-      <TituloSeccion>El rubro de tu negocio</TituloSeccion>
-      <p className="-mt-2 mb-4 max-w-[65ch] text-tinta-media">
-        Cambia cómo se llaman los estados y qué motivos te ofrecemos al abrir un caso.
-        Los casos que ya tenés no se tocan.
-      </p>
-
-      <ul className="mb-8 grid gap-3 sm:grid-cols-3">
-        {RUBROS.map((r) => {
-          const elegido = r.clave === negocio?.rubro;
-          return (
-            <li key={r.clave}>
-              <button
-                type="button"
-                aria-pressed={elegido}
-                onClick={() => datos.cambiarRubro(r.clave)}
-                className={[
-                  "h-full w-full cursor-pointer rounded-tarjeta border-2 p-4 text-left sm:p-6",
-                  elegido
-                    ? "border-azul bg-azul-claro"
-                    : "border-borde bg-tarjeta hover:bg-superficie",
-                ].join(" ")}
-              >
-                <span
-                  className={`flex items-center gap-2 font-bold text-subtitulo ${elegido ? "text-azul" : ""}`}
-                >
-                  {elegido && <Icono nombre="listo" className="size-6" />}
-                  {r.nombre}
-                </span>
-                <span className="mt-1 block text-tinta-media">{r.queEs}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
       <TituloSeccion>Cómo se llaman los estados en tu rubro</TituloSeccion>
       <ul className="mb-12 overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
         {ORDEN_ESTADOS.map((estado) => {
@@ -111,35 +108,155 @@ export default function MiNegocio() {
         })}
       </ul>
 
-      <TituloSeccion>De dónde salen los datos</TituloSeccion>
-      <Tarjeta>
-        {fuente === "supabase" ? (
+      <TituloSeccion>Módulos</TituloSeccion>
+      <Tarjeta className="mb-12">
+        <p className="text-tinta-media">
+          Tenés{" "}
+          <span className="font-bold text-tinta">
+            {prendidos.length} de {LISTA_MODULOS.length}
+          </span>{" "}
+          módulos prendidos.
+        </p>
+        <p className="mt-1 max-w-[65ch] text-apoyo text-tinta-suave">
+          {prendidos.length
+            ? prendidos.map((m) => m.nombre).join(" · ")
+            : "Ninguno. Estás usando sólo Hoy, Casos, Clientes y Mi negocio."}
+        </p>
+        <div className="mt-4">
+          <Link
+            href="/negocio/modulos"
+            className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+          >
+            <Icono nombre="cajas" />
+            Ver y cambiar los módulos
+          </Link>
+        </div>
+      </Tarjeta>
+
+      <TituloSeccion>El rubro de tu negocio</TituloSeccion>
+      <Tarjeta className="mb-12">
+        {!cambiandoRubro ? (
           <>
-            <p className="flex items-center gap-2 font-bold text-completo">
-              <Icono nombre="listo" className="size-6" />
-              Conectado a la base de Supabase
+            <p className="max-w-[65ch] text-tinta-media">
+              Tu negocio es <span className="font-bold text-tinta">{actual.nombre}</span>. El
+              rubro cambia cómo se llaman los estados y qué motivos te ofrecemos al abrir un
+              caso.
             </p>
-            <p className="mt-2 text-tinta-media">
-              Todo lo que cargues queda guardado en la base y lo ven los demás. Para volver
-              al estado inicial, corré <code className="rounded bg-superficie px-1.5">supabase/002_seed.sql</code>.
-            </p>
+            <div className="mt-4">
+              <Boton icono="tienda" onClick={() => setCambiandoRubro(true)}>
+                Cambiar el rubro
+              </Boton>
+            </div>
           </>
         ) : (
           <>
+            <p className="mb-4 max-w-[65ch] text-tinta-media">
+              Elegí el rubro nuevo. Te vamos a mostrar qué cambia antes de aplicarlo.
+            </p>
+
+            <ul className="grid gap-3 sm:grid-cols-3">
+              {RUBROS.map((r) => {
+                const marcado = r.clave === (rubroElegido ?? negocio?.rubro);
+                return (
+                  <li key={r.clave}>
+                    <button
+                      type="button"
+                      aria-pressed={marcado}
+                      onClick={() => setRubroElegido(r.clave)}
+                      className={[
+                        "h-full w-full cursor-pointer rounded-tarjeta border-2 p-4 text-left",
+                        marcado
+                          ? "border-azul bg-azul-claro"
+                          : "border-borde bg-tarjeta hover:bg-superficie",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={`flex items-center gap-2 font-bold text-subtitulo ${marcado ? "text-azul" : ""}`}
+                      >
+                        {marcado && <Icono nombre="listo" className="size-6" />}
+                        {r.nombre}
+                      </span>
+                      <span className="mt-1 block text-tinta-media">{r.queEs}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {nuevo && nuevo.clave !== negocio?.rubro && (
+              <div className="mt-6 rounded-tarjeta bg-superficie p-4">
+                <p className="font-bold text-subtitulo">
+                  ¿Cambiar el rubro a {nuevo.nombre.toLowerCase()}?
+                </p>
+
+                <p className="mt-4 font-bold text-cuerpo">Qué cambia</p>
+                <ul className="mt-1 flex flex-col gap-1 text-tinta-media">
+                  <li>
+                    Los cinco estados pasan a llamarse como en {nuevo.nombre.toLowerCase()}:
+                    «{actual.etiquetas.en_proceso}» pasa a decir «{nuevo.etiquetas.en_proceso}
+                    », «{actual.etiquetas.completado}» pasa a «{nuevo.etiquetas.completado}».
+                  </li>
+                  <li>Los motivos que te ofrecemos al abrir un caso.</li>
+                </ul>
+
+                <p className="mt-4 font-bold text-cuerpo">Qué no cambia</p>
+                <ul className="mt-1 flex flex-col gap-1 text-tinta-media">
+                  <li>Los casos que ya tenés: mismo texto, mismo estado, misma plata.</li>
+                  <li>Los módulos que tenés prendidos.</li>
+                </ul>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Boton icono="check" onClick={confirmarRubro}>
+                    Cambiar el rubro
+                  </Boton>
+                  <Boton variante="plano" onClick={cerrarCambioDeRubro}>
+                    Dejarlo como está
+                  </Boton>
+                </div>
+              </div>
+            )}
+
+            {(!nuevo || nuevo.clave === negocio?.rubro) && (
+              <div className="mt-6">
+                <Boton variante="plano" onClick={cerrarCambioDeRubro}>
+                  Dejarlo como está
+                </Boton>
+              </div>
+            )}
+          </>
+        )}
+      </Tarjeta>
+
+      <TituloSeccion>Tu cuenta</TituloSeccion>
+      <Tarjeta>
+        {esDemo ? (
+          <>
             <p className="flex items-center gap-2 font-bold text-espera">
               <Icono nombre="alerta" className="size-6" />
-              Estás viendo los datos de ejemplo
+              Estás en el modo de ejemplo
             </p>
             <p className="mt-2 max-w-[65ch] text-tinta-media">
-              Se guardan en este navegador, así que lo que cargues sobrevive a un F5 pero no
-              lo ve nadie más. Para conectar la base de verdad, copiá{" "}
-              <code className="rounded bg-superficie px-1.5">.env.example</code> a{" "}
-              <code className="rounded bg-superficie px-1.5">.env.local</code> con las dos
-              claves de Supabase.
+              Los datos son de muestra y viven en este navegador. Al salir volvés a la
+              pantalla de entrada.
             </p>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-3">
               <Boton icono="deshacer" onClick={datos.reiniciar}>
                 Volver a los datos de ejemplo
+              </Boton>
+              <Boton icono="salir" onClick={salir}>
+                Salir del modo de ejemplo
+              </Boton>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-tinta-media">
+              Entraste con{" "}
+              <span className="font-bold text-tinta">{usuario?.email ?? "tu cuenta"}</span>.
+            </p>
+            <div className="mt-4">
+              <Boton icono="salir" onClick={salir}>
+                Cerrar sesión
               </Boton>
             </div>
           </>

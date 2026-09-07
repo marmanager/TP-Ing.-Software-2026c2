@@ -10,7 +10,9 @@
 // a que alguien reparta las claves, y para que la demo no dependa del wifi.
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { supabase, haySupabase } from "./supabase";
+import { supabase } from "./supabase";
+import { useAuth } from "./auth";
+import { preset, queFaltaPara } from "./presets";
 import { construirSemilla } from "./semilla";
 
 const LLAVE = "marmanager.datos.v1";
@@ -32,76 +34,142 @@ const nuevoId = () =>
     ? crypto.randomUUID()
     : "id" + Math.random().toString(36).slice(2);
 
-async function leerDeSupabase() {
-  const tablas = ["negocio", "empleado", "cliente", "caso", "paso", "evento", "insumo", "turno"];
-  const respuestas = await Promise.all(tablas.map((t) => supabase.from(t).select("*")));
+// Un negocio guardado antes de que existieran los módulos no trae la lista.
+// En ese caso valen los del preset de su rubro: si dejáramos la lista vacía,
+// la navegación se quedaría sin secciones de golpe.
+//
+// Una lista vacía de verdad sí se respeta: es alguien que apagó todo a mano,
+// y siempre puede volver a prenderlos desde "Mi negocio".
+const conModulos = (negocio) =>
+  negocio && !Array.isArray(negocio.modulos_activos)
+    ? { ...negocio, modulos_activos: preset(negocio.rubro).modulos ?? [] }
+    : negocio;
 
-  const conError = respuestas.find((r) => r.error);
+// Lee sólo lo del negocio del usuario. No es aislamiento real (eso son las
+// políticas RLS del Sprint 2): la clave anónima sigue pudiendo leer todo,
+// pero las pantallas ya trabajan con un solo negocio a la vez.
+async function leerDeSupabase(negocioId) {
+  const [negocio, empleados, clientes, casos, insumos, turnos] = await Promise.all([
+    supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
+    supabase.from("empleado").select("*").eq("negocio_id", negocioId),
+    supabase.from("cliente").select("*").eq("negocio_id", negocioId),
+    supabase.from("caso").select("*").eq("negocio_id", negocioId),
+    supabase.from("insumo").select("*").eq("negocio_id", negocioId),
+    supabase.from("turno").select("*").eq("negocio_id", negocioId),
+  ]);
+
+  const conError = [negocio, empleados, clientes, casos, insumos, turnos].find((r) => r.error);
   if (conError) throw conError.error;
 
-  const [negocio, empleados, clientes, casos, pasos, eventos, insumos, turnos] = respuestas.map(
-    (r) => r.data ?? []
-  );
+  // "paso" y "evento" cuelgan del caso, no del negocio.
+  const idsCaso = (casos.data ?? []).map((c) => c.id);
+  let pasos = [];
+  let eventos = [];
+  if (idsCaso.length) {
+    const [p, ev] = await Promise.all([
+      supabase.from("paso").select("*").in("caso_id", idsCaso),
+      supabase.from("evento").select("*").in("caso_id", idsCaso),
+    ]);
+    if (p.error) throw p.error;
+    if (ev.error) throw ev.error;
+    pasos = p.data ?? [];
+    eventos = ev.data ?? [];
+  }
 
   return {
-    negocio: negocio[0] ?? null,
-    empleados,
-    clientes,
-    casos,
+    negocio: conModulos(negocio.data ?? null),
+    empleados: empleados.data ?? [],
+    clientes: clientes.data ?? [],
+    casos: casos.data ?? [],
     pasos,
     eventos,
-    insumos,
-    turnos,
+    insumos: insumos.data ?? [],
+    turnos: turnos.data ?? [],
   };
 }
 
 export function DatosProvider({ children }) {
+  const { esDemo, usuario, cargando: authCargando } = useAuth();
   const [datos, setDatos] = useState(VACIO);
   const [cargando, setCargando] = useState(true);
-  const [fuente, setFuente] = useState(haySupabase ? "supabase" : "local");
+  const [fuente, setFuente] = useState("local");
   const [aviso, setAviso] = useState(null);
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
   const [exito, setExito] = useState(null);
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
-  // lo que renderiza el servidor y lo que renderiza el cliente.
+  // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
+  // la sesión resuelva y carga según el modo (ejemplo o Supabase).
   useEffect(() => {
     let vivo = true;
+    if (authCargando) {
+      return () => {
+        vivo = false;
+      };
+    }
 
     (async () => {
-      if (haySupabase) {
-        try {
-          const traido = await leerDeSupabase();
-          if (!vivo) return;
-          if (traido.negocio) {
-            setDatos(traido);
-            setFuente("supabase");
-            setCargando(false);
-            return;
-          }
-          setAviso(
-            "La base de Supabase está vacía. Corré supabase/002_seed.sql para cargar los datos de ejemplo. Mientras tanto mostramos los datos locales."
-          );
-        } catch (e) {
-          if (!vivo) return;
-          setAviso(
-            "No se pudo leer la base de Supabase. Seguimos con los datos de ejemplo guardados en este navegador."
-          );
-        }
+      // Sin entrar: no hay nada que cargar. La Guardia manda a iniciar sesión.
+      if (!esDemo && !usuario) {
+        if (!vivo) return;
+        setDatos(VACIO);
+        setCargando(false);
+        return;
       }
 
-      const guardado = typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
-      if (!vivo) return;
-      setDatos(guardado ? JSON.parse(guardado) : construirSemilla());
-      setFuente("local");
-      setCargando(false);
+      // Modo de ejemplo: datos de muestra guardados en el navegador.
+      if (esDemo) {
+        const guardado =
+          typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
+        if (!vivo) return;
+        const local = guardado ? JSON.parse(guardado) : construirSemilla();
+        setDatos({ ...local, negocio: conModulos(local.negocio) });
+        setFuente("local");
+        setCargando(false);
+        return;
+      }
+
+      // Cuenta real todavía sin negocio: la Guardia manda a crearlo.
+      if (!usuario.negocio_id) {
+        if (!vivo) return;
+        setDatos(VACIO);
+        setFuente("supabase");
+        setCargando(false);
+        return;
+      }
+
+      // Cuenta real con negocio: se lee de Supabase, sólo lo de ese negocio.
+      try {
+        const traido = await leerDeSupabase(usuario.negocio_id);
+        if (!vivo) return;
+        if (traido.negocio) {
+          setDatos(traido);
+          setFuente("supabase");
+          setCargando(false);
+          return;
+        }
+        setAviso(
+          "Tu negocio todavía no aparece en la base. Esperá unos segundos y volvé a entrar."
+        );
+        setDatos(VACIO);
+        setFuente("supabase");
+        setCargando(false);
+      } catch (e) {
+        if (!vivo) return;
+        setAviso(
+          "No se pudo leer la base de Supabase. Fijate la conexión y volvé a entrar."
+        );
+        setDatos(VACIO);
+        setFuente("supabase");
+        setCargando(false);
+      }
     })();
 
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [authCargando, esDemo, usuario]);
 
   // En modo local, todo lo que se toca queda guardado en el navegador.
   useEffect(() => {
@@ -179,7 +247,10 @@ export function DatosProvider({ children }) {
           servicio,
           estado: responsableId ? "en_proceso" : "nuevo",
           responsable_id: responsableId || null,
-          que_falta: responsableId ? "Está en el taller" : "Asignar a alguien del equipo",
+          que_falta: queFaltaPara(
+            datos.negocio?.rubro,
+            responsableId ? "en_proceso" : "nuevo"
+          ),
           abierto_en: new Date().toISOString(),
         };
         const evento = {
@@ -216,7 +287,7 @@ export function DatosProvider({ children }) {
         parchearCaso(casoId, {
           responsable_id: empleadoId,
           estado: "en_proceso",
-          que_falta: "Está en el taller",
+          que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
         });
         anotar(casoId, "Asignaron el caso", `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`, "persona-mas", "Mostrador");
       },
@@ -260,7 +331,10 @@ export function DatosProvider({ children }) {
         escribir("insumo", { id: insumoId, estado: "en_stock", caso_id: null });
 
         if (insumo.caso_id) {
-          parchearCaso(insumo.caso_id, { estado: "en_proceso", que_falta: "Está en el taller" });
+          parchearCaso(insumo.caso_id, {
+            estado: "en_proceso",
+            que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
+          });
           anotar(insumo.caso_id, "Llegó el insumo", `${insumo.nombre}. Ya se puede seguir.`, "camion", "Mostrador");
         }
       },
@@ -335,9 +409,37 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- negocio ----------
+      // Crea el negocio al terminar el alta (SCRUM-12). Sólo con Supabase:
+      // el modo de ejemplo ya trae un negocio armado.
+      //
+      // Va por crear_mi_negocio() y no por un insert suelto: así el negocio
+      // y su vínculo con la cuenta se crean juntos o no se crean, y la tabla
+      // `negocio` puede quedar sin política de insert (ver 005_rls.sql).
+      async crearNegocio({ nombre, rubro }) {
+        if (!enSupabase()) {
+          return {
+            ok: false,
+            error: "Para crear un negocio hace falta conectar la base de Supabase.",
+          };
+        }
+        const { data, error } = await supabase.rpc("crear_mi_negocio", {
+          p_nombre: nombre,
+          p_rubro: rubro,
+          p_modulos: preset(rubro).modulos ?? [],
+        });
+        if (error) return { ok: false, error: "No se pudo crear el negocio: " + error.message };
+        return { ok: true, id: data };
+      },
+
       cambiarRubro(rubro) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, rubro } }));
         escribir("negocio", { id: datos.negocio?.id, rubro });
+      },
+
+      // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
+      cambiarModulos(claves) {
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));
+        escribir("negocio", { id: datos.negocio?.id, modulos_activos: claves });
       },
 
       // Vuelve al estado inicial conocido. Se usa antes de la demo.

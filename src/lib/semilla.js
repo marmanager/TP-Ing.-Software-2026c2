@@ -25,7 +25,12 @@ export function construirSemilla() {
     return d.toISOString();
   };
 
-  const negocio = { id: "b0", nombre: "Taller Sur", rubro: "taller" };
+  const negocio = {
+    id: "b0",
+    nombre: "Taller Sur",
+    rubro: "taller",
+    modulos_activos: ["agenda", "inventario", "equipo", "presupuesto"],
+  };
 
   const empleados = [
     { id: "e1", negocio_id: "b0", nombre: "Diego", rol: "tecnico" },
