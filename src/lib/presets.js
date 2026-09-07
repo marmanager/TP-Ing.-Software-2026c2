@@ -96,3 +96,26 @@ export const preset = (rubro) => PRESETS[rubro] ?? PRESETS.taller;
 // La palabra que ve el usuario para un estado, en el idioma de su rubro.
 export const etiquetaEstado = (rubro, estado) =>
   preset(rubro).etiquetas[estado] ?? estado;
+
+// El "qué falta" de un caso, en el idioma de su rubro.
+//
+// A diferencia de las etiquetas, este texto NO se recalcula al mostrarlo:
+// queda guardado en el caso. Por eso tiene que escribirse desde acá y no a
+// mano en cada pantalla, o un negocio de medicina termina con casos que
+// dicen "Está en el taller".
+//
+// Los estados que dependen de algo de afuera ("esperando") o de una nota
+// puntual los escribe quien los produce, porque no hay un texto único.
+export function queFaltaPara(rubro, estado) {
+  const p = preset(rubro);
+  switch (estado) {
+    case "nuevo":
+      return "Asignar a alguien del equipo";
+    case "en_proceso":
+      return p.etiquetas.en_proceso;
+    case "revision_final":
+      return p.explica.revision_final;
+    default:
+      return "";
+  }
+}

@@ -12,7 +12,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
-import { preset } from "./presets";
+import { preset, queFaltaPara } from "./presets";
 import { construirSemilla } from "./semilla";
 
 const LLAVE = "marmanager.datos.v1";
@@ -247,7 +247,10 @@ export function DatosProvider({ children }) {
           servicio,
           estado: responsableId ? "en_proceso" : "nuevo",
           responsable_id: responsableId || null,
-          que_falta: responsableId ? "Está en el taller" : "Asignar a alguien del equipo",
+          que_falta: queFaltaPara(
+            datos.negocio?.rubro,
+            responsableId ? "en_proceso" : "nuevo"
+          ),
           abierto_en: new Date().toISOString(),
         };
         const evento = {
@@ -284,7 +287,7 @@ export function DatosProvider({ children }) {
         parchearCaso(casoId, {
           responsable_id: empleadoId,
           estado: "en_proceso",
-          que_falta: "Está en el taller",
+          que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
         });
         anotar(casoId, "Asignaron el caso", `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`, "persona-mas", "Mostrador");
       },
@@ -328,7 +331,10 @@ export function DatosProvider({ children }) {
         escribir("insumo", { id: insumoId, estado: "en_stock", caso_id: null });
 
         if (insumo.caso_id) {
-          parchearCaso(insumo.caso_id, { estado: "en_proceso", que_falta: "Está en el taller" });
+          parchearCaso(insumo.caso_id, {
+            estado: "en_proceso",
+            que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
+          });
           anotar(insumo.caso_id, "Llegó el insumo", `${insumo.nombre}. Ya se puede seguir.`, "camion", "Mostrador");
         }
       },
