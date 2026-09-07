@@ -392,8 +392,11 @@ export function DatosProvider({ children }) {
 
       // ---------- negocio ----------
       // Crea el negocio al terminar el alta (SCRUM-12). Sólo con Supabase:
-      // el modo de ejemplo ya trae un negocio armado. Devuelve el id para
-      // que la pantalla lo ate a la cuenta y navegue a Hoy.
+      // el modo de ejemplo ya trae un negocio armado.
+      //
+      // Va por crear_mi_negocio() y no por un insert suelto: así el negocio
+      // y su vínculo con la cuenta se crean juntos o no se crean, y la tabla
+      // `negocio` puede quedar sin política de insert (ver 005_rls.sql).
       async crearNegocio({ nombre, rubro }) {
         if (!enSupabase()) {
           return {
@@ -401,13 +404,13 @@ export function DatosProvider({ children }) {
             error: "Para crear un negocio hace falta conectar la base de Supabase.",
           };
         }
-        const { data, error } = await supabase
-          .from("negocio")
-          .insert({ nombre, rubro, modulos_activos: preset(rubro).modulos ?? [] })
-          .select("id")
-          .single();
+        const { data, error } = await supabase.rpc("crear_mi_negocio", {
+          p_nombre: nombre,
+          p_rubro: rubro,
+          p_modulos: preset(rubro).modulos ?? [],
+        });
         if (error) return { ok: false, error: "No se pudo crear el negocio: " + error.message };
-        return { ok: true, id: data.id };
+        return { ok: true, id: data };
       },
 
       cambiarRubro(rubro) {

@@ -19,7 +19,7 @@ import Icono from "@/componentes/Icono";
 
 export default function CrearNegocio() {
   const router = useRouter();
-  const { esDemo, usuario, vincularNegocio } = useAuth();
+  const { esDemo, usuario, anotarNegocio } = useAuth();
   const { crearNegocio } = useDatos();
   useTitulo("Crear tu negocio");
 
@@ -48,17 +48,12 @@ export default function CrearNegocio() {
     setErrorGeneral(null);
     setEnviando(true);
     const creado = await crearNegocio({ nombre: nombre.trim(), rubro });
+    setEnviando(false);
     if (!creado.ok) {
-      setEnviando(false);
       setErrorGeneral(creado.error);
       return;
     }
-    const atado = await vincularNegocio(creado.id);
-    setEnviando(false);
-    if (!atado.ok) {
-      setErrorGeneral(atado.error);
-      return;
-    }
+    anotarNegocio(creado.id);
     router.replace("/");
   }
 

@@ -31,9 +31,11 @@ Para salir del modo de ejemplo, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr en orden `supabase/001_schema.sql`,
-   `002_seed.sql`, `003_usuario.sql` y `004_negocio_modulos_y_medicina.sql`. Todos
-   se pueden volver a correr cuantas veces haga falta. El 003 y el 004 hacen falta
-   sólo si la base se creó con una versión anterior del 001.
+   `002_seed.sql`, `003_usuario.sql`, `004_negocio_modulos_y_medicina.sql` y
+   `005_rls.sql`. Todos se pueden volver a correr cuantas veces haga falta. El 003
+   y el 004 hacen falta sólo si la base se creó con una versión anterior del 001.
+   El 005 prende el aislamiento por negocio y no es opcional: sin él, con RLS
+   activado la aplicación no ve ni escribe nada.
 2. En el panel de Supabase, *Authentication → Providers → Email*: dejar activado
    el ingreso con contraseña. Para la verificación de mail y la recuperación de
    contraseña, además prender *Confirm email* y agregar
@@ -94,11 +96,22 @@ El modo de ejemplo entra sin cuenta con los datos de muestra del navegador.
 Todavía pendiente: verificación de mail y recuperación de contraseña (dependen de
 prender el mail en el panel de Supabase). Google Auth queda fuera de esta tanda.
 
+## Aislamiento por negocio
+
+Las tablas tienen **Row Level Security** (`supabase/005_rls.sql`). Cada cuenta ve
+y toca únicamente los datos de su negocio, y la regla vive en la base: aunque
+alguien use la clave anónima a mano, no puede salirse de su negocio. Sin sesión
+no se ve nada.
+
+La tabla `usuario` liga la cuenta con su negocio, y la función `mi_negocio()` es
+de la que cuelgan todas las políticas. El negocio se crea con la función
+`crear_mi_negocio()`, que lo da de alta y lo ata a la cuenta en un solo paso —
+por eso `negocio` no tiene política de alta: no se pueden crear negocios sueltos.
+
 ## Lo que todavía no está
 
-Las tablas siguen **sin Row Level Security**: la clave anónima puede leer y
-escribir todo, y el negocio del usuario se resuelve del lado del cliente. El
-aislamiento real por negocio va en el Sprint 2.
+Verificación de mail y recuperación de contraseña, y Google Auth. Tampoco hay
+invitación de compañeros al mismo negocio: por ahora cada cuenta tiene el suyo.
 
 ## Deploy
 

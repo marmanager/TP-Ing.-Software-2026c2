@@ -136,17 +136,10 @@ export function AuthProvider({ children }) {
         ) {
           return { ok: false, error: "Ya hay una cuenta con ese mail. Probá iniciar sesión." };
         }
-        if (data.user) {
-          await supabase.from("usuario").upsert(
-            {
-              id: data.user.id,
-              email: email.trim(),
-              telefono: telefono.trim(),
-              negocio_id: null,
-            },
-            { onConflict: "id" }
-          );
-        }
+        // La fila de `usuario` no se crea acá: con la verificación de mail
+        // prendida todavía no hay sesión, y las políticas de RLS piden una.
+        // La crea traerUsuario() en el primer ingreso, con el teléfono que
+        // viaja en los datos de la cuenta.
         if (!data.session) return { ok: true, necesitaConfirmar: true, email: email.trim() };
         return { ok: true, necesitaConfirmar: false };
       },
@@ -213,16 +206,11 @@ export function AuthProvider({ children }) {
         return { ok: true };
       },
 
-      // La usa "Crear negocio" (SCRUM-12) para atar el negocio recién creado.
-      async vincularNegocio(negocioId) {
-        if (!sesion?.user) return { ok: false, error: "No hay una sesión abierta." };
-        const { error } = await supabase
-          .from("usuario")
-          .update({ negocio_id: negocioId })
-          .eq("id", sesion.user.id);
-        if (error) return { ok: false, error: traducir(error) };
+      // La usa "Crear negocio" (SCRUM-12) al volver de crear_mi_negocio().
+      // El vínculo en la base ya lo dejó hecho esa función; acá sólo se
+      // refresca lo que hay en pantalla, para no leer de nuevo.
+      anotarNegocio(negocioId) {
         setUsuario((u) => (u ? { ...u, negocio_id: negocioId } : u));
-        return { ok: true };
       },
     }),
     [esDemo, sesion]
