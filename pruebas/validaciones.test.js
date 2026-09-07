@@ -5,7 +5,12 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { telefonoValido, emailValido, contrasenaValida } from "../src/lib/validaciones.js";
+import {
+  telefonoValido,
+  emailValido,
+  contrasenaValida,
+  montoValido,
+} from "../src/lib/validaciones.js";
 
 test("el teléfono va con característica, sin el 0 ni el 15", () => {
   assert.equal(telefonoValido("341 456 7890"), true);
@@ -31,4 +36,15 @@ test("la contraseña necesita al menos 8 caracteres", () => {
   assert.equal(contrasenaValida("12345678"), true);
   assert.equal(contrasenaValida("1234567"), false);
   assert.equal(contrasenaValida(""), false);
+});
+
+test("el monto va con números y sin puntos", () => {
+  assert.equal(montoValido("120000"), true);
+  assert.equal(montoValido(" 74000 "), true);
+  assert.equal(montoValido("120.000"), false, "con puntos no: la cartilla pide sin puntos");
+  assert.equal(montoValido("120,50"), false);
+  assert.equal(montoValido("ciento veinte mil"), false);
+  assert.equal(montoValido("0"), false, "un paso que no cuesta nada no es un paso");
+  assert.equal(montoValido("-500"), false);
+  assert.equal(montoValido(""), false);
 });

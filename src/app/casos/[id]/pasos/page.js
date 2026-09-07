@@ -20,10 +20,11 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { montoValido } from "@/lib/validaciones";
 import { pesos, totalesDeCaso } from "@/lib/estados";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 const DICHO = {
   aprobado: { icono: "listo", texto: "Lo aprobó el cliente", color: "text-completo" },
@@ -33,9 +34,18 @@ const DICHO = {
 
 export default function AprobarPasos() {
   const { id } = useParams();
-  const { cargando, casos, clientes, pasos, negocio, responderPaso } = useDatos();
+  const datos = useDatos();
+  const { cargando, casos, clientes, pasos, negocio, responderPaso } = datos;
   const { usuario } = useAuth();
   const [mostrandoMensaje, setMostrandoMensaje] = useState(false);
+
+  // Armar el presupuesto: se suman pasos de a uno (SCRUM-59).
+  const [armando, setArmando] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [monto, setMonto] = useState("");
+  const [tocado, setTocado] = useState(false);
+  const [sacando, setSacando] = useState(null);
 
   // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
   // técnico ve los pasos, porque son la lista de lo que tiene que hacer.
@@ -72,6 +82,35 @@ export default function AprobarPasos() {
     "Se puede aprobar de a uno. Lo que no apruebes queda anotado para más adelante.",
   ].join("\n");
 
+  const errorMonto =
+    tocado && monto.trim() && !montoValido(monto)
+      ? "Escribí el monto con números, sin puntos."
+      : null;
+
+  const motivoPaso = !nombre.trim()
+    ? "falta qué hay que hacer"
+    : !monto.trim()
+      ? "falta cuánto sale"
+      : !montoValido(monto)
+        ? "el monto va sin puntos"
+        : null;
+
+  function sumarPaso() {
+    const que = nombre.trim();
+    datos.agregarPaso({
+      casoId: caso.id,
+      nombre: que,
+      descripcion: descripcion.trim(),
+      monto,
+    });
+    datos.avisarExito(`Listo. "${que}" ya está en el presupuesto, esperando respuesta.`);
+    setNombre("");
+    setDescripcion("");
+    setMonto("");
+    setTocado(false);
+    setArmando(false);
+  }
+
   return (
     <div className="mx-auto max-w-[560px]">
       <Link
@@ -97,16 +136,61 @@ export default function AprobarPasos() {
         </p>
       )}
 
-      <TituloSeccion className="mt-10">Pasos a aprobar</TituloSeccion>
-      <p className="-mt-2 mb-4 text-tinta-media">
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+        <TituloSeccion className="mb-0">Pasos a aprobar</TituloSeccion>
+        {puedeResponder && (
+          <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
+            {armando ? "Cerrar" : "Sumar un paso"}
+          </Boton>
+        )}
+      </div>
+      <p className="mt-2 mb-4 text-tinta-media">
         {puedeResponder
           ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
           : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.cargarDatos}`}
       </p>
 
+      {armando && puedeResponder && (
+        <Tarjeta className="mb-6">
+          <TituloSeccion>Un paso nuevo</TituloSeccion>
+          <Campo
+            id="paso-nombre"
+            etiqueta="Qué hay que hacer"
+            ayuda="Con las palabras del cliente. Ejemplo: Cambio de pastillas de freno."
+            autoComplete="off"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+          />
+          <Campo
+            id="paso-descripcion"
+            etiqueta="Por qué conviene"
+            ayuda="Opcional. Lo que le explicarías al cliente si preguntara."
+            autoComplete="off"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+          />
+          <Campo
+            id="paso-monto"
+            etiqueta="Cuánto sale"
+            ayuda="Sólo números, sin puntos."
+            error={errorMonto}
+            ejemplo="120000"
+            inputMode="numeric"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            onBlur={() => setTocado(true)}
+          />
+          <Boton variante="principal" icono="check" motivo={motivoPaso} onClick={sumarPaso}>
+            Sumar el paso
+          </Boton>
+        </Tarjeta>
+      )}
+
       {mios.length === 0 ? (
         <Vacio icono="nota" titulo="Todavía no hay pasos">
-          Cuando se cargue el diagnóstico y se arme el presupuesto, los pasos aparecen acá.
+          {puedeResponder
+            ? "Armá el presupuesto sumando un paso por cada cosa que haya que hacer. El cliente los aprueba de a uno."
+            : "Cuando se arme el presupuesto, los pasos aparecen acá."}
         </Vacio>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -131,23 +215,65 @@ export default function AprobarPasos() {
                   </p>
 
                   {!puedeResponder ? null : paso.estado === "esperando" ? (
-                    // 52 px de alto, 10 px en medio: para no equivocarse de dedo.
-                    <div className="mt-3 flex gap-2.5">
-                      <Boton
-                        variante="principal"
-                        className="min-h-13 flex-1"
-                        onClick={() => responderPaso(paso.id, "aprobado")}
-                      >
-                        Lo aprueba
-                      </Boton>
-                      <Boton
-                        variante="peligro"
-                        className="min-h-13 flex-1"
-                        onClick={() => responderPaso(paso.id, "rechazado")}
-                      >
-                        No lo hace
-                      </Boton>
-                    </div>
+                    <>
+                      {/* 52 px de alto, 10 px en medio: para no equivocarse de dedo. */}
+                      <div className="mt-3 flex gap-2.5">
+                        <Boton
+                          variante="principal"
+                          className="min-h-13 flex-1"
+                          onClick={() => responderPaso(paso.id, "aprobado")}
+                        >
+                          Lo aprueba
+                        </Boton>
+                        <Boton
+                          variante="peligro"
+                          className="min-h-13 flex-1"
+                          onClick={() => responderPaso(paso.id, "rechazado")}
+                        >
+                          No lo hace
+                        </Boton>
+                      </div>
+
+                      {/* Sacar un paso sólo se puede mientras espera respuesta:
+                          después sería borrar algo que el cliente ya contestó. */}
+                      {sacando === paso.id ? (
+                        <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+                          <p className="font-bold text-cuerpo">
+                            ¿Sacar «{paso.nombre}» del presupuesto?
+                          </p>
+                          <p className="mt-1 text-tinta-media">
+                            El total baja {pesos(paso.monto)}. El caso y los demás pasos
+                            quedan como están.
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <Boton
+                              variante="peligro"
+                              icono="tacho"
+                              onClick={() => {
+                                datos.eliminarPaso(paso.id);
+                                datos.avisarExito(`Listo. "${paso.nombre}" salió del presupuesto.`);
+                                setSacando(null);
+                              }}
+                            >
+                              Sacarlo
+                            </Boton>
+                            <Boton variante="plano" onClick={() => setSacando(null)}>
+                              Dejarlo
+                            </Boton>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2">
+                          <Boton
+                            variante="plano"
+                            icono="tacho"
+                            onClick={() => setSacando(paso.id)}
+                          >
+                            Sacar del presupuesto
+                          </Boton>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <div className="mt-3">
                       <Boton

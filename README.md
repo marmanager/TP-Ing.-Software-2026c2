@@ -160,8 +160,12 @@ por eso `negocio` no tiene política de alta: no se pueden crear negocios suelto
 
 ## Lo que todavía no está
 
-Google Auth. Tampoco hay invitación de compañeros al mismo negocio ni alta de
-empleados: por ahora cada cuenta tiene su negocio y los casos quedan sin asignar.
+Google Auth. Y del circuito del trabajo falta **cargar el diagnóstico** del caso:
+el presupuesto ya se arma y el cliente lo aprueba paso por paso, pero lo que se
+encontró al revisar todavía no tiene dónde escribirse.
+
+Más adelante: generar solo el pedido de repuestos al aprobar un paso —el dolor
+más grande que salió de la entrevista al taller— y registrar el cobro.
 
 ## Deploy
 

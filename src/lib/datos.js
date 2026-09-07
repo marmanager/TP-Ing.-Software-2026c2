@@ -13,6 +13,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { preset, queFaltaPara } from "./presets";
+import { pesos } from "./estados";
 import { normalizarInicio } from "./inicio";
 import { construirSemilla } from "./semilla";
 
@@ -308,6 +309,50 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- pasos del presupuesto ----------
+      // Armar el presupuesto es sumar pasos de a uno (SCRUM-59). Cada paso
+      // nace esperando la respuesta del cliente: el presupuesto se aprueba
+      // parte por parte, nunca todo junto.
+      agregarPaso({ casoId, nombre, descripcion, monto }) {
+        const delCaso = datos.pasos.filter((p) => p.caso_id === casoId);
+        const paso = {
+          id: nuevoId(),
+          caso_id: casoId,
+          nombre,
+          descripcion: descripcion || "",
+          monto: Number(monto),
+          estado: "esperando",
+          orden: Math.max(0, ...delCaso.map((p) => p.orden ?? 0)) + 1,
+        };
+        setDatos((d) => ({ ...d, pasos: [...d.pasos, paso] }));
+        escribir("paso", paso, { insertar: true });
+        anotar(
+          casoId,
+          "Sumaron un paso al presupuesto",
+          `${nombre} · ${pesos(monto)}`,
+          "nota",
+          "Encargado"
+        );
+        return paso;
+      },
+
+      // Sólo se borra lo que todavía está esperando respuesta. Borrar algo
+      // que el cliente ya contestó sería borrar un acuerdo; para eso primero
+      // hay que volver atrás la respuesta.
+      eliminarPaso(pasoId) {
+        const paso = datos.pasos.find((p) => p.id === pasoId);
+        if (!paso || paso.estado !== "esperando") return;
+
+        setDatos((d) => ({ ...d, pasos: d.pasos.filter((p) => p.id !== pasoId) }));
+        borrar("paso", pasoId);
+        anotar(
+          paso.caso_id,
+          "Sacaron un paso del presupuesto",
+          `${paso.nombre} · ${pesos(paso.monto)}`,
+          "nota",
+          "Encargado"
+        );
+      },
+
       // Aprobar, rechazar y volver atrás escriben los tres en la base.
       // Así "Volver atrás" sobrevive a un F5, en vez de vivir sólo en memoria.
       responderPaso(pasoId, estado) {
