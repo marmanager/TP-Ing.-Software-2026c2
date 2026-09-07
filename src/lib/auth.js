@@ -8,9 +8,8 @@
 //     los datos de muestra del navegador. Así el equipo clona y levanta el
 //     proyecto sin esperar a que alguien reparta las claves (ver README).
 //
-// El aislamiento por negocio con Row Level Security queda para el Sprint 2:
-// hoy la clave anónima lee y escribe todo, y el negocio del usuario se
-// resuelve del lado del cliente con la tabla `usuario`.
+// La tabla `usuario` liga la cuenta con su negocio, y de ahí cuelgan todas
+// las políticas de Row Level Security (supabase/005_rls.sql y 007_permisos.sql).
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase, haySupabase } from "./supabase";
@@ -22,9 +21,14 @@ const Contexto = createContext(null);
 
 // Si alguien llegó por una invitación y tuvo que crearse la cuenta primero,
 // nos guardamos el código para no hacerle buscar el link de nuevo.
+//
+// Va en localStorage y no en sessionStorage a propósito: el enlace del mail
+// de confirmación abre una pestaña NUEVA, y sessionStorage no cruza pestañas.
+// Con sessionStorage el código se perdía justo en el momento en que hacía
+// falta, y la persona caía en "Crear tu negocio" sin forma de volver.
 export function recordarInvitacion(codigo) {
   try {
-    window.sessionStorage.setItem(LLAVE_INVITACION, codigo);
+    window.localStorage.setItem(LLAVE_INVITACION, codigo);
   } catch {
     // Si el navegador no deja guardar, siempre queda volver a abrir el link.
   }
@@ -32,7 +36,7 @@ export function recordarInvitacion(codigo) {
 
 export function invitacionPendiente() {
   try {
-    return window.sessionStorage.getItem(LLAVE_INVITACION);
+    return window.localStorage.getItem(LLAVE_INVITACION);
   } catch {
     return null;
   }
@@ -40,7 +44,7 @@ export function invitacionPendiente() {
 
 export function olvidarInvitacion() {
   try {
-    window.sessionStorage.removeItem(LLAVE_INVITACION);
+    window.localStorage.removeItem(LLAVE_INVITACION);
   } catch {
     // No pasa nada: en el peor caso se vuelve a ofrecer una invitación usada,
     // y la pantalla de unirme avisa que ya no sirve.
@@ -48,12 +52,22 @@ export function olvidarInvitacion() {
 }
 
 // A qué mail hay que confirmar. Se guarda al crear la cuenta, porque en ese
-// momento todavía no hay sesión de donde sacarlo. Vive sólo en esta pestaña.
+// momento todavía no hay sesión de donde sacarlo. En localStorage por lo
+// mismo: la confirmación se abre en otra pestaña.
 export function mailAConfirmar() {
   try {
-    return window.sessionStorage.getItem(LLAVE_MAIL);
+    return window.localStorage.getItem(LLAVE_MAIL);
   } catch {
     return null;
+  }
+}
+
+export function olvidarMail() {
+  try {
+    window.localStorage.removeItem(LLAVE_MAIL);
+  } catch {
+    // Si no se puede borrar, lo peor que pasa es repetir el aviso de que
+    // el mail quedó confirmado.
   }
 }
 
@@ -182,7 +196,7 @@ export function AuthProvider({ children }) {
         // viaja en los datos de la cuenta.
         if (!data.session) {
           try {
-            window.sessionStorage.setItem(LLAVE_MAIL, email.trim());
+            window.localStorage.setItem(LLAVE_MAIL, email.trim());
           } catch {
             // Si el navegador no deja guardar, la pantalla de confirmación
             // muestra el texto sin el mail y se sigue entendiendo.

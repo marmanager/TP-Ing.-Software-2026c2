@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth, invitacionPendiente } from "@/lib/auth";
+import { useAuth, invitacionPendiente, mailAConfirmar, olvidarMail } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { RUBROS, preset } from "@/lib/presets";
@@ -30,8 +30,18 @@ export default function CrearNegocio() {
   // Si llegó por una invitación y se creó la cuenta en el camino, capaz no
   // quiere un negocio propio sino sumarse al que lo invitó.
   const [invitacion, setInvitacion] = useState(null);
+  // Si venía de confirmar el mail, conviene decírselo: tocó un enlace
+  // esperando entrar y le aparece otro formulario. Sin esto parece que algo
+  // salió mal, cuando en realidad falta un paso.
+  const [reciénConfirmado, setReciénConfirmado] = useState(false);
 
-  useEffect(() => setInvitacion(invitacionPendiente()), []);
+  useEffect(() => {
+    setInvitacion(invitacionPendiente());
+    if (mailAConfirmar()) {
+      setReciénConfirmado(true);
+      olvidarMail();
+    }
+  }, []);
 
   if (esDemo) {
     return <YaHayNegocio texto="Estás en el modo de ejemplo, que ya trae un negocio armado." />;
@@ -67,6 +77,18 @@ export default function CrearNegocio() {
       <TituloPantalla apoyo="Un paso y entrás. Todo esto lo cambiás después desde Mi negocio.">
         Crear tu negocio
       </TituloPantalla>
+
+      {reciénConfirmado && (
+        <Tarjeta className="mb-6">
+          <p className="flex items-start gap-2 font-bold text-completo">
+            <Icono nombre="listo" className="mt-0.5 size-6" />
+            <span>Listo, tu mail quedó confirmado.</span>
+          </p>
+          <p className="mt-2 max-w-[65ch] text-tinta-media">
+            Falta un solo paso: contarnos de qué es tu negocio. Después entrás.
+          </p>
+        </Tarjeta>
+      )}
 
       {invitacion && (
         <Tarjeta className="mb-6">
