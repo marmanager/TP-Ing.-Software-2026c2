@@ -285,10 +285,15 @@ export function DatosProvider({ children }) {
           eventos: [evento, ...d.eventos],
         }));
 
-        if (cliente) escribir("cliente", cliente, { insertar: true });
-        else if (telefono) escribir("cliente", { id: idCliente, telefono });
-        escribir("caso", caso, { insertar: true });
-        escribir("evento", evento, { insertar: true });
+        // En orden y esperando cada una: el caso apunta al cliente, y la
+        // política de `evento` exige que su caso ya exista. Si salieran las
+        // tres a la vez, la base podría recibirlas al revés y rechazarlas.
+        (async () => {
+          if (cliente) await escribir("cliente", cliente, { insertar: true });
+          else if (telefono) await escribir("cliente", { id: idCliente, telefono });
+          await escribir("caso", caso, { insertar: true });
+          await escribir("evento", evento, { insertar: true });
+        })();
 
         return caso;
       },
