@@ -10,6 +10,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
+import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
 import { ESTADOS, pesos, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
@@ -22,6 +24,8 @@ export default function VerCaso() {
   const { id } = useParams();
   const datos = useDatos();
   const { cargando, casos, clientes, empleados, pasos, eventos, insumos, negocio } = datos;
+  const { usuario } = useAuth();
+  const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [eligiendo, setEligiendo] = useState(false);
 
   const caso = casos.find((c) => c.id === id);
@@ -99,17 +103,21 @@ export default function VerCaso() {
             )}
           </dl>
 
-          {/* Un único botón azul: el que casi siempre se va a tocar. */}
-          {mios.length > 0 && (
-            <Link href={`/casos/${caso.id}/pasos`} className="mt-6 block sm:inline-block">
-              <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
-                <Icono nombre="nota" />
-                {esperando.length > 0
-                  ? `Ver los ${esperando.length} pasos a aprobar`
-                  : "Ver los pasos del caso"}
-              </span>
-            </Link>
-          )}
+          {/* Un único botón azul: el que casi siempre se va a tocar.
+              Aparece siempre, también sin pasos: si no, a un caso recién
+              abierto no habría por dónde armarle el presupuesto. */}
+          <Link href={`/casos/${caso.id}/pasos`} className="mt-6 block sm:inline-block">
+            <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
+              <Icono nombre="nota" />
+              {esperando.length > 0
+                ? `Ver los ${esperando.length} pasos a aprobar`
+                : mios.length > 0
+                  ? "Ver los pasos del caso"
+                  : puedeCargar
+                    ? "Armar el presupuesto"
+                    : "Ver el presupuesto"}
+            </span>
+          </Link>
 
           {mios.length > 0 && (
             <p className="mt-3 text-tinta-media">
