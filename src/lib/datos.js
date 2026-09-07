@@ -12,6 +12,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
+import { preset } from "./presets";
 import { construirSemilla } from "./semilla";
 
 const LLAVE = "marmanager.datos.v1";
@@ -390,6 +391,25 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- negocio ----------
+      // Crea el negocio al terminar el alta (SCRUM-12). Sólo con Supabase:
+      // el modo de ejemplo ya trae un negocio armado. Devuelve el id para
+      // que la pantalla lo ate a la cuenta y navegue a Hoy.
+      async crearNegocio({ nombre, rubro }) {
+        if (!enSupabase()) {
+          return {
+            ok: false,
+            error: "Para crear un negocio hace falta conectar la base de Supabase.",
+          };
+        }
+        const { data, error } = await supabase
+          .from("negocio")
+          .insert({ nombre, rubro, modulos_activos: preset(rubro).modulos ?? [] })
+          .select("id")
+          .single();
+        if (error) return { ok: false, error: "No se pudo crear el negocio: " + error.message };
+        return { ok: true, id: data.id };
+      },
+
       cambiarRubro(rubro) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, rubro } }));
         escribir("negocio", { id: datos.negocio?.id, rubro });

@@ -13,15 +13,18 @@
 -- ============================================================
 
 -- ---------- negocio ----------
--- Una fila por negocio. En el Sprint 1 hay una sola.
+-- Una fila por negocio. En el Sprint 1 hay una sola por cuenta.
 -- "rubro" elige el preset: renombra las etiquetas de los estados,
 -- no cambia ni el color ni el ícono (regla de la cartilla, sección 02).
+-- "modulos_activos" es la lista de módulos prendidos (SCRUM-38); el preset
+-- la deja cargada al crear el negocio (SCRUM-12).
 create table if not exists negocio (
-  id          uuid primary key default gen_random_uuid(),
-  nombre      text        not null,
-  rubro       text        not null default 'taller'
-              check (rubro in ('taller', 'veterinaria', 'service')),
-  creado_en   timestamptz not null default now()
+  id              uuid primary key default gen_random_uuid(),
+  nombre          text        not null,
+  rubro           text        not null default 'taller'
+                  check (rubro in ('taller', 'medicina', 'service')),
+  modulos_activos jsonb       not null default '[]'::jsonb,
+  creado_en       timestamptz not null default now()
 );
 
 -- ---------- cliente ----------
