@@ -108,7 +108,10 @@ export default function AprobarPasos() {
     setDescripcion("");
     setMonto("");
     setTocado(false);
-    setArmando(false);
+    // El formulario queda abierto y vacío: un presupuesto son varios pasos y
+    // se cargan de corrido. Cada uno aparece en la lista de arriba apenas se
+    // guarda, así se ve crecer sin tener que volver a abrir nada.
+    document.getElementById("paso-nombre")?.focus();
   }
 
   return (
@@ -152,7 +155,11 @@ export default function AprobarPasos() {
 
       {armando && puedeResponder && (
         <Tarjeta className="mb-6">
-          <TituloSeccion>Un paso nuevo</TituloSeccion>
+          <TituloSeccion>Sumar pasos</TituloSeccion>
+          <p className="-mt-2 mb-4 text-apoyo text-tinta-suave">
+            Cargá uno por cada cosa que haya que hacer. El formulario queda abierto
+            para el siguiente.
+          </p>
           <Campo
             id="paso-nombre"
             etiqueta="Qué hay que hacer"
@@ -263,7 +270,7 @@ export default function AprobarPasos() {
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-2">
+                        <div className="mt-3 border-t border-borde pt-1">
                           <Boton
                             variante="plano"
                             icono="tacho"
