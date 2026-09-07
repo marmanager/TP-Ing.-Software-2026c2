@@ -13,7 +13,9 @@
 
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { LISTA_MODULOS } from "@/lib/modulos";
 import { preset } from "@/lib/presets";
 import Icono from "@/componentes/Icono";
@@ -22,12 +24,14 @@ import { Boton, Cargando, TituloPantalla } from "@/componentes/ui";
 export default function Modulos() {
   const datos = useDatos();
   const { cargando, negocio } = datos;
+  const { usuario } = useAuth();
   useTitulo("Módulos");
 
   if (cargando) return <Cargando />;
 
   const activos = negocio?.modulos_activos ?? [];
   const recomendados = preset(negocio?.rubro).modulos ?? [];
+  const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
 
   const alternar = (clave) =>
     datos.cambiarModulos(
@@ -47,8 +51,9 @@ export default function Modulos() {
       <TituloPantalla apoyo="Las secciones que usa tu negocio.">Módulos</TituloPantalla>
 
       <p className="mb-8 max-w-[65ch] text-tinta-media">
-        Inicio, Casos, Clientes y Mi negocio están siempre. El resto los prendés y apagás
-        según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste.
+        {puedeConfigurar
+          ? "Inicio, Casos, Clientes y Mi negocio están siempre. El resto los prendés y apagás según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste."
+          : `Inicio, Casos, Clientes y Mi negocio están siempre. El resto los tiene o no tu negocio. ${QUIEN_PUEDE.configurarNegocio}`}
       </p>
 
       <ul className="grid gap-4">
@@ -89,15 +94,17 @@ export default function Modulos() {
                   </p>
                 )}
 
-                <div className="mt-4">
-                  <Boton
-                    icono={prendido ? "cruz" : "mas"}
-                    onClick={() => alternar(m.clave)}
-                    aria-pressed={prendido}
-                  >
-                    {prendido ? `Apagar ${m.nombre}` : `Prender ${m.nombre}`}
-                  </Boton>
-                </div>
+                {puedeConfigurar && (
+                  <div className="mt-4">
+                    <Boton
+                      icono={prendido ? "cruz" : "mas"}
+                      onClick={() => alternar(m.clave)}
+                      aria-pressed={prendido}
+                    >
+                      {prendido ? `Apagar ${m.nombre}` : `Prender ${m.nombre}`}
+                    </Boton>
+                  </div>
+                )}
               </div>
             </li>
           );

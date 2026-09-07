@@ -34,6 +34,7 @@ export const PRESETS = {
       "Alineación y balanceo",
     ],
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
+    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
   },
 
   medicina: {
@@ -60,6 +61,7 @@ export const PRESETS = {
       "Seguimiento de tratamiento",
     ],
     modulos: ["agenda", "presupuesto"],
+    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
   },
 
   service: {
@@ -86,8 +88,13 @@ export const PRESETS = {
       "Limpieza y mantenimiento",
     ],
     modulos: ["inventario", "equipo", "presupuesto"],
+    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
   },
 };
+
+// Los tres roles del equipo son fijos, igual que los cinco estados: la base
+// no acepta otros. Lo que cambia por rubro es cómo se llaman.
+export const ORDEN_ROLES = ["duenio", "encargado", "tecnico"];
 
 export const RUBROS = Object.values(PRESETS);
 
@@ -96,6 +103,10 @@ export const preset = (rubro) => PRESETS[rubro] ?? PRESETS.taller;
 // La palabra que ve el usuario para un estado, en el idioma de su rubro.
 export const etiquetaEstado = (rubro, estado) =>
   preset(rubro).etiquetas[estado] ?? estado;
+
+// Lo mismo para los roles del equipo: el que arregla autos es "Mecánico" en
+// un taller y "Profesional" en un consultorio.
+export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
 
 // El "qué falta" de un caso, en el idioma de su rubro.
 //

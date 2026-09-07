@@ -1,37 +1,136 @@
 "use client";
 
+// "Equipo" — quién atiende los trabajos (SCRUM-18).
+//
+// Un empleado no necesita cuenta: el taller chico quiere anotar a Diego como
+// responsable sin que Diego use el sistema. Invitar a alguien a entrar con su
+// propia cuenta es otra cosa, y viene después (SCRUM-34).
+//
+// Los tres roles son fijos porque la base no acepta otros; cómo se llaman sale
+// del preset del rubro.
+
+import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
+import { ORDEN_ROLES, etiquetaRol } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
-
-const ROL = {
-  duenio: "Dueño",
-  encargado: "Encargado",
-  tecnico: "Del taller",
-};
+import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Equipo() {
-  const { cargando, empleados, casos } = useDatos();
+  const datos = useDatos();
+  const { cargando, empleados, casos, negocio, avisarExito } = datos;
+  const { usuario } = useAuth();
   useTitulo("Equipo");
+
+  // Sumar y sacar gente lo hace el dueño. La base también lo rechaza
+  // (008_permisos.sql); acá sólo evitamos ofrecer un botón que va a fallar.
+  const puedeManejar = puede(usuario?.rol, "manejarEquipo");
+
+  const [abierto, setAbierto] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [rol, setRol] = useState("tecnico");
+  const [sacando, setSacando] = useState(null);
 
   if (cargando) return <Cargando />;
 
+  const rubro = negocio?.rubro;
   const sinAsignar = casos.filter((c) => estaAbierto(c) && !c.responsable_id);
+  const motivo = !nombre.trim() ? "falta el nombre" : null;
+
+  function guardar() {
+    const persona = nombre.trim();
+    datos.agregarEmpleado({ nombre: persona, rol });
+    avisarExito(`Listo. ${persona} ya puede quedar como responsable de un caso.`);
+    setNombre("");
+    setRol("tecnico");
+    setAbierto(false);
+  }
+
+  function sacar(persona) {
+    const suyos = casos.filter((c) => c.responsable_id === persona.id && estaAbierto(c));
+    datos.eliminarEmpleado(persona.id);
+    avisarExito(
+      suyos.length
+        ? `${persona.nombre} salió del equipo. Sus ${suyos.length} ${suyos.length === 1 ? "caso quedó" : "casos quedaron"} sin responsable.`
+        : `${persona.nombre} salió del equipo.`
+    );
+    setSacando(null);
+  }
 
   return (
     <>
-      <h1 className="text-pantalla">Equipo</h1>
-      <p className="mt-1 mb-8 max-w-[65ch] text-tinta-media">
-        Quién está trabajando en qué. Invitar gente nueva es del próximo sprint.
-      </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-pantalla">Equipo</h1>
+          <p className="mt-1 max-w-[65ch] text-tinta-media">
+            {puedeManejar
+              ? "Quién está trabajando en qué. No hace falta que tengan cuenta: alcanza con anotarlos para poder asignarles un caso."
+              : `Quién está trabajando en qué. ${QUIEN_PUEDE.manejarEquipo}`}
+          </p>
+        </div>
+        {puedeManejar && (
+          <div className="flex flex-wrap gap-3">
+            <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
+              {abierto ? "Cerrar el alta" : "Sumar a alguien"}
+            </Boton>
+            <Link
+              href="/equipo/invitaciones"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
+            >
+              <Icono nombre="sobre" />
+              Invitar a que entre con su cuenta
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {abierto && puedeManejar && (
+        <Tarjeta className="mb-8 max-w-[560px]">
+          <TituloSeccion>Alguien nuevo en el equipo</TituloSeccion>
+          <Campo
+            id="nuevo-nombre"
+            etiqueta="Cómo se llama"
+            ayuda="Como lo vas a reconocer en la lista de casos. Ejemplo: Diego."
+            autoComplete="off"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+          />
+
+          <div className="mb-6">
+            <label htmlFor="nuevo-rol" className="block font-bold text-cuerpo">
+              Qué hace
+            </label>
+            <p className="mt-1 text-apoyo text-tinta-suave">
+              Por ahora sirve para saber quién es quién. Los permisos vienen después.
+            </p>
+            <select
+              id="nuevo-rol"
+              value={rol}
+              onChange={(e) => setRol(e.target.value)}
+              className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
+            >
+              {ORDEN_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {etiquetaRol(rubro, r)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar}>
+            Sumarlo al equipo
+          </Boton>
+        </Tarjeta>
+      )}
 
       {empleados.length === 0 ? (
         <Vacio icono="personas" titulo="Todavía no hay nadie cargado">
-          Cargá a las personas que atienden los trabajos y vas a poder asignarles casos.
+          Sumá a las personas que atienden los trabajos y vas a poder asignarles casos.
         </Vacio>
       ) : (
         <ul className="mb-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -44,11 +143,40 @@ export default function Equipo() {
                     <span className="flex size-12 items-center justify-center rounded-full bg-superficie text-tinta-media">
                       <Icono nombre="persona" />
                     </span>
-                    <div>
-                      <p className="font-bold text-subtitulo">{e.nombre}</p>
-                      <p className="text-apoyo text-tinta-suave">{ROL[e.rol] ?? e.rol}</p>
-                    </div>
+                    <p className="font-bold text-subtitulo">{e.nombre}</p>
                   </div>
+
+                  {puedeManejar ? (
+                    <div className="mt-4">
+                      <label
+                        htmlFor={`rol-${e.id}`}
+                        className="block font-bold text-etiqueta text-tinta-media"
+                      >
+                        Qué hace
+                      </label>
+                      <select
+                        id={`rol-${e.id}`}
+                        value={e.rol}
+                        onChange={(ev) => {
+                          datos.cambiarRolEmpleado(e.id, ev.target.value);
+                          avisarExito(
+                            `${e.nombre} ahora figura como ${etiquetaRol(rubro, ev.target.value).toLowerCase()}.`
+                          );
+                        }}
+                        className="mt-1 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
+                      >
+                        {ORDEN_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {etiquetaRol(rubro, r)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-apoyo text-tinta-suave">
+                      {etiquetaRol(rubro, e.rol)}
+                    </p>
+                  )}
 
                   <p className="mt-4 text-tinta-media">
                     {suyos.length === 0
@@ -70,6 +198,31 @@ export default function Equipo() {
                         </li>
                       ))}
                     </ul>
+                  )}
+
+                  {!puedeManejar ? null : sacando === e.id ? (
+                    <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+                      <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
+                      <p className="mt-1 text-tinta-media">
+                        {suyos.length
+                          ? `Sus ${suyos.length} ${suyos.length === 1 ? "caso queda" : "casos quedan"} sin responsable. No se borra ningún caso.`
+                          : "No tiene casos abiertos, así que no cambia nada más."}
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <Boton variante="peligro" icono="tacho" onClick={() => sacar(e)}>
+                          Sacar del equipo
+                        </Boton>
+                        <Boton variante="plano" onClick={() => setSacando(null)}>
+                          Dejarlo
+                        </Boton>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <Boton variante="plano" icono="tacho" onClick={() => setSacando(e.id)}>
+                        Sacar del equipo
+                      </Boton>
+                    </div>
                   )}
                 </Tarjeta>
               </li>

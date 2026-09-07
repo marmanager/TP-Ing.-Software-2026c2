@@ -5,7 +5,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PRESETS, RUBROS, preset, queFaltaPara } from "../src/lib/presets.js";
+import {
+  PRESETS,
+  RUBROS,
+  preset,
+  queFaltaPara,
+  ORDEN_ROLES,
+  etiquetaRol,
+} from "../src/lib/presets.js";
 import { MODULOS } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
 
@@ -66,4 +73,27 @@ test("un caso sin responsable dice lo mismo en todos los rubros", () => {
 test("los estados que dependen de algo de afuera los escribe quien los produce", () => {
   assert.equal(queFaltaPara("taller", "esperando"), "");
   assert.equal(queFaltaPara("taller", "completado"), "");
+});
+
+// Mismo criterio que los estados: los tres roles son fijos porque la base no
+// acepta otros, pero cómo se llaman sale del rubro.
+test("cada preset le pone nombre a los tres roles", () => {
+  for (const r of RUBROS) {
+    for (const rol of ORDEN_ROLES) {
+      assert.equal(typeof r.roles[rol], "string", `${r.clave} sin nombre para ${rol}`);
+      assert.ok(r.roles[rol].trim().length > 0, `${r.clave}.${rol} está vacío`);
+    }
+  }
+});
+
+test("el que hace el trabajo se llama distinto en cada rubro", () => {
+  assert.equal(etiquetaRol("taller", "tecnico"), "Mecánico");
+  assert.equal(etiquetaRol("medicina", "tecnico"), "Profesional");
+  assert.equal(etiquetaRol("service", "tecnico"), "Técnico");
+
+  // Dueño y encargado se dicen igual en todos.
+  for (const r of RUBROS) {
+    assert.equal(etiquetaRol(r.clave, "duenio"), "Dueño");
+    assert.equal(etiquetaRol(r.clave, "encargado"), "Encargado");
+  }
 });

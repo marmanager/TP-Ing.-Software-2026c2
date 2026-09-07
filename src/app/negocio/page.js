@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset } from "@/lib/presets";
 import { LISTA_MODULOS } from "@/lib/modulos";
@@ -40,6 +41,8 @@ export default function MiNegocio() {
 
   const actual = preset(negocio?.rubro);
   const modulosActivos = negocio?.modulos_activos ?? [];
+  // Configurar el negocio es del dueño, y la base también lo rechaza.
+  const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
   const prendidos = LISTA_MODULOS.filter((m) => modulosActivos.includes(m.clave));
   const nuevo = rubroElegido ? preset(rubroElegido) : null;
 
@@ -128,7 +131,7 @@ export default function MiNegocio() {
             className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
           >
             <Icono nombre="cajas" />
-            Ver y cambiar los módulos
+            {puedeConfigurar ? "Ver y cambiar los módulos" : "Ver los módulos"}
           </Link>
         </div>
       </Tarjeta>
@@ -142,11 +145,17 @@ export default function MiNegocio() {
               rubro cambia cómo se llaman los estados y qué motivos te ofrecemos al abrir un
               caso.
             </p>
-            <div className="mt-4">
-              <Boton icono="tienda" onClick={() => setCambiandoRubro(true)}>
-                Cambiar el rubro
-              </Boton>
-            </div>
+            {puedeConfigurar ? (
+              <div className="mt-4">
+                <Boton icono="tienda" onClick={() => setCambiandoRubro(true)}>
+                  Cambiar el rubro
+                </Boton>
+              </div>
+            ) : (
+              <p className="mt-2 text-apoyo text-tinta-suave">
+                {QUIEN_PUEDE.configurarNegocio}
+              </p>
+            )}
           </>
         ) : (
           <>

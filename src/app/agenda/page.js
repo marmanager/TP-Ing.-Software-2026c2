@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede } from "@/lib/permisos";
 import { diaLargo, horaYMinutos, paraInput } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -17,6 +19,8 @@ const TONO = {
 
 export default function Agenda() {
   const datos = useDatos();
+  const { usuario } = useAuth();
+  const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const { cargando, turnos, clientes, casos } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({
@@ -60,12 +64,14 @@ export default function Agenda() {
           <h1 className="text-pantalla">Agenda</h1>
           <p className="mt-1 text-tinta-media">Quién viene, cuándo y para qué.</p>
         </div>
+        {puedeCargar && (
         <Boton icono="mas" onClick={() => setAbierto((v) => !v)}>
           {abierto ? "Cerrar el alta" : "Anotar un turno"}
         </Boton>
+        )}
       </div>
 
-      {abierto && (
+      {abierto && puedeCargar && (
         <Tarjeta className="mb-8 max-w-[560px]">
           <TituloSeccion>Nuevo turno</TituloSeccion>
 

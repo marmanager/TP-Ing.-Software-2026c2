@@ -3,12 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { puede } from "@/lib/permisos";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Inventario() {
   const datos = useDatos();
+  const { usuario } = useAuth();
+  const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const { cargando, insumos, casos } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({ nombre: "", descripcion: "", cantidad: "", minimo: "", unidad: "unidad" });
@@ -41,12 +45,14 @@ export default function Inventario() {
             Lo que tenés, lo que pediste y lo que está por debajo del mínimo.
           </p>
         </div>
+        {puedeCargar && (
         <Boton icono="mas" onClick={() => setAbierto((v) => !v)}>
           {abierto ? "Cerrar el alta" : "Agregar un insumo"}
         </Boton>
+        )}
       </div>
 
-      {abierto && (
+      {abierto && puedeCargar && (
         <Tarjeta className="mb-8 max-w-[560px]">
           <TituloSeccion>Nuevo insumo</TituloSeccion>
           <Campo
