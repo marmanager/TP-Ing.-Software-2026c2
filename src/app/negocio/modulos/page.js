@@ -52,8 +52,8 @@ export default function Modulos() {
 
       <p className="mb-8 max-w-[65ch] text-tinta-media">
         {puedeConfigurar
-          ? "Hoy, Casos, Clientes y Mi negocio están siempre. El resto los prendés y apagás según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste."
-          : `Hoy, Casos, Clientes y Mi negocio están siempre. El resto los tiene o no tu negocio. ${QUIEN_PUEDE.configurarNegocio}`}
+          ? "Inicio, Casos, Clientes y Mi negocio están siempre. El resto los prendés y apagás según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste."
+          : `Inicio, Casos, Clientes y Mi negocio están siempre. El resto los tiene o no tu negocio. ${QUIEN_PUEDE.configurarNegocio}`}
       </p>
 
       <ul className="grid gap-4">

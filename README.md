@@ -31,11 +31,11 @@ Para salir del modo de ejemplo, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr en orden `supabase/001_schema.sql`,
-   `002_seed.sql`, `003_usuario.sql`, `004_negocio_modulos_y_medicina.sql` y
-   `005_rls.sql`. Todos se pueden volver a correr cuantas veces haga falta. El 003
-   y el 004 hacen falta sólo si la base se creó con una versión anterior del 001.
-   El 005 prende el aislamiento por negocio y no es opcional: sin él, con RLS
-   activado la aplicación no ve ni escribe nada.
+   `002_seed.sql`, `003_usuario.sql`, `004_negocio_modulos_y_medicina.sql`,
+   `005_rls.sql` y `006_inicio.sql`. Todos se pueden volver a correr cuantas veces
+   haga falta. El 003, el 004 y el 006 hacen falta sólo si la base se creó con una
+   versión anterior del 001. El 005 prende el aislamiento por negocio y no es
+   opcional: sin él, con RLS activado la aplicación no ve ni escribe nada.
 2. En el panel de Supabase, *Authentication → Providers → Email*: dejar activado
    el ingreso con contraseña. Para la verificación de mail y la recuperación de
    contraseña, además prender *Confirm email* y agregar
@@ -56,18 +56,20 @@ por ejemplo justo antes de una demo.
 ```
 src/
 ├── app/                    una carpeta por pantalla (App Router)
-│   ├── page.js             Hoy
+│   ├── page.js             Inicio, armado por módulos
 │   ├── casos/              lista, alta, detalle y aprobación de pasos
 │   ├── agenda/  clientes/  inventario/  aprobar/  equipo/  negocio/
 │   └── globals.css         los tokens de la cartilla, en Tailwind
 ├── componentes/            piezas base: botones, campos, chips, íconos
+│   └── inicio/             el marco y el contenido de cada módulo del Inicio
 └── lib/
     ├── auth.js             sesión: cuentas de Supabase o modo de ejemplo
     ├── datos.js            capa de datos: Supabase si hay claves, si no local
     ├── semilla.js          los datos de ejemplo
     ├── estados.js          los cinco estados y sus reglas
     ├── presets.js          los diccionarios de rubro
-    └── modulos.js          el catálogo de módulos que un negocio puede prender
+    ├── modulos.js          el catálogo de módulos que un negocio puede prender
+    └── inicio.js           la grilla del Inicio: catálogo, tamaños y orden
 ```
 
 **Los tokens de la cartilla viven en `src/app/globals.css`.** Colores, tipografías,
@@ -88,6 +90,51 @@ lector de pantalla la lee siempre.
   se sigue entendiendo.
 - El anillo de foco azul de 3 px está siempre y no se saca.
 - Sin jerga: no hay «dashboard», «settings», «loading» ni «item» en ningún texto.
+
+## El Inicio se arma por módulos
+
+La pantalla de entrada no es fija: cada módulo asoma una feature del sistema
+—los casos, la agenda, el inventario, lo que falta aprobar— y el usuario decide
+cuáles ve, en qué orden, de qué tamaño y con qué filtro. Se acomoda desde el
+botón "Acomodar la pantalla" y queda guardado en `negocio.inicio`.
+
+Acomodando, cada módulo se comporta como una imagen en un documento: se agarra
+del medio y se lleva a cualquier lado, y se le cambia el tamaño tirando de la
+esquina punteada de abajo a la derecha. La grilla es de seis columnas y cada
+módulo tiene su lugar propio, así que pueden quedar uno al lado del otro y no
+sólo apilados.
+
+Dos reglas gobiernan la grilla, y están las dos en `resolver()`:
+
+- **Nadie se pisa.** Al soltar un módulo encima de otro, el otro se corre.
+- **Al guardar no quedan huecos verticales.** Mientras se acomoda, el módulo se
+  queda exacto donde lo soltaste y el vacío se ve: estás armando la pantalla y
+  tenés que mirar lo que hacés. Recién al tocar "Guardar" todo sube a apoyarse
+  y los huecos se cierran. A lo ancho no pasa nunca: si dejás una columna libre
+  a la izquierda se respeta, porque eso es una decisión de quien acomodó la
+  pantalla y no un hueco por descuido.
+
+Son dos funciones distintas en `src/lib/inicio.js`: `resolver()` acomoda
+mientras se edita y sólo saca superposiciones; `compactar()` corre al guardar
+y al leer, y además sube todo.
+
+Al módulo seleccionado le aparece **Ajustes** arriba a la derecha. Ahí adentro,
+en la misma tarjeta, se le cambia el tamaño, se elige qué muestra y se lo saca.
+Se sale con el mismo botón o con Escape (y un segundo Escape lo deselecciona).
+
+Arrastrar no es la única forma. Lo mismo se hace con las flechas del teclado
+(y con Shift más las flechas para el tamaño), y con los botones de Ajustes: en
+un celular no hay grilla que arrastrar, y hay gente que no usa el mouse. En
+celular todo pasa a una sola columna y los módulos se leen en el orden en que
+quedaron, como manda la sección 04 de la cartilla.
+
+El alto define además cuántas filas muestra el módulo: si hay más, la última
+línea dice cuántas quedaron y lleva a la sección completa. Mientras se acomoda
+se trabaja sobre una copia, así "Descartar los cambios" deja la pantalla como
+estaba.
+
+Agregar un módulo nuevo es sumar una entrada en `src/lib/inicio.js` y su cuerpo
+en `src/componentes/inicio/cuerpos.js`.
 
 ## Login
 

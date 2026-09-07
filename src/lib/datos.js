@@ -13,6 +13,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { preset, queFaltaPara } from "./presets";
+import { normalizarInicio } from "./inicio";
 import { construirSemilla } from "./semilla";
 
 const LLAVE = "marmanager.datos.v1";
@@ -534,6 +535,14 @@ export function DatosProvider({ children }) {
         escribir("negocio", { id: datos.negocio?.id, modulos_activos: claves });
       },
 
+      // Cómo quedó acomodada la pantalla de Inicio. Recibe la lista completa,
+      // igual que los módulos: qué se ve, en qué orden, de qué tamaño y con
+      // qué filtro.
+      cambiarInicio(config) {
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, inicio: config } }));
+        escribir("negocio", { id: datos.negocio?.id, inicio: config });
+      },
+
       // Vuelve al estado inicial conocido. Se usa antes de la demo.
       reiniciar() {
         if (fuente !== "local") {
@@ -550,7 +559,17 @@ export function DatosProvider({ children }) {
     };
   }, [datos, fuente]);
 
-  const valor = { ...datos, cargando, fuente, aviso, exito, ...acciones };
+  // El Inicio se sirve ya normalizado: las pantallas nunca ven una
+  // configuración a medias guardada por una versión anterior.
+  const valor = {
+    ...datos,
+    inicio: normalizarInicio(datos.negocio?.inicio),
+    cargando,
+    fuente,
+    aviso,
+    exito,
+    ...acciones,
+  };
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }
 

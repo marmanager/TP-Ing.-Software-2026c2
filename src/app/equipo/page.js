@@ -28,7 +28,7 @@ export default function Equipo() {
   useTitulo("Equipo");
 
   // Sumar y sacar gente lo hace el dueño. La base también lo rechaza
-  // (007_permisos.sql); acá sólo evitamos ofrecer un botón que va a fallar.
+  // (008_permisos.sql); acá sólo evitamos ofrecer un botón que va a fallar.
   const puedeManejar = puede(usuario?.rol, "manejarEquipo");
 
   const [abierto, setAbierto] = useState(false);

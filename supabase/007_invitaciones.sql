@@ -1,7 +1,7 @@
 -- ============================================================
--- 006_invitaciones.sql — invitar colaboradores (SCRUM-34)
+-- 007_invitaciones.sql — invitar colaboradores (SCRUM-34)
 --
--- Correr entero en el SQL Editor de Supabase, después de 001..005.
+-- Correr entero en el SQL Editor de Supabase, después de 001..006.
 -- Es idempotente.
 --
 -- QUÉ RESUELVE:

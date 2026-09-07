@@ -1,7 +1,7 @@
 "use client";
 
 // "A aprobar" — los casos donde falta que el cliente conteste.
-// No es una pantalla vacía: es la misma consulta de "Hoy" filtrada por
+// No es una pantalla vacía: es la misma consulta del Inicio filtrada por
 // los pasos que todavía esperan respuesta.
 
 import Link from "next/link";

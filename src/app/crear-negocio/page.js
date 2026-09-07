@@ -215,7 +215,7 @@ function YaHayNegocio({ texto }) {
             className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
           >
             <Icono nombre="volver" />
-            Ir a Hoy
+            Ir al inicio
           </Link>
         </div>
       </Tarjeta>

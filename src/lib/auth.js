@@ -9,7 +9,7 @@
 //     proyecto sin esperar a que alguien reparta las claves (ver README).
 //
 // La tabla `usuario` liga la cuenta con su negocio, y de ahí cuelgan todas
-// las políticas de Row Level Security (supabase/005_rls.sql y 007_permisos.sql).
+// las políticas de Row Level Security (supabase/005_rls.sql y 008_permisos.sql).
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase, haySupabase } from "./supabase";

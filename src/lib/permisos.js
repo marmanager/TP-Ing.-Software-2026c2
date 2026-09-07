@@ -1,7 +1,7 @@
 // Qué puede hacer cada rol (SCRUM-18).
 //
 // Es el mismo criterio que hacen cumplir las políticas de
-// supabase/007_permisos.sql. Acá sólo sirve para no ofrecer botones que la
+// supabase/008_permisos.sql. Acá sólo sirve para no ofrecer botones que la
 // base va a rechazar: **la que manda es la base**. Si algún día los dos no
 // coinciden, esconder un botón no protege nada y la política sí.
 //

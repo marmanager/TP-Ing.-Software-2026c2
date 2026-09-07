@@ -1,5 +1,5 @@
 -- ============================================================
--- 007_permisos.sql — qué puede hacer cada rol (SCRUM-18)
+-- 008_permisos.sql — qué puede hacer cada rol (SCRUM-18)
 --
 -- Correr entero en el SQL Editor de Supabase, después de 001..006.
 -- Es idempotente.

@@ -54,7 +54,7 @@ export default function Guardia({ children }) {
       if (ruta !== RUTA_NEGOCIO && !esInvitacion(ruta)) destino = RUTA_NEGOCIO;
     } else if (RUTAS_ENTRADA.includes(ruta)) {
       // Con negocio ya creado, /crear-negocio se puede visitar (avisa que ya
-      // hay uno); las demás pantallas de entrada llevan a Hoy.
+      // hay uno); las demás pantallas de entrada llevan al inicio.
       destino = "/";
     }
   }

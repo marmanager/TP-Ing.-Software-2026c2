@@ -7,7 +7,7 @@
 // que lo mandara el sistema pediría una clave secreta y código de servidor,
 // que este proyecto no tiene.
 //
-// Sólo el dueño puede invitar, y eso lo hace cumplir la base (006_rls), no
+// Sólo el dueño puede invitar, y eso lo hace cumplir la base (007_invitaciones.sql), no
 // esconder el botón.
 
 import { useEffect, useState } from "react";

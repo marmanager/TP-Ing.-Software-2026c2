@@ -1,7 +1,7 @@
 // Catálogo de módulos (SCRUM-38 los prende y apaga; acá sólo se definen).
 //
 // Un módulo es una sección del sistema que un negocio puede tener o no según
-// su rubro. El núcleo (Hoy, Casos, Clientes, Mi negocio) está siempre.
+// su rubro. El núcleo (Inicio, Casos, Clientes, Mi negocio) está siempre.
 //
 // Sumar un módulo nuevo en el futuro es agregar una entrada acá: aparece solo
 // en el selector de Mi negocio y en la navegación de los negocios que lo tengan.
