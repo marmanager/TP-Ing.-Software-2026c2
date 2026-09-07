@@ -37,7 +37,12 @@ as $$
   select negocio_id from usuario where id = auth.uid();
 $$;
 
+-- Supabase le da permiso de ejecución a `anon` por configuración propia del
+-- proyecto, así que además de sacárselo a public hay que sacárselo a anon.
+-- Sin sesión la función devuelve NULL igual, pero mejor que ni se pueda
+-- llamar: nadie sin entrar tiene nada que hacer acá.
 revoke all on function mi_negocio() from public;
+revoke all on function mi_negocio() from anon;
 grant execute on function mi_negocio() to authenticated;
 
 -- ------------------------------------------------------------
@@ -80,6 +85,7 @@ end;
 $$;
 
 revoke all on function crear_mi_negocio(text, text, jsonb) from public;
+revoke all on function crear_mi_negocio(text, text, jsonb) from anon;
 grant execute on function crear_mi_negocio(text, text, jsonb) to authenticated;
 
 -- ------------------------------------------------------------
