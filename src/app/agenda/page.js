@@ -6,6 +6,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
+import { estaAbierto } from "@/lib/estados";
 import { diaLargo, horaYMinutos, paraInput } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -149,6 +150,12 @@ export default function Agenda() {
                 const cliente = clientes.find((c) => c.id === t.cliente_id);
                 const caso = casos.find((c) => c.id === t.caso_id);
                 const cancelado = t.estado === "cancelado";
+                // El caso abierto que ya tiene esta persona, si tiene alguno:
+                // entonces el turno es para retirarlo o seguirlo, no para
+                // abrir uno nuevo.
+                const suCaso =
+                  t.cliente_id &&
+                  casos.find((c) => c.cliente_id === t.cliente_id && estaAbierto(c));
                 return (
                   <li
                     key={t.id}
@@ -179,7 +186,9 @@ export default function Agenda() {
                             ? "listo"
                             : t.estado === "cancelado"
                               ? "cruz"
-                              : "reloj"
+                              : t.estado === "atendido"
+                                ? "persona-check"
+                                : "reloj"
                         }
                         className="size-5"
                       />
@@ -192,8 +201,14 @@ export default function Agenda() {
                             : "Ya vino"}
                     </p>
 
-                    {!cancelado && (
-                      <div className="flex gap-2">
+                    {/* "Vino" quiere decir dos cosas según el turno, y el
+                        sistema lo deduce en vez de preguntarlo: si la persona
+                        ya tiene un caso abierto, el turno es para retirarlo o
+                        para seguirlo, y no hay que abrir nada; si no tiene
+                        ninguno, viene a dejar un trabajo. Así el alta no gana
+                        un sexto campo que casi siempre se contestaría igual. */}
+                    {!cancelado && t.estado !== "atendido" && (
+                      <div className="flex flex-wrap gap-2">
                         {t.estado === "agendado" && (
                           <Boton
                             icono="check"
@@ -202,6 +217,28 @@ export default function Agenda() {
                             Confirmar
                           </Boton>
                         )}
+
+                        {suCaso ? (
+                          <Boton
+                            icono="persona-check"
+                            onClick={() => {
+                              datos.marcarTurnoAtendido(t.id, suCaso.id);
+                              datos.avisarExito(
+                                `Listo. Queda anotado que ${cliente?.nombre ?? "la persona"} vino por el caso ${suCaso.numero}.`
+                              );
+                            }}
+                          >
+                            Vino a buscarlo
+                          </Boton>
+                        ) : (
+                          <Link href={`/casos/nuevo?turno=${t.id}`}>
+                            <span className="flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-4 font-bold text-azul text-etiqueta hover:bg-azul-claro">
+                              <Icono nombre="carpeta" />
+                              Vino · abrirle el caso
+                            </span>
+                          </Link>
+                        )}
+
                         <Boton
                           variante="peligro"
                           icono="cruz"
@@ -210,6 +247,24 @@ export default function Agenda() {
                           Cancelar
                         </Boton>
                       </div>
+                    )}
+
+                    {/* Marcar que vino se puede deshacer, como todo. El caso
+                        que haya salido del turno no se toca: existe por su
+                        cuenta y se cierra desde el caso. */}
+                    {t.estado === "atendido" && (
+                      <Boton
+                        variante="plano"
+                        icono="deshacer"
+                        onClick={() => {
+                          datos.desmarcarTurnoAtendido(t.id);
+                          // Si quedó en pantalla el "queda anotado que vino",
+                          // se va con esto: acabamos de decir lo contrario.
+                          datos.descartarExito();
+                        }}
+                      >
+                        No había venido
+                      </Boton>
                     )}
                   </li>
                 );

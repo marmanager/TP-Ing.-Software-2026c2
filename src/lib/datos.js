@@ -242,7 +242,15 @@ export function DatosProvider({ children }) {
     return {
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
-      abrirCaso({ clienteId, nombreCliente, telefono, servicio, identificador, responsableId }) {
+      abrirCaso({
+        clienteId,
+        nombreCliente,
+        telefono,
+        servicio,
+        identificador,
+        responsableId,
+        turnoId = null,
+      }) {
         // El cliente se puede dar de alta desde la misma pantalla: el mostrador
         // está apurado y con el cliente enfrente.
         const cliente = clienteId
@@ -288,6 +296,13 @@ export function DatosProvider({ children }) {
           (c) => c.id === idCliente && c.confirmado === false
         );
 
+        // Si el caso sale de un turno, ese turno queda atendido y apuntando
+        // acá: la agenda deja de pedir que se confirme algo que ya pasó, y
+        // desde el turno se llega al trabajo que salió de él.
+        const delTurno = turnoId
+          ? { caso_id: caso.id, estado: "atendido" }
+          : null;
+
         setDatos((d) => ({
           ...d,
           clientes: cliente
@@ -299,6 +314,9 @@ export function DatosProvider({ children }) {
               ),
           casos: [caso, ...d.casos],
           eventos: [evento, ...d.eventos],
+          turnos: delTurno
+            ? d.turnos.map((t) => (t.id === turnoId ? { ...t, ...delTurno } : t))
+            : d.turnos,
         }));
 
         // En orden y esperando cada una: el caso apunta al cliente, y la
@@ -314,6 +332,8 @@ export function DatosProvider({ children }) {
             });
           await escribir("caso", caso, { insertar: true });
           await escribir("evento", evento, { insertar: true });
+          // Último: el turno apunta al caso, así que el caso ya tiene que estar.
+          if (delTurno) await escribir("turno", { id: turnoId, ...delTurno });
         })();
 
         return caso;
@@ -645,6 +665,31 @@ export function DatosProvider({ children }) {
           if (cliente) await escribir("cliente", cliente, { insertar: true });
           await escribir("turno", turno, { insertar: true });
         })();
+      },
+
+      // "Vino a buscarlo": el turno era por un trabajo que ya estaba en
+      // curso, así que no abre ningún caso; sólo deja constancia de que la
+      // persona vino, y de por cuál de sus casos.
+      marcarTurnoAtendido(turnoId, casoId = null) {
+        setDatos((d) => ({
+          ...d,
+          turnos: d.turnos.map((t) =>
+            t.id === turnoId ? { ...t, estado: "atendido", caso_id: casoId } : t
+          ),
+        }));
+        escribir("turno", { id: turnoId, estado: "atendido", caso_id: casoId });
+      },
+
+      // Marcar que vino se puede deshacer, como todo. El caso que haya salido
+      // del turno no se toca: existe por su cuenta y se cierra desde el caso.
+      desmarcarTurnoAtendido(turnoId) {
+        setDatos((d) => ({
+          ...d,
+          turnos: d.turnos.map((t) =>
+            t.id === turnoId ? { ...t, estado: "confirmado", caso_id: null } : t
+          ),
+        }));
+        escribir("turno", { id: turnoId, estado: "confirmado", caso_id: null });
       },
 
       cambiarEstadoTurno(turnoId, estado) {
