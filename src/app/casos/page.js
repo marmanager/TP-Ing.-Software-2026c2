@@ -56,7 +56,7 @@ export default function Casos() {
         Buscar un caso
       </label>
       <p className="mt-1 text-apoyo text-tinta-suave">
-        Por número, por {comoIdent.nombre.toLowerCase()}, por lo que necesita o por el
+        Por número, por {comoIdent.enFrase}, por lo que necesita o por el
         nombre del cliente.
       </p>
       <div className="relative mt-2 mb-6">

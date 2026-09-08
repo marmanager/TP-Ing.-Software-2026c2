@@ -259,10 +259,12 @@ export default function VerCaso() {
             <div className="flex flex-wrap gap-3">
               <Boton
                 icono="check"
-                motivo={!identificador.trim() ? `falta ${comoIdent.nombre.toLowerCase()}` : null}
+                motivo={!identificador.trim() ? `falta ${comoIdent.enFrase}` : null}
                 onClick={() => {
                   datos.ponerIdentificador(caso.id, identificador.trim());
-                  datos.avisarExito(`Listo. El caso ${caso.numero} ya tiene ${comoIdent.nombre.toLowerCase()}.`);
+                  datos.avisarExito(
+                    `Listo. El caso ${caso.numero} ya tiene ${comoIdent.enFrase}.`
+                  );
                   setEditandoIdent(false);
                 }}
               >
@@ -276,7 +278,8 @@ export default function VerCaso() {
         ) : (
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <p className="text-tinta-media">
-              {caso.identificador || `Todavía no cargaron ${comoIdent.nombre.toLowerCase()}.`}
+              {caso.identificador ||
+                `Todavía no cargaron ${comoIdent.enFrase}.`}
             </p>
             {puedeCargar && (
               <Boton
@@ -287,7 +290,9 @@ export default function VerCaso() {
                   setEditandoIdent(true);
                 }}
               >
-                {caso.identificador ? "Cambiarla" : `Cargar ${comoIdent.nombre.toLowerCase()}`}
+                {caso.identificador
+                  ? "Cambiarlo"
+                  : `Cargar ${comoIdent.enFrase}`}
               </Boton>
             )}
           </div>

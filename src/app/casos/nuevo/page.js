@@ -5,15 +5,21 @@
 // La usa el mostrador, apurado, con el cliente enfrente.
 // Objetivo: menos de un minuto.
 //
-// Cuatro campos como máximo: cliente, teléfono, qué necesita y quién lo va a
-// atender. El resto se completa después.
+// La cartilla pide cuatro campos: cliente, teléfono, qué necesita y quién lo
+// va a atender. Acá van cinco, y el quinto es a propósito: el identificador
+// del rubro —la patente, el DNI, el número de serie— es lo más certero que
+// tenemos para reconocer el caso después. Un nombre se escribe de diez formas
+// distintas; una patente, no. Y se lo tiene enfrente al abrirlo, así que no
+// cuesta el minuto que la cartilla quiere cuidar.
+//
+// Sigue dentro de la regla general de la sección 05: nunca más de seis campos.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { preset } from "@/lib/presets";
+import { preset, comoSeIdentifica } from "@/lib/presets";
 import { telefonoValido } from "@/lib/validaciones";
 import { Boton, BotonPrincipalFijo, Campo, Cargando } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
@@ -25,6 +31,7 @@ export default function CasoNuevo() {
 
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [identificador, setIdentificador] = useState("");
   const [servicio, setServicio] = useState("");
   const [responsable, setResponsable] = useState("");
   const [tocado, setTocado] = useState({});
@@ -32,6 +39,7 @@ export default function CasoNuevo() {
   if (cargando) return <Cargando />;
 
   const motivos = preset(negocio?.rubro).motivos;
+  const comoIdent = comoSeIdentifica(negocio?.rubro);
   const yaEsCliente = clientes.find(
     (c) => c.nombre.toLowerCase() === nombre.trim().toLowerCase()
   );
@@ -46,9 +54,11 @@ export default function CasoNuevo() {
     ? "falta el nombre"
     : !telefono.trim() || !telefonoValido(telefono)
       ? "falta el teléfono"
-      : !servicio.trim()
-        ? "falta qué necesita"
-        : null;
+      : !identificador.trim()
+        ? `falta ${comoIdent.enFrase}`
+        : !servicio.trim()
+          ? "falta qué necesita"
+          : null;
 
   function guardar() {
     const caso = abrirCaso({
@@ -56,6 +66,7 @@ export default function CasoNuevo() {
       nombreCliente: nombre.trim(),
       telefono: telefono.trim(),
       servicio: servicio.trim(),
+      identificador: identificador.trim(),
       responsableId: responsable || null,
     });
     avisarExito(`Listo. El caso de ${nombre.trim()} ya está en la lista de hoy.`);
@@ -110,6 +121,19 @@ export default function CasoNuevo() {
           onBlur={() => setTocado((t) => ({ ...t, telefono: true }))}
           inputMode="tel"
           autoComplete="tel"
+        />
+
+        {/* El identificador va acá y no "después": es lo más certero que
+            tenemos para reconocer el caso, y se lo tiene enfrente. La
+            sección 08 de la cartilla pide cuatro campos en el alta; este es
+            un quinto, decidido a propósito. */}
+        <Campo
+          id="identificador"
+          etiqueta={comoIdent.nombre}
+          ayuda={`Con esto lo vas a encontrar después, sin depender de cómo se escriba el nombre. Ejemplo: ${comoIdent.ejemplo}.`}
+          autoComplete="off"
+          value={identificador}
+          onChange={(e) => setIdentificador(e.target.value)}
         />
 
         <div className="mb-6">

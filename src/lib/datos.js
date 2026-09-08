@@ -235,7 +235,7 @@ export function DatosProvider({ children }) {
     return {
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
-      abrirCaso({ clienteId, nombreCliente, telefono, servicio, responsableId }) {
+      abrirCaso({ clienteId, nombreCliente, telefono, servicio, identificador, responsableId }) {
         // El cliente se puede dar de alta desde la misma pantalla: el mostrador
         // está apurado y con el cliente enfrente.
         const cliente = clienteId
@@ -256,6 +256,7 @@ export function DatosProvider({ children }) {
           numero,
           cliente_id: idCliente,
           servicio,
+          identificador: identificador || null,
           estado: responsableId ? "en_proceso" : "nuevo",
           responsable_id: responsableId || null,
           que_falta: queFaltaPara(

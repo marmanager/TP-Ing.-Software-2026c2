@@ -12,6 +12,7 @@ import {
   queFaltaPara,
   ORDEN_ROLES,
   etiquetaRol,
+  comoSeIdentifica,
 } from "../src/lib/presets.js";
 import { MODULOS } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
@@ -96,4 +97,28 @@ test("el que hace el trabajo se llama distinto en cada rubro", () => {
     assert.equal(etiquetaRol(r.clave, "duenio"), "Dueño");
     assert.equal(etiquetaRol(r.clave, "encargado"), "Encargado");
   }
+});
+
+// El identificador es lo más certero para reconocer un caso, y se pide al
+// abrirlo. Si a un rubro le faltara, el alta quedaría pidiendo "falta
+// undefined undefined".
+test("cada rubro dice cómo identifica un caso, con su artículo", () => {
+  for (const r of RUBROS) {
+    const id = comoSeIdentifica(r.clave);
+    for (const campo of ["nombre", "enFrase", "ejemplo"]) {
+      assert.equal(typeof id[campo], "string", `${r.clave}.identificador sin ${campo}`);
+      assert.ok(id[campo].trim().length > 0, `${r.clave}.identificador.${campo} vacío`);
+    }
+    assert.ok(/^(el|la) /.test(id.enFrase), `${r.clave}: "${id.enFrase}" tendría que empezar con el o la`);
+  }
+});
+
+test("cada rubro identifica por lo suyo", () => {
+  assert.equal(comoSeIdentifica("taller").nombre, "Patente");
+  assert.equal(comoSeIdentifica("medicina").nombre, "DNI");
+  assert.equal(comoSeIdentifica("service").nombre, "Número de serie");
+  // Para meterlo en una oración. Pasar el nombre a minúsculas rompería la
+  // sigla: "falta el dni" en vez de "falta el DNI".
+  assert.equal(comoSeIdentifica("taller").enFrase, "la patente");
+  assert.equal(comoSeIdentifica("medicina").enFrase, "el DNI");
 });
