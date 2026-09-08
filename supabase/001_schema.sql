@@ -114,12 +114,16 @@ create index if not exists paso_caso_idx on paso (caso_id, orden);
 -- ---------- evento ----------
 -- El historial del caso: qué pasó, cuándo y quién lo hizo,
 -- con las palabras del negocio y no con códigos.
+--
+-- "autor" lo manda siempre la aplicación, con el nombre de quien estaba
+-- usando el sistema. El default es sólo una red por si alguien escribe una
+-- fila a mano: no dice un nombre inventado, dice que no se sabe.
 create table if not exists evento (
   id           uuid primary key default gen_random_uuid(),
   caso_id      uuid        not null references caso (id) on delete cascade,
   titulo       text        not null,
   detalle      text,
-  autor        text        not null default 'Mostrador',
+  autor        text        not null default 'Alguien del negocio',
   icono        text        not null default 'carpeta',
   ocurrido_en  timestamptz not null default now()
 );

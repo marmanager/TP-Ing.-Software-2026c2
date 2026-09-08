@@ -15,6 +15,7 @@ import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
 import { pesos } from "./estados";
 import { normalizarInicio } from "./inicio";
+import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 
 const LLAVE = "marmanager.datos.v1";
@@ -210,13 +211,18 @@ export function DatosProvider({ children }) {
       if (error) setAviso("No se pudo borrar en la base: " + error.message);
     };
 
-    const anotar = (casoId, titulo, detalle, icono = "carpeta", autor = "Mostrador") => {
+    // Quién firma el historial. La regla vive en permisos.js y tiene test.
+    const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
+
+    // No recibe autor: si se pudiera pasar de afuera, volverían los
+    // personajes. Lo firma siempre quien está usando el sistema.
+    const anotar = (casoId, titulo, detalle, icono = "carpeta") => {
       const evento = {
         id: nuevoId(),
         caso_id: casoId,
         titulo,
         detalle,
-        autor,
+        autor: firma(),
         icono,
         ocurrido_en: new Date().toISOString(),
       };
@@ -271,7 +277,7 @@ export function DatosProvider({ children }) {
           caso_id: caso.id,
           titulo: "Caso abierto",
           detalle: servicio + ".",
-          autor: "Mostrador",
+          autor: firma(),
           icono: "carpeta",
           ocurrido_en: caso.abierto_en,
         };
@@ -320,7 +326,12 @@ export function DatosProvider({ children }) {
           estado: "en_proceso",
           que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
         });
-        anotar(casoId, "Asignaron el caso", `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`, "persona-mas", "Mostrador");
+        anotar(
+          casoId,
+          "Asignaron el caso",
+          `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`,
+          "persona-mas"
+        );
       },
 
       // ---------- diagnóstico e identificador (SCRUM-50 y SCRUM-51) ----------
@@ -333,8 +344,7 @@ export function DatosProvider({ children }) {
           casoId,
           antes ? "Corrigieron el diagnóstico" : "Cargaron el diagnóstico",
           diagnostico,
-          "diagnostico",
-          "Del taller"
+          "diagnostico"
         );
       },
 
@@ -360,7 +370,7 @@ export function DatosProvider({ children }) {
       // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
       // historial se agrega, nunca se reescribe.
       anotarNota(casoId, texto) {
-        anotar(casoId, "Anotaron algo", texto, "nota", "Mostrador");
+        anotar(casoId, "Anotaron algo", texto, "nota");
       },
 
       cambiarEstado(casoId, estado, queFalta, textoHistorial) {
@@ -389,8 +399,7 @@ export function DatosProvider({ children }) {
           casoId,
           "Sumaron un paso al presupuesto",
           `${nombre} · ${pesos(monto)}`,
-          "nota",
-          "Encargado"
+          "nota"
         );
         return paso;
       },
@@ -408,8 +417,7 @@ export function DatosProvider({ children }) {
           paso.caso_id,
           "Sacaron un paso del presupuesto",
           `${paso.nombre} · ${pesos(paso.monto)}`,
-          "nota",
-          "Encargado"
+          "nota"
         );
       },
 
@@ -430,7 +438,12 @@ export function DatosProvider({ children }) {
           rechazado: "El cliente no lo hace",
           esperando: "Volvieron atrás la respuesta",
         }[estado];
-        anotar(paso.caso_id, dicho, `${paso.nombre} · $${Number(paso.monto).toLocaleString("es-AR")}`, estado === "aprobado" ? "listo" : "nota", "Encargado");
+        anotar(
+          paso.caso_id,
+          dicho,
+          `${paso.nombre} · ${pesos(paso.monto)}`,
+          estado === "aprobado" ? "listo" : "nota"
+        );
       },
 
       // ---------- inventario ----------
@@ -450,7 +463,12 @@ export function DatosProvider({ children }) {
             estado: "en_proceso",
             que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
           });
-          anotar(insumo.caso_id, "Llegó el insumo", `${insumo.nombre}. Ya se puede seguir.`, "camion", "Mostrador");
+          anotar(
+            insumo.caso_id,
+            "Llegó el insumo",
+            `${insumo.nombre}. Ya se puede seguir.`,
+            "camion"
+          );
         }
       },
 
@@ -701,7 +719,7 @@ export function DatosProvider({ children }) {
       descartarAviso: () => setAviso(null),
       descartarExito: () => setExito(null),
     };
-  }, [datos, fuente]);
+  }, [datos, fuente, esDemo, usuario]);
 
   // El Inicio se sirve ya normalizado: las pantallas nunca ven una
   // configuración a medias guardada por una versión anterior.
