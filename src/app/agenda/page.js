@@ -24,10 +24,10 @@ export default function Agenda() {
   const { cargando, turnos, clientes, casos } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({
-    clienteId: "",
+    nombreCliente: "",
+    telefono: "",
     motivo: "",
     empiezaEn: "",
-    minutos: "60",
   });
   useTitulo("Agenda");
 
@@ -44,6 +44,12 @@ export default function Agenda() {
     return acc;
   }, {});
 
+  // Si el nombre coincide con alguien ya cargado, se le suma el turno a esa
+  // ficha; si no, se da de alta el cliente junto con el turno.
+  const yaEsCliente = clientes.find(
+    (c) => c.nombre.toLowerCase() === form.nombreCliente.trim().toLowerCase()
+  );
+
   const motivoApagado = !form.motivo.trim()
     ? "falta el motivo"
     : !form.empiezaEn
@@ -51,9 +57,9 @@ export default function Agenda() {
       : null;
 
   function guardar() {
-    datos.agregarTurno(form);
+    datos.agregarTurno({ ...form, clienteId: yaEsCliente?.id ?? null });
     datos.avisarExito(`Listo. El turno de ${form.motivo.trim()} quedó anotado.`);
-    setForm({ clienteId: "", motivo: "", empiezaEn: "", minutos: "60" });
+    setForm({ nombreCliente: "", telefono: "", motivo: "", empiezaEn: "" });
     setAbierto(false);
   }
 
@@ -75,27 +81,36 @@ export default function Agenda() {
         <Tarjeta className="mb-8 max-w-[560px]">
           <TituloSeccion>Nuevo turno</TituloSeccion>
 
-          <div className="mb-6">
-            <label htmlFor="turno-cliente" className="block font-bold text-cuerpo">
-              Para quién
-            </label>
-            <p className="mt-1 text-apoyo text-tinta-suave">
-              Si es alguien nuevo, dejalo sin elegir y lo cargás cuando llegue.
-            </p>
-            <select
-              id="turno-cliente"
-              value={form.clienteId}
-              onChange={(e) => setForm({ ...form, clienteId: e.target.value })}
-              className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
-            >
-              <option value="">Todavía no sé</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Campo
+            id="turno-cliente"
+            etiqueta="Para quién"
+            ayuda="Si todavía no está cargado, escribí su nombre igual: lo damos de alta con el turno."
+            exito={yaEsCliente ? `Ya es cliente. Le sumamos este turno a ${yaEsCliente.nombre}.` : null}
+            value={form.nombreCliente}
+            onChange={(e) => setForm({ ...form, nombreCliente: e.target.value })}
+            list="clientes-de-la-agenda"
+            autoComplete="off"
+          />
+          <datalist id="clientes-de-la-agenda">
+            {clientes.map((c) => (
+              <option key={c.id} value={c.nombre} />
+            ))}
+          </datalist>
+
+          {/* El teléfono sólo si es alguien nuevo: al que ya está cargado no
+              hay que volver a pedírselo. */}
+          {form.nombreCliente.trim() && !yaEsCliente && (
+            <Campo
+              id="turno-telefono"
+              etiqueta="Su teléfono"
+              ayuda="Opcional. Sirve para avisarle si hay que mover el turno."
+              ejemplo="341 456 7890"
+              type="tel"
+              inputMode="tel"
+              value={form.telefono}
+              onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+            />
+          )}
 
           <Campo
             id="turno-motivo"
@@ -113,18 +128,6 @@ export default function Agenda() {
             value={form.empiezaEn}
             onChange={(e) => setForm({ ...form, empiezaEn: e.target.value })}
           />
-          <Campo
-            id="turno-minutos"
-            etiqueta="Cuánto va a durar"
-            ayuda="En minutos. Sirve para no superponer dos turnos."
-            type="number"
-            min="15"
-            step="15"
-            inputMode="numeric"
-            value={form.minutos}
-            onChange={(e) => setForm({ ...form, minutos: e.target.value })}
-          />
-
           <Boton variante="principal" icono="check" motivo={motivoApagado} onClick={guardar}>
             Guardar el turno
           </Boton>
@@ -157,7 +160,7 @@ export default function Agenda() {
                     <div className="min-w-0 flex-1">
                       <p className={`font-bold ${cancelado ? TONO.cancelado : ""}`}>{t.motivo}</p>
                       <p className="text-tinta-media">
-                        {cliente?.nombre ?? "Sin cliente todavía"} · {t.minutos} min
+                        {cliente?.nombre ?? "Sin cliente todavía"}
                         {caso && (
                           <>
                             {" · "}

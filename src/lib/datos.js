@@ -275,13 +275,21 @@ export function DatosProvider({ children }) {
           ocurrido_en: caso.abierto_en,
         };
 
+        // Abrir un caso es la prueba de que la persona vino: si estaba
+        // anotada desde un turno y nunca había aparecido, queda confirmada.
+        const porConfirmar = datos.clientes.find(
+          (c) => c.id === idCliente && c.confirmado === false
+        );
+
         setDatos((d) => ({
           ...d,
           clientes: cliente
             ? [...d.clientes, cliente]
-            : telefono
-              ? d.clientes.map((c) => (c.id === idCliente ? { ...c, telefono } : c))
-              : d.clientes,
+            : d.clientes.map((c) =>
+                c.id === idCliente
+                  ? { ...c, ...(telefono ? { telefono } : {}), confirmado: true }
+                  : c
+              ),
           casos: [caso, ...d.casos],
           eventos: [evento, ...d.eventos],
         }));
@@ -291,7 +299,12 @@ export function DatosProvider({ children }) {
         // tres a la vez, la base podría recibirlas al revés y rechazarlas.
         (async () => {
           if (cliente) await escribir("cliente", cliente, { insertar: true });
-          else if (telefono) await escribir("cliente", { id: idCliente, telefono });
+          else if (telefono || porConfirmar)
+            await escribir("cliente", {
+              id: idCliente,
+              ...(telefono ? { telefono } : {}),
+              confirmado: true,
+            });
           await escribir("caso", caso, { insertar: true });
           await escribir("evento", evento, { insertar: true });
         })();
@@ -548,25 +561,56 @@ export function DatosProvider({ children }) {
           nombre,
           telefono,
           notas: notas || "",
+          // Alguien lo escribió a propósito: no hay nada que confirmar.
+          confirmado: true,
         };
         setDatos((d) => ({ ...d, clientes: [...d.clientes, cliente] }));
         escribir("cliente", cliente, { insertar: true });
       },
 
       // ---------- agenda ----------
-      agregarTurno({ clienteId, motivo, empiezaEn, minutos }) {
+      // El cliente se puede dar de alta desde acá: alguien llama para pedir
+      // turno y todavía no está cargado. No tiene sentido obligar a salir a
+      // otra pantalla para poder anotarlo.
+      //
+      // Cuánto dura el turno no se pide: en un taller no se sabe de antemano,
+      // y un número inventado no sirve para nada.
+      agregarTurno({ clienteId, nombreCliente, telefono, motivo, empiezaEn }) {
+        const cliente =
+          clienteId || !nombreCliente?.trim()
+            ? null
+            : {
+                id: nuevoId(),
+                negocio_id: datos.negocio.id,
+                nombre: nombreCliente.trim(),
+                telefono: telefono?.trim() || null,
+                notas: "",
+                // Pidió un turno, pero todavía no vino. Se confirma cuando se
+                // le abre el primer caso.
+                confirmado: false,
+              };
+
         const turno = {
           id: nuevoId(),
           negocio_id: datos.negocio.id,
-          cliente_id: clienteId || null,
+          cliente_id: clienteId || cliente?.id || null,
           caso_id: null,
           motivo,
           empieza_en: new Date(empiezaEn).toISOString(),
-          minutos: Number(minutos) || 60,
           estado: "agendado",
         };
-        setDatos((d) => ({ ...d, turnos: [...d.turnos, turno] }));
-        escribir("turno", turno, { insertar: true });
+
+        setDatos((d) => ({
+          ...d,
+          clientes: cliente ? [...d.clientes, cliente] : d.clientes,
+          turnos: [...d.turnos, turno],
+        }));
+
+        // En orden: el turno apunta al cliente por clave foránea.
+        (async () => {
+          if (cliente) await escribir("cliente", cliente, { insertar: true });
+          await escribir("turno", turno, { insertar: true });
+        })();
       },
 
       cambiarEstadoTurno(turnoId, estado) {

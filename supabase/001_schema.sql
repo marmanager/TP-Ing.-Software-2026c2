@@ -40,6 +40,9 @@ create table if not exists cliente (
   telefono    text,
   email       text,
   notas       text,
+  -- El que se anota pidiendo un turno queda "por confirmar" hasta que viene
+  -- de verdad y se le abre el primer caso. El que se carga a mano ya está.
+  confirmado  boolean     not null default true,
   creado_en   timestamptz not null default now()
 );
 
@@ -147,7 +150,6 @@ create table if not exists turno (
   caso_id      uuid        references caso (id) on delete set null,
   motivo       text        not null,
   empieza_en   timestamptz not null,
-  minutos      integer     not null default 60 check (minutos > 0),
   estado       text        not null default 'agendado'
                check (estado in ('agendado', 'confirmado', 'cancelado', 'atendido')),
   creado_en    timestamptz not null default now()
