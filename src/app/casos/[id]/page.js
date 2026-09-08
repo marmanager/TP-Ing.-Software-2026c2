@@ -10,19 +10,30 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
+import { useAuth } from "@/lib/auth";
+import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
 import { ESTADOS, pesos, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
-import { preset, queFaltaPara } from "@/lib/presets";
+import { preset, queFaltaPara, comoSeIdentifica } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function VerCaso() {
   const { id } = useParams();
   const datos = useDatos();
   const { cargando, casos, clientes, empleados, pasos, eventos, insumos, negocio } = datos;
+  const { usuario } = useAuth();
+  const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [eligiendo, setEligiendo] = useState(false);
+  // Diagnóstico, identificador del rubro y notas sueltas (SCRUM-50/51/52).
+  const [editandoDiag, setEditandoDiag] = useState(false);
+  const [diagnostico, setDiagnostico] = useState("");
+  const [editandoIdent, setEditandoIdent] = useState(false);
+  const [identificador, setIdentificador] = useState("");
+  const [anotando, setAnotando] = useState(false);
+  const [nota, setNota] = useState("");
 
   const caso = casos.find((c) => c.id === id);
   useTitulo(caso ? `Caso ${caso.numero}` : "Caso");
@@ -47,6 +58,7 @@ export default function VerCaso() {
   const esperando = mios.filter((p) => p.estado === "esperando");
   const barra = ESTADOS[caso.estado].barra;
   const explica = preset(negocio?.rubro).explica[caso.estado];
+  const comoIdent = comoSeIdentifica(negocio?.rubro);
 
   return (
     <>
@@ -99,17 +111,21 @@ export default function VerCaso() {
             )}
           </dl>
 
-          {/* Un único botón azul: el que casi siempre se va a tocar. */}
-          {mios.length > 0 && (
-            <Link href={`/casos/${caso.id}/pasos`} className="mt-6 block sm:inline-block">
-              <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
-                <Icono nombre="nota" />
-                {esperando.length > 0
-                  ? `Ver los ${esperando.length} pasos a aprobar`
-                  : "Ver los pasos del caso"}
-              </span>
-            </Link>
-          )}
+          {/* Un único botón azul: el que casi siempre se va a tocar.
+              Aparece siempre, también sin pasos: si no, a un caso recién
+              abierto no habría por dónde armarle el presupuesto. */}
+          <Link href={`/casos/${caso.id}/pasos`} className="mt-6 block sm:inline-block">
+            <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
+              <Icono nombre="nota" />
+              {esperando.length > 0
+                ? `Ver los ${esperando.length} pasos a aprobar`
+                : mios.length > 0
+                  ? "Ver los pasos del caso"
+                  : puedeCargar
+                    ? "Armar el presupuesto"
+                    : "Ver el presupuesto"}
+            </span>
+          </Link>
 
           {mios.length > 0 && (
             <p className="mt-3 text-tinta-media">
@@ -225,7 +241,163 @@ export default function VerCaso() {
       </div>
 
       {/* El historial cuenta la historia: qué pasó, cuándo y quién lo hizo. */}
-      <TituloSeccion className="mt-12">Lo que pasó con este caso</TituloSeccion>
+      {/* Lo que pidió el cliente está arriba en "servicio". Acá va lo que
+          encontramos al revisar, que es otra cosa. */}
+      <TituloSeccion className="mt-12">El diagnóstico</TituloSeccion>
+      <Tarjeta>
+        <p className="font-bold text-cuerpo">{comoIdent.nombre}</p>
+        {editandoIdent && puedeCargar ? (
+          <div className="mt-2 max-w-[320px]">
+            <Campo
+              id="identificador"
+              etiqueta={comoIdent.nombre}
+              ayuda={`Con esto lo vas a poder buscar después. Ejemplo: ${comoIdent.ejemplo}.`}
+              autoComplete="off"
+              value={identificador}
+              onChange={(e) => setIdentificador(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-3">
+              <Boton
+                icono="check"
+                motivo={!identificador.trim() ? `falta ${comoIdent.enFrase}` : null}
+                onClick={() => {
+                  datos.ponerIdentificador(caso.id, identificador.trim());
+                  datos.avisarExito(
+                    `Listo. El caso ${caso.numero} ya tiene ${comoIdent.enFrase}.`
+                  );
+                  setEditandoIdent(false);
+                }}
+              >
+                Guardar
+              </Boton>
+              <Boton variante="plano" onClick={() => setEditandoIdent(false)}>
+                Dejarlo
+              </Boton>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <p className="text-tinta-media">
+              {caso.identificador ||
+                `Todavía no cargaron ${comoIdent.enFrase}.`}
+            </p>
+            {puedeCargar && (
+              <Boton
+                variante="plano"
+                icono="nota"
+                onClick={() => {
+                  setIdentificador(caso.identificador ?? "");
+                  setEditandoIdent(true);
+                }}
+              >
+                {caso.identificador
+                  ? "Cambiarlo"
+                  : `Cargar ${comoIdent.enFrase}`}
+              </Boton>
+            )}
+          </div>
+        )}
+
+        <p className="mt-6 font-bold text-cuerpo">Qué encontramos</p>
+        {editandoDiag && puedeCargar ? (
+          <div className="mt-2">
+            <label htmlFor="diagnostico" className="sr-only">
+              Qué encontramos
+            </label>
+            <p className="mt-1 mb-2 text-apoyo text-tinta-suave">
+              Con tus palabras, como se lo explicarías al cliente.
+            </p>
+            <textarea
+              id="diagnostico"
+              rows={4}
+              value={diagnostico}
+              onChange={(e) => setDiagnostico(e.target.value)}
+              placeholder="La correa está flojo y las pastillas al límite."
+              className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
+            />
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Boton
+                icono="check"
+                motivo={!diagnostico.trim() ? "falta escribir qué encontraron" : null}
+                onClick={() => {
+                  datos.cargarDiagnostico(caso.id, diagnostico.trim());
+                  datos.avisarExito(`Listo. El diagnóstico del caso ${caso.numero} quedó anotado.`);
+                  setEditandoDiag(false);
+                }}
+              >
+                Guardar el diagnóstico
+              </Boton>
+              <Boton variante="plano" onClick={() => setEditandoDiag(false)}>
+                Dejarlo
+              </Boton>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1">
+            <p className="max-w-[65ch] text-tinta-media">
+              {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
+            </p>
+            {puedeCargar && (
+              <div className="mt-2">
+                <Boton
+                  variante="plano"
+                  icono="diagnostico"
+                  onClick={() => {
+                    setDiagnostico(caso.diagnostico ?? "");
+                    setEditandoDiag(true);
+                  }}
+                >
+                  {caso.diagnostico ? "Corregir el diagnóstico" : "Cargar el diagnóstico"}
+                </Boton>
+              </div>
+            )}
+          </div>
+        )}
+      </Tarjeta>
+
+      <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
+        <TituloSeccion className="mb-0">Lo que pasó con este caso</TituloSeccion>
+        {puedeCargar && (
+          <Boton icono="nota" onClick={() => setAnotando((v) => !v)}>
+            {anotando ? "Cerrar" : "Anotar algo"}
+          </Boton>
+        )}
+      </div>
+
+      {/* Una nota suelta se agrega al historial: no pisa nada de lo anterior. */}
+      {anotando && puedeCargar && (
+        <Tarjeta className="mb-4">
+          <label htmlFor="nota" className="block font-bold text-cuerpo">
+            Qué querés dejar anotado
+          </label>
+          <p className="mt-1 mb-2 text-apoyo text-tinta-suave">
+            Queda en el historial con la fecha. No borra ni cambia lo de antes.
+          </p>
+          <textarea
+            id="nota"
+            rows={3}
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            placeholder="La clienta avisó que lo pasa a buscar el martes."
+            className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
+          />
+          <div className="mt-3">
+            <Boton
+              icono="check"
+              motivo={!nota.trim() ? "falta escribir la nota" : null}
+              onClick={() => {
+                datos.anotarNota(caso.id, nota.trim());
+                datos.avisarExito("Listo, quedó anotado en el historial.");
+                setNota("");
+                setAnotando(false);
+              }}
+            >
+              Anotarlo
+            </Boton>
+          </div>
+        </Tarjeta>
+      )}
+
       <ol className="flex flex-col gap-6">
         {historial.map((e) => (
           <li key={e.id} className="flex gap-3">

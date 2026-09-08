@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
-import { etiquetaEstado } from "@/lib/presets";
+import { etiquetaEstado, comoSeIdentifica } from "@/lib/presets";
 import FilaCaso from "@/componentes/FilaCaso";
 import Icono from "@/componentes/Icono";
 import { Cargando, Vacio } from "@/componentes/ui";
@@ -19,6 +19,7 @@ export default function Casos() {
   if (cargando) return <Cargando />;
 
   const texto = busqueda.trim().toLowerCase();
+  const comoIdent = comoSeIdentifica(negocio?.rubro);
   const visibles = casos
     .filter((c) => filtro === "todos" || c.estado === filtro)
     .filter((c) => {
@@ -27,6 +28,8 @@ export default function Casos() {
       return (
         String(c.numero).includes(texto) ||
         c.servicio.toLowerCase().includes(texto) ||
+        // Por la patente, la ficha o el número de serie, según el rubro.
+        (c.identificador ?? "").toLowerCase().includes(texto) ||
         (cliente?.nombre ?? "").toLowerCase().includes(texto)
       );
     })
@@ -53,7 +56,8 @@ export default function Casos() {
         Buscar un caso
       </label>
       <p className="mt-1 text-apoyo text-tinta-suave">
-        Por número, por lo que necesita o por el nombre del cliente.
+        Por número, por {comoIdent.enFrase}, por lo que necesita o por el
+        nombre del cliente.
       </p>
       <div className="relative mt-2 mb-6">
         <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-tinta-suave">
@@ -63,7 +67,7 @@ export default function Casos() {
           id="buscar"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="248, frenos, Marcela…"
+          placeholder={`248, ${comoIdent.ejemplo}, frenos, Marcela…`}
           className="block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta pl-13 pr-4 text-cuerpo placeholder:text-tinta-suave"
         />
       </div>

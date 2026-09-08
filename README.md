@@ -30,12 +30,15 @@ Para salir del modo de ejemplo, "Mi negocio" → "Salir del modo de ejemplo".
 
 ## Conectar la base de Supabase
 
-1. En el SQL Editor de Supabase, correr en orden `supabase/001_schema.sql`,
-   `002_seed.sql`, `003_usuario.sql`, `004_negocio_modulos_y_medicina.sql`,
-   `005_rls.sql` y `006_inicio.sql`. Todos se pueden volver a correr cuantas veces
-   haga falta. El 003, el 004 y el 006 hacen falta sólo si la base se creó con una
-   versión anterior del 001. El 005 prende el aislamiento por negocio y no es
-   opcional: sin él, con RLS activado la aplicación no ve ni escribe nada.
+1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
+   de `supabase/`, del `001_schema.sql` al `009_diagnostico.sql`. Todos se pueden
+   volver a correr cuantas veces haga falta.
+
+   Los que agregan columnas o tablas al esquema —003, 004, 006 y 009— hacen falta
+   sólo si la base se creó con una versión anterior del 001; en una base nueva el
+   001 ya las trae. El **005** y el **008** no son opcionales: prenden el
+   aislamiento por negocio y los permisos por rol, y sin ellos, con RLS activado,
+   la aplicación no ve ni escribe nada.
 2. En el panel de Supabase, *Authentication → Providers → Email*: dejar activado
    el ingreso con contraseña. Para la verificación de mail y la recuperación de
    contraseña, además prender *Confirm email* y agregar
@@ -160,8 +163,9 @@ por eso `negocio` no tiene política de alta: no se pueden crear negocios suelto
 
 ## Lo que todavía no está
 
-Google Auth. Tampoco hay invitación de compañeros al mismo negocio ni alta de
-empleados: por ahora cada cuenta tiene su negocio y los casos quedan sin asignar.
+Google Auth. Y las dos que más pidieron en las entrevistas: **generar solo el
+pedido de repuestos** al aprobar un paso —el dolor más grande del taller, que hoy
+resuelven a mano en Excel— y **registrar el cobro** al entregar.
 
 ## Deploy
 

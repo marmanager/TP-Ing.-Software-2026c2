@@ -13,6 +13,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { preset, queFaltaPara } from "./presets";
+import { pesos } from "./estados";
 import { normalizarInicio } from "./inicio";
 import { construirSemilla } from "./semilla";
 
@@ -234,7 +235,7 @@ export function DatosProvider({ children }) {
     return {
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
-      abrirCaso({ clienteId, nombreCliente, telefono, servicio, responsableId }) {
+      abrirCaso({ clienteId, nombreCliente, telefono, servicio, identificador, responsableId }) {
         // El cliente se puede dar de alta desde la misma pantalla: el mostrador
         // está apurado y con el cliente enfrente.
         const cliente = clienteId
@@ -255,6 +256,7 @@ export function DatosProvider({ children }) {
           numero,
           cliente_id: idCliente,
           servicio,
+          identificador: identificador || null,
           estado: responsableId ? "en_proceso" : "nuevo",
           responsable_id: responsableId || null,
           que_falta: queFaltaPara(
@@ -284,10 +286,15 @@ export function DatosProvider({ children }) {
           eventos: [evento, ...d.eventos],
         }));
 
-        if (cliente) escribir("cliente", cliente, { insertar: true });
-        else if (telefono) escribir("cliente", { id: idCliente, telefono });
-        escribir("caso", caso, { insertar: true });
-        escribir("evento", evento, { insertar: true });
+        // En orden y esperando cada una: el caso apunta al cliente, y la
+        // política de `evento` exige que su caso ya exista. Si salieran las
+        // tres a la vez, la base podría recibirlas al revés y rechazarlas.
+        (async () => {
+          if (cliente) await escribir("cliente", cliente, { insertar: true });
+          else if (telefono) await escribir("cliente", { id: idCliente, telefono });
+          await escribir("caso", caso, { insertar: true });
+          await escribir("evento", evento, { insertar: true });
+        })();
 
         return caso;
       },
@@ -302,12 +309,81 @@ export function DatosProvider({ children }) {
         anotar(casoId, "Asignaron el caso", `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`, "persona-mas", "Mostrador");
       },
 
+      // ---------- diagnóstico e identificador (SCRUM-50 y SCRUM-51) ----------
+      // "servicio" es lo que pidió el cliente; "diagnostico" es lo que se
+      // encontró al revisar. Son dos cosas distintas y las dos quedan.
+      cargarDiagnostico(casoId, diagnostico) {
+        const antes = datos.casos.find((c) => c.id === casoId)?.diagnostico;
+        parchearCaso(casoId, { diagnostico });
+        anotar(
+          casoId,
+          antes ? "Corrigieron el diagnóstico" : "Cargaron el diagnóstico",
+          diagnostico,
+          "diagnostico",
+          "Del taller"
+        );
+      },
+
+      ponerIdentificador(casoId, identificador) {
+        parchearCaso(casoId, { identificador });
+      },
+
+      // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
+      // historial se agrega, nunca se reescribe.
+      anotarNota(casoId, texto) {
+        anotar(casoId, "Anotaron algo", texto, "nota", "Mostrador");
+      },
+
       cambiarEstado(casoId, estado, queFalta, textoHistorial) {
         parchearCaso(casoId, { estado, que_falta: queFalta });
         anotar(casoId, textoHistorial.titulo, textoHistorial.detalle, textoHistorial.icono);
       },
 
       // ---------- pasos del presupuesto ----------
+      // Armar el presupuesto es sumar pasos de a uno (SCRUM-59). Cada paso
+      // nace esperando la respuesta del cliente: el presupuesto se aprueba
+      // parte por parte, nunca todo junto.
+      agregarPaso({ casoId, nombre, descripcion, monto }) {
+        const delCaso = datos.pasos.filter((p) => p.caso_id === casoId);
+        const paso = {
+          id: nuevoId(),
+          caso_id: casoId,
+          nombre,
+          descripcion: descripcion || "",
+          monto: Number(monto),
+          estado: "esperando",
+          orden: Math.max(0, ...delCaso.map((p) => p.orden ?? 0)) + 1,
+        };
+        setDatos((d) => ({ ...d, pasos: [...d.pasos, paso] }));
+        escribir("paso", paso, { insertar: true });
+        anotar(
+          casoId,
+          "Sumaron un paso al presupuesto",
+          `${nombre} · ${pesos(monto)}`,
+          "nota",
+          "Encargado"
+        );
+        return paso;
+      },
+
+      // Sólo se borra lo que todavía está esperando respuesta. Borrar algo
+      // que el cliente ya contestó sería borrar un acuerdo; para eso primero
+      // hay que volver atrás la respuesta.
+      eliminarPaso(pasoId) {
+        const paso = datos.pasos.find((p) => p.id === pasoId);
+        if (!paso || paso.estado !== "esperando") return;
+
+        setDatos((d) => ({ ...d, pasos: d.pasos.filter((p) => p.id !== pasoId) }));
+        borrar("paso", pasoId);
+        anotar(
+          paso.caso_id,
+          "Sacaron un paso del presupuesto",
+          `${paso.nombre} · ${pesos(paso.monto)}`,
+          "nota",
+          "Encargado"
+        );
+      },
+
       // Aprobar, rechazar y volver atrás escriben los tres en la base.
       // Así "Volver atrás" sobrevive a un F5, en vez de vivir sólo en memoria.
       responderPaso(pasoId, estado) {

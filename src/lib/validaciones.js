@@ -11,3 +11,9 @@ export const emailValido = (valor = "") =>
 
 // La contraseña necesita al menos 8 caracteres.
 export const contrasenaValida = (valor = "") => valor.length >= 8;
+
+// El monto va en números y sin puntos (cartilla, sección 05: «Escribí el
+// monto con números, sin puntos. Por ejemplo: 120000»). Cero no sirve: un
+// paso que no cuesta nada no es un paso del presupuesto.
+export const montoValido = (valor = "") =>
+  /^\d+$/.test(String(valor).trim()) && Number(valor) > 0;
