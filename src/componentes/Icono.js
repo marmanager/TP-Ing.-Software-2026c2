@@ -106,12 +106,6 @@ const TRAZOS = {
   telefono: (
     <path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2 2A15 15 0 0 1 4 5a2 2 0 0 1 2-2z" />
   ),
-  camara: (
-    <>
-      <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-      <circle cx="12" cy="13" r="3.5" />
-    </>
-  ),
   buscar: (
     <>
       <circle cx="11" cy="11" r="6" />
@@ -155,12 +149,6 @@ const TRAZOS = {
     <>
       <rect x="9" y="9" width="12" height="12" rx="2" />
       <path d="M15 5H5a2 2 0 0 0-2 2v10" />
-    </>
-  ),
-  candado: (
-    <>
-      <rect x="4" y="10" width="16" height="11" rx="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
     </>
   ),
   salir: (

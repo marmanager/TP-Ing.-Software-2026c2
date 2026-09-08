@@ -36,4 +36,8 @@ export const QUIEN_PUEDE = {
   configurarNegocio: "Esto lo cambia el dueño del negocio.",
   manejarEquipo: "Sumar y sacar gente lo hace el dueño del negocio.",
   cargarDatos: "Esto lo cargan el dueño y el encargado.",
+  // Ninguna pantalla la consulta: de esta se encarga sola la base, que no le
+  // manda al técnico los casos que no son suyos. Está para que las cuatro
+  // acciones se puedan explicar con las mismas palabras si hace falta.
+  verTodosLosCasos: "Cada quien ve los casos que tiene asignados.",
 };

@@ -50,8 +50,9 @@ export const MODULOS = {
 
 export const LISTA_MODULOS = Object.values(MODULOS);
 
-// Secciones del núcleo: no se pueden apagar.
-export const RUTAS_NUCLEO = ["/", "/casos", "/clientes", "/negocio"];
+// Cuáles son las secciones del núcleo no se declara acá: la navegación
+// marca con "modulo" las que se pueden apagar, y el resto está siempre.
+// Una segunda lista con lo mismo se desincroniza sola.
 
 // De una lista de claves a las definiciones, salteando las que no existan.
 export const modulosDe = (claves = []) =>
