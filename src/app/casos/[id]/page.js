@@ -306,8 +306,13 @@ export default function VerCaso() {
                 motivo={!identificador.trim() ? `falta ${comoIdent.enFrase}` : null}
                 onClick={() => {
                   datos.ponerIdentificador(caso.id, identificador.trim());
+                  // "Cambiamos" y no "quedó corregida": el artículo de
+                  // enFrase cambia con el rubro y el adjetivo no concuerda
+                  // ("corregida la patente", pero "corregido el DNI").
                   datos.avisarExito(
-                    `Listo. El caso ${caso.numero} ya tiene ${comoIdent.enFrase}.`
+                    caso.identificador
+                      ? `Listo. Cambiamos ${comoIdent.enFrase} del caso ${caso.numero}.`
+                      : `Listo. El caso ${caso.numero} ya tiene ${comoIdent.enFrase}.`
                   );
                   setEditandoIdent(false);
                 }}

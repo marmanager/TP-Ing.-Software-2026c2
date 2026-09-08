@@ -12,7 +12,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
-import { preset, queFaltaPara } from "./presets";
+import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
 import { pesos } from "./estados";
 import { normalizarInicio } from "./inicio";
 import { construirSemilla } from "./semilla";
@@ -338,8 +338,23 @@ export function DatosProvider({ children }) {
         );
       },
 
+      // Cambiar el identificador también va al historial. Es el dato por el
+      // que se busca el caso: si alguien lo cambia y no queda rastro, quien
+      // lo buscaba por el anterior no tiene dónde enterarse. Por eso el
+      // valor viejo va en el detalle y no se pierde.
       ponerIdentificador(casoId, identificador) {
+        const antes = datos.casos.find((c) => c.id === casoId)?.identificador;
+        if (antes === identificador) return;
+
         parchearCaso(casoId, { identificador });
+
+        const comoIdent = comoSeIdentifica(datos.negocio?.rubro);
+        anotar(
+          casoId,
+          antes ? `Corrigieron ${comoIdent.enFrase}` : `Cargaron ${comoIdent.enFrase}`,
+          antes ? `${identificador}. Antes decía ${antes}.` : identificador,
+          "nota"
+        );
       },
 
       // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
