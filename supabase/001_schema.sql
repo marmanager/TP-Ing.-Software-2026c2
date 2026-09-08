@@ -2,18 +2,22 @@
 -- 001_schema.sql — estructura inicial
 -- Proyecto SCRUM · ITBA Grupo 6 · Ingeniería de Software
 --
--- Correr entero en el SQL Editor de Supabase. Es idempotente:
--- se puede volver a correr sin romper nada.
+-- Correr entero en el SQL Editor de Supabase, primero de todos.
+-- Es idempotente: se puede volver a correr sin romper nada.
 --
--- NOTA SOBRE SEGURIDAD (decisión consciente, no olvido):
--- las tablas quedan SIN Row Level Security porque todavía no hay login.
--- Eso significa que la clave anónima puede leer y escribir todo.
--- Es aceptable para el Sprint 1, que corre en localhost con datos inventados.
--- El aislamiento por negocio va junto con el login, en el Sprint 2.
+-- ESTE ARCHIVO SOLO NO ALCANZA. Crea las tablas y nada más: no prende Row
+-- Level Security ni crea la tabla `usuario`, así que una base con sólo el
+-- 001 tiene la clave anónima leyendo y escribiendo todo. El orden completo
+-- está en el README; los que no se pueden saltear son:
+--
+--   003  crea `usuario`, que liga la cuenta con su negocio.
+--   005  prende RLS y aísla por negocio. Sin esto no hay seguridad.
+--   007  crea `invitacion` y el rol de cada cuenta.
+--   008  los permisos por rol, que dependen de mi_rol() (nace en el 007).
 -- ============================================================
 
 -- ---------- negocio ----------
--- Una fila por negocio. En el Sprint 1 hay una sola por cuenta.
+-- Una fila por negocio. Una cuenta pertenece a un solo negocio.
 -- "rubro" elige el preset: renombra las etiquetas de los estados,
 -- no cambia ni el color ni el ícono (regla de la cartilla, sección 02).
 -- "modulos_activos" es la lista de módulos prendidos (SCRUM-38); el preset

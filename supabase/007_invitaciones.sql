@@ -4,6 +4,10 @@
 -- Correr entero en el SQL Editor de Supabase, después de 001..006.
 -- Es idempotente.
 --
+-- NO ES OPCIONAL, ni en una base nueva: además de las invitaciones, acá
+-- nacen usuario.rol, empleado.usuario_id y la función mi_rol(), de las que
+-- depende entero el 008.
+--
 -- QUÉ RESUELVE:
 -- Hasta acá cada cuenta tenía su propio negocio y no había forma de que dos
 -- personas trabajaran sobre el mismo. El RLS ya lo soportaba —todas las

@@ -48,9 +48,10 @@ const conModulos = (negocio) =>
     ? { ...negocio, modulos_activos: preset(negocio.rubro).modulos ?? [] }
     : negocio;
 
-// Lee sólo lo del negocio del usuario. No es aislamiento real (eso son las
-// políticas RLS del Sprint 2): la clave anónima sigue pudiendo leer todo,
-// pero las pantallas ya trabajan con un solo negocio a la vez.
+// Lee sólo lo del negocio del usuario. El filtro por negocio_id es para no
+// traer de más: el aislamiento de verdad lo hacen las políticas RLS
+// (supabase/005_rls.sql), que ya no devolverían nada de otro negocio aunque
+// acá pidiéramos todo.
 async function leerDeSupabase(negocioId) {
   const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones] =
     await Promise.all([
@@ -622,10 +623,10 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- negocio ----------
-      // Crea el negocio al terminar el alta (SCRUM-12). Sólo con Supabase:
-      // el modo de ejemplo ya trae un negocio armado.
+      // Crea el negocio al terminar el alta (SCRUM-12), en los dos modos: el
+      // de ejemplo también empieza sin negocio y pasa por esta misma pantalla.
       //
-      // Va por crear_mi_negocio() y no por un insert suelto: así el negocio
+      // Con Supabase va por crear_mi_negocio() y no por un insert suelto: así el negocio
       // y su vínculo con la cuenta se crean juntos o no se crean, y la tabla
       // `negocio` puede quedar sin política de insert (ver 005_rls.sql).
       async crearNegocio({ nombre, rubro }) {
