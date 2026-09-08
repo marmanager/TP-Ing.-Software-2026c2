@@ -260,8 +260,18 @@ export default function MiNegocio() {
         ) : (
           <>
             <p className="text-tinta-media">
-              Entraste con{" "}
-              <span className="font-bold text-tinta">{usuario?.email ?? "tu cuenta"}</span>.
+              {usuario?.nombre ? (
+                <>
+                  Entraste como{" "}
+                  <span className="font-bold text-tinta">{usuario.nombre}</span>, con{" "}
+                  {usuario.email}.
+                </>
+              ) : (
+                <>
+                  Entraste con{" "}
+                  <span className="font-bold text-tinta">{usuario?.email ?? "tu cuenta"}</span>.
+                </>
+              )}
             </p>
             <div className="mt-4">
               <Boton icono="salir" onClick={salir}>

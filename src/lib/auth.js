@@ -169,7 +169,7 @@ export function AuthProvider({ children }) {
     () => ({
       // Devuelven { ok: true, ... } o { ok: false, error: "texto ya listo" }.
 
-      async crearCuenta({ email, telefono, contrasena }) {
+      async crearCuenta({ nombre, email, telefono, contrasena }) {
         if (!haySupabase)
           return {
             ok: false,
@@ -179,7 +179,10 @@ export function AuthProvider({ children }) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: contrasena,
-          options: { data: { telefono: telefono.trim() } },
+          // Viajan en los datos de la cuenta porque todavía no hay sesión y
+          // las políticas piden una: traerUsuario() los baja a la tabla
+          // `usuario` en el primer ingreso.
+          options: { data: { nombre: nombre.trim(), telefono: telefono.trim() } },
         });
         if (error) return { ok: false, error: traducir(error) };
         // Supabase devuelve un usuario sin identidades cuando el mail ya existe.
@@ -192,8 +195,8 @@ export function AuthProvider({ children }) {
         }
         // La fila de `usuario` no se crea acá: con la verificación de mail
         // prendida todavía no hay sesión, y las políticas de RLS piden una.
-        // La crea traerUsuario() en el primer ingreso, con el teléfono que
-        // viaja en los datos de la cuenta.
+        // La crea traerUsuario() en el primer ingreso, con el nombre y el
+        // teléfono que viajan en los datos de la cuenta.
         if (!data.session) {
           try {
             window.localStorage.setItem(LLAVE_MAIL, email.trim());
