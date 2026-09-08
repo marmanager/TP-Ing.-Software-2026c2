@@ -130,8 +130,8 @@ export const comoSeIdentifica = (rubro) => preset(rubro).identificador;
 // mano en cada pantalla, o un negocio de medicina termina con casos que
 // dicen "Está en el taller".
 //
-// Los estados que dependen de algo de afuera ("esperando") o de una nota
-// puntual los escribe quien los produce, porque no hay un texto único.
+// "esperando" es el único que no sale de acá: depende de qué se está
+// esperando —un repuesto, el sí del cliente— y lo escribe quien lo produce.
 export function queFaltaPara(rubro, estado) {
   const p = preset(rubro);
   switch (estado) {
@@ -141,6 +141,8 @@ export function queFaltaPara(rubro, estado) {
       return p.etiquetas.en_proceso;
     case "revision_final":
       return p.explica.revision_final;
+    case "completado":
+      return "Nada, el caso está cerrado.";
     default:
       return "";
   }

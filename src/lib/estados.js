@@ -102,7 +102,7 @@ export function accionDeFila(caso, { pasos = [], insumos = [] } = {}) {
       }
       return { tipo: "pasos", etiqueta: "Ver los pasos", icono: "nota" };
     case "revision_final":
-      return { tipo: "revisado", etiqueta: "Dar por revisado", icono: "listo" };
+      return { tipo: "entregar", etiqueta: "Entregar y cerrar", icono: "listo" };
     default:
       return { tipo: "ir", etiqueta: "Ver el caso", icono: "carpeta" };
   }

@@ -218,25 +218,56 @@ export default function VerCaso() {
           </Boton>
         )}
 
-        {caso.estado === "revision_final" && (
+        {/* Cerrar se puede desde cualquier estado abierto, no sólo después
+            del control final: un trabajo puede terminarse antes de lo
+            previsto —el cliente lo pasa a buscar, no tenía nada— y obligar a
+            caminar toda la cadena para reflejarlo sería mentirle al estado.
+            El botón dice lo que hace: entrega Y cierra (cartilla, sección 06). */}
+        {caso.estado !== "completado" && (
           <Boton
             icono="listo"
             onClick={() =>
-              datos.cambiarEstado(caso.id, "completado", "Listo para cobrar", {
-                titulo: "Dieron por revisado el trabajo",
-                detalle: "Pasó el control y se puede entregar.",
-                icono: "listo",
-              })
+              datos.cambiarEstado(
+                caso.id,
+                "completado",
+                queFaltaPara(negocio?.rubro, "completado"),
+                {
+                  titulo: "Entregaron el trabajo",
+                  detalle: "El caso queda cerrado.",
+                  icono: "listo",
+                }
+              )
             }
           >
-            Dar por revisado
+            Entregar y cerrar
           </Boton>
         )}
 
         {caso.estado === "completado" && (
-          <p className="text-tinta-media">
-            Este caso ya se entregó y se cerró. No queda nada por hacer.
-          </p>
+          <>
+            <p className="w-full text-tinta-media">
+              Este caso ya se entregó y se cerró.
+            </p>
+            {/* Nada es definitivo: se puede haber cerrado de más. */}
+            <Boton
+              variante="plano"
+              icono="deshacer"
+              onClick={() =>
+                datos.cambiarEstado(
+                  caso.id,
+                  "en_proceso",
+                  queFaltaPara(negocio?.rubro, "en_proceso"),
+                  {
+                    titulo: "Volvieron a abrir el caso",
+                    detalle: "Se había cerrado antes de tiempo.",
+                    icono: "deshacer",
+                  }
+                )
+              }
+            >
+              Volver a abrirlo
+            </Boton>
+          </>
         )}
       </div>
 
