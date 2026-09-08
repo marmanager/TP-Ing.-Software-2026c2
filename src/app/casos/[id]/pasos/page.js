@@ -21,7 +21,7 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { montoValido } from "@/lib/validaciones";
-import { pesos, totalesDeCaso } from "@/lib/estados";
+import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -66,6 +66,12 @@ export default function AprobarPasos() {
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const mios = pasos.filter((p) => p.caso_id === caso.id).sort((a, b) => a.orden - b.orden);
   const { aprobado, esperando, todo, cuantosEsperan } = totalesDeCaso(mios);
+
+  // Con el caso cerrado el presupuesto se lee, no se toca: sumar o aprobar un
+  // paso después de entregado cambiaría lo que ya se cobró. Para eso está
+  // volver a abrir el caso, que es una sola acción y queda en el historial.
+  const abierto = estaAbierto(caso);
+  const sePuedeTocar = puedeResponder && abierto;
 
   const mensaje = [
     `Hola ${cliente?.nombre ?? ""}, te paso el detalle del caso ${caso.numero} (${caso.servicio}).`,
@@ -132,7 +138,7 @@ export default function AprobarPasos() {
       <div className="mt-3">
         <ChipEstado estado={caso.estado} />
       </div>
-      {cuantosEsperan > 0 && (
+      {cuantosEsperan > 0 && abierto && (
         <p className="mt-3 text-cuerpo">
           Falta que {cliente?.nombre ?? "el cliente"} apruebe {cuantosEsperan}{" "}
           {cuantosEsperan === 1 ? "paso" : "pasos"}.
@@ -140,20 +146,42 @@ export default function AprobarPasos() {
       )}
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
-        <TituloSeccion className="mb-0">Pasos a aprobar</TituloSeccion>
-        {puedeResponder && (
+        <TituloSeccion className="mb-0">
+          {abierto ? "Pasos a aprobar" : "Los pasos del caso"}
+        </TituloSeccion>
+        {sePuedeTocar && (
           <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
             {armando ? "Cerrar" : "Sumar un paso"}
           </Boton>
         )}
       </div>
       <p className="mt-2 mb-4 text-tinta-media">
-        {puedeResponder
-          ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
-          : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.cargarDatos}`}
+        {!abierto
+          ? "El caso ya se entregó y se cerró. Los pasos quedan como quedaron."
+          : puedeResponder
+            ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
+            : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.cargarDatos}`}
       </p>
 
-      {armando && puedeResponder && (
+      {!abierto && puedeResponder && (
+        <Tarjeta className="mb-6">
+          <p className="font-bold text-cuerpo">Este caso está cerrado</p>
+          <p className="mt-1 max-w-[65ch] text-tinta-media">
+            Por eso no se suman ni se aprueban pasos: cambiarían un presupuesto que
+            el cliente ya cerró. Si falta algo, volvé a abrir el caso, corregilo y
+            cerralo de nuevo.
+          </p>
+          <Link
+            href={`/casos/${caso.id}`}
+            className="mt-3 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+          >
+            <Icono nombre="deshacer" />
+            Ir al caso para volver a abrirlo
+          </Link>
+        </Tarjeta>
+      )}
+
+      {armando && sePuedeTocar && (
         <Tarjeta className="mb-6">
           <TituloSeccion>Sumar pasos</TituloSeccion>
           <p className="-mt-2 mb-4 text-apoyo text-tinta-suave">
@@ -195,7 +223,7 @@ export default function AprobarPasos() {
 
       {mios.length === 0 ? (
         <Vacio icono="nota" titulo="Todavía no hay pasos">
-          {puedeResponder
+          {sePuedeTocar
             ? "Armá el presupuesto sumando un paso por cada cosa que haya que hacer. El cliente los aprueba de a uno."
             : "Cuando se arme el presupuesto, los pasos aparecen acá."}
         </Vacio>
@@ -221,7 +249,7 @@ export default function AprobarPasos() {
                     {dicho.texto}
                   </p>
 
-                  {!puedeResponder ? null : paso.estado === "esperando" ? (
+                  {!sePuedeTocar ? null : paso.estado === "esperando" ? (
                     <>
                       {/* 52 px de alto, 10 px en medio: para no equivocarse de dedo. */}
                       <div className="mt-3 flex gap-2.5">

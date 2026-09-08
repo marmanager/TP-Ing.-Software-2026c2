@@ -13,7 +13,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ESTADOS, pesos, quienLoTiene } from "@/lib/estados";
+import { ESTADOS, estaAbierto, pesos, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
 import { preset, queFaltaPara, comoSeIdentifica } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
@@ -59,6 +59,12 @@ export default function VerCaso() {
   const barra = ESTADOS[caso.estado].barra;
   const explica = preset(negocio?.rubro).explica[caso.estado];
   const comoIdent = comoSeIdentifica(negocio?.rubro);
+
+  // Un caso cerrado es el registro de lo que pasó, no un borrador: no se le
+  // cambian el diagnóstico ni los pasos sin volver a abrirlo primero. No queda
+  // nada trabado, porque volver a abrirlo está a un toque acá abajo.
+  const abierto = estaAbierto(caso);
+  const sePuedeEditar = puedeCargar && abierto;
 
   return (
     <>
@@ -117,11 +123,11 @@ export default function VerCaso() {
           <Link href={`/casos/${caso.id}/pasos`} className="mt-6 block sm:inline-block">
             <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
               <Icono nombre="nota" />
-              {esperando.length > 0
+              {esperando.length > 0 && abierto
                 ? `Ver los ${esperando.length} pasos a aprobar`
                 : mios.length > 0
                   ? "Ver los pasos del caso"
-                  : puedeCargar
+                  : sePuedeEditar
                     ? "Armar el presupuesto"
                     : "Ver el presupuesto"}
             </span>
@@ -245,8 +251,9 @@ export default function VerCaso() {
 
         {caso.estado === "completado" && (
           <>
-            <p className="w-full text-tinta-media">
-              Este caso ya se entregó y se cerró.
+            <p className="w-full max-w-[65ch] text-tinta-media">
+              Este caso ya se entregó y se cerró. Mientras siga cerrado no se le
+              cambian los pasos ni el diagnóstico.
             </p>
             {/* Nada es definitivo: se puede haber cerrado de más. */}
             <Boton
@@ -276,8 +283,14 @@ export default function VerCaso() {
           encontramos al revisar, que es otra cosa. */}
       <TituloSeccion className="mt-12">El diagnóstico</TituloSeccion>
       <Tarjeta>
+        {!abierto && puedeCargar && (
+          <p className="mb-4 max-w-[65ch] text-tinta-media">
+            El caso está cerrado, así que esto queda como quedó. Si hay algo que
+            corregir, volvé a abrirlo arriba y cerralo de nuevo después.
+          </p>
+        )}
         <p className="font-bold text-cuerpo">{comoIdent.nombre}</p>
-        {editandoIdent && puedeCargar ? (
+        {editandoIdent && sePuedeEditar ? (
           <div className="mt-2 max-w-[320px]">
             <Campo
               id="identificador"
@@ -312,7 +325,7 @@ export default function VerCaso() {
               {caso.identificador ||
                 `Todavía no cargaron ${comoIdent.enFrase}.`}
             </p>
-            {puedeCargar && (
+            {sePuedeEditar && (
               <Boton
                 variante="plano"
                 icono="nota"
@@ -330,7 +343,7 @@ export default function VerCaso() {
         )}
 
         <p className="mt-6 font-bold text-cuerpo">Qué encontramos</p>
-        {editandoDiag && puedeCargar ? (
+        {editandoDiag && sePuedeEditar ? (
           <div className="mt-2">
             <label htmlFor="diagnostico" className="sr-only">
               Qué encontramos
@@ -368,7 +381,7 @@ export default function VerCaso() {
             <p className="max-w-[65ch] text-tinta-media">
               {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
             </p>
-            {puedeCargar && (
+            {sePuedeEditar && (
               <div className="mt-2">
                 <Boton
                   variante="plano"
