@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { pesos } from "@/lib/estados";
+import { casosPorAprobar, pesos } from "@/lib/estados";
 import { haceCuanto } from "@/lib/fechas";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
@@ -19,13 +19,7 @@ export default function AAprobar() {
 
   if (cargando) return <Cargando />;
 
-  const conPendientes = casos
-    .map((caso) => {
-      const pendientes = pasos.filter((p) => p.caso_id === caso.id && p.estado === "esperando");
-      return { caso, pendientes, plata: pendientes.reduce((s, p) => s + Number(p.monto), 0) };
-    })
-    .filter((x) => x.pendientes.length > 0)
-    .sort((a, b) => b.plata - a.plata);
+  const conPendientes = casosPorAprobar(casos, pasos);
 
   const total = conPendientes.reduce((s, x) => s + x.plata, 0);
 
@@ -51,7 +45,7 @@ export default function AAprobar() {
           </div>
 
           <ul className="flex flex-col gap-3">
-            {conPendientes.map(({ caso, pendientes, plata }) => {
+            {conPendientes.map(({ caso, cuantos, plata }) => {
               const cliente = clientes.find((c) => c.id === caso.cliente_id);
               return (
                 <li key={caso.id}>
@@ -69,7 +63,7 @@ export default function AAprobar() {
 
                     <p className="mt-3">
                       <span className="font-bold">
-                        {pendientes.length} {pendientes.length === 1 ? "paso" : "pasos"}
+                        {cuantos} {cuantos === 1 ? "paso" : "pasos"}
                       </span>{" "}
                       por <span className="font-bold tabular-nums">{pesos(plata)}</span>
                     </p>
