@@ -3,7 +3,7 @@
 // Capa de datos con dos backends.
 //
 // Si hay credenciales de Supabase, lee y escribe contra la base.
-// Si no las hay, usa los datos de ejemplo y los guarda en el navegador.
+// Si no las hay, guarda todo en el navegador (el modo de ejemplo).
 // Las pantallas no se enteran de la diferencia: usan siempre estas funciones.
 //
 // Sirve para que los cuatro puedan clonar y levantar el proyecto sin esperar
@@ -125,7 +125,7 @@ export function DatosProvider({ children }) {
         return;
       }
 
-      // Modo de ejemplo: datos de muestra guardados en el navegador.
+      // Modo de ejemplo: lo que haya cargado esta persona en su navegador.
       if (esDemo) {
         const guardado =
           typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
@@ -585,11 +585,18 @@ export function DatosProvider({ children }) {
       // y su vínculo con la cuenta se crean juntos o no se crean, y la tabla
       // `negocio` puede quedar sin política de insert (ver 005_rls.sql).
       async crearNegocio({ nombre, rubro }) {
+        // En modo de ejemplo el negocio se arma en el navegador. Es el mismo
+        // paso que con una cuenta real: sin negocio no hay dónde colgar los
+        // casos, los clientes ni el inventario.
         if (!enSupabase()) {
-          return {
-            ok: false,
-            error: "Para crear un negocio hace falta conectar la base de Supabase.",
+          const negocio = {
+            id: nuevoId(),
+            nombre,
+            rubro,
+            modulos_activos: preset(rubro).modulos ?? [],
           };
+          setDatos((d) => ({ ...d, negocio }));
+          return { ok: true, id: negocio.id };
         }
         const { data, error } = await supabase.rpc("crear_mi_negocio", {
           p_nombre: nombre,
@@ -619,10 +626,11 @@ export function DatosProvider({ children }) {
         escribir("negocio", { id: datos.negocio?.id, inicio: config });
       },
 
-      // Vuelve al estado inicial conocido. Se usa antes de la demo.
+      // Borra todo lo cargado en el navegador y deja el modo de ejemplo como
+      // recién empezado, sin negocio. Sirve para volver a mostrar el alta.
       reiniciar() {
         if (fuente !== "local") {
-          setAviso("Estás conectado a Supabase: para reiniciar, corré supabase/002_seed.sql.");
+          setAviso("Esto sólo se puede en el modo de ejemplo. Tus datos en Supabase no se tocan.");
           return;
         }
         window.localStorage.removeItem(LLAVE);

@@ -43,10 +43,9 @@ export default function CrearNegocio() {
     }
   }, []);
 
-  if (esDemo) {
-    return <YaHayNegocio texto="Estás en el modo de ejemplo, que ya trae un negocio armado." />;
-  }
-  if (usuario?.negocio_id) {
+  // El modo de ejemplo también crea su negocio: es el mismo paso, sólo que se
+  // guarda en el navegador.
+  if (!esDemo && usuario?.negocio_id) {
     return <YaHayNegocio texto="Ya tenés un negocio creado." />;
   }
 

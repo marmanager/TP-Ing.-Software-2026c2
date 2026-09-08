@@ -23,15 +23,19 @@ npm run dev
 Y abrir http://localhost:3000
 
 **No hace falta configurar nada para que ande.** Sin credenciales de Supabase, la
-pantalla de entrada ofrece **"Entrar con los datos de ejemplo"**: se entra sin
-cuenta a un taller con 9 casos abiertos, guardado en tu navegador. Todo funciona:
-abrir casos, hacerlos avanzar, aprobar pasos, cargar inventario, anotar turnos.
-Para salir del modo de ejemplo, "Mi negocio" → "Salir del modo de ejemplo".
+pantalla de entrada ofrece **"Probar sin cuenta"**: creás tu negocio, elegís el
+rubro y usás el sistema entero —abrir casos, hacerlos avanzar, armar
+presupuestos, cargar inventario, anotar turnos—, todo guardado en tu navegador.
+No viene ningún dato inventado: arrancás vacío, como una cuenta nueva de verdad.
+
+Lo único que no se puede sin Supabase es invitar colaboradores, que necesita
+cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `009_diagnostico.sql`. Todos se pueden
+   de `supabase/`, del `001_schema.sql` al `009_diagnostico.sql` (el `002` ya no existe: traía
+   datos inventados y se sacó). Todos se pueden
    volver a correr cuantas veces haga falta.
 
    Los que agregan columnas o tablas al esquema —003, 004, 006 y 009— hacen falta
@@ -51,9 +55,6 @@ Con las claves cargadas, la pantalla de entrada pide mail y contraseña. Sin ell
 sólo queda el modo de ejemplo. La aplicación no dice en pantalla de dónde salen
 los datos: es información de desarrollo, no del negocio.
 
-`002_seed.sql` borra y recrea todo: sirve para volver al estado inicial conocido,
-por ejemplo justo antes de una demo.
-
 ## Cómo está armado
 
 ```
@@ -68,7 +69,7 @@ src/
 └── lib/
     ├── auth.js             sesión: cuentas de Supabase o modo de ejemplo
     ├── datos.js            capa de datos: Supabase si hay claves, si no local
-    ├── semilla.js          los datos de ejemplo
+    ├── semilla.js          el estado inicial del modo de ejemplo: vacío
     ├── estados.js          los cinco estados y sus reglas
     ├── presets.js          los diccionarios de rubro
     ├── modulos.js          el catálogo de módulos que un negocio puede prender

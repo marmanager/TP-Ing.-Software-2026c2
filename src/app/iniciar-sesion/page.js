@@ -3,7 +3,7 @@
 // "Iniciar sesión" (SCRUM-9).
 //
 // Mail y contraseña para entrar a una cuenta ya creada. Aparte queda la vía
-// de escape: recorrer el sistema con los datos de ejemplo, sin contraseña.
+// de escape: probar el sistema sin cuenta, guardando todo en el navegador.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -115,11 +115,11 @@ export default function IniciarSesion() {
         <p className="mt-6 text-apoyo text-tinta-suave">
           {haySupabase
             ? "¿Solo querés recorrer el sistema?"
-            : "Todavía no hay una base de Supabase conectada. Podés recorrer todo el sistema con los datos de ejemplo."}
+            : "Todavía no hay una base de Supabase conectada. Podés recorrer todo el sistema igual: lo que cargues queda en este navegador."}
         </p>
         <div className="mt-2">
           <Boton icono="tienda" onClick={verEjemplo} className="w-full">
-            Entrar con los datos de ejemplo
+            Probar sin cuenta
           </Boton>
         </div>
       </Tarjeta>

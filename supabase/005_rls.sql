@@ -203,18 +203,3 @@ create policy evento_de_mi_negocio on evento
   with check (
     exists (select 1 from caso c where c.id = evento.caso_id and c.negocio_id = mi_negocio())
   );
-
--- ============================================================
--- Nota sobre los datos de ejemplo de 002_seed.sql
---
--- El taller sembrado no es de nadie, así que con RLS prendido no lo ve
--- ninguna cuenta. Para engancharlo a la tuya y entrar con los 9 casos ya
--- cargados, después de crear tu cuenta corré esto cambiando el mail:
---
---   update usuario
---   set negocio_id = '00000000-0000-0000-0000-0000000000b0'
---   where email = 'tu@mail.com';
---
--- Ojo: 002_seed.sql borra y recrea las tablas, y eso también vacía
--- `usuario`. Si lo volvés a correr, hay que volver a crear la cuenta.
--- ============================================================

@@ -4,9 +4,9 @@
 //
 // Dos modos, igual que la capa de datos:
 //   - Con credenciales de Supabase: cuentas reales (email + contraseña).
-//   - Sin credenciales: sólo el modo de ejemplo, que entra sin contraseña con
-//     los datos de muestra del navegador. Así el equipo clona y levanta el
-//     proyecto sin esperar a que alguien reparta las claves (ver README).
+//   - Sin credenciales: el modo de ejemplo, que entra sin contraseña y guarda
+//     todo en el navegador. Así el equipo clona y levanta el proyecto sin
+//     esperar a que alguien reparta las claves (ver README).
 //
 // La tabla `usuario` liga la cuenta con su negocio, y de ahí cuelgan todas
 // las políticas de Row Level Security (supabase/005_rls.sql y 008_permisos.sql).
@@ -174,7 +174,7 @@ export function AuthProvider({ children }) {
           return {
             ok: false,
             error:
-              "Para crear una cuenta hace falta conectar la base de Supabase. Mientras tanto podés entrar con los datos de ejemplo.",
+              "Para crear una cuenta hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -211,7 +211,7 @@ export function AuthProvider({ children }) {
           return {
             ok: false,
             error:
-              "Para iniciar sesión hace falta conectar la base de Supabase. Mientras tanto podés entrar con los datos de ejemplo.",
+              "Para iniciar sesión hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
