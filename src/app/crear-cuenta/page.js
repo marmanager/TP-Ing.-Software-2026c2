@@ -2,8 +2,14 @@
 
 // "Crear tu cuenta" (SCRUM-10).
 //
-// Tres datos: mail, teléfono y contraseña. Con esto la cuenta queda hecha;
-// el nombre del negocio y el rubro se piden después (SCRUM-12).
+// Cuatro datos: nombre, mail, teléfono y contraseña. Con esto la cuenta queda
+// hecha; el nombre del negocio y el rubro se piden después (SCRUM-12).
+//
+// El nombre es de la persona, no del negocio. Va acá porque con él se firma
+// el historial de los casos: sin pedirlo, quien abrió el negocio termina
+// firmando con la parte de su mail antes del arroba, y el equipo lee "qué
+// pasó, cuándo y quién lo hizo" con una dirección de correo en vez de una
+// persona. Son cuatro campos: la sección 05 permite hasta seis.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -19,6 +25,7 @@ export default function CrearCuenta() {
   const { crearCuenta } = useAuth();
   useTitulo("Crear cuenta");
 
+  const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
   const [contrasena, setContrasena] = useState("");
@@ -46,26 +53,28 @@ export default function CrearCuenta() {
       ? "La contraseña necesita al menos 8 caracteres."
       : null;
 
-  const motivo = !email.trim()
-    ? "falta el mail"
-    : !emailValido(email)
-      ? "el mail no tiene forma de mail"
-      : !telefono.trim()
-        ? "falta el teléfono"
-        : !telefonoValido(telefono)
-          ? "el teléfono no es válido"
-          : !contrasena
-            ? "falta la contraseña"
-            : !contrasenaValida(contrasena)
-              ? "la contraseña es muy corta"
-              : enviando
-                ? "creando la cuenta…"
-                : null;
+  const motivo = !nombre.trim()
+    ? "falta tu nombre"
+    : !email.trim()
+      ? "falta el mail"
+      : !emailValido(email)
+        ? "el mail no tiene forma de mail"
+        : !telefono.trim()
+          ? "falta el teléfono"
+          : !telefonoValido(telefono)
+            ? "el teléfono no es válido"
+            : !contrasena
+              ? "falta la contraseña"
+              : !contrasenaValida(contrasena)
+                ? "la contraseña es muy corta"
+                : enviando
+                  ? "creando la cuenta…"
+                  : null;
 
   async function crear() {
     setErrorGeneral(null);
     setEnviando(true);
-    const r = await crearCuenta({ email, telefono, contrasena });
+    const r = await crearCuenta({ nombre, email, telefono, contrasena });
     setEnviando(false);
     if (!r.ok) {
       setErrorGeneral(r.error);
@@ -81,6 +90,16 @@ export default function CrearCuenta() {
       </TituloPantalla>
 
       <Tarjeta>
+        <Campo
+          id="nombre"
+          etiqueta="Tu nombre"
+          ayuda="Cómo te va a ver tu equipo. Con esto se firma lo que hacés en cada caso."
+          ejemplo="Mateo Guevara"
+          autoComplete="name"
+          value={nombre}
+          onChange={alEscribir(setNombre)}
+        />
+
         <Campo
           id="email"
           etiqueta="Tu mail"

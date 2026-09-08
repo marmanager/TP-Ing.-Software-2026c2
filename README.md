@@ -2,7 +2,7 @@
 
 Sistema de gestión de casos para negocios chicos de servicio: taller mecánico,
 medicina, service técnico. Un caso entra, avanza por cinco estados, se le arma
-un presupuesto que el cliente aprueba paso por paso, y se entrega y se cobra.
+un presupuesto que el cliente aprueba paso por paso, y se entrega.
 
 La idea de arquitectura es **un núcleo común más presets por rubro**: las pantallas
 y los estados son siempre los mismos, y el preset del rubro sólo renombra etiquetas.
@@ -23,22 +23,28 @@ npm run dev
 Y abrir http://localhost:3000
 
 **No hace falta configurar nada para que ande.** Sin credenciales de Supabase, la
-pantalla de entrada ofrece **"Entrar con los datos de ejemplo"**: se entra sin
-cuenta a un taller con 9 casos abiertos, guardado en tu navegador. Todo funciona:
-abrir casos, hacerlos avanzar, aprobar pasos, cargar inventario, anotar turnos.
-Para salir del modo de ejemplo, "Mi negocio" → "Salir del modo de ejemplo".
+pantalla de entrada ofrece **"Probar sin cuenta"**: creás tu negocio, elegís el
+rubro y usás el sistema entero —abrir casos, hacerlos avanzar, armar
+presupuestos, cargar inventario, anotar turnos—, todo guardado en tu navegador.
+No viene ningún dato inventado: arrancás vacío, como una cuenta nueva de verdad.
+
+Lo único que no se puede sin Supabase es invitar colaboradores, que necesita
+cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `009_diagnostico.sql`. Todos se pueden
-   volver a correr cuantas veces haga falta.
+   de `supabase/`, del `001_schema.sql` al `011_cliente_por_confirmar.sql` (el `002`
+   ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
+   cuantas veces haga falta.
 
-   Los que agregan columnas o tablas al esquema —003, 004, 006 y 009— hacen falta
-   sólo si la base se creó con una versión anterior del 001; en una base nueva el
-   001 ya las trae. El **005** y el **008** no son opcionales: prenden el
-   aislamiento por negocio y los permisos por rol, y sin ellos, con RLS activado,
-   la aplicación no ve ni escribe nada.
+   **En una base nueva se corren todos.** El 001 crea las tablas y nada más: no
+   trae la tabla `usuario` (003), ni las invitaciones y los roles (007), ni prende
+   el aislamiento (005) o los permisos (008). Saltearse cualquiera de esos cuatro
+   deja la aplicación sin entrar o sin ver nada.
+
+   Los únicos opcionales son **004 y 006**, que arreglan bases creadas con una
+   versión anterior del 001; en una base nueva el 001 ya las trae.
 2. En el panel de Supabase, *Authentication → Providers → Email*: dejar activado
    el ingreso con contraseña. Para la verificación de mail y la recuperación de
    contraseña, además prender *Confirm email* y agregar
@@ -50,9 +56,6 @@ Para salir del modo de ejemplo, "Mi negocio" → "Salir del modo de ejemplo".
 Con las claves cargadas, la pantalla de entrada pide mail y contraseña. Sin ellas
 sólo queda el modo de ejemplo. La aplicación no dice en pantalla de dónde salen
 los datos: es información de desarrollo, no del negocio.
-
-`002_seed.sql` borra y recrea todo: sirve para volver al estado inicial conocido,
-por ejemplo justo antes de una demo.
 
 ## Cómo está armado
 
@@ -68,7 +71,7 @@ src/
 └── lib/
     ├── auth.js             sesión: cuentas de Supabase o modo de ejemplo
     ├── datos.js            capa de datos: Supabase si hay claves, si no local
-    ├── semilla.js          los datos de ejemplo
+    ├── semilla.js          el estado inicial del modo de ejemplo: vacío
     ├── estados.js          los cinco estados y sus reglas
     ├── presets.js          los diccionarios de rubro
     ├── modulos.js          el catálogo de módulos que un negocio puede prender
@@ -144,7 +147,7 @@ en `src/componentes/inicio/cuerpos.js`.
 La entrada al sistema es del Sprint 1: crear cuenta (mail + teléfono + contraseña),
 verificar el mail, iniciar sesión, recuperar la contraseña, crear el negocio y
 elegir el preset del rubro, y cerrar sesión. El modo de ejemplo entra sin cuenta
-con los datos de muestra del navegador.
+y hace ese mismo recorrido desde "crear el negocio", pero contra el navegador.
 
 La verificación de mail y la recuperación de contraseña necesitan el mail prendido
 en el panel de Supabase (ver el paso 2 de "Conectar la base").

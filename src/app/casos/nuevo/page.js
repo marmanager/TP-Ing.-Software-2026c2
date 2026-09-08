@@ -14,25 +14,46 @@
 //
 // Sigue dentro de la regla general de la sección 05: nunca más de seis campos.
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { preset, comoSeIdentifica } from "@/lib/presets";
 import { telefonoValido } from "@/lib/validaciones";
+import { horaYMinutos } from "@/lib/fechas";
 import { Boton, BotonPrincipalFijo, Campo, Cargando } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
+// useSearchParams necesita un límite de Suspense para que la pantalla se
+// pueda seguir generando estática. Adentro no hay nada que esperar: el turno
+// se lee del navegador y el formulario se dibuja igual.
 export default function CasoNuevo() {
+  return (
+    <Suspense fallback={<Cargando />}>
+      <Formulario />
+    </Suspense>
+  );
+}
+
+function Formulario() {
   const router = useRouter();
-  const { cargando, clientes, empleados, negocio, abrirCaso, avisarExito } = useDatos();
+  const { cargando, clientes, empleados, turnos, negocio, abrirCaso, avisarExito } =
+    useDatos();
   useTitulo("Abrir un caso nuevo");
 
-  const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
+  // El caso puede salir de un turno: alguien pidió hora, vino, y esto es lo
+  // que venía a hacer. En ese caso el nombre, el teléfono y el motivo ya
+  // están anotados y no se vuelven a pedir (cartilla, sección 08: el alta
+  // tiene que entrar en un minuto).
+  const idTurno = useSearchParams().get("turno");
+  const turno = turnos.find((t) => t.id === idTurno) ?? null;
+  const delTurno = turno ? clientes.find((c) => c.id === turno.cliente_id) : null;
+
+  const [nombre, setNombre] = useState(delTurno?.nombre ?? "");
+  const [telefono, setTelefono] = useState(delTurno?.telefono ?? "");
   const [identificador, setIdentificador] = useState("");
-  const [servicio, setServicio] = useState("");
+  const [servicio, setServicio] = useState(turno?.motivo ?? "");
   const [responsable, setResponsable] = useState("");
   const [tocado, setTocado] = useState({});
 
@@ -68,6 +89,7 @@ export default function CasoNuevo() {
       servicio: servicio.trim(),
       identificador: identificador.trim(),
       responsableId: responsable || null,
+      turnoId: turno?.id ?? null,
     });
     avisarExito(`Listo. El caso de ${nombre.trim()} ya está en la lista de hoy.`);
     router.push(`/casos/${caso.id}`);
@@ -84,9 +106,17 @@ export default function CasoNuevo() {
       </Link>
 
       <h1 className="text-pantalla">Abrir un caso nuevo</h1>
-      <p className="mt-1 mb-8 max-w-[65ch] text-tinta-media">
+      <p className="mt-1 max-w-[65ch] text-tinta-media">
         Con esto alcanza para empezar. El diagnóstico y el presupuesto se cargan después.
       </p>
+      {turno && (
+        <p className="mt-3 max-w-[65ch] rounded-tarjeta border border-borde bg-superficie p-4 text-tinta-media">
+          Sale del turno de {horaYMinutos(turno.empieza_en)}. Lo que ya estaba
+          anotado viene cargado; revisalo por si cambió algo. Al guardar, el
+          turno queda marcado como que la persona vino.
+        </p>
+      )}
+      <div className="mb-8" />
 
       <div className="max-w-[560px]">
         <Campo

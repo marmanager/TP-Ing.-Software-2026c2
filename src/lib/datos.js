@@ -3,7 +3,7 @@
 // Capa de datos con dos backends.
 //
 // Si hay credenciales de Supabase, lee y escribe contra la base.
-// Si no las hay, usa los datos de ejemplo y los guarda en el navegador.
+// Si no las hay, guarda todo en el navegador (el modo de ejemplo).
 // Las pantallas no se enteran de la diferencia: usan siempre estas funciones.
 //
 // Sirve para que los cuatro puedan clonar y levantar el proyecto sin esperar
@@ -12,9 +12,10 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
-import { preset, queFaltaPara } from "./presets";
+import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
 import { pesos } from "./estados";
 import { normalizarInicio } from "./inicio";
+import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 
 const LLAVE = "marmanager.datos.v1";
@@ -48,9 +49,10 @@ const conModulos = (negocio) =>
     ? { ...negocio, modulos_activos: preset(negocio.rubro).modulos ?? [] }
     : negocio;
 
-// Lee sólo lo del negocio del usuario. No es aislamiento real (eso son las
-// políticas RLS del Sprint 2): la clave anónima sigue pudiendo leer todo,
-// pero las pantallas ya trabajan con un solo negocio a la vez.
+// Lee sólo lo del negocio del usuario. El filtro por negocio_id es para no
+// traer de más: el aislamiento de verdad lo hacen las políticas RLS
+// (supabase/005_rls.sql), que ya no devolverían nada de otro negocio aunque
+// acá pidiéramos todo.
 async function leerDeSupabase(negocioId) {
   const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones] =
     await Promise.all([
@@ -125,7 +127,7 @@ export function DatosProvider({ children }) {
         return;
       }
 
-      // Modo de ejemplo: datos de muestra guardados en el navegador.
+      // Modo de ejemplo: lo que haya cargado esta persona en su navegador.
       if (esDemo) {
         const guardado =
           typeof window !== "undefined" ? window.localStorage.getItem(LLAVE) : null;
@@ -209,13 +211,18 @@ export function DatosProvider({ children }) {
       if (error) setAviso("No se pudo borrar en la base: " + error.message);
     };
 
-    const anotar = (casoId, titulo, detalle, icono = "carpeta", autor = "Mostrador") => {
+    // Quién firma el historial. La regla vive en permisos.js y tiene test.
+    const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
+
+    // No recibe autor: si se pudiera pasar de afuera, volverían los
+    // personajes. Lo firma siempre quien está usando el sistema.
+    const anotar = (casoId, titulo, detalle, icono = "carpeta") => {
       const evento = {
         id: nuevoId(),
         caso_id: casoId,
         titulo,
         detalle,
-        autor,
+        autor: firma(),
         icono,
         ocurrido_en: new Date().toISOString(),
       };
@@ -235,7 +242,15 @@ export function DatosProvider({ children }) {
     return {
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
-      abrirCaso({ clienteId, nombreCliente, telefono, servicio, identificador, responsableId }) {
+      abrirCaso({
+        clienteId,
+        nombreCliente,
+        telefono,
+        servicio,
+        identificador,
+        responsableId,
+        turnoId = null,
+      }) {
         // El cliente se puede dar de alta desde la misma pantalla: el mostrador
         // está apurado y con el cliente enfrente.
         const cliente = clienteId
@@ -270,20 +285,38 @@ export function DatosProvider({ children }) {
           caso_id: caso.id,
           titulo: "Caso abierto",
           detalle: servicio + ".",
-          autor: "Mostrador",
+          autor: firma(),
           icono: "carpeta",
           ocurrido_en: caso.abierto_en,
         };
+
+        // Abrir un caso es la prueba de que la persona vino: si estaba
+        // anotada desde un turno y nunca había aparecido, queda confirmada.
+        const porConfirmar = datos.clientes.find(
+          (c) => c.id === idCliente && c.confirmado === false
+        );
+
+        // Si el caso sale de un turno, ese turno queda atendido y apuntando
+        // acá: la agenda deja de pedir que se confirme algo que ya pasó, y
+        // desde el turno se llega al trabajo que salió de él.
+        const delTurno = turnoId
+          ? { caso_id: caso.id, estado: "atendido" }
+          : null;
 
         setDatos((d) => ({
           ...d,
           clientes: cliente
             ? [...d.clientes, cliente]
-            : telefono
-              ? d.clientes.map((c) => (c.id === idCliente ? { ...c, telefono } : c))
-              : d.clientes,
+            : d.clientes.map((c) =>
+                c.id === idCliente
+                  ? { ...c, ...(telefono ? { telefono } : {}), confirmado: true }
+                  : c
+              ),
           casos: [caso, ...d.casos],
           eventos: [evento, ...d.eventos],
+          turnos: delTurno
+            ? d.turnos.map((t) => (t.id === turnoId ? { ...t, ...delTurno } : t))
+            : d.turnos,
         }));
 
         // En orden y esperando cada una: el caso apunta al cliente, y la
@@ -291,9 +324,16 @@ export function DatosProvider({ children }) {
         // tres a la vez, la base podría recibirlas al revés y rechazarlas.
         (async () => {
           if (cliente) await escribir("cliente", cliente, { insertar: true });
-          else if (telefono) await escribir("cliente", { id: idCliente, telefono });
+          else if (telefono || porConfirmar)
+            await escribir("cliente", {
+              id: idCliente,
+              ...(telefono ? { telefono } : {}),
+              confirmado: true,
+            });
           await escribir("caso", caso, { insertar: true });
           await escribir("evento", evento, { insertar: true });
+          // Último: el turno apunta al caso, así que el caso ya tiene que estar.
+          if (delTurno) await escribir("turno", { id: turnoId, ...delTurno });
         })();
 
         return caso;
@@ -306,7 +346,12 @@ export function DatosProvider({ children }) {
           estado: "en_proceso",
           que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
         });
-        anotar(casoId, "Asignaron el caso", `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`, "persona-mas", "Mostrador");
+        anotar(
+          casoId,
+          "Asignaron el caso",
+          `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`,
+          "persona-mas"
+        );
       },
 
       // ---------- diagnóstico e identificador (SCRUM-50 y SCRUM-51) ----------
@@ -319,19 +364,33 @@ export function DatosProvider({ children }) {
           casoId,
           antes ? "Corrigieron el diagnóstico" : "Cargaron el diagnóstico",
           diagnostico,
-          "diagnostico",
-          "Del taller"
+          "diagnostico"
         );
       },
 
+      // Cambiar el identificador también va al historial. Es el dato por el
+      // que se busca el caso: si alguien lo cambia y no queda rastro, quien
+      // lo buscaba por el anterior no tiene dónde enterarse. Por eso el
+      // valor viejo va en el detalle y no se pierde.
       ponerIdentificador(casoId, identificador) {
+        const antes = datos.casos.find((c) => c.id === casoId)?.identificador;
+        if (antes === identificador) return;
+
         parchearCaso(casoId, { identificador });
+
+        const comoIdent = comoSeIdentifica(datos.negocio?.rubro);
+        anotar(
+          casoId,
+          antes ? `Corrigieron ${comoIdent.enFrase}` : `Cargaron ${comoIdent.enFrase}`,
+          antes ? `${identificador}. Antes decía ${antes}.` : identificador,
+          "nota"
+        );
       },
 
       // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
       // historial se agrega, nunca se reescribe.
       anotarNota(casoId, texto) {
-        anotar(casoId, "Anotaron algo", texto, "nota", "Mostrador");
+        anotar(casoId, "Anotaron algo", texto, "nota");
       },
 
       cambiarEstado(casoId, estado, queFalta, textoHistorial) {
@@ -360,8 +419,7 @@ export function DatosProvider({ children }) {
           casoId,
           "Sumaron un paso al presupuesto",
           `${nombre} · ${pesos(monto)}`,
-          "nota",
-          "Encargado"
+          "nota"
         );
         return paso;
       },
@@ -379,8 +437,7 @@ export function DatosProvider({ children }) {
           paso.caso_id,
           "Sacaron un paso del presupuesto",
           `${paso.nombre} · ${pesos(paso.monto)}`,
-          "nota",
-          "Encargado"
+          "nota"
         );
       },
 
@@ -401,7 +458,12 @@ export function DatosProvider({ children }) {
           rechazado: "El cliente no lo hace",
           esperando: "Volvieron atrás la respuesta",
         }[estado];
-        anotar(paso.caso_id, dicho, `${paso.nombre} · $${Number(paso.monto).toLocaleString("es-AR")}`, estado === "aprobado" ? "listo" : "nota", "Encargado");
+        anotar(
+          paso.caso_id,
+          dicho,
+          `${paso.nombre} · ${pesos(paso.monto)}`,
+          estado === "aprobado" ? "listo" : "nota"
+        );
       },
 
       // ---------- inventario ----------
@@ -421,7 +483,12 @@ export function DatosProvider({ children }) {
             estado: "en_proceso",
             que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
           });
-          anotar(insumo.caso_id, "Llegó el insumo", `${insumo.nombre}. Ya se puede seguir.`, "camion", "Mostrador");
+          anotar(
+            insumo.caso_id,
+            "Llegó el insumo",
+            `${insumo.nombre}. Ya se puede seguir.`,
+            "camion"
+          );
         }
       },
 
@@ -548,25 +615,81 @@ export function DatosProvider({ children }) {
           nombre,
           telefono,
           notas: notas || "",
+          // Alguien lo escribió a propósito: no hay nada que confirmar.
+          confirmado: true,
         };
         setDatos((d) => ({ ...d, clientes: [...d.clientes, cliente] }));
         escribir("cliente", cliente, { insertar: true });
       },
 
       // ---------- agenda ----------
-      agregarTurno({ clienteId, motivo, empiezaEn, minutos }) {
+      // El cliente se puede dar de alta desde acá: alguien llama para pedir
+      // turno y todavía no está cargado. No tiene sentido obligar a salir a
+      // otra pantalla para poder anotarlo.
+      //
+      // Cuánto dura el turno no se pide: en un taller no se sabe de antemano,
+      // y un número inventado no sirve para nada.
+      agregarTurno({ clienteId, nombreCliente, telefono, motivo, empiezaEn }) {
+        const cliente =
+          clienteId || !nombreCliente?.trim()
+            ? null
+            : {
+                id: nuevoId(),
+                negocio_id: datos.negocio.id,
+                nombre: nombreCliente.trim(),
+                telefono: telefono?.trim() || null,
+                notas: "",
+                // Pidió un turno, pero todavía no vino. Se confirma cuando se
+                // le abre el primer caso.
+                confirmado: false,
+              };
+
         const turno = {
           id: nuevoId(),
           negocio_id: datos.negocio.id,
-          cliente_id: clienteId || null,
+          cliente_id: clienteId || cliente?.id || null,
           caso_id: null,
           motivo,
           empieza_en: new Date(empiezaEn).toISOString(),
-          minutos: Number(minutos) || 60,
           estado: "agendado",
         };
-        setDatos((d) => ({ ...d, turnos: [...d.turnos, turno] }));
-        escribir("turno", turno, { insertar: true });
+
+        setDatos((d) => ({
+          ...d,
+          clientes: cliente ? [...d.clientes, cliente] : d.clientes,
+          turnos: [...d.turnos, turno],
+        }));
+
+        // En orden: el turno apunta al cliente por clave foránea.
+        (async () => {
+          if (cliente) await escribir("cliente", cliente, { insertar: true });
+          await escribir("turno", turno, { insertar: true });
+        })();
+      },
+
+      // "Vino a buscarlo": el turno era por un trabajo que ya estaba en
+      // curso, así que no abre ningún caso; sólo deja constancia de que la
+      // persona vino, y de por cuál de sus casos.
+      marcarTurnoAtendido(turnoId, casoId = null) {
+        setDatos((d) => ({
+          ...d,
+          turnos: d.turnos.map((t) =>
+            t.id === turnoId ? { ...t, estado: "atendido", caso_id: casoId } : t
+          ),
+        }));
+        escribir("turno", { id: turnoId, estado: "atendido", caso_id: casoId });
+      },
+
+      // Marcar que vino se puede deshacer, como todo. El caso que haya salido
+      // del turno no se toca: existe por su cuenta y se cierra desde el caso.
+      desmarcarTurnoAtendido(turnoId) {
+        setDatos((d) => ({
+          ...d,
+          turnos: d.turnos.map((t) =>
+            t.id === turnoId ? { ...t, estado: "confirmado", caso_id: null } : t
+          ),
+        }));
+        escribir("turno", { id: turnoId, estado: "confirmado", caso_id: null });
       },
 
       cambiarEstadoTurno(turnoId, estado) {
@@ -578,18 +701,25 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- negocio ----------
-      // Crea el negocio al terminar el alta (SCRUM-12). Sólo con Supabase:
-      // el modo de ejemplo ya trae un negocio armado.
+      // Crea el negocio al terminar el alta (SCRUM-12), en los dos modos: el
+      // de ejemplo también empieza sin negocio y pasa por esta misma pantalla.
       //
-      // Va por crear_mi_negocio() y no por un insert suelto: así el negocio
+      // Con Supabase va por crear_mi_negocio() y no por un insert suelto: así el negocio
       // y su vínculo con la cuenta se crean juntos o no se crean, y la tabla
       // `negocio` puede quedar sin política de insert (ver 005_rls.sql).
       async crearNegocio({ nombre, rubro }) {
+        // En modo de ejemplo el negocio se arma en el navegador. Es el mismo
+        // paso que con una cuenta real: sin negocio no hay dónde colgar los
+        // casos, los clientes ni el inventario.
         if (!enSupabase()) {
-          return {
-            ok: false,
-            error: "Para crear un negocio hace falta conectar la base de Supabase.",
+          const negocio = {
+            id: nuevoId(),
+            nombre,
+            rubro,
+            modulos_activos: preset(rubro).modulos ?? [],
           };
+          setDatos((d) => ({ ...d, negocio }));
+          return { ok: true, id: negocio.id };
         }
         const { data, error } = await supabase.rpc("crear_mi_negocio", {
           p_nombre: nombre,
@@ -619,10 +749,11 @@ export function DatosProvider({ children }) {
         escribir("negocio", { id: datos.negocio?.id, inicio: config });
       },
 
-      // Vuelve al estado inicial conocido. Se usa antes de la demo.
+      // Borra todo lo cargado en el navegador y deja el modo de ejemplo como
+      // recién empezado, sin negocio. Sirve para volver a mostrar el alta.
       reiniciar() {
         if (fuente !== "local") {
-          setAviso("Estás conectado a Supabase: para reiniciar, corré supabase/002_seed.sql.");
+          setAviso("Esto sólo se puede en el modo de ejemplo. Tus datos en Supabase no se tocan.");
           return;
         }
         window.localStorage.removeItem(LLAVE);
@@ -633,7 +764,7 @@ export function DatosProvider({ children }) {
       descartarAviso: () => setAviso(null),
       descartarExito: () => setExito(null),
     };
-  }, [datos, fuente]);
+  }, [datos, fuente, esDemo, usuario]);
 
   // El Inicio se sirve ya normalizado: las pantallas nunca ven una
   // configuración a medias guardada por una versión anterior.

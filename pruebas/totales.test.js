@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { totalesDeCaso } from "../src/lib/estados.js";
+import { casosPorAprobar, totalesDeCaso } from "../src/lib/estados.js";
 
 // Los cinco pasos del caso 248, textuales de la sección 09 de la cartilla.
 const caso248 = [
@@ -59,4 +59,80 @@ test("los montos que vienen como texto desde la base se suman como números", ()
     { monto: "22000.00", estado: "aprobado" },
   ]);
   assert.equal(t.aprobado, 96000, "si se concatenaran daría 74000.0022000.00");
+});
+
+// ---------------------------------------------------------------
+// "A aprobar": qué casos entran y con cuánta plata
+// ---------------------------------------------------------------
+// Misma razón que arriba: el número que sale acá es el que alguien mira
+// para saber cuánto tiene esperando respuesta.
+
+const pasosDe = (casoId, ...estados) =>
+  estados.map((estado, i) => ({
+    id: `${casoId}-${i}`,
+    caso_id: casoId,
+    nombre: `Paso ${i}`,
+    monto: 1000 * (i + 1),
+    estado,
+  }));
+
+test("un caso cerrado no cuenta, aunque le hayan quedado pasos sin contestar", () => {
+  const casos = [
+    { id: "a", estado: "en_proceso" },
+    { id: "b", estado: "completado" },
+  ];
+  const pasos = [...pasosDe("a", "esperando"), ...pasosDe("b", "esperando")];
+
+  const salida = casosPorAprobar(casos, pasos);
+
+  assert.deepEqual(
+    salida.map((x) => x.caso.id),
+    ["a"]
+  );
+  assert.equal(salida[0].plata, 1000);
+});
+
+test("sólo entran los casos que tienen algo sin contestar", () => {
+  const casos = [
+    { id: "a", estado: "en_proceso" },
+    { id: "b", estado: "nuevo" },
+    { id: "c", estado: "esperando" },
+  ];
+  const pasos = [
+    ...pasosDe("a", "aprobado", "rechazado"),
+    ...pasosDe("c", "esperando"),
+  ];
+
+  assert.deepEqual(
+    casosPorAprobar(casos, pasos).map((x) => x.caso.id),
+    ["c"]
+  );
+});
+
+test("van ordenados por lo que hay en juego, no por fecha", () => {
+  const casos = [
+    { id: "poco", estado: "en_proceso" },
+    { id: "mucho", estado: "en_proceso" },
+  ];
+  const pasos = [
+    { id: "1", caso_id: "poco", monto: 5000, estado: "esperando" },
+    { id: "2", caso_id: "mucho", monto: 90000, estado: "esperando" },
+  ];
+
+  const salida = casosPorAprobar(casos, pasos);
+  assert.deepEqual(
+    salida.map((x) => x.caso.id),
+    ["mucho", "poco"]
+  );
+  assert.equal(salida[0].cuantos, 1);
+});
+
+test("los montos que vienen como texto desde la base también se suman bien", () => {
+  const casos = [{ id: "a", estado: "en_proceso" }];
+  const pasos = [
+    { id: "1", caso_id: "a", monto: "58500.00", estado: "esperando" },
+    { id: "2", caso_id: "a", monto: "18000.00", estado: "esperando" },
+  ];
+
+  assert.equal(casosPorAprobar(casos, pasos)[0].plata, 76500);
 });

@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ESTADOS, accionDeFila, quienLoTiene } from "@/lib/estados";
 import { useDatos } from "@/lib/datos";
+import { queFaltaPara } from "@/lib/presets";
 import ChipEstado from "./ChipEstado";
 import { Boton } from "./ui";
 
@@ -33,12 +34,17 @@ export default function FilaCaso({ caso }) {
         return router.push(`/casos/${caso.id}/pasos`);
       case "insumo":
         return datos.marcarInsumoLlegado(accion.insumoId);
-      case "revisado":
-        return datos.cambiarEstado(caso.id, "completado", "Listo para cobrar", {
-          titulo: "Dieron por revisado el trabajo",
-          detalle: "Pasó el control y se puede entregar.",
-          icono: "listo",
-        });
+      case "entregar":
+        return datos.cambiarEstado(
+          caso.id,
+          "completado",
+          queFaltaPara(datos.negocio?.rubro, "completado"),
+          {
+            titulo: "Entregaron el trabajo",
+            detalle: "El caso queda cerrado.",
+            icono: "listo",
+          }
+        );
       case "asignar":
         return setEligiendo((v) => !v);
       default:

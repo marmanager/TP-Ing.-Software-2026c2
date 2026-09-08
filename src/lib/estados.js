@@ -102,10 +102,39 @@ export function accionDeFila(caso, { pasos = [], insumos = [] } = {}) {
       }
       return { tipo: "pasos", etiqueta: "Ver los pasos", icono: "nota" };
     case "revision_final":
-      return { tipo: "revisado", etiqueta: "Dar por revisado", icono: "listo" };
+      return { tipo: "entregar", etiqueta: "Entregar y cerrar", icono: "listo" };
     default:
       return { tipo: "ir", etiqueta: "Ver el caso", icono: "carpeta" };
   }
+}
+
+// Los casos que están esperando que el cliente conteste, con lo que hay en
+// juego en cada uno. Ordenados por plata, no por fecha: lo que más pesa va
+// primero.
+//
+// Un caso cerrado no entra aunque le hayan quedado pasos sin contestar. Se
+// entregó igual —el cliente lo pasó a buscar, o esos pasos no se hicieron—,
+// así que nadie va a contestarlos: sumarlos a "esperando respuesta" infla
+// una plata que ya no está en juego.
+//
+// Vive acá y no en cada pantalla porque la usan dos: "A aprobar" y el módulo
+// del Inicio. Es plata a la vista, y tiene test.
+export function casosPorAprobar(casos, pasos) {
+  return casos
+    .filter(estaAbierto)
+    .map((caso) => {
+      const pendientes = pasos.filter(
+        (p) => p.caso_id === caso.id && p.estado === "esperando"
+      );
+      return {
+        caso,
+        pendientes,
+        cuantos: pendientes.length,
+        plata: pendientes.reduce((total, p) => total + Number(p.monto), 0),
+      };
+    })
+    .filter((x) => x.cuantos > 0)
+    .sort((a, b) => b.plata - a.plata);
 }
 
 export const pesos = (n) =>

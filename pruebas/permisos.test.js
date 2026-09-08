@@ -9,7 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PERMISOS, puede } from "../src/lib/permisos.js";
+import { PERMISOS, puede, quienEscribe } from "../src/lib/permisos.js";
 
 const ROLES = ["duenio", "encargado", "tecnico"];
 const ACCIONES = ["configurarNegocio", "manejarEquipo", "verTodosLosCasos", "cargarDatos"];
@@ -54,4 +54,48 @@ test("sin rol se juega como dueño, para el modo de ejemplo", () => {
 test("una acción que no existe no habilita nada", () => {
   assert.equal(puede("duenio", "borrarTodo"), false);
   assert.equal(puede("inventado", "cargarDatos"), false);
+});
+
+// ---------------------------------------------------------------
+// Quién firma el historial
+// ---------------------------------------------------------------
+// Se testea porque la rama de Supabase no se puede recorrer a mano:
+// hace falta una cuenta con ficha de empleado en un negocio real.
+
+test("en el modo de ejemplo firma quien está mirando", () => {
+  assert.equal(quienEscribe({ esDemo: true }), "Vos");
+});
+
+test("firma con el nombre de la ficha de empleado, que es como lo llama el negocio", () => {
+  const nombre = quienEscribe({
+    usuario: { id: "u1", email: "diego.perez@gmail.com", nombre: "Diego Pérez López" },
+    empleados: [{ id: "e1", usuario_id: "u1", nombre: "Diego" }],
+  });
+  assert.equal(nombre, "Diego");
+});
+
+test("sin ficha vale el nombre de la cuenta: el dueño no necesita ficha", () => {
+  const nombre = quienEscribe({
+    usuario: { id: "u1", email: "ana@taller.com", nombre: "Ana" },
+    empleados: [{ id: "e1", usuario_id: "otro", nombre: "Diego" }],
+  });
+  assert.equal(nombre, "Ana");
+});
+
+test("sin nombre en ningún lado, el mail hasta el arroba", () => {
+  const nombre = quienEscribe({ usuario: { id: "u1", email: "marcela.suarez@gmail.com" } });
+  assert.equal(nombre, "marcela.suarez");
+});
+
+test("nunca firma en blanco: una firma vacía se lee como un olvido del sistema", () => {
+  assert.equal(quienEscribe(), "Alguien del negocio");
+  assert.equal(quienEscribe({ usuario: { id: "u1" } }), "Alguien del negocio");
+  assert.equal(quienEscribe({ usuario: { id: "u1", email: "" } }), "Alguien del negocio");
+  assert.equal(
+    quienEscribe({
+      usuario: { id: "u1", email: "a@b.com", nombre: "   " },
+      empleados: [{ usuario_id: "u1", nombre: "  " }],
+    }),
+    "a"
+  );
 });

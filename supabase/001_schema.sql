@@ -2,18 +2,22 @@
 -- 001_schema.sql — estructura inicial
 -- Proyecto SCRUM · ITBA Grupo 6 · Ingeniería de Software
 --
--- Correr entero en el SQL Editor de Supabase. Es idempotente:
--- se puede volver a correr sin romper nada.
+-- Correr entero en el SQL Editor de Supabase, primero de todos.
+-- Es idempotente: se puede volver a correr sin romper nada.
 --
--- NOTA SOBRE SEGURIDAD (decisión consciente, no olvido):
--- las tablas quedan SIN Row Level Security porque todavía no hay login.
--- Eso significa que la clave anónima puede leer y escribir todo.
--- Es aceptable para el Sprint 1, que corre en localhost con datos inventados.
--- El aislamiento por negocio va junto con el login, en el Sprint 2.
+-- ESTE ARCHIVO SOLO NO ALCANZA. Crea las tablas y nada más: no prende Row
+-- Level Security ni crea la tabla `usuario`, así que una base con sólo el
+-- 001 tiene la clave anónima leyendo y escribiendo todo. El orden completo
+-- está en el README; los que no se pueden saltear son:
+--
+--   003  crea `usuario`, que liga la cuenta con su negocio.
+--   005  prende RLS y aísla por negocio. Sin esto no hay seguridad.
+--   007  crea `invitacion` y el rol de cada cuenta.
+--   008  los permisos por rol, que dependen de mi_rol() (nace en el 007).
 -- ============================================================
 
 -- ---------- negocio ----------
--- Una fila por negocio. En el Sprint 1 hay una sola por cuenta.
+-- Una fila por negocio. Una cuenta pertenece a un solo negocio.
 -- "rubro" elige el preset: renombra las etiquetas de los estados,
 -- no cambia ni el color ni el ícono (regla de la cartilla, sección 02).
 -- "modulos_activos" es la lista de módulos prendidos (SCRUM-38); el preset
@@ -40,6 +44,9 @@ create table if not exists cliente (
   telefono    text,
   email       text,
   notas       text,
+  -- El que se anota pidiendo un turno queda "por confirmar" hasta que viene
+  -- de verdad y se le abre el primer caso. El que se carga a mano ya está.
+  confirmado  boolean     not null default true,
   creado_en   timestamptz not null default now()
 );
 
@@ -107,12 +114,16 @@ create index if not exists paso_caso_idx on paso (caso_id, orden);
 -- ---------- evento ----------
 -- El historial del caso: qué pasó, cuándo y quién lo hizo,
 -- con las palabras del negocio y no con códigos.
+--
+-- "autor" lo manda siempre la aplicación, con el nombre de quien estaba
+-- usando el sistema. El default es sólo una red por si alguien escribe una
+-- fila a mano: no dice un nombre inventado, dice que no se sabe.
 create table if not exists evento (
   id           uuid primary key default gen_random_uuid(),
   caso_id      uuid        not null references caso (id) on delete cascade,
   titulo       text        not null,
   detalle      text,
-  autor        text        not null default 'Mostrador',
+  autor        text        not null default 'Alguien del negocio',
   icono        text        not null default 'carpeta',
   ocurrido_en  timestamptz not null default now()
 );
@@ -147,7 +158,6 @@ create table if not exists turno (
   caso_id      uuid        references caso (id) on delete set null,
   motivo       text        not null,
   empieza_en   timestamptz not null,
-  minutos      integer     not null default 60 check (minutos > 0),
   estado       text        not null default 'agendado'
                check (estado in ('agendado', 'confirmado', 'cancelado', 'atendido')),
   creado_en    timestamptz not null default now()

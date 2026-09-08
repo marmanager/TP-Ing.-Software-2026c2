@@ -9,6 +9,11 @@
 // elegimos Inicio · Casos · Agenda · Mi negocio porque la agenda se usa todos los
 // días, y a los clientes se llega desde cualquier caso.
 //
+// Si el negocio apagó la Agenda, el lugar no queda vacío: lo toma el
+// siguiente destino que ese negocio tenga prendido, en el orden de la lista.
+// Cuatro destinos es lo que la barra puede mostrar, no una casualidad de que
+// justo haya cuatro marcados.
+//
 // El destino activo se marca con color Y con peso, no sólo con color.
 //
 // Los destinos con "modulo" sólo aparecen si ese módulo está prendido en
@@ -36,6 +41,25 @@ const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(hr
 const conModulo = (destinos, negocio) => {
   const activos = negocio?.modulos_activos ?? [];
   return destinos.filter((d) => !d.modulo || activos.includes(d.modulo));
+};
+
+// Los cuatro de abajo en celular: primero los marcados para la barra, y si
+// alguno no está disponible se completa con el resto, sin repetir y
+// respetando el orden en que están escritos.
+const CUANTOS_EN_CELULAR = 4;
+
+const paraCelular = (destinos, negocio) => {
+  const disponibles = conModulo(destinos, negocio);
+  const elegidos = disponibles.filter((d) => d.celular);
+
+  for (const d of disponibles) {
+    if (elegidos.length >= CUANTOS_EN_CELULAR) break;
+    if (!elegidos.includes(d)) elegidos.push(d);
+  }
+
+  return elegidos
+    .slice(0, CUANTOS_EN_CELULAR)
+    .sort((a, b) => destinos.indexOf(a) - destinos.indexOf(b));
 };
 
 export function BarraLateral() {
@@ -86,7 +110,7 @@ export function BarraLateral() {
 export function BarraCelular() {
   const ruta = usePathname();
   const { negocio } = useDatos();
-  const destinos = conModulo(DESTINOS, negocio).filter((d) => d.celular);
+  const destinos = paraCelular(DESTINOS, negocio);
 
   return (
     <nav

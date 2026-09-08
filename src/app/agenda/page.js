@@ -6,6 +6,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
+import { estaAbierto } from "@/lib/estados";
 import { diaLargo, horaYMinutos, paraInput } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -24,10 +25,10 @@ export default function Agenda() {
   const { cargando, turnos, clientes, casos } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({
-    clienteId: "",
+    nombreCliente: "",
+    telefono: "",
     motivo: "",
     empiezaEn: "",
-    minutos: "60",
   });
   useTitulo("Agenda");
 
@@ -44,6 +45,12 @@ export default function Agenda() {
     return acc;
   }, {});
 
+  // Si el nombre coincide con alguien ya cargado, se le suma el turno a esa
+  // ficha; si no, se da de alta el cliente junto con el turno.
+  const yaEsCliente = clientes.find(
+    (c) => c.nombre.toLowerCase() === form.nombreCliente.trim().toLowerCase()
+  );
+
   const motivoApagado = !form.motivo.trim()
     ? "falta el motivo"
     : !form.empiezaEn
@@ -51,9 +58,9 @@ export default function Agenda() {
       : null;
 
   function guardar() {
-    datos.agregarTurno(form);
+    datos.agregarTurno({ ...form, clienteId: yaEsCliente?.id ?? null });
     datos.avisarExito(`Listo. El turno de ${form.motivo.trim()} quedó anotado.`);
-    setForm({ clienteId: "", motivo: "", empiezaEn: "", minutos: "60" });
+    setForm({ nombreCliente: "", telefono: "", motivo: "", empiezaEn: "" });
     setAbierto(false);
   }
 
@@ -75,27 +82,36 @@ export default function Agenda() {
         <Tarjeta className="mb-8 max-w-[560px]">
           <TituloSeccion>Nuevo turno</TituloSeccion>
 
-          <div className="mb-6">
-            <label htmlFor="turno-cliente" className="block font-bold text-cuerpo">
-              Para quién
-            </label>
-            <p className="mt-1 text-apoyo text-tinta-suave">
-              Si es alguien nuevo, dejalo sin elegir y lo cargás cuando llegue.
-            </p>
-            <select
-              id="turno-cliente"
-              value={form.clienteId}
-              onChange={(e) => setForm({ ...form, clienteId: e.target.value })}
-              className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
-            >
-              <option value="">Todavía no sé</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Campo
+            id="turno-cliente"
+            etiqueta="Para quién"
+            ayuda="Si todavía no está cargado, escribí su nombre igual: lo damos de alta con el turno."
+            exito={yaEsCliente ? `Ya es cliente. Le sumamos este turno a ${yaEsCliente.nombre}.` : null}
+            value={form.nombreCliente}
+            onChange={(e) => setForm({ ...form, nombreCliente: e.target.value })}
+            list="clientes-de-la-agenda"
+            autoComplete="off"
+          />
+          <datalist id="clientes-de-la-agenda">
+            {clientes.map((c) => (
+              <option key={c.id} value={c.nombre} />
+            ))}
+          </datalist>
+
+          {/* El teléfono sólo si es alguien nuevo: al que ya está cargado no
+              hay que volver a pedírselo. */}
+          {form.nombreCliente.trim() && !yaEsCliente && (
+            <Campo
+              id="turno-telefono"
+              etiqueta="Su teléfono"
+              ayuda="Opcional. Sirve para avisarle si hay que mover el turno."
+              ejemplo="341 456 7890"
+              type="tel"
+              inputMode="tel"
+              value={form.telefono}
+              onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+            />
+          )}
 
           <Campo
             id="turno-motivo"
@@ -113,18 +129,6 @@ export default function Agenda() {
             value={form.empiezaEn}
             onChange={(e) => setForm({ ...form, empiezaEn: e.target.value })}
           />
-          <Campo
-            id="turno-minutos"
-            etiqueta="Cuánto va a durar"
-            ayuda="En minutos. Sirve para no superponer dos turnos."
-            type="number"
-            min="15"
-            step="15"
-            inputMode="numeric"
-            value={form.minutos}
-            onChange={(e) => setForm({ ...form, minutos: e.target.value })}
-          />
-
           <Boton variante="principal" icono="check" motivo={motivoApagado} onClick={guardar}>
             Guardar el turno
           </Boton>
@@ -146,6 +150,12 @@ export default function Agenda() {
                 const cliente = clientes.find((c) => c.id === t.cliente_id);
                 const caso = casos.find((c) => c.id === t.caso_id);
                 const cancelado = t.estado === "cancelado";
+                // El caso abierto que ya tiene esta persona, si tiene alguno:
+                // entonces el turno es para retirarlo o seguirlo, no para
+                // abrir uno nuevo.
+                const suCaso =
+                  t.cliente_id &&
+                  casos.find((c) => c.cliente_id === t.cliente_id && estaAbierto(c));
                 return (
                   <li
                     key={t.id}
@@ -157,7 +167,7 @@ export default function Agenda() {
                     <div className="min-w-0 flex-1">
                       <p className={`font-bold ${cancelado ? TONO.cancelado : ""}`}>{t.motivo}</p>
                       <p className="text-tinta-media">
-                        {cliente?.nombre ?? "Sin cliente todavía"} · {t.minutos} min
+                        {cliente?.nombre ?? "Sin cliente todavía"}
                         {caso && (
                           <>
                             {" · "}
@@ -176,7 +186,9 @@ export default function Agenda() {
                             ? "listo"
                             : t.estado === "cancelado"
                               ? "cruz"
-                              : "reloj"
+                              : t.estado === "atendido"
+                                ? "persona-check"
+                                : "reloj"
                         }
                         className="size-5"
                       />
@@ -189,8 +201,14 @@ export default function Agenda() {
                             : "Ya vino"}
                     </p>
 
-                    {!cancelado && (
-                      <div className="flex gap-2">
+                    {/* "Vino" quiere decir dos cosas según el turno, y el
+                        sistema lo deduce en vez de preguntarlo: si la persona
+                        ya tiene un caso abierto, el turno es para retirarlo o
+                        para seguirlo, y no hay que abrir nada; si no tiene
+                        ninguno, viene a dejar un trabajo. Así el alta no gana
+                        un sexto campo que casi siempre se contestaría igual. */}
+                    {!cancelado && t.estado !== "atendido" && (
+                      <div className="flex flex-wrap gap-2">
                         {t.estado === "agendado" && (
                           <Boton
                             icono="check"
@@ -199,6 +217,28 @@ export default function Agenda() {
                             Confirmar
                           </Boton>
                         )}
+
+                        {suCaso ? (
+                          <Boton
+                            icono="persona-check"
+                            onClick={() => {
+                              datos.marcarTurnoAtendido(t.id, suCaso.id);
+                              datos.avisarExito(
+                                `Listo. Queda anotado que ${cliente?.nombre ?? "la persona"} vino por el caso ${suCaso.numero}.`
+                              );
+                            }}
+                          >
+                            Vino a buscarlo
+                          </Boton>
+                        ) : (
+                          <Link href={`/casos/nuevo?turno=${t.id}`}>
+                            <span className="flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-4 font-bold text-azul text-etiqueta hover:bg-azul-claro">
+                              <Icono nombre="carpeta" />
+                              Vino · abrirle el caso
+                            </span>
+                          </Link>
+                        )}
+
                         <Boton
                           variante="peligro"
                           icono="cruz"
@@ -207,6 +247,24 @@ export default function Agenda() {
                           Cancelar
                         </Boton>
                       </div>
+                    )}
+
+                    {/* Marcar que vino se puede deshacer, como todo. El caso
+                        que haya salido del turno no se toca: existe por su
+                        cuenta y se cierra desde el caso. */}
+                    {t.estado === "atendido" && (
+                      <Boton
+                        variante="plano"
+                        icono="deshacer"
+                        onClick={() => {
+                          datos.desmarcarTurnoAtendido(t.id);
+                          // Si quedó en pantalla el "queda anotado que vino",
+                          // se va con esto: acabamos de decir lo contrario.
+                          datos.descartarExito();
+                        }}
+                      >
+                        No había venido
+                      </Boton>
                     )}
                   </li>
                 );

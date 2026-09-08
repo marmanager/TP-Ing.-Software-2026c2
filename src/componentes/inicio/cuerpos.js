@@ -8,7 +8,13 @@
 
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
-import { estaAbierto, ORDEN_ESTADOS, pesos, quienLoTiene } from "@/lib/estados";
+import {
+  casosPorAprobar,
+  estaAbierto,
+  ORDEN_ESTADOS,
+  pesos,
+  quienLoTiene,
+} from "@/lib/estados";
 import { ESTADOS } from "@/lib/estados";
 import { etiquetaEstado } from "@/lib/presets";
 import { horaYMinutos, diaLargo } from "@/lib/fechas";
@@ -295,13 +301,7 @@ function CuerpoInventario({ filtro, filas }) {
 function CuerpoAprobar({ filas }) {
   const { casos, clientes, pasos } = useDatos();
 
-  const conPendientes = casos
-    .map((caso) => {
-      const pendientes = pasos.filter((p) => p.caso_id === caso.id && p.estado === "esperando");
-      return { caso, cuantos: pendientes.length, plata: pendientes.reduce((s, p) => s + Number(p.monto), 0) };
-    })
-    .filter((x) => x.cuantos > 0)
-    .sort((a, b) => b.plata - a.plata);
+  const conPendientes = casosPorAprobar(casos, pasos);
 
   if (conPendientes.length === 0) {
     return <SinNada>No hay nada esperando respuesta del cliente.</SinNada>;

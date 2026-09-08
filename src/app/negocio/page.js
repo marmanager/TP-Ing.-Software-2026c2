@@ -245,12 +245,12 @@ export default function MiNegocio() {
               Estás en el modo de ejemplo
             </p>
             <p className="mt-2 max-w-[65ch] text-tinta-media">
-              Los datos son de muestra y viven en este navegador. Al salir volvés a la
-              pantalla de entrada.
+              Lo que cargues vive sólo en este navegador y no lo ve nadie más. Al salir
+              volvés a la pantalla de entrada.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Boton icono="deshacer" onClick={datos.reiniciar}>
-                Volver a los datos de ejemplo
+                Borrar todo y empezar de nuevo
               </Boton>
               <Boton icono="salir" onClick={salir}>
                 Salir del modo de ejemplo
@@ -260,8 +260,18 @@ export default function MiNegocio() {
         ) : (
           <>
             <p className="text-tinta-media">
-              Entraste con{" "}
-              <span className="font-bold text-tinta">{usuario?.email ?? "tu cuenta"}</span>.
+              {usuario?.nombre ? (
+                <>
+                  Entraste como{" "}
+                  <span className="font-bold text-tinta">{usuario.nombre}</span>, con{" "}
+                  {usuario.email}.
+                </>
+              ) : (
+                <>
+                  Entraste con{" "}
+                  <span className="font-bold text-tinta">{usuario?.email ?? "tu cuenta"}</span>.
+                </>
+              )}
             </p>
             <div className="mt-4">
               <Boton icono="salir" onClick={salir}>

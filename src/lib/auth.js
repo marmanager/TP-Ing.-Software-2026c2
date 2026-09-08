@@ -4,9 +4,9 @@
 //
 // Dos modos, igual que la capa de datos:
 //   - Con credenciales de Supabase: cuentas reales (email + contraseña).
-//   - Sin credenciales: sólo el modo de ejemplo, que entra sin contraseña con
-//     los datos de muestra del navegador. Así el equipo clona y levanta el
-//     proyecto sin esperar a que alguien reparta las claves (ver README).
+//   - Sin credenciales: el modo de ejemplo, que entra sin contraseña y guarda
+//     todo en el navegador. Así el equipo clona y levanta el proyecto sin
+//     esperar a que alguien reparta las claves (ver README).
 //
 // La tabla `usuario` liga la cuenta con su negocio, y de ahí cuelgan todas
 // las políticas de Row Level Security (supabase/005_rls.sql y 008_permisos.sql).
@@ -42,7 +42,7 @@ export function invitacionPendiente() {
   }
 }
 
-export function olvidarInvitacion() {
+function olvidarInvitacion() {
   try {
     window.localStorage.removeItem(LLAVE_INVITACION);
   } catch {
@@ -169,17 +169,20 @@ export function AuthProvider({ children }) {
     () => ({
       // Devuelven { ok: true, ... } o { ok: false, error: "texto ya listo" }.
 
-      async crearCuenta({ email, telefono, contrasena }) {
+      async crearCuenta({ nombre, email, telefono, contrasena }) {
         if (!haySupabase)
           return {
             ok: false,
             error:
-              "Para crear una cuenta hace falta conectar la base de Supabase. Mientras tanto podés entrar con los datos de ejemplo.",
+              "Para crear una cuenta hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: contrasena,
-          options: { data: { telefono: telefono.trim() } },
+          // Viajan en los datos de la cuenta porque todavía no hay sesión y
+          // las políticas piden una: traerUsuario() los baja a la tabla
+          // `usuario` en el primer ingreso.
+          options: { data: { nombre: nombre.trim(), telefono: telefono.trim() } },
         });
         if (error) return { ok: false, error: traducir(error) };
         // Supabase devuelve un usuario sin identidades cuando el mail ya existe.
@@ -192,8 +195,8 @@ export function AuthProvider({ children }) {
         }
         // La fila de `usuario` no se crea acá: con la verificación de mail
         // prendida todavía no hay sesión, y las políticas de RLS piden una.
-        // La crea traerUsuario() en el primer ingreso, con el teléfono que
-        // viaja en los datos de la cuenta.
+        // La crea traerUsuario() en el primer ingreso, con el nombre y el
+        // teléfono que viajan en los datos de la cuenta.
         if (!data.session) {
           try {
             window.localStorage.setItem(LLAVE_MAIL, email.trim());
@@ -211,7 +214,7 @@ export function AuthProvider({ children }) {
           return {
             ok: false,
             error:
-              "Para iniciar sesión hace falta conectar la base de Supabase. Mientras tanto podés entrar con los datos de ejemplo.",
+              "Para iniciar sesión hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),

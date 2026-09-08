@@ -71,9 +71,14 @@ test("un caso sin responsable dice lo mismo en todos los rubros", () => {
   }
 });
 
-test("los estados que dependen de algo de afuera los escribe quien los produce", () => {
+test("esperando lo escribe quien lo produce: depende de qué se espera", () => {
   assert.equal(queFaltaPara("taller", "esperando"), "");
-  assert.equal(queFaltaPara("taller", "completado"), "");
+});
+
+test("un caso cerrado no tiene nada pendiente, en ningún rubro", () => {
+  for (const r of RUBROS) {
+    assert.equal(queFaltaPara(r.clave, "completado"), "Nada, el caso está cerrado.");
+  }
 });
 
 // Mismo criterio que los estados: los tres roles son fijos porque la base no

@@ -12,9 +12,13 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useDatos } from "@/lib/datos";
 import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
+import Link from "next/link";
+import { LISTA_MODULOS } from "@/lib/modulos";
+import { Vacio } from "./ui";
 
 // Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
 // acá porque con la verificación prendida el alta no deja sesión abierta.
@@ -33,17 +37,38 @@ const RUTA_CONFIRMAR = "/confirma-tu-mail";
 // negocio, o con negocio. La pantalla explica qué pasa en cada caso.
 const esInvitacion = (ruta) => ruta.startsWith("/unirme");
 
+// La pantalla de un módulo apagado se sigue pudiendo escribir en la barra de
+// direcciones: un favorito viejo, un link que alguien pasó, el módulo apagado
+// hace un rato. No alcanza con sacarlo de la navegación.
+//
+// No manda a otro lado: rebotar sin decir nada deja a la persona convencida
+// de que el sistema se rompió. Explica qué pasó y ofrece prenderlo, que es
+// lo que quería hacer.
+const moduloApagado = (ruta, negocio) => {
+  if (!negocio) return null;
+  const activos = negocio.modulos_activos ?? [];
+  return (
+    LISTA_MODULOS.find(
+      (m) => (ruta === m.ruta || ruta.startsWith(m.ruta + "/")) && !activos.includes(m.clave)
+    ) ?? null
+  );
+};
+
 export default function Guardia({ children }) {
   const { cargando, esDemo, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
+  // En modo de ejemplo el negocio vive en el navegador, no en la cuenta.
+  const { cargando: datosCargando, negocio } = useDatos();
   const ruta = usePathname();
   const router = useRouter();
 
   const hayEntrada = esDemo || Boolean(sesion);
-  const tieneNegocio = esDemo || Boolean(usuario?.negocio_id);
+  const tieneNegocio = esDemo ? Boolean(negocio) : Boolean(usuario?.negocio_id);
 
   // A dónde tendría que estar parada la persona según su estado.
+  const esperando = cargando || datosCargando;
+
   let destino = null;
-  if (!cargando) {
+  if (!esperando) {
     if (!hayEntrada) {
       if (!RUTAS_ENTRADA.includes(ruta) && !esInvitacion(ruta)) destino = "/iniciar-sesion";
     } else if (recuperando && ruta === "/nueva-contrasena") {
@@ -63,7 +88,7 @@ export default function Guardia({ children }) {
     if (destino && destino !== ruta) router.replace(destino);
   }, [destino, ruta, router]);
 
-  if (cargando || (destino && destino !== ruta)) {
+  if (esperando || (destino && destino !== ruta)) {
     return (
       <div
         className="flex min-h-screen items-center justify-center text-tinta-suave"
@@ -84,6 +109,9 @@ export default function Guardia({ children }) {
 
   if (enEntrada) return <PantallaEntrada>{children}</PantallaEntrada>;
 
+  // Con la navegación puesta, así se puede ir a otro lado sin volver atrás.
+  const apagado = moduloApagado(ruta, negocio);
+
   return (
     <>
       <div className="flex min-h-screen">
@@ -91,7 +119,17 @@ export default function Guardia({ children }) {
         <main className="min-w-0 flex-1 pb-20 md:pb-0">
           <div className="mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
             <Aviso />
-            {children}
+            {apagado ? (
+              <Vacio icono="tuerca" titulo={`Tu negocio no tiene ${apagado.nombre}`}>
+                {apagado.descripcion} Si te sirve, se prende desde{" "}
+                <Link href="/negocio/modulos" className="font-bold text-azul">
+                  Mi negocio
+                </Link>
+                , y lo que ya tengas cargado sigue estando.
+              </Vacio>
+            ) : (
+              children
+            )}
           </div>
         </main>
       </div>
