@@ -10,6 +10,7 @@ import {
   agruparPorDia,
   desdeDelPeriodo,
   filtrarHistorial,
+  plataAprobada,
   resumirHistorial,
 } from "../src/lib/historial.js";
 
@@ -111,7 +112,7 @@ test("se agrupan por día local, en el orden en que vienen", () => {
   assert.deepEqual(grupos[1].eventos.map((e) => e.id), ["ayer"]);
 });
 
-test("el resumen cuenta entradas, entregas y movimientos de plata", () => {
+test("el resumen cuenta entradas y entregas", () => {
   const eventos = [
     evento("1", "entro", haceDias(0)),
     evento("2", "entro", haceDias(1)),
@@ -120,9 +121,49 @@ test("el resumen cuenta entradas, entregas y movimientos de plata", () => {
     evento("5", "estado", haceDias(0)),
     evento("6", undefined, haceDias(0)),
   ];
-  assert.deepEqual(resumirHistorial(eventos), {
-    entraron: 2,
-    entregados: 1,
-    movimientosDePlata: 1,
+  assert.deepEqual(resumirHistorial(eventos), { entraron: 2, entregados: 1 });
+});
+
+// ---------------------------------------------------------------
+// La plata aprobada
+// ---------------------------------------------------------------
+
+const paso = (id, estado, monto, aprobado_en = null) => ({ id, estado, monto, aprobado_en });
+
+test("suma sólo lo aprobado: lo que espera o se rechazó no es plata acordada", () => {
+  const pasos = [
+    paso("a", "aprobado", 120000, haceDias(0)),
+    paso("b", "esperando", 45000),
+    paso("c", "rechazado", 30000),
+  ];
+  assert.deepEqual(plataAprobada(pasos, { ahora: AHORA }), { total: 120000, pasos: 1 });
+});
+
+test("en un período cuenta lo que se aprobó dentro de ese período", () => {
+  const pasos = [
+    paso("esta-semana", "aprobado", 50000, haceDias(2)),
+    paso("hace-un-mes", "aprobado", 80000, haceDias(20)),
+  ];
+  assert.deepEqual(plataAprobada(pasos, { periodo: "semana", ahora: AHORA }), {
+    total: 50000,
+    pasos: 1,
   });
+  assert.deepEqual(plataAprobada(pasos, { periodo: "mes", ahora: AHORA }), {
+    total: 130000,
+    pasos: 2,
+  });
+});
+
+test("un aprobado sin fecha no se puede ubicar en un período: cuenta sólo en «Todo»", () => {
+  const pasos = [paso("viejo", "aprobado", 10000, null)];
+  assert.equal(plataAprobada(pasos, { periodo: "semana", ahora: AHORA }).total, 0);
+  assert.equal(plataAprobada(pasos, { periodo: "todo", ahora: AHORA }).total, 10000);
+});
+
+test("los montos que vienen como texto desde la base se suman como números", () => {
+  const pasos = [
+    paso("a", "aprobado", "58500.00", haceDias(0)),
+    paso("b", "aprobado", "18000.00", haceDias(0)),
+  ];
+  assert.equal(plataAprobada(pasos, { periodo: "semana", ahora: AHORA }).total, 76500);
 });

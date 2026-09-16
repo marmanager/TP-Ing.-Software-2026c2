@@ -68,18 +68,35 @@ export function agruparPorDia(eventos) {
   return grupos;
 }
 
-// Los tres números de arriba de la pantalla, para lo que se está mirando.
-//
-// No suma plata a propósito. Un paso aprobado se puede volver atrás, y el
-// evento de "volver atrás" no guarda desde qué respuesta volvió: un total
-// armado sumando eventos podría contar dos veces una aprobación deshecha. La
-// plata se ve paso por paso, que es lo que pide el ticket, y el total real de
-// cada caso está en su pantalla de pasos.
+// Cuántos casos entraron y cuántos se entregaron, en los eventos que se
+// están mirando.
 export function resumirHistorial(eventos) {
   const cuantos = (tipo) => eventos.filter((e) => e.tipo === tipo).length;
   return {
     entraron: cuantos("entro"),
     entregados: cuantos("entrega"),
-    movimientosDePlata: cuantos("plata"),
+  };
+}
+
+// La plata que aprobaron los clientes en el período.
+//
+// Sale de los pasos y no de los eventos. Un paso aprobado ya no se puede
+// volver atrás (014_paso_aprobado_fijo.sql), así que su fecha de aprobación
+// es estable y cada uno cuenta una sola vez. Sumar eventos no serviría: en
+// una base vieja puede haber aprobaciones que después se deshicieron.
+//
+// Un paso aprobado sin fecha —de antes de la columna, en el modo de
+// ejemplo— no se puede ubicar en un período: cuenta sólo en "Todo".
+export function plataAprobada(pasos, { periodo = "todo", ahora = new Date() } = {}) {
+  const desde = desdeDelPeriodo(periodo, ahora);
+  const aprobados = pasos
+    .filter((p) => p.estado === "aprobado")
+    .filter((p) => {
+      if (!desde) return true;
+      return p.aprobado_en && new Date(p.aprobado_en) >= desde;
+    });
+  return {
+    total: aprobados.reduce((suma, p) => suma + Number(p.monto), 0),
+    pasos: aprobados.length,
   };
 }

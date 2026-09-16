@@ -24,6 +24,7 @@ import {
   LISTA_TIPOS,
   agruparPorDia,
   filtrarHistorial,
+  plataAprobada,
   resumirHistorial,
 } from "@/lib/historial";
 import Icono from "@/componentes/Icono";
@@ -48,7 +49,7 @@ function Opcion({ elegida, onClick, children }) {
 }
 
 export default function Historial() {
-  const { cargando, eventos, casos, clientes } = useDatos();
+  const { cargando, eventos, casos, clientes, pasos } = useDatos();
   useTitulo("Historial");
 
   const [periodo, setPeriodo] = useState("semana");
@@ -59,14 +60,14 @@ export default function Historial() {
   // El resumen mira el período entero, sin el filtro de tipo: si no, al
   // elegir "Plata" diría que entraron cero casos, que no es cierto.
   const delPeriodo = filtrarHistorial(eventos, { periodo });
-  const { entraron, entregados, movimientosDePlata } = resumirHistorial(delPeriodo);
+  const { entraron, entregados } = resumirHistorial(delPeriodo);
+  const aprobado = plataAprobada(pasos, { periodo });
   const visibles = filtrarHistorial(eventos, { periodo, tipo });
   const dias = agruparPorDia(visibles);
 
   const numeros = [
     ["Entraron", entraron, entraron === 1 ? "caso" : "casos"],
     ["Se entregaron", entregados, entregados === 1 ? "caso" : "casos"],
-    ["Movimientos de plata", movimientosDePlata, movimientosDePlata === 1 ? "paso" : "pasos"],
   ];
 
   return (
@@ -97,6 +98,19 @@ export default function Historial() {
             </dd>
           </div>
         ))}
+        {/* La plata que los clientes dijeron que sí. Sale de los pasos: lo
+            aprobado ya no se deshace, así que cada paso cuenta una vez. */}
+        <div className="rounded-tarjeta border border-borde bg-tarjeta p-4">
+          <dt className="text-tinta-media">Aprobaron los clientes</dt>
+          <dd className="font-titulo font-extrabold text-dato text-completo tabular-nums">
+            {pesos(aprobado.total)}
+          </dd>
+          <dd className="text-apoyo text-tinta-suave">
+            {aprobado.pasos === 0
+              ? "Ningún paso aprobado"
+              : `En ${aprobado.pasos} ${aprobado.pasos === 1 ? "paso" : "pasos"}`}
+          </dd>
+        </div>
       </dl>
 
       <fieldset className="mb-8">
