@@ -178,27 +178,3 @@ export function queFaltaPara(rubro, estado) {
       return "";
   }
 }
-
-// Al cambiar de rubro, el "qué falta" que escribió el sistema pasa a las
-// palabras del rubro nuevo. Si no, un taller que se pasa a medicina sigue
-// con casos que dicen "Está en el taller".
-//
-// Sólo se reescribe lo que el sistema escribió: si el texto guardado no es
-// exactamente el que el rubro viejo pone para ese estado, lo escribió una
-// persona —"Espera el repuesto de Córdoba"— y se deja como está. Los casos
-// cerrados tampoco se tocan: son el registro de lo que pasó.
-//
-// Devuelve sólo los casos que cambian, con su texto nuevo.
-export function queFaltaAlCambiarDeRubro(casos, rubroViejo, rubroNuevo) {
-  return casos
-    .filter((c) => c.estado !== "completado")
-    .filter((c) => {
-      const delSistema = queFaltaPara(rubroViejo, c.estado);
-      return delSistema !== "" && c.que_falta === delSistema;
-    })
-    .map((c) => ({ id: c.id, que_falta: queFaltaPara(rubroNuevo, c.estado) }))
-    .filter((c) => {
-      const antes = casos.find((x) => x.id === c.id).que_falta;
-      return c.que_falta !== antes;
-    });
-}

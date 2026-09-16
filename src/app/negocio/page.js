@@ -51,13 +51,16 @@ export default function MiNegocio() {
     setRubroElegido(null);
   }
 
+  // El rubro queda fijo desde el primer caso (SCRUM-90). Antes se puede
+  // cambiar, porque equivocarse al elegirlo al crear el negocio tiene que
+  // tener arreglo. Después no: los casos ya están cargados con las palabras
+  // de ese oficio —patentes, mecánicos, motivos— y cambiarle el nombre a
+  // todo no los convierte en casos de otro oficio.
+  const rubroFijo = casos.length > 0;
+
   function confirmarRubro() {
-    const reescritos = datos.cambiarRubro(rubroElegido);
-    datos.avisarExito(
-      reescritos
-        ? `Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}, y ${reescritos} ${reescritos === 1 ? "caso abierto ya dice" : "casos abiertos ya dicen"} qué falta con las palabras nuevas.`
-        : `Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}.`
-    );
+    if (!datos.cambiarRubro(rubroElegido)) return;
+    datos.avisarExito(`Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}.`);
     cerrarCambioDeRubro();
   }
 
@@ -149,7 +152,14 @@ export default function MiNegocio() {
               rubro cambia cómo se llaman los estados y qué motivos te ofrecemos al abrir un
               caso.
             </p>
-            {puedeConfigurar ? (
+            {rubroFijo ? (
+              <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
+                Queda fijo desde que abriste el primer caso: los casos que ya tenés
+                están cargados con las palabras de{" "}
+                {actual.nombre.toLowerCase()}, con {actual.identificador.enFrase} y
+                todo, y cambiarle el nombre al rubro no los convierte en otra cosa.
+              </p>
+            ) : puedeConfigurar ? (
               <div className="mt-4">
                 <Boton icono="tienda" onClick={() => setCambiandoRubro(true)}>
                   Cambiar el rubro
@@ -218,21 +228,17 @@ export default function MiNegocio() {
                     «{nuevo.roles.tecnico}».
                   </li>
                   <li>Los motivos y los ejemplos que te ofrecemos al cargar algo.</li>
-                  <li>
-                    En los casos abiertos, el «qué falta» que puso el sistema. Lo que
-                    escribió alguien a mano queda igual.
-                  </li>
                 </ul>
 
                 <p className="mt-4 font-bold text-cuerpo">Qué no cambia</p>
                 <ul className="mt-1 flex flex-col gap-1 text-tinta-media">
-                  <li>
-                    Los datos de tus casos: el estado, lo que pidió el cliente, el
-                    diagnóstico, {actual.identificador.enFrase} que ya cargaste y la plata.
-                  </li>
-                  <li>Los casos cerrados, que quedan como se entregaron.</li>
                   <li>Los módulos que tenés prendidos.</li>
                 </ul>
+
+                <p className="mt-4 max-w-[65ch] text-tinta-media">
+                  Se puede cambiar sólo hasta que abras el primer caso. Después queda
+                  fijo.
+                </p>
 
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Boton icono="check" onClick={confirmarRubro}>
