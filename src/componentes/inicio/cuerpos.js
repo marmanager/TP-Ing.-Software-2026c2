@@ -420,7 +420,7 @@ function CuerpoClientes({ filtro, filas }) {
   );
 }
 
-// ---------- lo último que pasó ----------
+// ---------- historial ----------
 
 function CuerpoHistorial({ filtro, filas }) {
   const { eventos, casos } = useDatos();

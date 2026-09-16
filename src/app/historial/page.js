@@ -7,8 +7,7 @@
 // semana, qué se entregó, cuánta plata se movió en cada paso.
 //
 // Se filtra por período y por tipo. El tipo lo guarda cada evento (ver
-// lib/historial.js): los eventos de antes de 013_evento_tipo.sql sólo
-// aparecen en "Todo".
+// lib/historial.js).
 //
 // Un técnico ve sólo lo de sus casos: la base no le manda los eventos de
 // los demás.

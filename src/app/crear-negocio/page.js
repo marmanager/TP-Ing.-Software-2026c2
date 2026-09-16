@@ -73,7 +73,7 @@ export default function CrearNegocio() {
 
   return (
     <>
-      <TituloPantalla apoyo="Un paso y entrás. Todo esto lo cambiás después desde Mi negocio.">
+      <TituloPantalla apoyo="Un paso y entrás.">
         Crear tu negocio
       </TituloPantalla>
 
@@ -126,7 +126,8 @@ export default function CrearNegocio() {
         <p className="font-bold text-cuerpo">¿A qué se dedica?</p>
         <p className="mt-1 mb-3 text-apoyo text-tinta-suave">
           Elegí el más parecido. Cambia cómo se llaman los estados y qué te ofrece el
-          sistema; después lo ajustás.
+          sistema. Si te equivocás, se corrige desde Mi negocio hasta que abras el
+          primer caso; después queda fijo.
         </p>
         <ul className="grid gap-3">
           {RUBROS.map((r) => {

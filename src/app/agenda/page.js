@@ -250,7 +250,7 @@ export default function Agenda() {
                       </div>
                     )}
 
-                    {/* Marcar que vino se puede deshacer, como todo. El caso
+                    {/* Marcar que vino se puede deshacer. El caso
                         que haya salido del turno no se toca: existe por su
                         cuenta y se cierra desde el caso. */}
                     {t.estado === "atendido" && (

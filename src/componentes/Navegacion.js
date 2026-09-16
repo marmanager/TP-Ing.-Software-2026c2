@@ -34,7 +34,7 @@ const DESTINOS = [
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   // Núcleo, no módulo: lo que pasó en el negocio le sirve a cualquier rubro.
   // En celular no entra en la barra de abajo; se llega desde su módulo del
-  // Inicio, "Lo último que pasó", igual que a Clientes o a Equipo.
+  // Inicio, que viene puesto por defecto.
   { href: "/historial", icono: "historial", palabra: "Historial" },
   { href: "/negocio", icono: "tienda", palabra: "Mi negocio", celular: true },
 ];

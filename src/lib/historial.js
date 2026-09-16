@@ -9,26 +9,27 @@
 // alguien cambia "Entregaron el trabajo" por otra frase, un filtro que
 // dependiera de esa frase dejaría de encontrar las entregas sin avisar.
 //
-// Los eventos anteriores a la columna no tienen tipo. Aparecen en "Todo" y en
-// ningún filtro: mejor no mostrarlos en un filtro que mostrarlos en el que no
-// es.
+// A los eventos que ya existían la migración les puso tipo según su título.
+// El que no coincidió con ninguna frase conocida quedó sin tipo: aparece en
+// "Todo" y en ningún filtro, porque es mejor no mostrarlo en un filtro que
+// mostrarlo en el que no es.
 //
 // Acá no hay nada de React: son datos y funciones puras, con test.
 
-export const TIPOS_EVENTO = {
-  entro: { clave: "entro", palabra: "Entraron", icono: "carpeta" },
-  estado: { clave: "estado", palabra: "Cambiaron de estado", icono: "llave" },
-  entrega: { clave: "entrega", palabra: "Se entregaron", icono: "listo" },
-  plata: { clave: "plata", palabra: "Plata", icono: "nota" },
-  nota: { clave: "nota", palabra: "Anotaciones", icono: "diagnostico" },
+const TIPOS_EVENTO = {
+  entro: { clave: "entro", palabra: "Entraron" },
+  estado: { clave: "estado", palabra: "Cambiaron de estado" },
+  entrega: { clave: "entrega", palabra: "Se entregaron" },
+  plata: { clave: "plata", palabra: "Plata" },
+  nota: { clave: "nota", palabra: "Anotaciones" },
 };
 
 export const LISTA_TIPOS = Object.values(TIPOS_EVENTO);
 
-// Desde cuándo mirar. "semana" y "mes" cuentan hacia atrás desde hoy a la
-// medianoche, no desde este instante: "esta semana" incluye la mañana de hace
-// siete días entera.
-export const PERIODOS = {
+// Desde cuándo mirar. "semana" y "mes" cuentan días enteros hacia atrás, no
+// horas desde este instante: los últimos 7 días son hoy y los seis
+// anteriores, cada uno desde la medianoche.
+const PERIODOS = {
   semana: { clave: "semana", palabra: "Últimos 7 días", dias: 7 },
   mes: { clave: "mes", palabra: "Últimos 30 días", dias: 30 },
   todo: { clave: "todo", palabra: "Todo", dias: null },

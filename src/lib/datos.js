@@ -479,9 +479,9 @@ export function DatosProvider({ children }) {
         return paso;
       },
 
-      // Sólo se borra lo que todavía está esperando respuesta. Borrar algo
-      // que el cliente ya contestó sería borrar un acuerdo; para eso primero
-      // hay que volver atrás la respuesta.
+      // Sólo se borra lo que todavía está esperando respuesta. Un rechazado
+      // primero vuelve a esperar respuesta; uno aprobado no se borra nunca,
+      // porque es un acuerdo con el cliente (014_paso_aprobado_fijo.sql).
       eliminarPaso(pasoId) {
         const paso = datos.pasos.find((p) => p.id === pasoId);
         if (!paso || paso.estado !== "esperando") return;
@@ -498,8 +498,8 @@ export function DatosProvider({ children }) {
         });
       },
 
-      // Aprobar, rechazar y volver atrás escriben los tres en la base.
-      // Así "Volver atrás" sobrevive a un F5, en vez de vivir sólo en memoria.
+      // Aprobar, rechazar y volver a esperar respuesta escriben los tres en
+      // la base, así sobreviven a un F5 en vez de vivir sólo en memoria.
       //
       // Lo que el cliente aprobó ya no se cambia: es un acuerdo. Lo rechazado
       // sí puede volver a esperar respuesta, porque el cliente puede cambiar
@@ -753,7 +753,7 @@ export function DatosProvider({ children }) {
         escribir("turno", { id: turnoId, estado: "atendido", caso_id: casoId });
       },
 
-      // Marcar que vino se puede deshacer, como todo. El caso que haya salido
+      // Marcar que vino se puede deshacer. El caso que haya salido
       // del turno no se toca: existe por su cuenta y se cierra desde el caso.
       desmarcarTurnoAtendido(turnoId) {
         setDatos((d) => ({
