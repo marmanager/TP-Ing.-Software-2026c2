@@ -6,6 +6,10 @@
 // Las clases de Tailwind van escritas enteras a propósito: el escáner de
 // Tailwind lee el código fuente, así que un `bg-${x}-fondo` no generaría nada.
 
+// La extensión va escrita: Next la perdona, pero `node --test` corre con el
+// ESM de Node, que la pide. Sin ella los tests no encuentran el módulo.
+import { preset } from "./presets.js";
+
 export const ORDEN_ESTADOS = [
   "nuevo",
   "en_proceso",
@@ -65,6 +69,46 @@ export const ESTADOS = {
 
 // Un caso está abierto mientras no se entregó.
 export const estaAbierto = (caso) => caso.estado !== "completado";
+
+// Qué falta hacer en un caso, dicho en el idioma del mostrador.
+//
+// Sale de los pasos y los insumos del caso, no de una tabla por estado: la
+// cartilla (sección 05, punto 5 de la anatomía de la tarjeta) pide que diga
+// el próximo paso, y su ejemplo es «que la clienta apruebe 3 de los 5 pasos».
+// Con una tabla por estado terminaba repitiendo el chip: para en_proceso
+// devolvía "Está en el taller", que es la etiqueta del estado.
+//
+// El orden importa: gana lo más concreto. Que el cliente conteste tres pasos
+// es más accionable que "está en el taller".
+export function queFalta(caso, { rubro, pasos = [], insumos = [], cliente } = {}) {
+  if (caso.estado === "completado") return "Nada, el caso está cerrado.";
+
+  if (caso.estado === "nuevo" && !caso.responsable_id) {
+    return "Asignar a alguien del equipo";
+  }
+
+  const sinContestar = pasos.filter(
+    (p) => p.caso_id === caso.id && p.estado === "esperando"
+  ).length;
+  if (sinContestar > 0) {
+    const quien = cliente?.nombre ?? "el cliente";
+    return `Que ${quien} apruebe ${sinContestar} ${sinContestar === 1 ? "paso" : "pasos"}`;
+  }
+
+  const trabado = insumos.find(
+    (i) => i.caso_id === caso.id && i.estado !== "en_stock"
+  );
+  // Entre comillas y con su mayúscula: el artículo depende del género del
+  // insumo ("la correa", "el filtro") y no vale la pena adivinarlo.
+  if (trabado) return `Que llegue «${trabado.nombre}»`;
+
+  const p = preset(rubro);
+  if (caso.estado === "revision_final") return p.explica.revision_final;
+  if (caso.estado === "esperando") return p.explica.esperando;
+
+  const mios = pasos.filter((x) => x.caso_id === caso.id);
+  return mios.length === 0 ? "Armar el presupuesto" : "Hacer el trabajo";
+}
 
 // Qué queda escrito en el historial al pasar a cada estado.
 //

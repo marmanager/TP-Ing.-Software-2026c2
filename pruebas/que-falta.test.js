@@ -71,7 +71,10 @@ test("si lo que traba es un insumo, lo que falta es que llegue", () => {
     })
   );
 
-  assert.equal(dice, "Que llegue la correa de distribución");
+  // Entre comillas y sin artículo: "la correa" pero "el filtro" y "las
+  // pastillas", y adivinar el género del insumo que cargó el usuario no es
+  // algo que valga la pena resolver. Las comillas lo vuelven un nombre.
+  assert.equal(dice, "Que llegue «Correa de distribución»");
 });
 
 test("un caso sin presupuesto todavía: lo que falta es armarlo", () => {

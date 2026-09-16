@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ESTADOS, accionDeFila, quienLoTiene } from "@/lib/estados";
 import { useDatos } from "@/lib/datos";
+import { queFalta } from "@/lib/estados";
 import { queFaltaPara } from "@/lib/presets";
 import ChipEstado from "./ChipEstado";
 import { Boton } from "./ui";
@@ -21,11 +22,19 @@ import { Boton } from "./ui";
 export default function FilaCaso({ caso }) {
   const router = useRouter();
   const datos = useDatos();
+  // El "qué falta" se deriva de los pasos y los insumos, igual que en la
+  // pantalla del caso: si no, la lista y el detalle dirían cosas distintas.
   const { clientes, empleados, pasos, insumos } = datos;
   const [eligiendo, setEligiendo] = useState(false);
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const accion = accionDeFila(caso, { pasos, insumos });
+  const falta = queFalta(caso, {
+    rubro: datos.negocio?.rubro,
+    pasos,
+    insumos,
+    cliente,
+  });
   const barra = ESTADOS[caso.estado]?.barra ?? "bg-borde";
 
   function tocarAccion() {
@@ -78,7 +87,7 @@ export default function FilaCaso({ caso }) {
           {quienLoTiene(caso, empleados)}
         </p>
 
-        <p className="text-tinta-media">{caso.que_falta}</p>
+        <p className="text-tinta-media">{falta}</p>
 
         <div className="relative z-10 justify-self-start md:justify-self-end">
           <Boton icono={accion.icono} onClick={tocarAccion}>

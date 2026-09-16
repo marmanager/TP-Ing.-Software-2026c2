@@ -13,9 +13,9 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ESTADOS, estaAbierto, pesos, quienLoTiene } from "@/lib/estados";
+import { ESTADOS, estaAbierto, pesos, queFalta, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
-import { preset, queFaltaPara, comoSeIdentifica } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica } from "@/lib/presets";
 import SelectorEstado from "@/componentes/SelectorEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -57,8 +57,14 @@ export default function VerCaso() {
   const aprobado = mios.filter((p) => p.estado === "aprobado").reduce((s, p) => s + Number(p.monto), 0);
   const esperando = mios.filter((p) => p.estado === "esperando");
   const barra = ESTADOS[caso.estado].barra;
-  const explica = preset(negocio?.rubro).explica[caso.estado];
   const comoIdent = comoSeIdentifica(negocio?.rubro);
+  const falta = queFalta(caso, {
+    rubro: negocio?.rubro,
+    pasos,
+    insumos,
+    cliente,
+  });
+  const aprobados = mios.filter((p) => p.estado === "aprobado");
 
   // Un caso cerrado es el registro de lo que pasó, no un borrador: no se le
   // cambian el diagnóstico ni los pasos sin volver a abrirlo primero. No queda
@@ -107,13 +113,10 @@ export default function VerCaso() {
           </div>
 
           <p className="mt-4 text-cuerpo">
-            <span className="font-bold">Qué falta:</span> {caso.que_falta}
-            {/* La aclaración sólo si suma algo: desde el desplegable el
-                "qué falta" de esperando ya es este mismo texto, y repetirlo
-                entre paréntesis quedaba "X (X)". */}
-            {explica && explica !== caso.que_falta && (
-              <span className="text-tinta-media"> ({explica})</span>
-            )}
+            {/* Derivado de los pasos y los insumos, no de lo guardado: así
+                dice el próximo paso y no repite el chip de arriba. */}
+            <span className="font-bold">Qué falta:</span> {falta}
+
           </p>
 
           <dl className="mt-4 grid gap-2 text-tinta-media sm:grid-cols-3">
@@ -204,7 +207,7 @@ export default function VerCaso() {
             <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
               <Icono nombre="nota" />
               {esperando.length > 0 && abierto
-                ? `Ver los ${esperando.length} pasos a aprobar`
+                ? `Ver ${esperando.length === 1 ? "el paso" : `los ${esperando.length} pasos`} a aprobar`
                 : mios.length > 0
                   ? "Ver los pasos del caso"
                   : sePuedeEditar
@@ -212,6 +215,35 @@ export default function VerCaso() {
                     : "Ver el presupuesto"}
             </span>
           </Link>
+
+          {aprobados.length > 0 && (
+            <div className="mt-6">
+              <p className="font-bold text-cuerpo">
+                Lo que hay que hacer
+                <span className="ml-2 font-normal text-tinta-suave text-apoyo">
+                  {aprobados.length} {aprobados.length === 1 ? "paso aprobado" : "pasos aprobados"}
+                </span>
+              </p>
+              <ul className="mt-2 divide-y divide-borde rounded-campo border border-borde">
+                {aprobados.map((p) => (
+                  <li key={p.id} className="flex items-start justify-between gap-4 px-4 py-3">
+                    <span className="flex min-w-0 items-start gap-2">
+                      <Icono nombre="listo" className="size-5 shrink-0 text-completo" />
+                      <span className="min-w-0">
+                        <span className="block font-bold">{p.nombre}</span>
+                        {p.descripcion && (
+                          <span className="block text-apoyo text-tinta-suave">
+                            {p.descripcion}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {mios.length > 0 && (
             <p className="mt-3 text-tinta-media">
