@@ -12,6 +12,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AL_PASAR_A, ORDEN_ESTADOS, otrosEstados } from "../src/lib/estados.js";
+import { queFaltaPara } from "../src/lib/presets.js";
 
 test("todos los estados saben qué escribir en el historial", () => {
   for (const estado of ORDEN_ESTADOS) {
@@ -40,6 +41,23 @@ test("los otros estados salen en el orden del ciclo de vida", () => {
     "revision_final",
     "completado",
   ]);
+});
+
+// Antes, cada botón de "Cómo sigue" traía a mano su "qué falta", y el de
+// esperando escribía "Espera respuesta del cliente". Con el desplegable ya no
+// hay un botón por pasaje, así que el texto tiene que salir del rubro para
+// los cinco estados: si falta uno, la tarjeta del caso queda con un "Qué
+// falta:" vacío colgando.
+test("pasar a cualquier estado deja escrito qué falta, en todos los rubros", () => {
+  for (const rubro of ["taller", "medicina", "service"]) {
+    for (const estado of ORDEN_ESTADOS) {
+      const dice = queFaltaPara(rubro, estado);
+      assert.ok(
+        dice?.trim(),
+        `"${estado}" en ${rubro} deja el "qué falta" vacío`
+      );
+    }
+  }
 });
 
 test("no hay estados repetidos en la lista", () => {

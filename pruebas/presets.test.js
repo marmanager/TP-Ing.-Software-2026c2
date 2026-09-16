@@ -71,8 +71,22 @@ test("un caso sin responsable dice lo mismo en todos los rubros", () => {
   }
 });
 
-test("esperando lo escribe quien lo produce: depende de qué se espera", () => {
-  assert.equal(queFaltaPara("taller", "esperando"), "");
+// CAMBIO DE CRITERIO. Antes esto devolvía "" a propósito: qué se está
+// esperando depende del caso —un repuesto, el sí del cliente— y lo escribía
+// quien lo producía. Ese razonamiento valía cuando cada botón de "Cómo sigue"
+// traía su texto a mano.
+//
+// Con el estado en un desplegable, pasar a esperando ya no pasa por ningún
+// botón que sepa qué se espera, y el "" dejaba la tarjeta del caso con un
+// "Qué falta:" vacío colgando. Ahora hay un texto genérico del rubro, y quien
+// sabe más lo sigue pisando: el flujo del insumo escribe "El repuesto llega
+// mañana", que es más preciso y le gana a esto.
+test("esperando cae en lo genérico del rubro, que es mejor que un hueco", () => {
+  assert.equal(queFaltaPara("taller", "esperando"), "El repuesto o el sí del cliente");
+
+  for (const r of RUBROS) {
+    assert.ok(queFaltaPara(r.clave, "esperando").trim(), `${r.clave} lo deja vacío`);
+  }
 });
 
 test("un caso cerrado no tiene nada pendiente, en ningún rubro", () => {

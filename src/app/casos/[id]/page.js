@@ -16,7 +16,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { ESTADOS, estaAbierto, pesos, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
 import { preset, queFaltaPara, comoSeIdentifica } from "@/lib/presets";
-import ChipEstado from "@/componentes/ChipEstado";
+import SelectorEstado from "@/componentes/SelectorEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
@@ -74,8 +74,11 @@ export default function VerCaso() {
       </Link>
 
       {/* Lo importante, sin scrollear: identificador, estado y qué falta. */}
-      <div className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-        <div className={`h-1.5 w-full ${barra}`} aria-hidden="true" />
+      {/* Sin overflow-hidden: el desplegable del estado se sale de la tarjeta
+          y con el recorte quedaba cortado por la mitad. La barra de color se
+          redondea sola arriba, que era lo único que el recorte resolvía. */}
+      <div className="rounded-tarjeta border border-borde bg-tarjeta">
+        <div className={`h-1.5 w-full rounded-t-tarjeta ${barra}`} aria-hidden="true" />
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -85,19 +88,51 @@ export default function VerCaso() {
                 {cliente && ` · ${cliente.nombre}`}
               </p>
             </div>
-            <ChipEstado estado={caso.estado} />
+            <SelectorEstado
+              estado={caso.estado}
+              rubro={negocio?.rubro}
+              // Cambiar el estado se puede también con el caso cerrado:
+              // volver a abrirlo es justamente un cambio de estado. Lo que
+              // se traba con el caso cerrado son los pasos y el diagnóstico.
+              sePuedeCambiar={puedeCargar}
+              alElegir={(nuevo, dice) =>
+                datos.cambiarEstado(
+                  caso.id,
+                  nuevo,
+                  queFaltaPara(negocio?.rubro, nuevo),
+                  dice
+                )
+              }
+            />
           </div>
 
           <p className="mt-4 text-cuerpo">
             <span className="font-bold">Qué falta:</span> {caso.que_falta}
-            {explica && <span className="text-tinta-media"> ({explica})</span>}
+            {/* La aclaración sólo si suma algo: desde el desplegable el
+                "qué falta" de esperando ya es este mismo texto, y repetirlo
+                entre paréntesis quedaba "X (X)". */}
+            {explica && explica !== caso.que_falta && (
+              <span className="text-tinta-media"> ({explica})</span>
+            )}
           </p>
 
           <dl className="mt-4 grid gap-2 text-tinta-media sm:grid-cols-3">
-            <div className="flex items-center gap-2">
+            {/* Asignar no es un cambio de estado, así que no va en el
+                desplegable: va acá, al lado de a quién reemplaza. */}
+            <div className="flex flex-wrap items-center gap-2">
               <Icono nombre="persona" className="size-5" />
               <dt className="sr-only">Quién lo tiene</dt>
               <dd>{quienLoTiene(caso, empleados)}</dd>
+              {sePuedeEditar && abierto && empleados.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setEligiendo((v) => !v)}
+                  aria-expanded={eligiendo}
+                  className="min-h-12 cursor-pointer font-bold text-azul text-etiqueta"
+                >
+                  {eligiendo ? "Cerrar" : caso.responsable_id ? "Cambiar" : "Asignar"}
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Icono nombre="reloj" className="size-5" />
@@ -116,6 +151,51 @@ export default function VerCaso() {
               </div>
             )}
           </dl>
+
+          {eligiendo && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {empleados.map((e) => (
+                <li key={e.id}>
+                  <Boton
+                    variante="plano"
+                    icono="persona"
+                    onClick={() => {
+                      datos.asignarResponsable(caso.id, e.id);
+                      setEligiendo(false);
+                    }}
+                  >
+                    {e.nombre}
+                  </Boton>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Que llegue un insumo tampoco es un cambio de estado: es lo que
+              destraba la espera, así que va pegado al "qué falta". */}
+          {abierto && sePuedeEditar && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {insumosDelCaso
+                .filter((i) => i.estado !== "en_stock")
+                .map((i) => (
+                  <Boton
+                    key={i.id}
+                    icono="camion"
+                    onClick={() => datos.marcarInsumoLlegado(i.id)}
+                  >
+                    Marcar que llegó {i.nombre.toLowerCase()}
+                  </Boton>
+                ))}
+            </div>
+          )}
+
+          {!abierto && (
+            <p className="mt-4 max-w-[65ch] text-tinta-media">
+              Este caso ya se entregó y se cerró. Mientras siga cerrado no se le
+              cambian los pasos ni el diagnóstico; para corregir algo, pasalo de
+              nuevo a otro estado desde el desplegable de arriba.
+            </p>
+          )}
 
           {/* Un único botón azul: el que casi siempre se va a tocar.
               Aparece siempre, también sin pasos: si no, a un caso recién
@@ -142,142 +222,6 @@ export default function VerCaso() {
       </div>
 
       {/* Hacer avanzar el caso. Los estados son un ciclo de vida, no adorno. */}
-      <TituloSeccion className="mt-12">Cómo sigue</TituloSeccion>
-      <div className="flex flex-wrap gap-3">
-        {caso.estado === "nuevo" && (
-          <div className="relative">
-            <Boton icono="persona-mas" onClick={() => setEligiendo((v) => !v)}>
-              Asignar responsable
-            </Boton>
-            {eligiendo && (
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {empleados.map((e) => (
-                  <li key={e.id}>
-                    <Boton
-                      variante="plano"
-                      icono="persona"
-                      onClick={() => {
-                        datos.asignarResponsable(caso.id, e.id);
-                        setEligiendo(false);
-                      }}
-                    >
-                      {e.nombre}
-                    </Boton>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {caso.estado === "en_proceso" && (
-          <Boton
-            icono="reloj"
-            onClick={() =>
-              datos.cambiarEstado(caso.id, "esperando", "Espera respuesta del cliente", {
-                titulo: "Quedó esperando",
-                detalle: "Falta que el cliente conteste.",
-                icono: "reloj",
-              })
-            }
-          >
-            Marcar que espera al cliente
-          </Boton>
-        )}
-
-        {caso.estado === "en_proceso" && (
-          <Boton
-            icono="listo"
-            onClick={() =>
-              datos.cambiarEstado(caso.id, "revision_final", queFaltaPara(negocio?.rubro, "revision_final"), {
-                titulo: "Terminó el trabajo",
-                detalle: "Pasa al control final.",
-                icono: "nota",
-              })
-            }
-          >
-            Marcar el trabajo terminado
-          </Boton>
-        )}
-
-        {caso.estado === "esperando" &&
-          insumosDelCaso
-            .filter((i) => i.estado !== "en_stock")
-            .map((i) => (
-              <Boton key={i.id} icono="camion" onClick={() => datos.marcarInsumoLlegado(i.id)}>
-                Marcar que llegó {i.nombre.toLowerCase()}
-              </Boton>
-            ))}
-
-        {caso.estado === "esperando" && (
-          <Boton
-            icono="llave"
-            onClick={() =>
-              datos.cambiarEstado(caso.id, "en_proceso", queFaltaPara(negocio?.rubro, "en_proceso"), {
-                titulo: "Volvió al trabajo",
-                detalle: "Se destrabó lo que estaba esperando.",
-                icono: "llave",
-              })
-            }
-          >
-            Retomar el trabajo
-          </Boton>
-        )}
-
-        {/* Cerrar se puede desde cualquier estado abierto, no sólo después
-            del control final: un trabajo puede terminarse antes de lo
-            previsto —el cliente lo pasa a buscar, no tenía nada— y obligar a
-            caminar toda la cadena para reflejarlo sería mentirle al estado.
-            El botón dice lo que hace: entrega Y cierra (cartilla, sección 06). */}
-        {caso.estado !== "completado" && (
-          <Boton
-            icono="listo"
-            onClick={() =>
-              datos.cambiarEstado(
-                caso.id,
-                "completado",
-                queFaltaPara(negocio?.rubro, "completado"),
-                {
-                  titulo: "Entregaron el trabajo",
-                  detalle: "El caso queda cerrado.",
-                  icono: "listo",
-                }
-              )
-            }
-          >
-            Entregar y cerrar
-          </Boton>
-        )}
-
-        {caso.estado === "completado" && (
-          <>
-            <p className="w-full max-w-[65ch] text-tinta-media">
-              Este caso ya se entregó y se cerró. Mientras siga cerrado no se le
-              cambian los pasos ni el diagnóstico.
-            </p>
-            {/* Nada es definitivo: se puede haber cerrado de más. */}
-            <Boton
-              variante="plano"
-              icono="deshacer"
-              onClick={() =>
-                datos.cambiarEstado(
-                  caso.id,
-                  "en_proceso",
-                  queFaltaPara(negocio?.rubro, "en_proceso"),
-                  {
-                    titulo: "Volvieron a abrir el caso",
-                    detalle: "Se había cerrado antes de tiempo.",
-                    icono: "deshacer",
-                  }
-                )
-              }
-            >
-              Volver a abrirlo
-            </Boton>
-          </>
-        )}
-      </div>
-
       {/* El historial cuenta la historia: qué pasó, cuándo y quién lo hizo. */}
       {/* Lo que pidió el cliente está arriba en "servicio". Acá va lo que
           encontramos al revisar, que es otra cosa. */}

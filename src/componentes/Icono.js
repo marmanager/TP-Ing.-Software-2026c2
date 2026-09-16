@@ -120,6 +120,8 @@ const TRAZOS = {
     </>
   ),
   volver: <path d="M15 19l-7-7 7-7" />,
+  "flecha-abajo": <path d="M6 9l6 6 6-6" />,
+  "flecha-arriba": <path d="M6 15l6-6 6 6" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   cruz: (
     <>

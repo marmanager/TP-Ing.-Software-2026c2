@@ -66,6 +66,47 @@ export const ESTADOS = {
 // Un caso está abierto mientras no se entregó.
 export const estaAbierto = (caso) => caso.estado !== "completado";
 
+// Qué queda escrito en el historial al pasar a cada estado.
+//
+// Vive en una tabla y no en cada botón porque desde el desplegable cualquier
+// estado puede ir a cualquier otro: son veinte pasajes posibles y repartir el
+// texto por la pantalla era garantía de que alguno quedara sin escribir.
+// pruebas/pasajes.test.js se asegura de que no falte ninguno.
+export const AL_PASAR_A = {
+  nuevo: {
+    titulo: "Volvió a quedar sin empezar",
+    detalle: "Todavía no lo está atendiendo nadie.",
+    icono: "carpeta",
+  },
+  en_proceso: {
+    titulo: "Se puso a trabajar",
+    detalle: "Alguien del equipo lo está atendiendo.",
+    icono: "llave",
+  },
+  esperando: {
+    titulo: "Quedó esperando",
+    detalle: "Está detenido por algo de afuera.",
+    icono: "reloj",
+  },
+  revision_final: {
+    titulo: "Terminó el trabajo",
+    detalle: "Pasa al control antes de entregar.",
+    icono: "nota",
+  },
+  completado: {
+    titulo: "Se entregó el caso",
+    detalle: "Queda cerrado.",
+    icono: "listo",
+  },
+};
+
+// Los estados a los que se puede pasar desde uno dado: todos menos ése.
+//
+// Salen siempre en el orden del ciclo de vida, no reordenados según dónde
+// estés parado: así el encargado aprende dónde está cada opción y deja de
+// leer la lista.
+export const otrosEstados = (actual) => ORDEN_ESTADOS.filter((e) => e !== actual);
+
 // "Quién lo tiene". Si nadie del equipo lo tiene, se deriva del estado
 // en vez de mostrar un hueco (cartilla, lista de casos de la sección 05).
 export function quienLoTiene(caso, empleados) {
