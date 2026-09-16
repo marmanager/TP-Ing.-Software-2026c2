@@ -214,20 +214,50 @@ export function DatosProvider({ children }) {
     // Quién firma el historial. La regla vive en permisos.js y tiene test.
     const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
 
+    // Los eventos llevan tipo y monto desde 013_evento_tipo.sql. Si la base
+    // todavía no tiene esas columnas, el evento se guarda igual sin ellas:
+    // que falte una migración no puede dejar a los casos sin historial.
+    // Así se hizo también con las invitaciones.
+    const escribirEvento = async (evento) => {
+      if (!enSupabase()) return;
+      const { error } = await supabase.from("evento").insert(evento);
+      if (!error) return;
+      const faltaColumna =
+        error.code === "PGRST204" ||
+        error.code === "42703" ||
+        /column .*(tipo|monto)/i.test(error.message ?? "");
+      if (faltaColumna) {
+        const { tipo, monto, ...sinColumnasNuevas } = evento;
+        const reintento = await supabase.from("evento").insert(sinColumnasNuevas);
+        if (!reintento.error) return;
+        setAviso("No se pudo guardar en la base: " + reintento.error.message);
+        return;
+      }
+      setAviso("No se pudo guardar en la base: " + error.message);
+    };
+
     // No recibe autor: si se pudiera pasar de afuera, volverían los
     // personajes. Lo firma siempre quien está usando el sistema.
-    const anotar = (casoId, titulo, detalle, icono = "carpeta") => {
-      const evento = {
-        id: nuevoId(),
-        caso_id: casoId,
-        titulo,
-        detalle,
-        autor: firma(),
-        icono,
-        ocurrido_en: new Date().toISOString(),
-      };
+    //
+    // "tipo" es obligatorio en la práctica: es lo que usa el historial del
+    // negocio para filtrar (lib/historial.js). Un evento sin tipo sólo se ve
+    // en "Todo". "monto" va en los de plata.
+    const nuevoEvento = ({ casoId, tipo, titulo, detalle, icono = "carpeta", monto = null, cuando }) => ({
+      id: nuevoId(),
+      caso_id: casoId,
+      tipo,
+      titulo,
+      detalle,
+      autor: firma(),
+      icono,
+      monto: monto === null ? null : Number(monto),
+      ocurrido_en: cuando ?? new Date().toISOString(),
+    });
+
+    const anotar = (datosDelEvento) => {
+      const evento = nuevoEvento(datosDelEvento);
       setDatos((d) => ({ ...d, eventos: [evento, ...d.eventos] }));
-      escribir("evento", evento, { insertar: true });
+      escribirEvento(evento);
       return evento;
     };
 
@@ -280,15 +310,14 @@ export function DatosProvider({ children }) {
           ),
           abierto_en: new Date().toISOString(),
         };
-        const evento = {
-          id: nuevoId(),
-          caso_id: caso.id,
+        const evento = nuevoEvento({
+          casoId: caso.id,
+          tipo: "entro",
           titulo: "Caso abierto",
           detalle: servicio + ".",
-          autor: firma(),
           icono: "carpeta",
-          ocurrido_en: caso.abierto_en,
-        };
+          cuando: caso.abierto_en,
+        });
 
         // Abrir un caso es la prueba de que la persona vino: si estaba
         // anotada desde un turno y nunca había aparecido, queda confirmada.
@@ -331,7 +360,7 @@ export function DatosProvider({ children }) {
               confirmado: true,
             });
           await escribir("caso", caso, { insertar: true });
-          await escribir("evento", evento, { insertar: true });
+          await escribirEvento(evento);
           // Último: el turno apunta al caso, así que el caso ya tiene que estar.
           if (delTurno) await escribir("turno", { id: turnoId, ...delTurno });
         })();
@@ -346,12 +375,13 @@ export function DatosProvider({ children }) {
           estado: "en_proceso",
           que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
         });
-        anotar(
+        anotar({
           casoId,
-          "Asignaron el caso",
-          `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`,
-          "persona-mas"
-        );
+          tipo: "estado",
+          titulo: "Asignaron el caso",
+          detalle: `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`,
+          icono: "persona-mas",
+        });
       },
 
       // ---------- diagnóstico e identificador (SCRUM-50 y SCRUM-51) ----------
@@ -360,12 +390,13 @@ export function DatosProvider({ children }) {
       cargarDiagnostico(casoId, diagnostico) {
         const antes = datos.casos.find((c) => c.id === casoId)?.diagnostico;
         parchearCaso(casoId, { diagnostico });
-        anotar(
+        anotar({
           casoId,
-          antes ? "Corrigieron el diagnóstico" : "Cargaron el diagnóstico",
-          diagnostico,
-          "diagnostico"
-        );
+          tipo: "nota",
+          titulo: antes ? "Corrigieron el diagnóstico" : "Cargaron el diagnóstico",
+          detalle: diagnostico,
+          icono: "diagnostico",
+        });
       },
 
       // Cambiar el identificador también va al historial. Es el dato por el
@@ -379,23 +410,32 @@ export function DatosProvider({ children }) {
         parchearCaso(casoId, { identificador });
 
         const comoIdent = comoSeIdentifica(datos.negocio?.rubro);
-        anotar(
+        anotar({
           casoId,
-          antes ? `Corrigieron ${comoIdent.enFrase}` : `Cargaron ${comoIdent.enFrase}`,
-          antes ? `${identificador}. Antes decía ${antes}.` : identificador,
-          "nota"
-        );
+          tipo: "nota",
+          titulo: antes ? `Corrigieron ${comoIdent.enFrase}` : `Cargaron ${comoIdent.enFrase}`,
+          detalle: antes ? `${identificador}. Antes decía ${antes}.` : identificador,
+          icono: "nota",
+        });
       },
 
       // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
       // historial se agrega, nunca se reescribe.
       anotarNota(casoId, texto) {
-        anotar(casoId, "Anotaron algo", texto, "nota");
+        anotar({ casoId, tipo: "nota", titulo: "Anotaron algo", detalle: texto, icono: "nota" });
       },
 
+      // Entregar es un cambio de estado, pero en el historial va aparte: es
+      // lo que más se quiere contar ("cuándo terminan", dice SCRUM-75).
       cambiarEstado(casoId, estado, queFalta, textoHistorial) {
         parchearCaso(casoId, { estado, que_falta: queFalta });
-        anotar(casoId, textoHistorial.titulo, textoHistorial.detalle, textoHistorial.icono);
+        anotar({
+          casoId,
+          tipo: estado === "completado" ? "entrega" : "estado",
+          titulo: textoHistorial.titulo,
+          detalle: textoHistorial.detalle,
+          icono: textoHistorial.icono,
+        });
       },
 
       // ---------- pasos del presupuesto ----------
@@ -415,12 +455,14 @@ export function DatosProvider({ children }) {
         };
         setDatos((d) => ({ ...d, pasos: [...d.pasos, paso] }));
         escribir("paso", paso, { insertar: true });
-        anotar(
+        anotar({
           casoId,
-          "Sumaron un paso al presupuesto",
-          `${nombre} · ${pesos(monto)}`,
-          "nota"
-        );
+          tipo: "plata",
+          titulo: "Sumaron un paso al presupuesto",
+          detalle: `${nombre} · ${pesos(monto)}`,
+          icono: "nota",
+          monto,
+        });
         return paso;
       },
 
@@ -433,12 +475,14 @@ export function DatosProvider({ children }) {
 
         setDatos((d) => ({ ...d, pasos: d.pasos.filter((p) => p.id !== pasoId) }));
         borrar("paso", pasoId);
-        anotar(
-          paso.caso_id,
-          "Sacaron un paso del presupuesto",
-          `${paso.nombre} · ${pesos(paso.monto)}`,
-          "nota"
-        );
+        anotar({
+          casoId: paso.caso_id,
+          tipo: "plata",
+          titulo: "Sacaron un paso del presupuesto",
+          detalle: `${paso.nombre} · ${pesos(paso.monto)}`,
+          icono: "nota",
+          monto: paso.monto,
+        });
       },
 
       // Aprobar, rechazar y volver atrás escriben los tres en la base.
@@ -458,12 +502,14 @@ export function DatosProvider({ children }) {
           rechazado: "El cliente no lo hace",
           esperando: "Volvieron atrás la respuesta",
         }[estado];
-        anotar(
-          paso.caso_id,
-          dicho,
-          `${paso.nombre} · ${pesos(paso.monto)}`,
-          estado === "aprobado" ? "listo" : "nota"
-        );
+        anotar({
+          casoId: paso.caso_id,
+          tipo: "plata",
+          titulo: dicho,
+          detalle: `${paso.nombre} · ${pesos(paso.monto)}`,
+          icono: estado === "aprobado" ? "listo" : "nota",
+          monto: paso.monto,
+        });
       },
 
       // ---------- inventario ----------
@@ -483,12 +529,13 @@ export function DatosProvider({ children }) {
             estado: "en_proceso",
             que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
           });
-          anotar(
-            insumo.caso_id,
-            "Llegó el insumo",
-            `${insumo.nombre}. Ya se puede seguir.`,
-            "camion"
-          );
+          anotar({
+            casoId: insumo.caso_id,
+            tipo: "estado",
+            titulo: "Llegó el insumo",
+            detalle: `${insumo.nombre}. Ya se puede seguir.`,
+            icono: "camion",
+          });
         }
       },
 

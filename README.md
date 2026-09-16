@@ -34,7 +34,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `012_rubro_fijo.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `013_evento_tipo.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 
@@ -64,7 +64,7 @@ src/
 ├── app/                    una carpeta por pantalla (App Router)
 │   ├── page.js             Inicio, armado por módulos
 │   ├── casos/              lista, alta, detalle y aprobación de pasos
-│   ├── agenda/  clientes/  inventario/  aprobar/  equipo/  negocio/
+│   ├── agenda/  clientes/  inventario/  aprobar/  equipo/  historial/  negocio/
 │   └── globals.css         los tokens de la cartilla, en Tailwind
 ├── componentes/            piezas base: botones, campos, chips, íconos
 │   └── inicio/             el marco y el contenido de cada módulo del Inicio
@@ -75,6 +75,7 @@ src/
     ├── estados.js          los cinco estados y sus reglas
     ├── presets.js          los diccionarios de rubro
     ├── modulos.js          el catálogo de módulos que un negocio puede prender
+    ├── historial.js        el historial del negocio: tipos de evento, filtros y resumen
     └── inicio.js           la grilla del Inicio: catálogo, tamaños y orden
 ```
 

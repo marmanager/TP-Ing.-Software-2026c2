@@ -17,7 +17,8 @@ import {
 } from "@/lib/estados";
 import { ESTADOS } from "@/lib/estados";
 import { etiquetaEstado } from "@/lib/presets";
-import { horaYMinutos, diaLargo } from "@/lib/fechas";
+import { horaYMinutos, diaLargo, cuando } from "@/lib/fechas";
+import { filtrarHistorial } from "@/lib/historial";
 import Icono from "@/componentes/Icono";
 
 // ---------- piezas compartidas ----------
@@ -419,6 +420,49 @@ function CuerpoClientes({ filtro, filas }) {
   );
 }
 
+// ---------- lo último que pasó ----------
+
+function CuerpoHistorial({ filtro, filas }) {
+  const { eventos, casos } = useDatos();
+  const elegidos = filtrarHistorial(eventos, { tipo: filtro });
+
+  if (elegidos.length === 0) {
+    return (
+      <SinNada>
+        {eventos.length === 0
+          ? "Todavía no pasó nada. Cuando abras el primer caso, aparece acá."
+          : "No pasó nada de esto todavía."}
+      </SinNada>
+    );
+  }
+
+  return (
+    <ul>
+      {elegidos.slice(0, filas).map((e) => {
+        const caso = casos.find((c) => c.id === e.caso_id);
+        return (
+          <Fila key={e.id} href={caso ? `/casos/${caso.id}` : "/historial"}>
+            <Icono nombre={e.icono} className="size-5 text-tinta-media" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-bold">
+                {e.titulo}
+                {caso && ` · Caso ${caso.numero}`}
+              </span>
+              <span className="block truncate text-apoyo text-tinta-suave">
+                {cuando(e.ocurrido_en)} · {e.autor}
+              </span>
+            </span>
+            {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
+              <span className="shrink-0 font-bold tabular-nums">{pesos(e.monto)}</span>
+            )}
+          </Fila>
+        );
+      })}
+      <YMas cuantos={elegidos.length - filas} href="/historial" que="eventos" />
+    </ul>
+  );
+}
+
 // Qué componente le toca a cada módulo del catálogo.
 export const CUERPOS = {
   pendientes: CuerpoPendientes,
@@ -428,4 +472,5 @@ export const CUERPOS = {
   aprobar: CuerpoAprobar,
   equipo: CuerpoEquipo,
   clientes: CuerpoClientes,
+  historial: CuerpoHistorial,
 };

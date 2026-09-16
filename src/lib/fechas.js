@@ -53,3 +53,19 @@ export const paraInput = (d = new Date()) => {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 16);
 };
+
+// Para lo que ya pasó: "Hoy", "Ayer", o el día con su nombre. diaLargo() es
+// para la agenda, que mira hacia adelante y dice "Mañana".
+export function diaPasado(iso) {
+  const d = new Date(iso);
+  const ahora = new Date();
+  if (mismoDia(d, ahora)) return "Hoy";
+  const ayer = new Date(ahora);
+  ayer.setDate(ahora.getDate() - 1);
+  if (mismoDia(d, ayer)) return "Ayer";
+  return new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(d);
+}

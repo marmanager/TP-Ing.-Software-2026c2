@@ -281,11 +281,11 @@ test("sólo se ofrecen módulos que se pueden usar y que no están puestos", () 
 
   assert.deepEqual(
     agregables(config, TODOS_LOS_MODULOS).map((d) => d.clave).sort(),
-    ["aprobar", "clientes", "equipo"]
+    ["aprobar", "clientes", "equipo", "historial"]
   );
   assert.deepEqual(
     agregables(config, []).map((d) => d.clave),
-    ["clientes"],
+    ["clientes", "historial"],
     "sin módulos prendidos sólo queda el núcleo"
   );
 });

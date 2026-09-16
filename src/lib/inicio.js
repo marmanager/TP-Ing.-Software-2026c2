@@ -138,6 +138,24 @@ export const CATALOGO = {
       { clave: "con_abiertos", palabra: "Con casos sin cerrar" },
     ],
   },
+  // SCRUM-75. Es además el camino al Historial desde el celular, donde la
+  // barra de abajo no tiene lugar para una quinta sección.
+  historial: {
+    clave: "historial",
+    nombre: "Lo último que pasó",
+    icono: "historial",
+    ruta: "/historial",
+    modulo: null,
+    queMuestra: "Lo que fue pasando en los casos, con quién lo hizo.",
+    ancho: 3,
+    alto: 2,
+    filtros: [
+      { clave: "todo", palabra: "Todo" },
+      { clave: "entro", palabra: "Lo que entró" },
+      { clave: "entrega", palabra: "Lo que se entregó" },
+      { clave: "plata", palabra: "La plata" },
+    ],
+  },
 };
 
 export const LISTA_CATALOGO = Object.values(CATALOGO);
