@@ -1,0 +1,48 @@
+// Los pasajes de un estado a otro.
+//
+// Hasta ahora cada botón de "Cómo sigue" traía a mano su texto de historial.
+// Al pasar a un desplegable, cualquier estado puede ir a cualquier otro, así
+// que el texto tiene que salir de una tabla y no de un botón.
+//
+// Lo que se prueba acá es que esa tabla esté completa: si alguien suma un
+// estado sexto y se olvida del texto, el historial diría "undefined".
+//
+// Correr con: npm test
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { AL_PASAR_A, ORDEN_ESTADOS, otrosEstados } from "../src/lib/estados.js";
+
+test("todos los estados saben qué escribir en el historial", () => {
+  for (const estado of ORDEN_ESTADOS) {
+    const dice = AL_PASAR_A[estado];
+    assert.ok(dice, `falta el texto de historial de "${estado}"`);
+    assert.ok(dice.titulo?.trim(), `"${estado}" no tiene título`);
+    assert.ok(dice.icono?.trim(), `"${estado}" no tiene ícono`);
+  }
+});
+
+test("el desplegable ofrece los otros cuatro estados, nunca el actual", () => {
+  for (const actual of ORDEN_ESTADOS) {
+    const otros = otrosEstados(actual);
+
+    assert.equal(otros.length, ORDEN_ESTADOS.length - 1);
+    assert.ok(!otros.includes(actual), `${actual} se ofrece a sí mismo`);
+  }
+});
+
+test("los otros estados salen en el orden del ciclo de vida", () => {
+  // Para que la lista no cambie de orden según dónde estés parado: el
+  // encargado aprende dónde está cada opción y no la tiene que buscar.
+  assert.deepEqual(otrosEstados("esperando"), [
+    "nuevo",
+    "en_proceso",
+    "revision_final",
+    "completado",
+  ]);
+});
+
+test("no hay estados repetidos en la lista", () => {
+  const otros = otrosEstados("nuevo");
+  assert.equal(new Set(otros).size, otros.length);
+});
