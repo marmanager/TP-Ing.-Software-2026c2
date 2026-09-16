@@ -22,6 +22,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { montoValido } from "@/lib/validaciones";
 import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
+import { ejemplosDe } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -191,7 +192,7 @@ export default function AprobarPasos() {
           <Campo
             id="paso-nombre"
             etiqueta="Qué hay que hacer"
-            ayuda="Con las palabras del cliente. Ejemplo: Cambio de pastillas de freno."
+            ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).paso}.`}
             autoComplete="off"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}

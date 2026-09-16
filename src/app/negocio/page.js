@@ -52,8 +52,12 @@ export default function MiNegocio() {
   }
 
   function confirmarRubro() {
-    datos.cambiarRubro(rubroElegido);
-    datos.avisarExito(`Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}.`);
+    const reescritos = datos.cambiarRubro(rubroElegido);
+    datos.avisarExito(
+      reescritos
+        ? `Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}, y ${reescritos} ${reescritos === 1 ? "caso abierto ya dice" : "casos abiertos ya dicen"} qué falta con las palabras nuevas.`
+        : `Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}.`
+    );
     cerrarCambioDeRubro();
   }
 
@@ -205,12 +209,28 @@ export default function MiNegocio() {
                     «{actual.etiquetas.en_proceso}» pasa a decir «{nuevo.etiquetas.en_proceso}
                     », «{actual.etiquetas.completado}» pasa a «{nuevo.etiquetas.completado}».
                   </li>
-                  <li>Los motivos que te ofrecemos al abrir un caso.</li>
+                  <li>
+                    Con qué se identifica cada caso: «{actual.identificador.nombre}» pasa a
+                    ser «{nuevo.identificador.nombre}».
+                  </li>
+                  <li>
+                    Cómo se llama quien hace el trabajo: «{actual.roles.tecnico}» pasa a
+                    «{nuevo.roles.tecnico}».
+                  </li>
+                  <li>Los motivos y los ejemplos que te ofrecemos al cargar algo.</li>
+                  <li>
+                    En los casos abiertos, el «qué falta» que puso el sistema. Lo que
+                    escribió alguien a mano queda igual.
+                  </li>
                 </ul>
 
                 <p className="mt-4 font-bold text-cuerpo">Qué no cambia</p>
                 <ul className="mt-1 flex flex-col gap-1 text-tinta-media">
-                  <li>Los casos que ya tenés: mismo texto, mismo estado, misma plata.</li>
+                  <li>
+                    Los datos de tus casos: el estado, lo que pidió el cliente, el
+                    diagnóstico, {actual.identificador.enFrase} que ya cargaste y la plata.
+                  </li>
+                  <li>Los casos cerrados, que quedan como se entregaron.</li>
                   <li>Los módulos que tenés prendidos.</li>
                 </ul>
 

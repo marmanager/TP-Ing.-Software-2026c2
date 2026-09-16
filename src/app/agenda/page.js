@@ -6,6 +6,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
+import { ejemplosDe } from "@/lib/presets";
 import { estaAbierto } from "@/lib/estados";
 import { diaLargo, horaYMinutos, paraInput } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
@@ -22,7 +23,7 @@ export default function Agenda() {
   const datos = useDatos();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
-  const { cargando, turnos, clientes, casos } = datos;
+  const { cargando, turnos, clientes, casos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({
     nombreCliente: "",
@@ -116,7 +117,7 @@ export default function Agenda() {
           <Campo
             id="turno-motivo"
             etiqueta="Para qué viene"
-            ayuda="Con las palabras del cliente. Ejemplo: cambio de aceite."
+            ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).turno}.`}
             value={form.motivo}
             onChange={(e) => setForm({ ...form, motivo: e.target.value })}
           />

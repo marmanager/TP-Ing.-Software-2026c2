@@ -12,7 +12,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth";
-import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
+import {
+  comoSeIdentifica,
+  preset,
+  queFaltaAlCambiarDeRubro,
+  queFaltaPara,
+} from "./presets";
 import { pesos } from "./estados";
 import { normalizarInicio } from "./inicio";
 import { quienEscribe } from "./permisos";
@@ -730,9 +735,29 @@ export function DatosProvider({ children }) {
         return { ok: true, id: data };
       },
 
+      // SCRUM-90. Además del rubro, pasa a las palabras nuevas el "qué falta"
+      // que escribió el sistema en los casos abiertos; lo que escribió una
+      // persona queda igual (ver queFaltaAlCambiarDeRubro en presets.js).
+      // Devuelve cuántos casos cambiaron, para poder decirlo en pantalla.
       cambiarRubro(rubro) {
-        setDatos((d) => ({ ...d, negocio: { ...d.negocio, rubro } }));
+        const cambios = queFaltaAlCambiarDeRubro(
+          datos.casos,
+          datos.negocio?.rubro,
+          rubro
+        );
+        const porId = Object.fromEntries(cambios.map((c) => [c.id, c.que_falta]));
+
+        setDatos((d) => ({
+          ...d,
+          negocio: { ...d.negocio, rubro },
+          casos: d.casos.map((c) =>
+            c.id in porId ? { ...c, que_falta: porId[c.id] } : c
+          ),
+        }));
         escribir("negocio", { id: datos.negocio?.id, rubro });
+        for (const c of cambios) escribir("caso", c);
+
+        return cambios.length;
       },
 
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.

@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, invitacionPendiente, mailAConfirmar, olvidarMail } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { RUBROS, preset } from "@/lib/presets";
+import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
 import { modulosDe } from "@/lib/modulos";
 import { Boton, Campo, Tarjeta, TituloPantalla } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
@@ -114,7 +114,7 @@ export default function CrearNegocio() {
         <Campo
           id="nombre"
           etiqueta="¿Cómo se llama tu negocio?"
-          ayuda="Como lo van a ver vos y tu equipo. Ejemplo: Taller Sur."
+          ayuda={`Como lo van a ver vos y tu equipo. Ejemplo: ${ejemplosDe(rubro).negocio}.`}
           autoComplete="off"
           value={nombre}
           onChange={(e) => {

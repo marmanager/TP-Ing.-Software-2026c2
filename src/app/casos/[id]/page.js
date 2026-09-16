@@ -15,7 +15,7 @@ import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
 import { ESTADOS, estaAbierto, pesos, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
-import { preset, queFaltaPara, comoSeIdentifica } from "@/lib/presets";
+import { preset, queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -361,7 +361,7 @@ export default function VerCaso() {
               rows={4}
               value={diagnostico}
               onChange={(e) => setDiagnostico(e.target.value)}
-              placeholder="La correa está flojo y las pastillas al límite."
+              placeholder={ejemplosDe(negocio?.rubro).diagnostico}
               className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
             />
             <div className="mt-3 flex flex-wrap gap-3">

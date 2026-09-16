@@ -13,6 +13,8 @@ import {
   ORDEN_ROLES,
   etiquetaRol,
   comoSeIdentifica,
+  ejemplosDe,
+  queFaltaAlCambiarDeRubro,
 } from "../src/lib/presets.js";
 import { MODULOS } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
@@ -126,4 +128,64 @@ test("cada rubro identifica por lo suyo", () => {
   // sigla: "falta el dni" en vez de "falta el DNI".
   assert.equal(comoSeIdentifica("taller").enFrase, "la patente");
   assert.equal(comoSeIdentifica("medicina").enFrase, "el DNI");
+});
+
+// ---------------------------------------------------------------
+// SCRUM-90: cambiar de rubro
+// ---------------------------------------------------------------
+
+test("cada rubro trae sus ejemplos para todos los formularios", () => {
+  const claves = ["negocio", "servicio", "diagnostico", "paso", "turno", "insumo"];
+  for (const r of RUBROS) {
+    for (const clave of claves) {
+      assert.ok(
+        ejemplosDe(r.clave)[clave]?.trim(),
+        `${r.clave} no tiene ejemplo de ${clave}`
+      );
+    }
+  }
+});
+
+test("un ejemplo de un rubro no aparece en otro: cada oficio tiene los suyos", () => {
+  const taller = ejemplosDe("taller");
+  for (const otro of ["medicina", "service"]) {
+    for (const [clave, texto] of Object.entries(ejemplosDe(otro))) {
+      assert.notEqual(texto, taller[clave], `${otro}.${clave} repite el de taller`);
+    }
+  }
+});
+
+const caso = (id, estado, que_falta) => ({ id, estado, que_falta });
+
+test("al pasar de taller a medicina, lo que escribió el sistema cambia de palabras", () => {
+  const casos = [caso("a", "en_proceso", "Está en el taller")];
+  assert.deepEqual(queFaltaAlCambiarDeRubro(casos, "taller", "medicina"), [
+    { id: "a", que_falta: "En consulta" },
+  ]);
+});
+
+test("lo que escribió una persona no se toca", () => {
+  const casos = [
+    caso("a", "esperando", "Espera el repuesto de Córdoba"),
+    caso("b", "en_proceso", "Lo tiene Diego desde el lunes"),
+  ];
+  assert.deepEqual(queFaltaAlCambiarDeRubro(casos, "taller", "medicina"), []);
+});
+
+test("los casos cerrados quedan como se entregaron", () => {
+  const casos = [caso("a", "completado", "Nada, el caso está cerrado.")];
+  assert.deepEqual(queFaltaAlCambiarDeRubro(casos, "taller", "service"), []);
+});
+
+test("si el texto es igual en los dos rubros, no se reporta como cambio", () => {
+  // "Asignar a alguien del equipo" es el mismo en todos los rubros.
+  const casos = [caso("a", "nuevo", "Asignar a alguien del equipo")];
+  assert.deepEqual(queFaltaAlCambiarDeRubro(casos, "taller", "medicina"), []);
+});
+
+test("el control final también pasa a las palabras del rubro nuevo", () => {
+  const casos = [caso("a", "revision_final", "Control antes de entregar")];
+  assert.deepEqual(queFaltaAlCambiarDeRubro(casos, "taller", "medicina"), [
+    { id: "a", que_falta: "Control antes del alta" },
+  ]);
 });
