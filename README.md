@@ -34,7 +34,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `013_evento_tipo.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `014_paso_aprobado_fijo.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 

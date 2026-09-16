@@ -214,27 +214,40 @@ export function DatosProvider({ children }) {
     // Quién firma el historial. La regla vive en permisos.js y tiene test.
     const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
 
-    // Los eventos llevan tipo y monto desde 013_evento_tipo.sql. Si la base
-    // todavía no tiene esas columnas, el evento se guarda igual sin ellas:
-    // que falte una migración no puede dejar a los casos sin historial.
-    // Así se hizo también con las invitaciones.
-    const escribirEvento = async (evento) => {
+    // Escribe una fila que trae columnas agregadas por una migración nueva.
+    // Si la base todavía no tiene esas columnas, la fila se guarda igual sin
+    // ellas: que falte correr una migración no puede dejar un caso sin
+    // historial, ni perder la respuesta de un cliente. Así se hizo también
+    // con las invitaciones.
+    const escribirConColumnasNuevas = async (tabla, fila, columnas, { insertar = false } = {}) => {
       if (!enSupabase()) return;
-      const { error } = await supabase.from("evento").insert(evento);
+      const mandar = (f) =>
+        insertar
+          ? supabase.from(tabla).insert(f)
+          : supabase.from(tabla).update(f).eq("id", f.id);
+
+      const { error } = await mandar(fila);
       if (!error) return;
+
       const faltaColumna =
         error.code === "PGRST204" ||
         error.code === "42703" ||
-        /column .*(tipo|monto)/i.test(error.message ?? "");
-      if (faltaColumna) {
-        const { tipo, monto, ...sinColumnasNuevas } = evento;
-        const reintento = await supabase.from("evento").insert(sinColumnasNuevas);
-        if (!reintento.error) return;
-        setAviso("No se pudo guardar en la base: " + reintento.error.message);
+        columnas.some((c) => (error.message ?? "").includes(c));
+      if (!faltaColumna) {
+        setAviso("No se pudo guardar en la base: " + error.message);
         return;
       }
-      setAviso("No se pudo guardar en la base: " + error.message);
+
+      const sinColumnasNuevas = Object.fromEntries(
+        Object.entries(fila).filter(([clave]) => !columnas.includes(clave))
+      );
+      const reintento = await mandar(sinColumnasNuevas);
+      if (reintento.error) setAviso("No se pudo guardar en la base: " + reintento.error.message);
     };
+
+    // tipo y monto nacen en 013_evento_tipo.sql.
+    const escribirEvento = (evento) =>
+      escribirConColumnasNuevas("evento", evento, ["tipo", "monto"], { insertar: true });
 
     // No recibe autor: si se pudiera pasar de afuera, volverían los
     // personajes. Lo firma siempre quien está usando el sistema.
@@ -487,15 +500,28 @@ export function DatosProvider({ children }) {
 
       // Aprobar, rechazar y volver atrás escriben los tres en la base.
       // Así "Volver atrás" sobrevive a un F5, en vez de vivir sólo en memoria.
+      //
+      // Lo que el cliente aprobó ya no se cambia: es un acuerdo. Lo rechazado
+      // sí puede volver a esperar respuesta, porque el cliente puede cambiar
+      // de idea sobre algo que no había aceptado. La base lo hace cumplir
+      // también (014_paso_aprobado_fijo.sql).
+      //
+      // "aprobado_en" es cuándo dijo que sí. Como no se deshace, el
+      // historial suma con eso la plata aprobada en un período.
       responderPaso(pasoId, estado) {
         const paso = datos.pasos.find((p) => p.id === pasoId);
-        if (!paso) return;
+        if (!paso || paso.estado === "aprobado") return;
+
+        const cambios =
+          estado === "aprobado"
+            ? { estado, aprobado_en: new Date().toISOString() }
+            : { estado };
 
         setDatos((d) => ({
           ...d,
-          pasos: d.pasos.map((p) => (p.id === pasoId ? { ...p, estado } : p)),
+          pasos: d.pasos.map((p) => (p.id === pasoId ? { ...p, ...cambios } : p)),
         }));
-        escribir("paso", { id: pasoId, estado });
+        escribirConColumnasNuevas("paso", { id: pasoId, ...cambios }, ["aprobado_en"]);
 
         const dicho = {
           aprobado: "Lo aprobó el cliente",
