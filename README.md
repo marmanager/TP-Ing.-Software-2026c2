@@ -149,6 +149,11 @@ verificar el mail, iniciar sesión, recuperar la contraseña, crear el negocio y
 elegir el preset del rubro, y cerrar sesión. El modo de ejemplo entra sin cuenta
 y hace ese mismo recorrido desde "crear el negocio", pero contra el navegador.
 
+Con la sesión abierta, la contraseña se cambia desde "Mi negocio" → "Tu cuenta"
+(SCRUM-32). No pide la contraseña vieja porque Supabase no la pide: lo que
+autoriza el cambio es la sesión. Se escribe dos veces, porque no se ve lo que se
+escribe y un dedazo dejaría a alguien afuera de su propia cuenta.
+
 La verificación de mail y la recuperación de contraseña necesitan el mail prendido
 en el panel de Supabase (ver el paso 2 de "Conectar la base").
 
