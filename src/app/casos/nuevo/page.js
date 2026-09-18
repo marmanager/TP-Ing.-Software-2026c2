@@ -19,7 +19,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { preset, comoSeIdentifica } from "@/lib/presets";
+import { preset, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
 import { telefonoValido } from "@/lib/validaciones";
 import { horaYMinutos } from "@/lib/fechas";
 import { Boton, BotonPrincipalFijo, Campo, Cargando } from "@/componentes/ui";
@@ -178,7 +178,7 @@ function Formulario() {
             value={servicio}
             onChange={(e) => setServicio(e.target.value)}
             className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo placeholder:text-tinta-suave"
-            placeholder="Un ruido raro cuando frena"
+            placeholder={ejemplosDe(negocio?.rubro).servicio}
           />
           <ul className="mt-3 flex flex-wrap gap-2">
             {motivos.map((m) => (

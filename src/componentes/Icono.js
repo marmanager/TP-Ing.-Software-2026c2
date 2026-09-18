@@ -67,6 +67,15 @@ const TRAZOS = {
   llave: (
     <path d="M17.5 3.5a5 5 0 0 0-6.3 6.3L4 17l3 3 7.2-7.2a5 5 0 0 0 6.3-6.3l-3 3-2.5-.5-.5-2.5z" />
   ),
+  // Un reloj con la flecha para atrás: lo que ya pasó. Distinto de "reloj",
+  // que es un reloj de arena y quiere decir "esperando".
+  historial: (
+    <>
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" />
+      <path d="M3 3.5v4h4" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
   reloj: (
     <>
       <path d="M7 3h10M7 21h10" />

@@ -5,8 +5,12 @@
 // oficio. No puede agregar un sexto estado, ni cambiar un ícono, ni tocar los
 // datos de un caso.
 //
-// En el Sprint 1 ningún preset esconde estados: si escondiera uno, los casos
-// sembrados en ese estado desaparecerían de la lista en vivo.
+// Ningún preset esconde estados todavía: la cartilla lo permite, pero un caso
+// que ya está en el estado escondido desaparecería de la lista sin aviso.
+//
+// "ejemplos" son los textos de muestra de los formularios. Van acá y no en
+// cada pantalla porque un ejemplo de otro oficio confunde más que no tener
+// ninguno: a un consultorio no le sirve leer "cambio de pastillas de freno".
 
 export const PRESETS = {
   taller: {
@@ -36,6 +40,14 @@ export const PRESETS = {
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Patente", enFrase: "la patente", ejemplo: "AB 123 CD" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
+    ejemplos: {
+      negocio: "Taller Sur",
+      servicio: "Un ruido raro cuando frena",
+      diagnostico: "La correa está floja y las pastillas, al límite.",
+      paso: "Cambio de pastillas de freno",
+      turno: "cambio de aceite",
+      insumo: "filtro de aceite",
+    },
   },
 
   medicina: {
@@ -64,6 +76,14 @@ export const PRESETS = {
     modulos: ["agenda", "presupuesto"],
     identificador: { nombre: "DNI", enFrase: "el DNI", ejemplo: "30123456" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
+    ejemplos: {
+      negocio: "Consultorio Belgrano",
+      servicio: "Dolor de cabeza que no se le va hace una semana",
+      diagnostico: "Contractura cervical. No hay signos de alarma.",
+      paso: "Resonancia de columna cervical",
+      turno: "control anual",
+      insumo: "guantes descartables",
+    },
   },
 
   service: {
@@ -92,6 +112,14 @@ export const PRESETS = {
     modulos: ["inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Número de serie", enFrase: "el número de serie", ejemplo: "SN-48219" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
+    ejemplos: {
+      negocio: "Service Centro",
+      servicio: "La notebook se apaga sola a los diez minutos",
+      diagnostico: "El cooler está trabado y el procesador recalienta.",
+      paso: "Cambio de cooler y pasta térmica",
+      turno: "retirar la notebook",
+      insumo: "pasta térmica",
+    },
   },
 };
 
@@ -122,6 +150,9 @@ export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
 // una oración: van separados porque no alcanza con pasar el nombre a
 // minúsculas — "el DNI" no es "el dni".
 export const comoSeIdentifica = (rubro) => preset(rubro).identificador;
+
+// Los textos de muestra de los formularios, en el oficio del negocio.
+export const ejemplosDe = (rubro) => preset(rubro).ejemplos;
 
 // El "qué falta" de un caso, en el idioma de su rubro.
 //

@@ -11,7 +11,10 @@
 //   equivocarse de dedo.
 // - El estado de cada paso va escrito con ícono y palabra, no sólo con color.
 // - El total siempre visible, separado en aprobado y esperando respuesta.
-// - Aprobar o rechazar se puede deshacer.
+// - Rechazar se puede deshacer. Aprobar NO: lo que el cliente aceptó es un
+//   acuerdo y queda fijo. La cartilla dice que las dos cosas se deshacen;
+//   esto la contradice por decisión del equipo (ver 015_paso_aprobado_fijo.sql).
+//   Como no tiene vuelta, aprobar pide confirmación.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -22,6 +25,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { montoValido } from "@/lib/validaciones";
 import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
+import { ejemplosDe } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -46,6 +50,7 @@ export default function AprobarPasos() {
   const [monto, setMonto] = useState("");
   const [tocado, setTocado] = useState(false);
   const [sacando, setSacando] = useState(null);
+  const [aprobando, setAprobando] = useState(null);
 
   // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
   // técnico ve los pasos, porque son la lista de lo que tiene que hacer.
@@ -191,7 +196,7 @@ export default function AprobarPasos() {
           <Campo
             id="paso-nombre"
             etiqueta="Qué hay que hacer"
-            ayuda="Con las palabras del cliente. Ejemplo: Cambio de pastillas de freno."
+            ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).paso}.`}
             autoComplete="off"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -249,29 +254,66 @@ export default function AprobarPasos() {
                     {dicho.texto}
                   </p>
 
-                  {!sePuedeTocar ? null : paso.estado === "esperando" ? (
+                  {paso.estado === "aprobado" ? (
+                    <p className="mt-1 text-apoyo text-tinta-suave">
+                      Es un acuerdo con el cliente: ya no se cambia ni se saca.
+                    </p>
+                  ) : !sePuedeTocar ? null : paso.estado === "esperando" ? (
                     <>
-                      {/* 52 px de alto, 10 px en medio: para no equivocarse de dedo. */}
-                      <div className="mt-3 flex gap-2.5">
-                        <Boton
-                          variante="principal"
-                          className="min-h-13 flex-1"
-                          onClick={() => responderPaso(paso.id, "aprobado")}
-                        >
-                          Lo aprueba
-                        </Boton>
-                        <Boton
-                          variante="peligro"
-                          className="min-h-13 flex-1"
-                          onClick={() => responderPaso(paso.id, "rechazado")}
-                        >
-                          No lo hace
-                        </Boton>
-                      </div>
+                      {aprobando === paso.id ? (
+                        <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+                          <p className="font-bold text-cuerpo">
+                            ¿El cliente aprueba «{paso.nombre}» por {pesos(paso.monto)}?
+                          </p>
+                          <p className="mt-1 text-tinta-media">
+                            Después no se puede volver atrás, ni cambiar el monto, ni
+                            sacarlo del presupuesto.
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <Boton
+                              variante="principal"
+                              icono="listo"
+                              onClick={() => {
+                                responderPaso(paso.id, "aprobado");
+                                datos.avisarExito(
+                                  `Listo. «${paso.nombre}» quedó aprobado por ${pesos(paso.monto)}.`
+                                );
+                                setAprobando(null);
+                              }}
+                            >
+                              Sí, lo aprueba
+                            </Boton>
+                            <Boton variante="plano" onClick={() => setAprobando(null)}>
+                              Todavía no
+                            </Boton>
+                          </div>
+                        </div>
+                      ) : (
+                        /* 52 px de alto, 10 px en medio: para no equivocarse de dedo. */
+                        <div className="mt-3 flex gap-2.5">
+                          <Boton
+                            variante="principal"
+                            className="min-h-13 flex-1"
+                            onClick={() => {
+                              setSacando(null);
+                              setAprobando(paso.id);
+                            }}
+                          >
+                            Lo aprueba
+                          </Boton>
+                          <Boton
+                            variante="peligro"
+                            className="min-h-13 flex-1"
+                            onClick={() => responderPaso(paso.id, "rechazado")}
+                          >
+                            No lo hace
+                          </Boton>
+                        </div>
+                      )}
 
                       {/* Sacar un paso sólo se puede mientras espera respuesta:
                           después sería borrar algo que el cliente ya contestó. */}
-                      {sacando === paso.id ? (
+                      {aprobando === paso.id ? null : sacando === paso.id ? (
                         <div className="mt-3 rounded-tarjeta bg-superficie p-4">
                           <p className="font-bold text-cuerpo">
                             ¿Sacar «{paso.nombre}» del presupuesto?
@@ -310,13 +352,15 @@ export default function AprobarPasos() {
                       )}
                     </>
                   ) : (
+                    /* Sólo llega acá un paso rechazado: el cliente puede
+                       cambiar de idea sobre algo que no había aceptado. */
                     <div className="mt-3">
                       <Boton
                         variante="plano"
                         icono="deshacer"
                         onClick={() => responderPaso(paso.id, "esperando")}
                       >
-                        Volver atrás
+                        Volver a esperar respuesta
                       </Boton>
                     </div>
                   )}

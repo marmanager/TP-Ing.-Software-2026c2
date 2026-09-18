@@ -13,6 +13,7 @@ import {
   ORDEN_ROLES,
   etiquetaRol,
   comoSeIdentifica,
+  ejemplosDe,
 } from "../src/lib/presets.js";
 import { MODULOS } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
@@ -126,4 +127,29 @@ test("cada rubro identifica por lo suyo", () => {
   // sigla: "falta el dni" en vez de "falta el DNI".
   assert.equal(comoSeIdentifica("taller").enFrase, "la patente");
   assert.equal(comoSeIdentifica("medicina").enFrase, "el DNI");
+});
+
+// ---------------------------------------------------------------
+// SCRUM-90: los ejemplos de los formularios son de cada rubro
+// ---------------------------------------------------------------
+
+test("cada rubro trae sus ejemplos para todos los formularios", () => {
+  const claves = ["negocio", "servicio", "diagnostico", "paso", "turno", "insumo"];
+  for (const r of RUBROS) {
+    for (const clave of claves) {
+      assert.ok(
+        ejemplosDe(r.clave)[clave]?.trim(),
+        `${r.clave} no tiene ejemplo de ${clave}`
+      );
+    }
+  }
+});
+
+test("un ejemplo de un rubro no aparece en otro: cada oficio tiene los suyos", () => {
+  const taller = ejemplosDe("taller");
+  for (const otro of ["medicina", "service"]) {
+    for (const [clave, texto] of Object.entries(ejemplosDe(otro))) {
+      assert.notEqual(texto, taller[clave], `${otro}.${clave} repite el de taller`);
+    }
+  }
 });

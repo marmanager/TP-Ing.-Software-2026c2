@@ -86,8 +86,15 @@ export default function MiNegocio() {
     setRubroElegido(null);
   }
 
+  // El rubro queda fijo desde el primer caso (SCRUM-90). Antes se puede
+  // cambiar, porque equivocarse al elegirlo al crear el negocio tiene que
+  // tener arreglo. Después no: los casos ya están cargados con las palabras
+  // de ese oficio —patentes, mecánicos, motivos— y cambiarle el nombre a
+  // todo no los convierte en casos de otro oficio.
+  const rubroFijo = casos.length > 0;
+
   function confirmarRubro() {
-    datos.cambiarRubro(rubroElegido);
+    if (!datos.cambiarRubro(rubroElegido)) return;
     datos.avisarExito(`Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}.`);
     cerrarCambioDeRubro();
   }
@@ -180,7 +187,14 @@ export default function MiNegocio() {
               rubro cambia cómo se llaman los estados y qué motivos te ofrecemos al abrir un
               caso.
             </p>
-            {puedeConfigurar ? (
+            {rubroFijo ? (
+              <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
+                Queda fijo desde que abriste el primer caso: los casos que ya tenés
+                están cargados con las palabras de{" "}
+                {actual.nombre.toLowerCase()}, con {actual.identificador.enFrase} y
+                todo, y cambiarle el nombre al rubro no los convierte en otra cosa.
+              </p>
+            ) : puedeConfigurar ? (
               <div className="mt-4">
                 <Boton icono="tienda" onClick={() => setCambiandoRubro(true)}>
                   Cambiar el rubro
@@ -240,14 +254,26 @@ export default function MiNegocio() {
                     «{actual.etiquetas.en_proceso}» pasa a decir «{nuevo.etiquetas.en_proceso}
                     », «{actual.etiquetas.completado}» pasa a «{nuevo.etiquetas.completado}».
                   </li>
-                  <li>Los motivos que te ofrecemos al abrir un caso.</li>
+                  <li>
+                    Con qué se identifica cada caso: «{actual.identificador.nombre}» pasa a
+                    ser «{nuevo.identificador.nombre}».
+                  </li>
+                  <li>
+                    Cómo se llama quien hace el trabajo: «{actual.roles.tecnico}» pasa a
+                    «{nuevo.roles.tecnico}».
+                  </li>
+                  <li>Los motivos y los ejemplos que te ofrecemos al cargar algo.</li>
                 </ul>
 
                 <p className="mt-4 font-bold text-cuerpo">Qué no cambia</p>
                 <ul className="mt-1 flex flex-col gap-1 text-tinta-media">
-                  <li>Los casos que ya tenés: mismo texto, mismo estado, misma plata.</li>
                   <li>Los módulos que tenés prendidos.</li>
                 </ul>
+
+                <p className="mt-4 max-w-[65ch] text-tinta-media">
+                  Se puede cambiar sólo hasta que abras el primer caso. Después queda
+                  fijo.
+                </p>
 
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Boton icono="check" onClick={confirmarRubro}>

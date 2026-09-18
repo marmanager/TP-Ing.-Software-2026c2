@@ -6,6 +6,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
+import { ejemplosDe } from "@/lib/presets";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
@@ -13,7 +14,7 @@ export default function Inventario() {
   const datos = useDatos();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
-  const { cargando, insumos, casos } = datos;
+  const { cargando, insumos, casos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({ nombre: "", descripcion: "", cantidad: "", minimo: "", unidad: "unidad" });
   const [porBorrar, setPorBorrar] = useState(null);
@@ -58,7 +59,7 @@ export default function Inventario() {
           <Campo
             id="ins-nombre"
             etiqueta="Qué es"
-            ayuda="Con el nombre que usan en el mostrador. Ejemplo: filtro de aceite."
+            ayuda={`Con el nombre que usan en el mostrador. Ejemplo: ${ejemplosDe(negocio?.rubro).insumo}.`}
             value={form.nombre}
             onChange={(e) => setForm({ ...form, nombre: e.target.value })}
           />
