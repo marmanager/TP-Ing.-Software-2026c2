@@ -393,8 +393,13 @@ export function DatosProvider({ children }) {
         anotar(casoId, "Anotaron algo", texto, "nota");
       },
 
-      cambiarEstado(casoId, estado, queFalta, textoHistorial) {
-        parchearCaso(casoId, { estado, que_falta: queFalta });
+      // "tambien" son columnas del caso que ese mismo cambio de estado deja
+      // escritas. Hoy la usa una sola pantalla: al entregar se registra el
+      // cobro (SCRUM-74), y cerrar y cobrar son una sola cosa para el negocio.
+      // Va acá y no en una función aparte para que sea una sola escritura a la
+      // base: dos dejarían el caso cerrado y sin cobro si la segunda falla.
+      cambiarEstado(casoId, estado, queFalta, textoHistorial, tambien = {}) {
+        parchearCaso(casoId, { estado, que_falta: queFalta, ...tambien });
         anotar(casoId, textoHistorial.titulo, textoHistorial.detalle, textoHistorial.icono);
       },
 

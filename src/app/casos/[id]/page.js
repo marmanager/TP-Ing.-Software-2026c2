@@ -16,6 +16,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { ESTADOS, estaAbierto, pesos, quienLoTiene } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
 import { preset, queFaltaPara, comoSeIdentifica } from "@/lib/presets";
+import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -34,6 +35,9 @@ export default function VerCaso() {
   const [identificador, setIdentificador] = useState("");
   const [anotando, setAnotando] = useState(false);
   const [nota, setNota] = useState("");
+  // Entregar abre el cobro en vez de cerrar de una (SCRUM-74).
+  const [entregando, setEntregando] = useState(false);
+  const [cobro, setCobro] = useState("");
 
   const caso = casos.find((c) => c.id === id);
   useTitulo(caso ? `Caso ${caso.numero}` : "Caso");
@@ -138,6 +142,19 @@ export default function VerCaso() {
               Aprobado hasta ahora <span className="font-bold text-tinta">{pesos(aprobado)}</span>.
             </p>
           )}
+
+          {/* Se compara con != null y no con un if a secas: cobrar cero es un
+              dato, y `0` a secas se leería como "no hay nada que mostrar".
+              El Number() es porque la base devuelve numeric como texto. */}
+          {caso.cobrado != null && (
+            <p className="mt-1 text-tinta-media">
+              Cobrado{" "}
+              <span className="font-bold text-tinta">{pesos(Number(caso.cobrado))}</span>
+              {/* La guarda va sobre la fecha y no sobre cuando(): cuando(null)
+                  devuelve el 1 de enero de 1970 y cuando(undefined) explota. */}
+              {caso.cobrado_en ? ` · ${cuando(caso.cobrado_en)}` : ""}
+            </p>
+          )}
         </div>
       </div>
 
@@ -229,24 +246,73 @@ export default function VerCaso() {
             previsto —el cliente lo pasa a buscar, no tenía nada— y obligar a
             caminar toda la cadena para reflejarlo sería mentirle al estado.
             El botón dice lo que hace: entrega Y cierra (cartilla, sección 06). */}
-        {caso.estado !== "completado" && (
+        {caso.estado !== "completado" && !entregando && (
           <Boton
             icono="listo"
-            onClick={() =>
-              datos.cambiarEstado(
-                caso.id,
-                "completado",
-                queFaltaPara(negocio?.rubro, "completado"),
-                {
-                  titulo: "Entregaron el trabajo",
-                  detalle: "El caso queda cerrado.",
-                  icono: "listo",
-                }
-              )
-            }
+            onClick={() => {
+              // Viene precargado con lo que el cliente aprobó, que es lo que
+              // casi siempre se cobra. Si cobró otra cosa, lo pisa y listo:
+              // escribir el número de nuevo es más trabajo que corregirlo.
+              setCobro(aprobado > 0 ? String(aprobado) : "");
+              setEntregando(true);
+            }}
           >
             Entregar y cerrar
           </Boton>
+        )}
+
+        {/* El cobro se registra acá y no en una pantalla aparte: entregar y
+            cobrar son un solo momento en el mostrador, y es el único en que
+            alguien tiene el número delante. Se puede entregar sin registrarlo
+            —una garantía, algo que se cobró por afuera—, y por eso el campo
+            vacío también cierra el caso. */}
+        {caso.estado !== "completado" && entregando && (
+          <Tarjeta className="w-full">
+            <Campo
+              id="cobro"
+              etiqueta="¿Cuánto cobraste?"
+              ayuda="Con números y sin puntos. Si no cobrás acá, dejalo vacío: el caso se entrega igual."
+              ejemplo="120000"
+              error={!cobroValido(cobro) ? "El monto va con números y sin puntos." : null}
+              inputMode="numeric"
+              value={cobro}
+              onChange={(e) => setCobro(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-3">
+              <Boton
+                icono="listo"
+                motivo={!cobroValido(cobro) ? "revisá el monto" : null}
+                onClick={() => {
+                  const monto = montoCobrado(cobro);
+                  datos.cambiarEstado(
+                    caso.id,
+                    "completado",
+                    queFaltaPara(negocio?.rubro, "completado"),
+                    {
+                      titulo: "Entregaron el trabajo",
+                      detalle:
+                        monto === null
+                          ? "El caso queda cerrado."
+                          : `El caso queda cerrado. Cobraron ${pesos(monto)}.`,
+                      icono: "listo",
+                    },
+                    { cobrado: monto, cobrado_en: monto === null ? null : new Date().toISOString() }
+                  );
+                  datos.avisarExito(
+                    monto === null
+                      ? `Listo. El caso ${caso.numero} quedó entregado.`
+                      : `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
+                  );
+                  setEntregando(false);
+                }}
+              >
+                Entregar y cerrar
+              </Boton>
+              <Boton variante="plano" onClick={() => setEntregando(false)}>
+                Mejor no
+              </Boton>
+            </div>
+          </Tarjeta>
         )}
 
         {caso.estado === "completado" && (

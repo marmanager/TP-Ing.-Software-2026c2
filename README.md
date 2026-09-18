@@ -34,7 +34,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `011_cliente_por_confirmar.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `012_cobro.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 
@@ -166,9 +166,29 @@ por eso `negocio` no tiene política de alta: no se pueden crear negocios suelto
 
 ## Lo que todavía no está
 
-Google Auth. Y las dos que más pidieron en las entrevistas: **generar solo el
-pedido de repuestos** al aprobar un paso —el dolor más grande del taller, que hoy
-resuelven a mano en Excel— y **registrar el cobro** al entregar.
+Google Auth. Y la que más pidieron en las entrevistas: **generar solo el pedido
+de repuestos** al aprobar un paso —el dolor más grande del taller, que hoy
+resuelven a mano en Excel—. La mitad de esa ya está construida: el inventario
+lista lo pedido y "marcar que llegó" destraba el caso; lo que falta es que
+aprobar un paso cree el pedido.
+
+## El cobro
+
+Al entregar un caso se registra cuánto se cobró (SCRUM-74). El campo viene
+precargado con lo que el cliente aprobó, que es lo que casi siempre se cobra, y
+se puede pisar.
+
+Dejarlo vacío también entrega el caso, y eso es a propósito: no es lo mismo
+**no haber registrado un cobro** —se cobró por afuera, o todavía no se cobró—
+que **haber cobrado cero**, que es una garantía o una cortesía. En la base son
+`null` y `0`, y guardar las dos igual borraría un dato que después nadie puede
+reconstruir.
+
+Entregar es la única puerta por la que un caso se cierra. La lista de casos ya
+no cierra en el acto: lleva al caso, donde está el cobro. Dos puertas de salida
+y una sola que anota la plata terminaría con la plata sin anotar.
+
+Reabrir un caso no borra el cobro: esa plata entró de verdad.
 
 ## Deploy
 

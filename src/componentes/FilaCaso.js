@@ -14,7 +14,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ESTADOS, accionDeFila, quienLoTiene } from "@/lib/estados";
 import { useDatos } from "@/lib/datos";
-import { queFaltaPara } from "@/lib/presets";
 import ChipEstado from "./ChipEstado";
 import { Boton } from "./ui";
 
@@ -34,17 +33,13 @@ export default function FilaCaso({ caso }) {
         return router.push(`/casos/${caso.id}/pasos`);
       case "insumo":
         return datos.marcarInsumoLlegado(accion.insumoId);
+      // Entregar dejó de cerrarse desde la lista y lleva al caso (SCRUM-74):
+      // al entregar se registra cuánto se cobró, y eso no entra en una fila.
+      // Si la lista siguiera cerrando de una, habría dos puertas de salida y
+      // sólo una anotaría la plata — que es justo la que nadie usaría con
+      // apuro. Una sola puerta, y pasa por el cobro.
       case "entregar":
-        return datos.cambiarEstado(
-          caso.id,
-          "completado",
-          queFaltaPara(datos.negocio?.rubro, "completado"),
-          {
-            titulo: "Entregaron el trabajo",
-            detalle: "El caso queda cerrado.",
-            icono: "listo",
-          }
-        );
+        return router.push(`/casos/${caso.id}`);
       case "asignar":
         return setEligiendo((v) => !v);
       default:
