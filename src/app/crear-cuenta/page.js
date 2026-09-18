@@ -42,7 +42,7 @@ export default function CrearCuenta() {
 
   const errorEmail =
     tocado.email && email.trim() && !emailValido(email)
-      ? "Ese mail no tiene forma de mail."
+      ? "El mail ingresado es incorrecto."
       : null;
   const errorTelefono =
     tocado.telefono && telefono.trim() && !telefonoValido(telefono)
@@ -58,13 +58,13 @@ export default function CrearCuenta() {
     : !email.trim()
       ? "falta el mail"
       : !emailValido(email)
-        ? "el mail no tiene forma de mail"
+        ? "El mail ingresado no tiene el formato correcto"
         : !telefono.trim()
-          ? "falta el teléfono"
+          ? "Se necesita un teléfono"
           : !telefonoValido(telefono)
             ? "el teléfono no es válido"
             : !contrasena
-              ? "falta la contraseña"
+              ? "Se necesita una contraseña"
               : !contrasenaValida(contrasena)
                 ? "la contraseña es muy corta"
                 : enviando
