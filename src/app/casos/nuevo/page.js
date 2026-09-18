@@ -98,7 +98,7 @@ function Formulario() {
   return (
     <>
       <Link
-        href="/"
+        href="/casos"
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />

@@ -72,7 +72,7 @@ export default function VerCaso() {
 
   return (
     <>
-      <Link href="/" className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
+      <Link href="/casos" className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
         <Icono nombre="volver" />
         Volver a los casos
       </Link>

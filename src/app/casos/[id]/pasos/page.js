@@ -127,7 +127,7 @@ export default function AprobarPasos() {
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />
-        Volver a los casos
+        Volver al caso
       </Link>
 
       <h1 className="text-ident">Caso {caso.numero}</h1>
