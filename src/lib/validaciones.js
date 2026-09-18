@@ -17,3 +17,25 @@ export const contrasenaValida = (valor = "") => valor.length >= 8;
 // paso que no cuesta nada no es un paso del presupuesto.
 export const montoValido = (valor = "") =>
   /^\d+$/.test(String(valor).trim()) && Number(valor) > 0;
+
+// El cobro del caso al entregarlo (SCRUM-74). No usa montoValido a propósito:
+// aquel exige mayor que cero, porque un paso del presupuesto que no cuesta
+// nada no es un paso. Un cobro de cero sí existe, y hay que poder distinguirlo
+// de no haber registrado nada:
+//
+//   vacío → nadie registró un cobro acá
+//   cero  → se entregó sin cobrar (garantía, cortesía, obra social)
+//
+// Si las dos se guardaran igual, el negocio no podría saber cuáles entregó
+// sin cobrar y cuáles cobró por afuera del sistema.
+export const cobroValido = (valor = "") => {
+  const limpio = String(valor).trim();
+  return limpio === "" || /^\d+$/.test(limpio);
+};
+
+// De lo que se escribió en el campo a lo que se guarda en la base: null
+// cuando no se registró nada, un número cuando sí.
+export const montoCobrado = (valor = "") => {
+  const limpio = String(valor).trim();
+  return limpio === "" ? null : Number(limpio);
+};

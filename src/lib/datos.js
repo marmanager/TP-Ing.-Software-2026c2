@@ -245,7 +245,7 @@ export function DatosProvider({ children }) {
       if (reintento.error) setAviso("No se pudo guardar en la base: " + reintento.error.message);
     };
 
-    // tipo y monto nacen en 013_evento_tipo.sql.
+    // tipo y monto nacen en 014_evento_tipo.sql.
     const escribirEvento = (evento) =>
       escribirConColumnasNuevas("evento", evento, ["tipo", "monto"], { insertar: true });
 
@@ -438,10 +438,16 @@ export function DatosProvider({ children }) {
         anotar({ casoId, tipo: "nota", titulo: "Anotaron algo", detalle: texto, icono: "nota" });
       },
 
+      // "tambien" son columnas del caso que ese mismo cambio de estado deja
+      // escritas. Hoy la usa una sola pantalla: al entregar se registra el
+      // cobro (SCRUM-74), y cerrar y cobrar son una sola cosa para el negocio.
+      // Va acá y no en una función aparte para que sea una sola escritura a la
+      // base: dos dejarían el caso cerrado y sin cobro si la segunda falla.
+      //
       // Entregar es un cambio de estado, pero en el historial va aparte: es
       // lo que más se quiere contar ("cuándo terminan", dice SCRUM-75).
-      cambiarEstado(casoId, estado, queFalta, textoHistorial) {
-        parchearCaso(casoId, { estado, que_falta: queFalta });
+      cambiarEstado(casoId, estado, queFalta, textoHistorial, tambien = {}) {
+        parchearCaso(casoId, { estado, que_falta: queFalta, ...tambien });
         anotar({
           casoId,
           tipo: estado === "completado" ? "entrega" : "estado",
@@ -481,7 +487,7 @@ export function DatosProvider({ children }) {
 
       // Sólo se borra lo que todavía está esperando respuesta. Un rechazado
       // primero vuelve a esperar respuesta; uno aprobado no se borra nunca,
-      // porque es un acuerdo con el cliente (014_paso_aprobado_fijo.sql).
+      // porque es un acuerdo con el cliente (015_paso_aprobado_fijo.sql).
       eliminarPaso(pasoId) {
         const paso = datos.pasos.find((p) => p.id === pasoId);
         if (!paso || paso.estado !== "esperando") return;
@@ -504,7 +510,7 @@ export function DatosProvider({ children }) {
       // Lo que el cliente aprobó ya no se cambia: es un acuerdo. Lo rechazado
       // sí puede volver a esperar respuesta, porque el cliente puede cambiar
       // de idea sobre algo que no había aceptado. La base lo hace cumplir
-      // también (014_paso_aprobado_fijo.sql).
+      // también (015_paso_aprobado_fijo.sql).
       //
       // "aprobado_en" es cuándo dijo que sí. Como no se deshace, el
       // historial suma con eso la plata aprobada en un período.
@@ -806,7 +812,7 @@ export function DatosProvider({ children }) {
       // El rubro se cambia sólo mientras el negocio no tiene casos (SCRUM-90):
       // sirve para corregir una elección equivocada al crearlo, no para pasar
       // un taller con patentes cargadas a consultorio. La base lo rechaza
-      // igual (012_rubro_fijo.sql); esto evita llegar hasta ahí.
+      // igual (013_rubro_fijo.sql); esto evita llegar hasta ahí.
       cambiarRubro(rubro) {
         if (datos.casos.length > 0) return false;
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, rubro } }));

@@ -1,7 +1,7 @@
 -- ============================================================
--- 014_paso_aprobado_fijo.sql — lo que el cliente aprobó ya no se cambia
+-- 015_paso_aprobado_fijo.sql — lo que el cliente aprobó ya no se cambia
 --
--- Correr en el SQL Editor de Supabase, después de 001..013.
+-- Correr en el SQL Editor de Supabase, después de 001..014.
 -- Es idempotente.
 --
 -- POR QUÉ:

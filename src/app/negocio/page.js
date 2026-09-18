@@ -18,19 +18,54 @@ import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset } from "@/lib/presets";
 import { LISTA_MODULOS } from "@/lib/modulos";
+import { contrasenaValida } from "@/lib/validaciones";
 import Icono from "@/componentes/Icono";
-import { Boton, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function MiNegocio() {
   const router = useRouter();
   const datos = useDatos();
   const { cargando, negocio, casos, clientes, insumos, turnos } = datos;
-  const { esDemo, usuario, cerrarSesion } = useAuth();
+  const { esDemo, usuario, cerrarSesion, definirContrasena } = useAuth();
   useTitulo("Mi negocio");
 
   // Cambiar el rubro va en dos pasos: elegir y confirmar.
   const [cambiandoRubro, setCambiandoRubro] = useState(false);
   const [rubroElegido, setRubroElegido] = useState(null);
+
+  // Cambiar la contraseña con la sesión abierta (SCRUM-32). Es la misma
+  // definirContrasena() que usa el mail de recuperación: Supabase pide la
+  // sesión, no la contraseña vieja, y acá la sesión ya está.
+  const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
+  const [contrasena, setContrasena] = useState("");
+  const [repetida, setRepetida] = useState("");
+  const [errorContrasena, setErrorContrasena] = useState(null);
+  const [guardandoContrasena, setGuardandoContrasena] = useState(false);
+
+  // Se pide dos veces porque no se ve lo que se escribe: sin repetirla, un
+  // dedazo deja a alguien afuera de su propia cuenta y sin forma de saberlo
+  // hasta el próximo ingreso.
+  const motivoContrasena = !contrasenaValida(contrasena)
+    ? "necesita 8 caracteres o más"
+    : contrasena !== repetida
+      ? "repetila igual abajo"
+      : null;
+
+  function cerrarCambioDeContrasena() {
+    setCambiandoContrasena(false);
+    setContrasena("");
+    setRepetida("");
+    setErrorContrasena(null);
+  }
+
+  async function guardarContrasena() {
+    setGuardandoContrasena(true);
+    const r = await definirContrasena(contrasena);
+    setGuardandoContrasena(false);
+    if (!r.ok) return setErrorContrasena(r.error);
+    cerrarCambioDeContrasena();
+    datos.avisarExito("Listo, tu contraseña quedó cambiada.");
+  }
 
   async function salir() {
     await cerrarSesion();
@@ -299,11 +334,67 @@ export default function MiNegocio() {
                 </>
               )}
             </p>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Boton
+                icono="llave"
+                onClick={() =>
+                  cambiandoContrasena ? cerrarCambioDeContrasena() : setCambiandoContrasena(true)
+                }
+              >
+                {cambiandoContrasena ? "Mejor no" : "Cambiar la contraseña"}
+              </Boton>
               <Boton icono="salir" onClick={salir}>
                 Cerrar sesión
               </Boton>
             </div>
+
+            {cambiandoContrasena && (
+              <div className="mt-6 border-t border-borde pt-6">
+                <Campo
+                  id="contrasena-nueva"
+                  etiqueta="Tu contraseña nueva"
+                  ayuda="Al menos 8 caracteres. Desde que la cambiás, entrás con esta."
+                  type="password"
+                  autoComplete="new-password"
+                  value={contrasena}
+                  onChange={(e) => {
+                    setContrasena(e.target.value);
+                    setErrorContrasena(null);
+                  }}
+                />
+                <Campo
+                  id="contrasena-repetida"
+                  etiqueta="Escribila de nuevo"
+                  error={
+                    repetida && contrasena !== repetida ? "Las dos no son iguales." : null
+                  }
+                  exito={repetida && contrasena === repetida ? "Coinciden." : null}
+                  type="password"
+                  autoComplete="new-password"
+                  value={repetida}
+                  onChange={(e) => {
+                    setRepetida(e.target.value);
+                    setErrorContrasena(null);
+                  }}
+                />
+
+                {errorContrasena && (
+                  <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
+                    <Icono nombre="alerta" className="size-6" />
+                    <span>{errorContrasena}</span>
+                  </p>
+                )}
+
+                <Boton
+                  variante="principal"
+                  icono="check"
+                  motivo={guardandoContrasena ? "guardando" : motivoContrasena}
+                  onClick={guardarContrasena}
+                >
+                  Cambiar la contraseña
+                </Boton>
+              </div>
+            )}
           </>
         )}
       </Tarjeta>

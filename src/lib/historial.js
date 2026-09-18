@@ -4,7 +4,7 @@
 // entraron, los que cambiaron de estado, los que se entregaron y la plata de
 // cada paso del presupuesto, en orden y con quién lo hizo.
 //
-// Cada evento guarda de qué tipo es (evento.tipo, 013_evento_tipo.sql). No se
+// Cada evento guarda de qué tipo es (evento.tipo, 014_evento_tipo.sql). No se
 // deduce del título a propósito: los títulos son texto para leer, y si un día
 // alguien cambia "Entregaron el trabajo" por otra frase, un filtro que
 // dependiera de esa frase dejaría de encontrar las entregas sin avisar.
@@ -82,7 +82,7 @@ export function resumirHistorial(eventos) {
 // La plata que aprobaron los clientes en el período.
 //
 // Sale de los pasos y no de los eventos. Un paso aprobado ya no se puede
-// volver atrás (014_paso_aprobado_fijo.sql), así que su fecha de aprobación
+// volver atrás (015_paso_aprobado_fijo.sql), así que su fecha de aprobación
 // es estable y cada uno cuenta una sola vez. Sumar eventos no serviría: en
 // una base vieja puede haber aprobaciones que después se deshicieron.
 //

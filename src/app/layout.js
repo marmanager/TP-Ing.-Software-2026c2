@@ -8,9 +8,11 @@ import Guardia from "@/componentes/Guardia";
 // dominio. Así la aplicación se ve igual sin internet, que es exactamente el
 // escenario de un aula: si las fuentes vinieran del CDN de Google, sin wifi
 // la pantalla se vería con la tipografía de reserva.
+// El 900 lo usa sólo la landing, para los dos titulares grandes. El sistema
+// no pasa de 800.
 const figtree = Figtree({
   subsets: ["latin"],
-  weight: ["700", "800"],
+  weight: ["700", "800", "900"],
   variable: "--fuente-titulo",
   display: "block",
 });

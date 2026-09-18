@@ -1,7 +1,7 @@
 -- ============================================================
--- 013_evento_tipo.sql — de qué tipo es cada evento (SCRUM-75)
+-- 014_evento_tipo.sql — de qué tipo es cada evento (SCRUM-75)
 --
--- Correr en el SQL Editor de Supabase, después de 001..012.
+-- Correr en el SQL Editor de Supabase, después de 001..013.
 -- Es idempotente.
 --
 -- POR QUÉ:

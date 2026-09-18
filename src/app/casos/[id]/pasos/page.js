@@ -13,7 +13,7 @@
 // - El total siempre visible, separado en aprobado y esperando respuesta.
 // - Rechazar se puede deshacer. Aprobar NO: lo que el cliente aceptó es un
 //   acuerdo y queda fijo. La cartilla dice que las dos cosas se deshacen;
-//   esto la contradice por decisión del equipo (ver 014_paso_aprobado_fijo.sql).
+//   esto la contradice por decisión del equipo (ver 015_paso_aprobado_fijo.sql).
 //   Como no tiene vuelta, aprobar pide confirmación.
 
 import { useState } from "react";
@@ -132,7 +132,7 @@ export default function AprobarPasos() {
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />
-        Volver a los casos
+        Volver al caso
       </Link>
 
       <h1 className="text-ident">Caso {caso.numero}</h1>

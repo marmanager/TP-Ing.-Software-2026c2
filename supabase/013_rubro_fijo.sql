@@ -1,7 +1,7 @@
 -- ============================================================
--- 012_rubro_fijo.sql — el rubro queda fijo desde el primer caso (SCRUM-90)
+-- 013_rubro_fijo.sql — el rubro queda fijo desde el primer caso (SCRUM-90)
 --
--- Correr en el SQL Editor de Supabase, después de 001..011.
+-- Correr en el SQL Editor de Supabase, después de 001..012.
 -- Es idempotente.
 --
 -- POR QUÉ:

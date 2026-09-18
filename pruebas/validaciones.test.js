@@ -10,6 +10,8 @@ import {
   emailValido,
   contrasenaValida,
   montoValido,
+  montoCobrado,
+  cobroValido,
 } from "../src/lib/validaciones.js";
 
 test("el teléfono va con característica, sin el 0 ni el 15", () => {
@@ -47,4 +49,35 @@ test("el monto va con números y sin puntos", () => {
   assert.equal(montoValido("0"), false, "un paso que no cuesta nada no es un paso");
   assert.equal(montoValido("-500"), false);
   assert.equal(montoValido(""), false);
+});
+
+// El cobro no se valida con montoValido: ese exige mayor que cero, porque un
+// paso del presupuesto que no cuesta nada no es un paso. El cobro juega
+// distinto, y la diferencia es la que importa en SCRUM-74:
+//
+//   vacío → no se registró cobro acá (se cobra afuera, o todavía no se cobró)
+//   cero  → se entregó y no se cobró nada (garantía, cortesía, obra social)
+//
+// Guardar las dos como 0 borraría esa diferencia, y es plata.
+test("el campo vacío no registra ningún cobro", () => {
+  assert.equal(montoCobrado(""), null);
+  assert.equal(montoCobrado("   "), null, "espacios sueltos tampoco son un cobro");
+});
+
+test("cobrar cero no es lo mismo que no registrar nada", () => {
+  assert.equal(montoCobrado("0"), 0);
+});
+
+test("el monto cobrado se guarda como número", () => {
+  assert.equal(montoCobrado("120000"), 120000);
+  assert.equal(montoCobrado(" 74000 "), 74000, "se recortan los espacios");
+});
+
+test("el cobro acepta que no haya monto, pero no acepta cualquier cosa", () => {
+  assert.equal(cobroValido(""), true, "entregar sin registrar cobro se puede");
+  assert.equal(cobroValido("0"), true);
+  assert.equal(cobroValido("120000"), true);
+  assert.equal(cobroValido("120.000"), false, "sin puntos, como el resto del sistema");
+  assert.equal(cobroValido("-500"), false);
+  assert.equal(cobroValido("ciento veinte mil"), false);
 });

@@ -32,6 +32,11 @@ const RUTAS_ENTRADA = [
 const RUTA_NEGOCIO = "/crear-negocio";
 const RUTA_CONFIRMAR = "/confirma-tu-mail";
 
+// La landing es lo primero que ve quien todavía no tiene cuenta. No entra en
+// RUTAS_ENTRADA porque no comparte el marco: las pantallas de entrada son una
+// columna angosta y centrada, y la landing va a sangre completa.
+const RUTA_BIENVENIDA = "/bienvenida";
+
 // "/unirme/<código>" se abre desde el link de una invitación, así que tiene
 // que ser alcanzable en cualquier estado: sin cuenta, con cuenta y sin
 // negocio, o con negocio. La pantalla explica qué pasa en cada caso.
@@ -70,16 +75,24 @@ export default function Guardia({ children }) {
   let destino = null;
   if (!esperando) {
     if (!hayEntrada) {
-      if (!RUTAS_ENTRADA.includes(ruta) && !esInvitacion(ruta)) destino = "/iniciar-sesion";
+      // Sin cuenta, lo primero es la landing y no el formulario: quien llega
+      // por primera vez todavía no sabe qué es esto.
+      if (
+        !RUTAS_ENTRADA.includes(ruta) &&
+        !esInvitacion(ruta) &&
+        ruta !== RUTA_BIENVENIDA
+      )
+        destino = RUTA_BIENVENIDA;
     } else if (recuperando && ruta === "/nueva-contrasena") {
       destino = null;
     } else if (!esDemo && necesitaConfirmarMail) {
       if (ruta !== RUTA_CONFIRMAR) destino = RUTA_CONFIRMAR;
     } else if (!tieneNegocio) {
       if (ruta !== RUTA_NEGOCIO && !esInvitacion(ruta)) destino = RUTA_NEGOCIO;
-    } else if (RUTAS_ENTRADA.includes(ruta)) {
+    } else if (RUTAS_ENTRADA.includes(ruta) || ruta === RUTA_BIENVENIDA) {
       // Con negocio ya creado, /crear-negocio se puede visitar (avisa que ya
-      // hay uno); las demás pantallas de entrada llevan al inicio.
+      // hay uno); las demás pantallas de entrada, y la landing, llevan al
+      // inicio: a quien ya entró no hay nada que contarle.
       destino = "/";
     }
   }
@@ -98,6 +111,11 @@ export default function Guardia({ children }) {
       </div>
     );
   }
+
+  // La landing se dibuja sola: sin la columna de PantallaEntrada, sin la
+  // navegación del sistema y sin el ancho de hoja. Va antes que todo lo
+  // demás porque quien la mira, por definición, no tiene sesión.
+  if (ruta === RUTA_BIENVENIDA) return children;
 
   const enEntrada =
     !hayEntrada ||
