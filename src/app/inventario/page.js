@@ -185,18 +185,30 @@ export default function Inventario() {
                   )}
                 </div>
 
+                {/* Los botones se ven como un signo, pero el lector de
+                    pantalla tiene que oír qué hacen y sobre qué: "menos",
+                    solo, no dice menos de qué (auditoría, accesibilidad). El
+                    número se anuncia al cambiar, así se sabe cómo quedó. */}
                 <div className="flex items-center gap-2">
                   <Boton
                     className="min-w-12 px-0"
+                    aria-label={`Quitar uno de ${i.nombre.toLowerCase()}`}
                     onClick={() => datos.ajustarCantidad(i.id, -1)}
                     disabled={i.cantidad === 0}
                   >
                     −
                   </Boton>
-                  <span className="w-20 text-center font-titulo font-extrabold text-subtitulo tabular-nums">
+                  <span
+                    aria-live="polite"
+                    className="w-20 text-center font-titulo font-extrabold text-subtitulo tabular-nums"
+                  >
                     {i.cantidad}
                   </span>
-                  <Boton className="min-w-12 px-0" onClick={() => datos.ajustarCantidad(i.id, 1)}>
+                  <Boton
+                    className="min-w-12 px-0"
+                    aria-label={`Sumar uno de ${i.nombre.toLowerCase()}`}
+                    onClick={() => datos.ajustarCantidad(i.id, 1)}
+                  >
                     +
                   </Boton>
                   <span className="w-16 text-apoyo text-tinta-suave">{i.unidad}</span>
