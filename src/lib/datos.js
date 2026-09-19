@@ -705,6 +705,16 @@ export function DatosProvider({ children }) {
         escribir("cliente", cliente, { insertar: true });
       },
 
+      // Corregir el teléfono desde la ficha del cliente. Antes, uno mal
+      // cargado no se podía arreglar en ningún lado.
+      corregirTelefono(clienteId, telefono) {
+        setDatos((d) => ({
+          ...d,
+          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono } : c)),
+        }));
+        escribir("cliente", { id: clienteId, telefono });
+      },
+
       // ---------- agenda ----------
       // El cliente se puede dar de alta desde acá: alguien llama para pedir
       // turno y todavía no está cargado. No tiene sentido obligar a salir a

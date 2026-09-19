@@ -134,7 +134,13 @@ export default function Clientes() {
             return (
               <li key={cliente.id}>
                 <Tarjeta className="h-full">
-                  <p className="font-bold text-subtitulo">{cliente.nombre}</p>
+                  <Link
+                    href={`/clientes/${cliente.id}`}
+                    className="inline-flex min-h-12 items-center gap-2 font-bold text-subtitulo text-azul"
+                  >
+                    {cliente.nombre}
+                    <Icono nombre="volver" className="size-5 rotate-180" />
+                  </Link>
                   {cliente.telefono && (
                     <a
                       href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
@@ -178,7 +184,13 @@ export default function Clientes() {
             {porVenir.map((cliente) => (
               <li key={cliente.id}>
                 <Tarjeta className="h-full border-dashed">
-                  <p className="font-bold text-subtitulo">{cliente.nombre}</p>
+                  <Link
+                    href={`/clientes/${cliente.id}`}
+                    className="inline-flex min-h-12 items-center gap-2 font-bold text-subtitulo text-azul"
+                  >
+                    {cliente.nombre}
+                    <Icono nombre="volver" className="size-5 rotate-180" />
+                  </Link>
                   {cliente.telefono && (
                     <a
                       href={`tel:${cliente.telefono.replace(/\s/g, "")}`}

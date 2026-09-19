@@ -69,3 +69,16 @@ export function diaPasado(iso) {
     month: "long",
   }).format(d);
 }
+
+// Un día pasado para meter en medio de una frase: "hoy", "ayer" o "el 2 de
+// septiembre". Así se lee "Cliente desde hoy" y "Abierto el 2 de
+// septiembre", sin la hora, que en esas frases sobra.
+export function elDia(iso) {
+  const d = new Date(iso);
+  const ahora = new Date();
+  if (mismoDia(d, ahora)) return "hoy";
+  const ayer = new Date(ahora);
+  ayer.setDate(ahora.getDate() - 1);
+  if (mismoDia(d, ayer)) return "ayer";
+  return `el ${dia(d)}`;
+}
