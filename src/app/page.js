@@ -266,10 +266,11 @@ export default function Inicio() {
           </div>
         ) : (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Boton icono="cajas" onClick={empezarAAcomodar}>
-              Acomodar la pantalla
-            </Boton>
-            {/* El único botón azul cuando no se está acomodando. */}
+            {/* El único botón azul cuando no se está acomodando, y lo único
+                arriba: abrir un caso se hace varias veces por día. "Acomodar
+                la pantalla" se hace una vez cada varios meses y va al pie de
+                la grilla; con los dos del mismo tamaño al lado había que leer
+                los dos todas las veces (auditoría, H8). */}
             <Link href="/casos/nuevo" className="flex-1 sm:flex-none">
               <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
                 <Icono nombre="mas" />
@@ -362,6 +363,14 @@ export default function Inicio() {
             </Boton>
           </div>
         </>
+      )}
+
+      {!acomodando && (
+        <div className="mt-6">
+          <Boton variante="plano" icono="cajas" onClick={empezarAAcomodar}>
+            Acomodar la pantalla
+          </Boton>
+        </div>
       )}
 
       {/* Sólo en celular: el camino a las secciones que no entran en la barra
