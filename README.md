@@ -34,7 +34,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `015_paso_aprobado_fijo.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `017_negocio_descripcion.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 
@@ -76,6 +76,7 @@ src/
     ├── presets.js          los diccionarios de rubro
     ├── modulos.js          el catálogo de módulos que un negocio puede prender
     ├── historial.js        el historial del negocio: tipos de evento, filtros y resumen
+    ├── imagen.js           achica la foto del negocio antes de guardarla
     └── inicio.js           la grilla del Inicio: catálogo, tamaños y orden
 ```
 
@@ -142,6 +143,43 @@ estaba.
 
 Agregar un módulo nuevo es sumar una entrada en `src/lib/inicio.js` y su cuerpo
 en `src/componentes/inicio/cuerpos.js`.
+
+## La ficha del negocio
+
+El nombre, la descripción y la foto se editan juntos desde "Mi negocio", con un
+botón **Editar** que abre el modo edición y lo cierra con **Guardar** o
+**Cancelar** (SCRUM-30). El nombre antes se fijaba al crear el negocio y no se
+podía tocar más.
+
+Mientras se edita, sobre la foto aparece un **pincel**. Ahí adentro hay dos
+opciones: *Elegir foto*, que abre el explorador de archivos, y *Eliminar*, que
+vuelve al ícono de local. "Eliminar" sólo aparece si hay una foto: ofrecer
+sacar algo que no está es una puerta que no lleva a ningún lado.
+
+**Se edita sobre un borrador, no sobre el dato en vivo.** Es lo que hace que
+"Cancelar" deshaga de verdad: si la foto se guardara al elegirla, cancelar la
+dejaría cambiada igual. Por eso hasta tocar "Guardar" la barra sigue mostrando
+la foto vieja, y los tres campos se escriben en una sola operación: son un solo
+"Guardar" en la pantalla y sería raro que la mitad quedara aplicada.
+
+La descripción es un renglón de hasta 140 caracteres, y se ve bajo el rubro en
+la tarjeta. El pincel es el único botón sin palabra al lado en todo el sistema
+—encima de la foto no entra—, así que lleva `aria-label`.
+
+Sin foto queda el ícono de local, que es lo que había.
+
+La foto **se achica en el navegador** a 256 píxeles de lado y se guarda como
+texto en una columna, no en un bucket de archivos. Esa es la decisión que la
+hace andar igual con Supabase y en el modo de ejemplo, donde no hay servidor
+que reciba nada. Pesa unos 20 KB.
+
+Sale en WebP porque mantiene la transparencia: un logo con fondo transparente
+pasado a JPEG queda con un recuadro negro. Un navegador que no lo soporte
+devuelve PNG solo y funciona igual.
+
+Tiene un techo y está escrito en `src/lib/imagen.js`: para logos grandes o
+fotos de verdad esto no alcanza, y la respuesta es Supabase Storage con su
+bucket y sus políticas, no subirle el número al máximo.
 
 ## Login
 

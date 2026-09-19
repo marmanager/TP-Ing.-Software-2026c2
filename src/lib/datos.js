@@ -820,6 +820,26 @@ export function DatosProvider({ children }) {
         return true;
       },
 
+      // Lo que se edita de la ficha del negocio: el nombre, la descripción y
+      // la foto (SCRUM-30). Los tres juntos y en una sola escritura, porque
+      // en la pantalla son un solo "Guardar".
+      //
+      // Guardar de a uno dejaría a medias una edición que la persona ve como
+      // una sola: el nombre cambiado y la foto no, si la segunda falla.
+      //
+      // La foto viene como data URL ya achicado por src/lib/imagen.js, o null
+      // para volver al ícono.
+      guardarNegocio({ nombre, descripcion, foto }) {
+        const cambios = {
+          nombre: nombre.trim(),
+          // Vacío es que no hay descripción, no una descripción en blanco.
+          descripcion: descripcion.trim() || null,
+          foto: foto ?? null,
+        };
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
+        escribir("negocio", { id: datos.negocio?.id, ...cambios });
+      },
+
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
       cambiarModulos(claves) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));

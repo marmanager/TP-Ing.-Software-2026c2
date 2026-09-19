@@ -42,6 +42,7 @@ export const PRESETS = {
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
     ejemplos: {
       negocio: "Taller Sur",
+      descripcion: "Mecánica general y chapa, zona sur",
       servicio: "Un ruido raro cuando frena",
       diagnostico: "La correa está floja y las pastillas, al límite.",
       paso: "Cambio de pastillas de freno",
@@ -78,6 +79,7 @@ export const PRESETS = {
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
     ejemplos: {
       negocio: "Consultorio Belgrano",
+      descripcion: "Clínica médica, con obras sociales",
       servicio: "Dolor de cabeza que no se le va hace una semana",
       diagnostico: "Contractura cervical. No hay signos de alarma.",
       paso: "Resonancia de columna cervical",
@@ -114,6 +116,7 @@ export const PRESETS = {
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
     ejemplos: {
       negocio: "Service Centro",
+      descripcion: "Notebooks y celulares, reparación en el día",
       servicio: "La notebook se apaga sola a los diez minutos",
       diagnostico: "El cooler está trabado y el procesador recalienta.",
       paso: "Cambio de cooler y pasta térmica",

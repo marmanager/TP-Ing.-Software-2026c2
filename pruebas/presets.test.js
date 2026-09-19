@@ -134,7 +134,7 @@ test("cada rubro identifica por lo suyo", () => {
 // ---------------------------------------------------------------
 
 test("cada rubro trae sus ejemplos para todos los formularios", () => {
-  const claves = ["negocio", "servicio", "diagnostico", "paso", "turno", "insumo"];
+  const claves = ["negocio", "descripcion", "servicio", "diagnostico", "paso", "turno", "insumo"];
   for (const r of RUBROS) {
     for (const clave of claves) {
       assert.ok(
