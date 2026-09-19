@@ -21,6 +21,8 @@ import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
+const EVENTOS_A_LA_VISTA = 5;
+
 export default function VerCaso() {
   const { id } = useParams();
   const datos = useDatos();
@@ -34,6 +36,7 @@ export default function VerCaso() {
   const [editandoIdent, setEditandoIdent] = useState(false);
   const [identificador, setIdentificador] = useState("");
   const [anotando, setAnotando] = useState(false);
+  const [historialEntero, setHistorialEntero] = useState(false);
   const [nota, setNota] = useState("");
   // Entregar abre el cobro en vez de cerrar de una (SCRUM-74).
   const [entregando, setEntregando] = useState(false);
@@ -547,8 +550,11 @@ export default function VerCaso() {
         </Tarjeta>
       )}
 
+      {/* Los cinco más recientes, y el resto a pedido. Un caso de dos
+          semanas deja veinte eventos, y en el celular todo lo que estaba
+          debajo quedaba a un scroll que nadie hace (auditoría, H8). */}
       <ol className="flex flex-col gap-6">
-        {historial.map((e) => (
+        {(historialEntero ? historial : historial.slice(0, EVENTOS_A_LA_VISTA)).map((e) => (
           <li key={e.id} className="flex gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-superficie text-tinta-media">
               <Icono nombre={e.icono} className="size-5" />
@@ -563,6 +569,19 @@ export default function VerCaso() {
           </li>
         ))}
       </ol>
+      {historial.length > EVENTOS_A_LA_VISTA && (
+        <div className="mt-4">
+          <Boton
+            variante="plano"
+            icono={historialEntero ? "volver" : "mas"}
+            onClick={() => setHistorialEntero((v) => !v)}
+          >
+            {historialEntero
+              ? "Mostrar sólo lo último"
+              : `Ver todo lo que pasó (${historial.length})`}
+          </Boton>
+        </div>
+      )}
     </>
   );
 }

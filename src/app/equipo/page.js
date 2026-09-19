@@ -21,6 +21,8 @@ import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
+const CASOS_A_LA_VISTA = 3;
+
 export default function Equipo() {
   const datos = useDatos();
   const { cargando, empleados, casos, negocio, avisarExito } = datos;
@@ -31,6 +33,7 @@ export default function Equipo() {
   // (008_permisos.sql); acá sólo evitamos ofrecer un botón que va a fallar.
   const puedeManejar = puede(usuario?.rol, "manejarEquipo");
 
+  const [verTodosDe, setVerTodosDe] = useState(null);
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState("tecnico");
@@ -184,9 +187,12 @@ export default function Equipo() {
                       : `Tiene ${suyos.length} ${suyos.length === 1 ? "caso" : "casos"} sin cerrar.`}
                   </p>
 
+                  {/* Tres casos y el resto a pedido: alguien con siete
+                      casos tenía una tarjeta del triple de alto que las otras
+                      y rompía la grilla (auditoría, H8). */}
                   {suyos.length > 0 && (
                     <ul className="mt-3 flex flex-col gap-2">
-                      {suyos.map((c) => (
+                      {(verTodosDe === e.id ? suyos : suyos.slice(0, CASOS_A_LA_VISTA)).map((c) => (
                         <li key={c.id}>
                           <Link
                             href={`/casos/${c.id}`}
@@ -198,6 +204,17 @@ export default function Equipo() {
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {suyos.length > CASOS_A_LA_VISTA && (
+                    <Boton
+                      variante="plano"
+                      className="mt-1"
+                      onClick={() => setVerTodosDe((v) => (v === e.id ? null : e.id))}
+                    >
+                      {verTodosDe === e.id
+                        ? "Mostrar menos"
+                        : `y ${suyos.length - CASOS_A_LA_VISTA} más`}
+                    </Boton>
                   )}
 
                   {!puedeManejar ? null : sacando === e.id ? (
