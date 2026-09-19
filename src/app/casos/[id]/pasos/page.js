@@ -435,7 +435,31 @@ export default function AprobarPasos() {
                 Se lee completo en el mensaje, sin abrir el sistema. Mandarlo de verdad es
                 del próximo sprint.
               </p>
-              <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media">
+              {/* El mensaje existe para pegarlo en WhatsApp, y seleccionar
+                  varias líneas a mano en un celular era la parte más difícil
+                  de toda la tarea (auditoría, H7). Si el navegador no deja
+                  copiar, queda seleccionado para copiarlo a mano. */}
+              <div className="mt-3">
+                <Boton
+                  icono="copiar"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(mensaje);
+                      datos.avisarExito("Listo. Copiamos el mensaje: pegalo en la conversación con el cliente.");
+                    } catch {
+                      const pre = document.getElementById("mensaje-cliente");
+                      window.getSelection()?.selectAllChildren(pre);
+                      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+                    }
+                  }}
+                >
+                  Copiar el mensaje
+                </Boton>
+              </div>
+              <pre
+                id="mensaje-cliente"
+                className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media"
+              >
                 {mensaje}
               </pre>
             </div>

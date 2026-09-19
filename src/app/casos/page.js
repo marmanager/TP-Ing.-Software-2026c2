@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
@@ -14,6 +14,7 @@ export default function Casos() {
   const { cargando, casos, clientes, negocio } = useDatos();
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
+  const campoBusqueda = useRef(null);
   useTitulo("Casos");
 
   if (cargando) return <Cargando />;
@@ -65,11 +66,29 @@ export default function Casos() {
         </span>
         <input
           id="buscar"
+          ref={campoBusqueda}
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder={`248, ${comoIdent.ejemplo}, frenos, Marcela…`}
-          className="block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta pl-13 pr-4 text-cuerpo placeholder:text-tinta-suave"
+          className="block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta pl-13 pr-14 text-cuerpo placeholder:text-tinta-suave"
         />
+        {/* Borrar letra por letra en el teclado de un celular son doce
+            toques para volver a la lista completa; esto es uno. Devuelve el
+            foco al campo, así se puede escribir otra búsqueda de una
+            (auditoría, H3). */}
+        {busqueda && (
+          <button
+            type="button"
+            aria-label="Borrar la búsqueda"
+            onClick={() => {
+              setBusqueda("");
+              campoBusqueda.current?.focus();
+            }}
+            className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center rounded-r-campo text-tinta-media hover:text-tinta"
+          >
+            <Icono nombre="cruz" />
+          </button>
+        )}
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
