@@ -106,6 +106,10 @@ export function DatosProvider({ children }) {
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
   const [exito, setExito] = useState(null);
+  // Lo que deshace la acción que se acaba de confirmar, si se puede deshacer.
+  // Vive mientras el aviso esté en pantalla: el "Deshacer" está donde ocurrió
+  // la acción, no en un menú (auditoría, H3).
+  const [deshacerExito, setDeshacerExito] = useState(null);
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
   // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
@@ -845,9 +849,18 @@ export function DatosProvider({ children }) {
         setDatos(construirSemilla());
       },
 
-      avisarExito: (texto) => setExito(texto),
+      // avisarExito("Listo…", { deshacer: () => … }) suma un botón "Deshacer"
+      // al aviso. El setter recibe una función que devuelve la función, porque
+      // si se le pasa la función directo React la ejecuta.
+      avisarExito: (texto, { deshacer = null } = {}) => {
+        setExito(texto);
+        setDeshacerExito(() => deshacer);
+      },
       descartarAviso: () => setAviso(null),
-      descartarExito: () => setExito(null),
+      descartarExito: () => {
+        setExito(null);
+        setDeshacerExito(null);
+      },
     };
   }, [datos, fuente, esDemo, usuario]);
 
@@ -860,6 +873,7 @@ export function DatosProvider({ children }) {
     fuente,
     aviso,
     exito,
+    deshacerExito,
     ...acciones,
   };
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
