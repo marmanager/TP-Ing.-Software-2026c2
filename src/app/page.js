@@ -47,7 +47,6 @@ import {
 } from "@/lib/inicio";
 import Modulo from "@/componentes/inicio/Modulo";
 import Icono from "@/componentes/Icono";
-import { OtrasSecciones } from "@/componentes/Navegacion";
 import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
 const FLECHAS = {
@@ -373,9 +372,6 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* Sólo en celular: el camino a las secciones que no entran en la barra
-          de abajo, aunque se haya sacado su módulo. */}
-      {!acomodando && <OtrasSecciones />}
     </>
   );
 }

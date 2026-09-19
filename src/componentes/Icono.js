@@ -67,6 +67,16 @@ const TRAZOS = {
   llave: (
     <path d="M17.5 3.5a5 5 0 0 0-6.3 6.3L4 17l3 3 7.2-7.2a5 5 0 0 0 6.3-6.3l-3 3-2.5-.5-.5-2.5z" />
   ),
+  // Cuatro cuadrados: "todas las secciones", el lugar "Más" de la barra del
+  // celular. No es el "+", que en el sistema quiere decir "agregar".
+  secciones: (
+    <>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    </>
+  ),
   // Un reloj con la flecha para atrás: lo que ya pasó. Distinto de "reloj",
   // que es un reloj de arena y quiere decir "esperando".
   historial: (

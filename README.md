@@ -98,6 +98,24 @@ lector de pantalla la lee siempre.
 - El anillo de foco azul de 3 px está siempre y no se saca.
 - Sin jerga: no hay «dashboard», «settings», «loading» ni «item» en ningún texto.
 
+## Decisiones que se apartan de la cartilla
+
+La cartilla es normativa: si una decisión de diseño choca con ella, gana la
+cartilla. Estas dos la contradicen a propósito, por decisión del equipo, y
+quedan escritas acá para que nadie las "corrija" sin saberlo.
+
+- **Un paso aprobado por el cliente no se deshace.** Las secciones 08 y 09
+  dicen que aprobar y rechazar se pueden deshacer. Lo aprobado es un acuerdo
+  con el cliente sobre trabajo y plata, así que queda fijo; aprobar pide
+  confirmación antes. Rechazar sí se deshace. Lo hace cumplir también la base
+  (`supabase/015_paso_aprobado_fijo.sql`).
+- **En el celular, el cuarto lugar de la barra es "Más".** La sección 05 dice
+  "cuatro destinos abajo, nunca un menú escondido". Con nueve secciones
+  posibles no entran; lo de todos los días (Inicio, Casos, Agenda) sigue a un
+  toque, y "Más" abre un panel a pantalla completa con todas las secciones,
+  igual que la barra lateral de la computadora. Va con ícono y palabra, y
+  queda marcado cuando la pantalla actual está adentro.
+
 ## El Inicio se arma por módulos
 
 La pantalla de entrada no es fija: cada módulo asoma una feature del sistema
