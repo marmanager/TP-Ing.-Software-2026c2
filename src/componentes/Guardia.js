@@ -132,9 +132,25 @@ export default function Guardia({ children }) {
 
   return (
     <>
+      {/* Lo primero de la página, para quien usa teclado o lector de
+          pantalla: sin esto, en cada pantalla había que pasar por las nueve
+          secciones de la barra antes de llegar a lo que se vino a hacer
+          (auditoría, accesibilidad). Queda corrido fuera de la vista hasta que
+          recibe el foco, y ahí baja arriba a la izquierda, con el anillo de
+          foco de siempre. Corrido y no oculto: el lector de pantalla lo lee. */}
+      <a
+        href="#contenido"
+        className="fixed top-3 left-3 z-50 -translate-y-[200%] whitespace-nowrap rounded-campo bg-azul px-4 py-3 font-bold text-white focus:translate-y-0"
+      >
+        Ir al contenido
+      </a>
       <div className="flex min-h-screen">
         <BarraLateral />
-        <main className="min-w-0 flex-1 pb-[calc(var(--alto-barra,4rem)+1rem)] md:pb-0">
+        <main
+          id="contenido"
+          tabIndex={-1}
+          className="min-w-0 flex-1 pb-[calc(var(--alto-barra,4rem)+1rem)] focus:outline-none md:pb-0"
+        >
           {/* "@container": las grillas de las pantallas eligen sus columnas por el
                 ancho de ESTE bloque y no por el de la ventana. En escritorio la
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
