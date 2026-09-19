@@ -19,7 +19,11 @@ const BASE_BOTON =
 const VARIANTES = {
   principal: "bg-azul text-white hover:bg-azul-apretado",
   borde: "bg-tarjeta text-azul border-2 border-azul hover:bg-azul-claro",
+  // El rojo es sólo para lo que borra o no tiene vuelta. Una opción opuesta
+  // pero reversible —"No lo hace"— va neutra: si no, se aprende que el rojo
+  // es "la opción de la derecha" y no "cuidado" (auditoría, H5).
   peligro: "bg-tarjeta text-rojo border-2 border-rojo hover:bg-rojo/5",
+  neutro: "bg-tarjeta text-tinta border-2 border-borde-fuerte hover:bg-superficie",
   plano: "bg-transparent text-azul hover:bg-azul-claro px-3",
 };
 

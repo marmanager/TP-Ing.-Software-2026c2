@@ -301,8 +301,10 @@ export default function AprobarPasos() {
                           >
                             Lo aprueba
                           </Boton>
+                          {/* Neutro y no rojo: rechazar se puede deshacer. El
+                              rojo queda para sacar un paso, que borra. */}
                           <Boton
-                            variante="peligro"
+                            variante="neutro"
                             className="min-h-13 flex-1"
                             onClick={() => responderPaso(paso.id, "rechazado")}
                           >
@@ -369,6 +371,27 @@ export default function AprobarPasos() {
             );
           })}
         </ul>
+      )}
+
+      {/* En celular el total se queda a la vista mientras se recorre la lista:
+          la conversación sobre plata pasa entera mirando los pasos, y el
+          número que se discute estaba recién al final (auditoría, H1). Va
+          clavado encima de la barra de secciones; el detalle completo sigue
+          abajo. En escritorio la lista entra y no hace falta. */}
+      {mios.length > 0 && (
+        <div
+          aria-hidden="true"
+          className="sticky bottom-[4.5rem] z-10 mt-4 flex justify-between gap-4 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 shadow-lg md:hidden"
+        >
+          <p>
+            <span className="block text-apoyo text-tinta-media">Aprobado</span>
+            <span className="font-bold tabular-nums">{pesos(aprobado)}</span>
+          </p>
+          <p className="text-right text-espera">
+            <span className="block text-apoyo">Esperando respuesta</span>
+            <span className="font-bold tabular-nums">{pesos(esperando)}</span>
+          </p>
+        </div>
       )}
 
       {/* La plata siempre a la vista, separada en aprobado y esperando. */}
