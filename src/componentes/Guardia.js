@@ -135,7 +135,12 @@ export default function Guardia({ children }) {
       <div className="flex min-h-screen">
         <BarraLateral />
         <main className="min-w-0 flex-1 pb-20 md:pb-0">
-          <div className="mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
+          {/* "@container": las grillas de las pantallas eligen sus columnas por el
+                ancho de ESTE bloque y no por el de la ventana. En escritorio la
+                barra lateral se lleva 256 px, y con los puntos de quiebre de la
+                ventana quedaban tarjetas apretadas entre 768 y 1024 px
+                (auditoría, Responsive). */}
+            <div className="@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
             <Aviso />
             {apagado ? (
               <Vacio icono="tuerca" titulo={`Tu negocio no tiene ${apagado.nombre}`}>

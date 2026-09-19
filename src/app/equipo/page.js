@@ -136,7 +136,7 @@ export default function Equipo() {
           Sumá a las personas que atienden los trabajos y vas a poder asignarles casos.
         </Vacio>
       ) : (
-        <ul className="mb-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mb-12 grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
           {empleados.map((e) => {
             const suyos = casos.filter((c) => c.responsable_id === e.id && estaAbierto(c));
             return (

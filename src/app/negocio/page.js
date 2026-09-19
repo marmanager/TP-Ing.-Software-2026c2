@@ -117,7 +117,7 @@ export default function MiNegocio() {
           </div>
         </div>
 
-        <dl className="mt-6 grid gap-4 sm:grid-cols-4">
+        <dl className="mt-6 grid gap-4 @lg:grid-cols-4">
           {[
             ["Casos", casos.length],
             ["Clientes", clientes.length],
@@ -212,7 +212,7 @@ export default function MiNegocio() {
               Elegí el rubro nuevo. Te vamos a mostrar qué cambia antes de aplicarlo.
             </p>
 
-            <ul className="grid gap-3 sm:grid-cols-3">
+            <ul className="grid gap-3 @2xl:grid-cols-3">
               {RUBROS.map((r) => {
                 const marcado = r.clave === (rubroElegido ?? negocio?.rubro);
                 return (

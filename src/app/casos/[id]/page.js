@@ -105,7 +105,7 @@ export default function VerCaso() {
               persona al lado de "Diego" no decía si Diego era el cliente o
               quien hace el trabajo (auditoría, H2; cartilla: ícono y palabra
               juntos). */}
-          <ul className="mt-4 grid gap-2 text-tinta-media sm:grid-cols-3">
+          <ul className="mt-4 grid gap-2 text-tinta-media @3xl:grid-cols-3">
             <li className="flex items-center gap-2">
               <Icono nombre="persona" className="size-5" />
               <span>{quienLoTieneEnPalabras(caso, empleados)}</span>

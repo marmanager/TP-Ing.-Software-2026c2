@@ -324,7 +324,7 @@ export default function Inicio() {
               .
             </p>
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
               {sePuedenAgregar.map((def) => (
                 <li key={def.clave}>
                   <button

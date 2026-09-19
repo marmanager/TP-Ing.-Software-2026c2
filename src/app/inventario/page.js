@@ -63,7 +63,7 @@ export default function Inventario() {
             value={form.nombre}
             onChange={(e) => setForm({ ...form, nombre: e.target.value })}
           />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 @md:grid-cols-2">
             <Campo
               id="ins-cantidad"
               etiqueta="Cuántos tenés"

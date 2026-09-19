@@ -120,7 +120,7 @@ export default function Clientes() {
           Cuando abras un caso, el cliente se da de alta solo.
         </Vacio>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
           {vinieron.map((cliente) => {
             const suyos = casos.filter((c) => c.cliente_id === cliente.id);
             const abiertos = suyos.filter(estaAbierto).length;
@@ -180,7 +180,7 @@ export default function Clientes() {
             Pidieron un turno pero todavía no aparecieron. Pasan a la lista de arriba
             solos cuando les abras el primer caso.
           </p>
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
             {porVenir.map((cliente) => (
               <li key={cliente.id}>
                 <Tarjeta className="h-full border-dashed">

@@ -165,7 +165,7 @@ export default function FichaDeCliente() {
           </>
         )}
 
-        <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+        <dl className="mt-6 grid gap-4 @lg:grid-cols-3">
           <div>
             <dt className="text-apoyo text-tinta-suave">Casos</dt>
             <dd className="font-titulo font-extrabold text-subtitulo tabular-nums">

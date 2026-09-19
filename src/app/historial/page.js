@@ -88,7 +88,7 @@ export default function Historial() {
         </div>
       </fieldset>
 
-      <dl className="mb-8 grid gap-3 sm:grid-cols-3">
+      <dl className="mb-8 grid gap-3 @xl:grid-cols-3">
         {numeros.map(([que, cuanto, unidad]) => (
           <div key={que} className="rounded-tarjeta border border-borde bg-tarjeta p-4">
             <dt className="text-tinta-media">{que}</dt>
