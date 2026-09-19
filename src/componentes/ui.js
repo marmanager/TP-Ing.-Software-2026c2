@@ -101,8 +101,12 @@ export function TituloPantalla({ children, apoyo }) {
   );
 }
 
-export function TituloSeccion({ children, className = "" }) {
-  return <h2 className={`text-seccion mb-4 ${className}`}>{children}</h2>;
+export function TituloSeccion({ children, className = "", ...props }) {
+  return (
+    <h2 {...props} className={`text-seccion mb-4 scroll-mt-6 ${className}`}>
+      {children}
+    </h2>
+  );
 }
 
 // Un punto al lado de la etiqueta de un campo que falta completar, cuando
