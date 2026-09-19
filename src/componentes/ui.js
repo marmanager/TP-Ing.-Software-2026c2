@@ -193,10 +193,27 @@ export function Vacio({ icono = "carpeta", titulo, children }) {
   );
 }
 
-export function Cargando() {
+// Mientras llegan los datos: la forma de lo que va a aparecer —un título y
+// unas filas—, en gris. Una palabra sola en una pantalla vacía se leía como
+// que algo había fallado; ver la forma dice que se está en el lugar correcto
+// y que hay que esperar (auditoría, H1). El lector de pantalla oye
+// "Cargando…". El pulso se apaga si la persona pidió menos movimiento.
+export function Cargando({ filas = 3 }) {
   return (
-    <div className="p-6 text-tinta-suave" role="status">
-      Cargando…
+    <div role="status">
+      <span className="sr-only">Cargando…</span>
+      <div aria-hidden="true" className="motion-safe:animate-pulse">
+        <div className="h-9 w-2/3 max-w-sm rounded-campo bg-superficie" />
+        <div className="mt-3 h-5 w-full max-w-md rounded-campo bg-superficie" />
+        <div className="mt-8 flex flex-col gap-3">
+          {Array.from({ length: filas }, (_, i) => (
+            <div key={i} className="rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-6">
+              <div className="h-5 w-1/2 rounded-campo bg-superficie" />
+              <div className="mt-3 h-4 w-3/4 rounded-campo bg-superficie" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -18,7 +18,7 @@ import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 import Link from "next/link";
 import { LISTA_MODULOS } from "@/lib/modulos";
-import { Vacio } from "./ui";
+import { Cargando, Vacio } from "./ui";
 
 // Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
 // acá porque con la verificación prendida el alta no deja sesión abierta.
@@ -103,11 +103,8 @@ export default function Guardia({ children }) {
 
   if (esperando || (destino && destino !== ruta)) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center text-tinta-suave"
-        role="status"
-      >
-        Cargando…
+      <div className="mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
+        <Cargando />
       </div>
     );
   }

@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth, recordarInvitacion } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { Boton, Campo, Tarjeta, TituloPantalla } from "@/componentes/ui";
+import { Boton, Campo, Tarjeta, TituloPantalla, Cargando } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function Unirme() {
@@ -57,13 +57,7 @@ export default function Unirme() {
   }
 
   if (cargando || mirando) {
-    return (
-      <Tarjeta>
-        <p className="text-tinta-suave" role="status">
-          Cargando…
-        </p>
-      </Tarjeta>
-    );
+    return <Cargando filas={1} />;
   }
 
   // El link no sirve: no existe, venció, lo dieron de baja o ya se usó.
