@@ -235,9 +235,23 @@ export default function Inicio() {
         <div>
           <h1 className="text-pantalla">Inicio</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media first-letter:uppercase">
-            {acomodando
-              ? "Agarrá un módulo del medio y llevalo donde quieras. Para el tamaño, tirá de la esquina punteada; para lo demás, tocalo y abrí sus ajustes."
-              : `${fecha} · ${abiertos} ${abiertos === 1 ? "caso abierto" : "casos abiertos"}`}
+            {acomodando ? (
+              <>
+                {/* Por debajo de 48rem arrastrar está apagado (ver agarrar()):
+                    la instrucción sólo menciona lo que se puede hacer en esa
+                    pantalla. Si dijera "agarrá", alguien lo intenta, no pasa
+                    nada y concluye que el sistema está roto (auditoría, H2). */}
+                <span className="md:hidden">
+                  Tocá un módulo y usá sus ajustes para moverlo o cambiarle el tamaño.
+                </span>
+                <span className="hidden md:inline">
+                  Agarrá un módulo del medio y llevalo donde quieras. Para el tamaño, tirá
+                  de la esquina punteada; para lo demás, tocalo y abrí sus ajustes.
+                </span>
+              </>
+            ) : (
+              `${fecha} · ${abiertos} ${abiertos === 1 ? "caso abierto" : "casos abiertos"}`
+            )}
           </p>
         </div>
 
