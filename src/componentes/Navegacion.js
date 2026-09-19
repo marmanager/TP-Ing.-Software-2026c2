@@ -34,7 +34,7 @@ const DESTINOS = [
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   // Núcleo, no módulo: lo que pasó en el negocio le sirve a cualquier rubro.
   // En celular no entra en la barra de abajo; se llega desde su módulo del
-  // Inicio, que viene puesto por defecto.
+  // Inicio y, aunque lo saquen, desde "Otras secciones" (ver abajo).
   { href: "/historial", icono: "historial", palabra: "Historial" },
   { href: "/negocio", icono: "tienda", palabra: "Mi negocio", celular: true },
 ];
@@ -140,6 +140,42 @@ export function BarraCelular() {
             </li>
           );
         })}
+      </ul>
+    </nav>
+  );
+}
+
+// En celular la barra de abajo tiene cuatro lugares, y las demás secciones
+// sólo se alcanzaban desde su módulo del Inicio. Si alguien sacaba ese módulo
+// acomodando la pantalla, se quedaba sin forma de volver a la sección —el
+// caso más grave era Historial, que es núcleo (auditoría, H3).
+//
+// Esta lista va al pie del Inicio, sólo en celular, con todas las secciones
+// que no entran en la barra. A la vista y no detrás de un "Más": la regla de
+// la cartilla es que en el celular no hay menús escondidos.
+export function OtrasSecciones() {
+  const { negocio } = useDatos();
+  const enLaBarra = paraCelular(DESTINOS, negocio);
+  const otras = conModulo(DESTINOS, negocio).filter((d) => !enLaBarra.includes(d));
+
+  if (otras.length === 0) return null;
+
+  return (
+    <nav aria-label="Otras secciones" className="mt-12 md:hidden">
+      <h2 className="text-seccion mb-4">Otras secciones</h2>
+      <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
+        {otras.map((d) => (
+          <li key={d.href} className="border-b border-borde last:border-b-0">
+            <Link
+              href={d.href}
+              className="flex min-h-14 items-center gap-3 px-4 text-cuerpo hover:bg-superficie"
+            >
+              <Icono nombre={d.icono} className="size-6 text-tinta-media" />
+              <span className="flex-1 font-bold">{d.palabra}</span>
+              <Icono nombre="volver" className="size-5 rotate-180 text-tinta-suave" />
+            </Link>
+          </li>
+        ))}
       </ul>
     </nav>
   );
