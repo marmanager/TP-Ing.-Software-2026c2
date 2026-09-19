@@ -104,6 +104,21 @@ export function TituloSeccion({ children, className = "" }) {
   return <h2 className={`text-seccion mb-4 ${className}`}>{children}</h2>;
 }
 
+// Un punto al lado de la etiqueta de un campo que falta completar, cuando
+// faltan varios y el botón apagado dice sólo cuántos. El punto es para la
+// vista; el lector de pantalla oye "falta completar".
+export function MarcaFalta() {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="ml-2 inline-block size-2.5 rounded-full bg-espera align-middle"
+      />
+      <span className="sr-only">, falta completar</span>
+    </>
+  );
+}
+
 // Un campo por fila. La ayuda va debajo de la etiqueta, siempre visible.
 export function Campo({
   etiqueta,
@@ -111,6 +126,7 @@ export function Campo({
   error,
   ejemplo,
   exito,
+  falta = false,
   children,
   id,
   ...props
@@ -122,6 +138,7 @@ export function Campo({
     <div className="mb-6">
       <label htmlFor={id} className="block font-bold text-cuerpo">
         {etiqueta}
+        {falta && <MarcaFalta />}
       </label>
       {ayuda && (
         <p id={idAyuda} className="mt-1 text-apoyo text-tinta-suave">
