@@ -124,6 +124,13 @@ export default function Clientes() {
           {vinieron.map((cliente) => {
             const suyos = casos.filter((c) => c.cliente_id === cliente.id);
             const abiertos = suyos.filter(estaAbierto).length;
+            // El más reciente de verdad: la lista de casos no viene ordenada,
+            // y el enlace decía "último" pero abría el primero que hubiera,
+            // sin forma de darse cuenta de que era uno viejo (auditoría, H2).
+            const ultimo = suyos.reduce(
+              (mas, c) => (!mas || new Date(c.abierto_en) > new Date(mas.abierto_en) ? c : mas),
+              null
+            );
             return (
               <li key={cliente.id}>
                 <Tarjeta className="h-full">
@@ -144,9 +151,9 @@ export default function Clientes() {
                   {cliente.notas && (
                     <p className="mt-2 text-apoyo text-tinta-suave">{cliente.notas}</p>
                   )}
-                  {suyos.length > 0 && (
+                  {ultimo && (
                     <Link
-                      href={`/casos/${suyos[0].id}`}
+                      href={`/casos/${ultimo.id}`}
                       className="mt-3 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
                     >
                       <Icono nombre="carpeta" className="size-5" />
