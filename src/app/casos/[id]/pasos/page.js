@@ -381,7 +381,7 @@ export default function AprobarPasos() {
       {mios.length > 0 && (
         <div
           aria-hidden="true"
-          className="sticky bottom-[4.5rem] z-10 mt-4 flex justify-between gap-4 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 shadow-lg md:hidden"
+          className="sticky bottom-[calc(var(--alto-barra,4rem)+0.5rem)] z-10 mt-4 flex justify-between gap-4 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 shadow-lg md:hidden"
         >
           <p>
             <span className="block text-apoyo text-tinta-media">Aprobado</span>

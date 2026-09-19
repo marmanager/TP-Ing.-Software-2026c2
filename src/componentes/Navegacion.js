@@ -19,6 +19,7 @@
 // Los destinos con "modulo" sólo aparecen si ese módulo está prendido en
 // "Mi negocio" (SCRUM-38). El resto es núcleo y está siempre.
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icono from "./Icono";
@@ -111,13 +112,38 @@ export function BarraLateral() {
   );
 }
 
+// Lo que se ancla encima de la barra —el botón principal fijo, los avisos,
+// el total de los pasos— necesita saber cuánto mide. De fábrica son 4rem,
+// pero con la letra agrandada una palabra como "Mi negocio" se parte en dos
+// renglones y la barra crece: con un alto fijo, lo de arriba quedaba tapado.
+// La barra mide su alto real y lo deja en --alto-barra; los demás lo usan
+// con 4rem de respaldo.
+function usarAltoPublicado(ref) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const raiz = document.documentElement;
+    const publicar = () => raiz.style.setProperty("--alto-barra", `${el.offsetHeight}px`);
+    publicar();
+    const observador = new ResizeObserver(publicar);
+    observador.observe(el);
+    return () => {
+      observador.disconnect();
+      raiz.style.removeProperty("--alto-barra");
+    };
+  }, [ref]);
+}
+
 export function BarraCelular() {
   const ruta = usePathname();
   const { negocio } = useDatos();
   const destinos = paraCelular(DESTINOS, negocio);
+  const ref = useRef(null);
+  usarAltoPublicado(ref);
 
   return (
     <nav
+      ref={ref}
       aria-label="Secciones"
       className="fixed inset-x-0 bottom-0 z-20 border-t border-borde bg-tarjeta md:hidden"
     >

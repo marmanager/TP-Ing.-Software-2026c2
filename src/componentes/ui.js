@@ -61,13 +61,14 @@ export function Boton({
 //
 // Fijo, pero ENCIMA de la barra de secciones del celular, no detrás: las dos
 // cosas se anclan abajo, y la barra (64 px, Navegacion.js) está por encima
-// en el orden de capas. Por eso se clava a 4rem del borde y no a cero. Como
+// en el orden de capas. Por eso se clava al alto de la barra (--alto-barra,
+// que publica Navegacion.js) y no a cero. Como
 // es sticky y no fixed, ocupa su lugar en la página y el contenido no queda
 // tapado. Desde md en adelante no hay barra abajo y el botón va en su lugar,
 // con el mismo punto de quiebre que la barra.
 export function BotonPrincipalFijo({ children, motivo, ...props }) {
   return (
-    <div className="sticky bottom-16 z-10 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+    <div className="sticky bottom-[var(--alto-barra,4rem)] z-10 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
       <Boton
         variante="principal"
         motivo={motivo}

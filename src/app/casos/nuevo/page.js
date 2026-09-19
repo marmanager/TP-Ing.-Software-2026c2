@@ -271,10 +271,16 @@ function Formulario() {
           </select>
         </div>
 
-        <BotonPrincipalFijo icono="check" motivo={motivoApagado} onClick={guardar}>
-          Guardar el caso
-        </BotonPrincipalFijo>
       </div>
+
+      {/* Afuera del bloque del formulario a propósito. Un sticky no puede
+          subir por encima de su contenedor: adentro del formulario, con la
+          letra agrandada y la pantalla sin scrollear, el formulario empezaba
+          tan abajo que el botón no llegaba a despegarse de la barra de
+          secciones y quedaba tapado. Acá su contenedor es la página entera. */}
+      <BotonPrincipalFijo icono="check" motivo={motivoApagado} onClick={guardar}>
+        Guardar el caso
+      </BotonPrincipalFijo>
     </>
   );
 }

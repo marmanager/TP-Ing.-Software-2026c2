@@ -13,34 +13,40 @@
 
   /* ---- escala tipográfica (sección 03) ----
      El cuerpo arranca en 18 px, no en 14 ni 16.
-     Nada por debajo de 15 px, y 15 px sólo para datos de apoyo. */
-  --text-dato: 40px;
-  --text-dato--line-height: 44px;
+     Nada por debajo de 15 px, y 15 px sólo para datos de apoyo.
+
+     Van en rem y no en px para que respeten el tamaño de letra que la
+     persona eligió en el navegador (auditoría de diseño, criterio "el texto
+     tiene que poder agrandarse"). Con la configuración de fábrica 1rem son
+     16 px, así que los valores son exactamente los de la cartilla: al lado
+     de cada uno está su equivalente. */
+  --text-dato: 2.5rem; /* 40px */
+  --text-dato--line-height: 2.75rem; /* 44px */
   --text-dato--font-weight: 800;
 
-  --text-pantalla: 32px;
-  --text-pantalla--line-height: 36px;
+  --text-pantalla: 2rem; /* 32px */
+  --text-pantalla--line-height: 2.25rem; /* 36px */
   --text-pantalla--font-weight: 800;
 
-  --text-ident: 26px;
-  --text-ident--line-height: 30px;
+  --text-ident: 1.625rem; /* 26px */
+  --text-ident--line-height: 1.875rem; /* 30px */
   --text-ident--font-weight: 800;
 
-  --text-seccion: 24px;
-  --text-seccion--line-height: 30px;
+  --text-seccion: 1.5rem; /* 24px */
+  --text-seccion--line-height: 1.875rem; /* 30px */
   --text-seccion--font-weight: 700;
 
-  --text-subtitulo: 20px;
-  --text-subtitulo--line-height: 28px;
+  --text-subtitulo: 1.25rem; /* 20px */
+  --text-subtitulo--line-height: 1.75rem; /* 28px */
 
-  --text-cuerpo: 18px;
-  --text-cuerpo--line-height: 28px;
+  --text-cuerpo: 1.125rem; /* 18px */
+  --text-cuerpo--line-height: 1.75rem; /* 28px */
 
-  --text-etiqueta: 16px;
-  --text-etiqueta--line-height: 20px;
+  --text-etiqueta: 1rem; /* 16px */
+  --text-etiqueta--line-height: 1.25rem; /* 20px */
 
-  --text-apoyo: 15px;
-  --text-apoyo--line-height: 22px;
+  --text-apoyo: 0.9375rem; /* 15px */
+  --text-apoyo--line-height: 1.375rem; /* 22px */
 
   /* ---- neutros cálidos (sección 02) ---- */
   --color-fondo: #fbf8f4;
@@ -91,10 +97,15 @@
   }
 
   html {
-    /* Se queda en 16 px para que la escala de espaciado de Tailwind
-       (4 · 8 · 12 · 16 · 24 · 32 · 48 · 64) coincida exactamente con
-       la escala de 4 px de la sección 04. El cuerpo va en 18 px abajo. */
-    font-size: 16px;
+    /* 100 % y no 16 px: un valor fijo acá pisa el tamaño de letra que la
+       persona eligió en el navegador, y todo lo que está en rem —el texto,
+       pero también los espacios y las áreas que se tocan— dejaba de
+       agrandarse. Con la configuración de fábrica 100 % son 16 px, así que la
+       escala de espaciado de Tailwind (4 · 8 · 12 · 16 · 24 · 32 · 48 · 64)
+       sigue coincidiendo con la de 4 px de la sección 04. Y si alguien
+       agrandó la letra, crecen también los botones: 48 px de área tocable
+       es un mínimo, no un tope. */
+    font-size: 100%;
     -webkit-text-size-adjust: 100%;
   }
 

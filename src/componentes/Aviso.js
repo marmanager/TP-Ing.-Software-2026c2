@@ -71,7 +71,7 @@ export default function Aviso() {
   return (
     <div
       ref={ref}
-      className="fixed inset-x-3 bottom-[4.75rem] z-30 flex flex-col gap-2 md:static md:inset-auto md:z-auto md:mb-6 md:scroll-mt-6"
+      className="fixed inset-x-3 bottom-[calc(var(--alto-barra,4rem)+0.75rem)] z-30 flex flex-col gap-2 md:static md:inset-auto md:z-auto md:mb-6 md:scroll-mt-6"
     >
       {exito && (
         <Banda

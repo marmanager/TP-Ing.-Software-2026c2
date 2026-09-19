@@ -134,7 +134,7 @@ export default function Guardia({ children }) {
     <>
       <div className="flex min-h-screen">
         <BarraLateral />
-        <main className="min-w-0 flex-1 pb-20 md:pb-0">
+        <main className="min-w-0 flex-1 pb-[calc(var(--alto-barra,4rem)+1rem)] md:pb-0">
           {/* "@container": las grillas de las pantallas eligen sus columnas por el
                 ancho de ESTE bloque y no por el de la ventana. En escritorio la
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
