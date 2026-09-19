@@ -25,6 +25,8 @@ export default function Agenda() {
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const { cargando, turnos, clientes, casos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
+  // El turno que se está por cancelar, esperando la confirmación.
+  const [cancelando, setCancelando] = useState(null);
   const [form, setForm] = useState({
     nombreCliente: "",
     telefono: "",
@@ -208,11 +210,59 @@ export default function Agenda() {
                         para seguirlo, y no hay que abrir nada; si no tiene
                         ninguno, viene a dejar un trabajo. Así el alta no gana
                         un sexto campo que casi siempre se contestaría igual. */}
-                    {!cancelado && t.estado !== "atendido" && (
-                      <div className="flex flex-wrap gap-2">
+                    {/* Cancelar pide confirmación con el nombre y la hora, y
+                        después se puede deshacer desde el aviso: antes estaba
+                        pegado a "Confirmar", en rojo, y errarle al dedo
+                        cancelaba el turno de otra persona sin ninguna red
+                        (auditoría, H5). */}
+                    {cancelando === t.id && (
+                      <div className="w-full rounded-tarjeta bg-superficie p-4">
+                        <p className="font-bold text-cuerpo">
+                          ¿Cancelar el turno de {cliente?.nombre ?? "esta persona"} de las{" "}
+                          {horaYMinutos(t.empieza_en)}?
+                        </p>
+                        <p className="mt-1 text-tinta-media">
+                          Queda en la agenda como cancelado. Si te equivocaste, se deshace
+                          desde el aviso.
+                        </p>
+                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                          <Boton
+                            variante="peligro"
+                            icono="cruz"
+                            className="w-full sm:w-auto"
+                            onClick={() => {
+                              const antes = t.estado;
+                              datos.cambiarEstadoTurno(t.id, "cancelado");
+                              datos.avisarExito(
+                                `Listo. Cancelamos el turno de ${cliente?.nombre ?? "esa persona"} de las ${horaYMinutos(t.empieza_en)}.`,
+                                { deshacer: () => datos.cambiarEstadoTurno(t.id, antes) }
+                              );
+                              setCancelando(null);
+                            }}
+                          >
+                            Sí, cancelarlo
+                          </Boton>
+                          <Boton
+                            variante="plano"
+                            className="w-full sm:w-auto"
+                            onClick={() => setCancelando(null)}
+                          >
+                            Dejarlo como está
+                          </Boton>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* En celular las acciones van apiladas y a todo el ancho,
+                        con 8 px entre una y otra: en una fila de 360 px se
+                        partían en cuatro líneas desordenadas y quedaban
+                        pegadas (auditoría, Responsive). */}
+                    {!cancelado && t.estado !== "atendido" && cancelando !== t.id && (
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                         {t.estado === "agendado" && (
                           <Boton
                             icono="check"
+                            className="w-full sm:w-auto"
                             onClick={() => datos.cambiarEstadoTurno(t.id, "confirmado")}
                           >
                             Confirmar
@@ -222,6 +272,7 @@ export default function Agenda() {
                         {suCaso ? (
                           <Boton
                             icono="persona-check"
+                            className="w-full sm:w-auto"
                             onClick={() => {
                               datos.marcarTurnoAtendido(t.id, suCaso.id);
                               datos.avisarExito(
@@ -233,7 +284,7 @@ export default function Agenda() {
                           </Boton>
                         ) : (
                           <Link href={`/casos/nuevo?turno=${t.id}`}>
-                            <span className="flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-4 font-bold text-azul text-etiqueta hover:bg-azul-claro">
+                            <span className="flex min-h-12 w-full items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-4 font-bold text-azul text-etiqueta hover:bg-azul-claro sm:w-auto sm:justify-start">
                               <Icono nombre="carpeta" />
                               Vino · abrirle el caso
                             </span>
@@ -243,9 +294,10 @@ export default function Agenda() {
                         <Boton
                           variante="peligro"
                           icono="cruz"
-                          onClick={() => datos.cambiarEstadoTurno(t.id, "cancelado")}
+                          className="w-full sm:w-auto"
+                          onClick={() => setCancelando(t.id)}
                         >
-                          Cancelar
+                          Cancelar el turno
                         </Boton>
                       </div>
                     )}
