@@ -54,14 +54,21 @@ export function Boton({
 }
 
 // El botón principal en celular va fijo abajo, 56 px de alto y ancho completo.
+//
+// Fijo, pero ENCIMA de la barra de secciones del celular, no detrás: las dos
+// cosas se anclan abajo, y la barra (64 px, Navegacion.js) está por encima
+// en el orden de capas. Por eso se clava a 4rem del borde y no a cero. Como
+// es sticky y no fixed, ocupa su lugar en la página y el contenido no queda
+// tapado. Desde md en adelante no hay barra abajo y el botón va en su lugar,
+// con el mismo punto de quiebre que la barra.
 export function BotonPrincipalFijo({ children, motivo, ...props }) {
   return (
-    <div className="sticky bottom-0 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+    <div className="sticky bottom-16 z-10 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
       <Boton
         variante="principal"
         motivo={motivo}
         {...props}
-        className="min-h-14 w-full sm:w-auto"
+        className="min-h-14 w-full md:w-auto"
       >
         {children}
       </Boton>
