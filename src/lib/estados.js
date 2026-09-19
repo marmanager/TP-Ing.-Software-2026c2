@@ -76,6 +76,18 @@ export function quienLoTiene(caso, empleados) {
   return "Sin asignar";
 }
 
+// Lo mismo, dicho como frase para la cabecera del caso: ahí no hay una
+// columna con título que diga qué es el dato, así que la frase lo dice
+// sola. "Diego" suelto no aclara si es el cliente o quien hace el trabajo;
+// "Lo tiene Diego", sí (auditoría, H2).
+export function quienLoTieneEnPalabras(caso, empleados) {
+  const persona = empleados.find((e) => e.id === caso.responsable_id);
+  if (persona) return `Lo tiene ${persona.nombre}`;
+  if (caso.estado === "completado") return "Ya se entregó";
+  if (caso.estado === "esperando") return "Lo tiene el proveedor";
+  return "Todavía no lo tiene nadie";
+}
+
 // El botón de cada fila: uno solo, el que casi siempre se va a tocar.
 // Va con borde, nunca azul lleno: un solo botón azul por pantalla.
 export function accionDeFila(caso, { pasos = [], insumos = [] } = {}) {

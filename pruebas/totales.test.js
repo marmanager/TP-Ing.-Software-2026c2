@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { casosPorAprobar, totalesDeCaso } from "../src/lib/estados.js";
+import { casosPorAprobar, quienLoTieneEnPalabras, totalesDeCaso } from "../src/lib/estados.js";
 
 // Los cinco pasos del caso 248, textuales de la sección 09 de la cartilla.
 const caso248 = [
@@ -135,4 +135,18 @@ test("los montos que vienen como texto desde la base también se suman bien", ()
   ];
 
   assert.equal(casosPorAprobar(casos, pasos)[0].plata, 76500);
+});
+
+// ---------------------------------------------------------------
+// Quién lo tiene, dicho en la cabecera del caso
+// ---------------------------------------------------------------
+
+test("la cabecera dice quién tiene el caso con una frase, no con un nombre suelto", () => {
+  const empleados = [{ id: "e1", nombre: "Diego" }];
+  const decir = (caso) => quienLoTieneEnPalabras(caso, empleados);
+
+  assert.equal(decir({ estado: "en_proceso", responsable_id: "e1" }), "Lo tiene Diego");
+  assert.equal(decir({ estado: "nuevo", responsable_id: null }), "Todavía no lo tiene nadie");
+  assert.equal(decir({ estado: "esperando", responsable_id: null }), "Lo tiene el proveedor");
+  assert.equal(decir({ estado: "completado", responsable_id: null }), "Ya se entregó");
 });

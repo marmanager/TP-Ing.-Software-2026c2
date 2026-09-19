@@ -13,7 +13,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ESTADOS, estaAbierto, pesos, quienLoTiene } from "@/lib/estados";
+import { ESTADOS, estaAbierto, pesos, quienLoTieneEnPalabras } from "@/lib/estados";
 import { cuando, haceCuanto } from "@/lib/fechas";
 import { preset, queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
@@ -97,29 +97,32 @@ export default function VerCaso() {
             {explica && <span className="text-tinta-media"> ({explica})</span>}
           </p>
 
-          <dl className="mt-4 grid gap-2 text-tinta-media sm:grid-cols-3">
-            <div className="flex items-center gap-2">
+          {/* Cada dato dice qué es con palabras, y el ícono acompaña. Antes
+              la palabra estaba sólo para el lector de pantalla: un ícono de
+              persona al lado de "Diego" no decía si Diego era el cliente o
+              quien hace el trabajo (auditoría, H2; cartilla: ícono y palabra
+              juntos). */}
+          <ul className="mt-4 grid gap-2 text-tinta-media sm:grid-cols-3">
+            <li className="flex items-center gap-2">
               <Icono nombre="persona" className="size-5" />
-              <dt className="sr-only">Quién lo tiene</dt>
-              <dd>{quienLoTiene(caso, empleados)}</dd>
-            </div>
-            <div className="flex items-center gap-2">
+              <span>{quienLoTieneEnPalabras(caso, empleados)}</span>
+            </li>
+            <li className="flex items-center gap-2">
               <Icono nombre="reloj" className="size-5" />
-              <dt className="sr-only">Desde cuándo</dt>
-              <dd>{haceCuanto(caso.abierto_en)}</dd>
-            </div>
+              <span>{haceCuanto(caso.abierto_en)}</span>
+            </li>
             {cliente?.telefono && (
-              <div className="flex items-center gap-2">
+              <li className="flex items-center gap-2">
                 <Icono nombre="telefono" className="size-5" />
-                <dt className="sr-only">Teléfono</dt>
-                <dd>
+                <span>
+                  Teléfono{" "}
                   <a href={`tel:${cliente.telefono.replace(/\s/g, "")}`} className="text-azul">
                     {cliente.telefono}
                   </a>
-                </dd>
-              </div>
+                </span>
+              </li>
             )}
-          </dl>
+          </ul>
 
           {/* Un único botón azul: el que casi siempre se va a tocar.
               Aparece siempre, también sin pasos: si no, a un caso recién
