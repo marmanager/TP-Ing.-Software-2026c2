@@ -10,7 +10,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:e2e": "start-server-and-test dev http://localhost:3000 \"wdio run ./wdio.conf.js\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
@@ -19,7 +22,15 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@next/swc-linux-x64-gnu": "^16.3.5",
     "@tailwindcss/postcss": "^4.3.3",
+    "@wdio/cli": "^9.0.0",
+    "@wdio/globals": "^9.0.0",
+    "@wdio/local-runner": "^9.0.0",
+    "@wdio/mocha-framework": "^9.0.0",
+    "@wdio/spec-reporter": "^9.0.0",
+    "jest": "^30.0.0",
+    "start-server-and-test": "^2.0.0",
     "tailwindcss": "^4.3.3"
   }
 }

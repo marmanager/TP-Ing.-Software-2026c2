@@ -22,6 +22,48 @@ npm run dev
 
 Y abrir http://localhost:3000
 
+## Pruebas automatizadas
+
+El proyecto usa dos niveles de pruebas:
+
+- **Jest** para probar funciones de negocio de forma aislada y rápida. Los archivos
+  están en `pruebas/*.test.js`.
+- **WebdriverIO** para probar recorridos completos en Chrome, como lo haría una
+  persona. Los archivos están en `pruebas/e2e/*.e2e.js`.
+
+Después de `npm install`, los comandos son:
+
+```bash
+npm test                   # todos los tests de Jest, una vez
+npm run test:watch         # Jest vuelve a correr al guardar cambios
+npm run test:coverage      # Jest genera el informe coverage/
+npm run test:e2e           # levanta Next.js y ejecuta WebdriverIO en Chrome
+```
+
+En Jest, cada `test` prepara datos, llama una función y verifica el resultado:
+
+```js
+import { test, expect } from "@jest/globals";
+import { emailValido } from "../src/lib/validaciones.js";
+
+test("rechaza un mail sin dominio", () => {
+  expect(emailValido("ana@taller")).toBe(false);
+});
+```
+
+En WebdriverIO, el test abre una URL, busca controles como los ve el usuario,
+interactúa con ellos y verifica la pantalla siguiente:
+
+```js
+await browser.url("/iniciar-sesion");
+await $("button=Entrar con los datos de ejemplo").click();
+await expect($("h1=Inicio")).toBeDisplayed();
+```
+
+Conviene reservar Jest para reglas, cálculos y validaciones, y WebdriverIO para
+unos pocos caminos críticos (iniciar sesión, crear un caso, aprobar un presupuesto
+y cobrar). Los tests E2E son más lentos y más sensibles a cambios visuales.
+
 **No hace falta configurar nada para que ande.** Sin credenciales de Supabase, la
 pantalla de entrada ofrece **"Entrar con los datos de ejemplo"**: se entra sin
 cuenta a un taller con 9 casos abiertos, guardado en tu navegador. Todo funciona:

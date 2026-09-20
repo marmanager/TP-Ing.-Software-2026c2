@@ -3,7 +3,7 @@
 // Las validaciones de los formularios de entrada. Son texto plano sin React,
 // así que se prueban directo; el resto de las pantallas se mira en pantalla.
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { telefonoValido, emailValido, contrasenaValida } from "../src/lib/validaciones.js";
 

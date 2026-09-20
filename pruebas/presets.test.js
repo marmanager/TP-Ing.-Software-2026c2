@@ -3,7 +3,7 @@
 // Los presets y sus módulos: que cada rubro renombre los cinco estados y que
 // los módulos que trae existan en el catálogo. El resto se mira en pantalla.
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   PRESETS,
