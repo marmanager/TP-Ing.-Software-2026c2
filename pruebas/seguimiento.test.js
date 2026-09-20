@@ -8,7 +8,7 @@
 // de que el test siga sirviendo cuando alguien le agregue una columna a
 // "caso" dentro de seis meses sin acordarse de esta pantalla.
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   CAMPOS_PUBLICOS,

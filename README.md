@@ -22,6 +22,17 @@ npm run dev
 
 Y abrir http://localhost:3000
 
+Para correr testeos:
+
+```bash
+npm test           ; Ejecuta todos los testeos de Jest + WebdriverIO
+npm run test:unit  ; Ejecuta los testeos de Jest
+npm run test:e2e   ; Ejecuta los testeos de WebdriverIO
+npm run test:watch ; Ejecuta Jest verbose en modo observación.
+```
+
+Para correr unicamente Jest:
+
 **No hace falta configurar nada para que ande.** Sin credenciales de Supabase, la
 pantalla de entrada ofrece **"Probar sin cuenta"**: creás tu negocio, elegís el
 rubro y usás el sistema entero —abrir casos, hacerlos avanzar, armar

@@ -1,5 +1,5 @@
 // Validaciones compartidas entre pantallas. Sin dependencias ni "use client":
-// se pueden probar con `node --test` (pruebas/validaciones.test.js).
+// se pueden probar con Jest (pruebas/validaciones.test.js).
 
 // "Con característica, sin el 0 ni el 15": diez dígitos que no arrancan en 0.
 export const telefonoValido = (valor = "") =>

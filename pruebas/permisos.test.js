@@ -7,7 +7,7 @@
 // Un typo en una clave devolvería "false" en silencio, que es justo lo que
 // estas pruebas tienen que atajar.
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { PERMISOS, puede, quienEscribe } from "../src/lib/permisos.js";
 

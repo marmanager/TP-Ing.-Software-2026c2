@@ -13,11 +13,11 @@
 //      línea de tiempo se arma con los cinco estados del núcleo, no con los
 //      títulos del historial, que están escritos para adentro del negocio.
 //
-// No tiene React ni Supabase adentro a propósito: así lo corre `node --test`
+// No tiene React ni Supabase adentro a propósito: así lo corre Jest
 // y así lo usan las dos fuentes de datos, la base y el modo de ejemplo.
 
 // Con la extensión puesta: el resto del sistema la omite porque lo arma
-// Next, pero este archivo también lo importa `node --test`, que sigue el
+// Next, pero este archivo también lo importa Jest sobre Node, que sigue el
 // estándar y no adivina el ".js".
 import { ORDEN_ESTADOS } from "./estados.js";
 

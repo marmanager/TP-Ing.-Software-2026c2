@@ -4,7 +4,7 @@
 // y el FileReader no se pueden probar acá, pero la cuenta de cuánto tiene que
 // medir la foto sí, y es la que decide cuánto pesa lo que termina en la base.
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { medidasPara } from "../src/lib/imagen.js";
 

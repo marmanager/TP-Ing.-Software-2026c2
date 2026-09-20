@@ -4,7 +4,7 @@
 // única lógica del sistema donde un bug se ve en pantalla y con guita.
 // Todo lo demás se verifica mirando la pantalla.
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { casosPorAprobar, quienLoTieneEnPalabras, totalesDeCaso } from "../src/lib/estados.js";
 
