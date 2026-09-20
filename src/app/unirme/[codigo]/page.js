@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth, recordarInvitacion } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { Boton, Campo, Tarjeta, TituloPantalla, Cargando } from "@/componentes/ui";
+import { Boton, Campo, Tarjeta, TituloPantalla, Cargando, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function Unirme() {
@@ -187,10 +187,7 @@ export default function Unirme() {
         />
 
         {error && (
-          <p className="mb-6 flex items-start gap-2 font-bold text-rojo text-etiqueta">
-            <Icono nombre="alerta" className="mt-px size-5" />
-            <span>{error}</span>
-          </p>
+          <ErrorGeneral>{error}</ErrorGeneral>
         )}
 
         <Boton

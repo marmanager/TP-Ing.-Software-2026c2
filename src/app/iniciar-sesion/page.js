@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { Boton, Campo, Tarjeta, TituloPantalla } from "@/componentes/ui";
+import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function IniciarSesion() {
@@ -96,10 +96,7 @@ export default function IniciarSesion() {
         </div>
 
         {errorGeneral && (
-          <p className="mb-6 flex items-start gap-2 font-bold text-rojo text-etiqueta">
-            <Icono nombre="alerta" className="mt-px size-5" />
-            <span>{errorGeneral}</span>
-          </p>
+          <ErrorGeneral>{errorGeneral}</ErrorGeneral>
         )}
 
         <Boton

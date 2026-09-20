@@ -9,6 +9,7 @@
 // - La ayuda de un campo va visible debajo de la etiqueta, nunca escondida.
 // - El error va debajo del campo, con ícono, texto rojo y un ejemplo correcto.
 
+import { useEffect, useRef } from "react";
 import Icono from "./Icono";
 
 const BASE_BOTON =
@@ -194,6 +195,31 @@ export function Campo({
         </p>
       )}
     </div>
+  );
+}
+
+// El error que no es de un campo: no se pudo entrar, el mail ya tiene cuenta,
+// el link venció. Va con role="alert" y se lleva el foco cuando aparece: el
+// mensaje se dibuja arriba del botón, así que quien usa lector de pantalla
+// tocaba "Iniciar sesión", no escuchaba nada y no sabía que había fallado
+// (auditoría, H9).
+export function ErrorGeneral({ children }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    ref.current?.focus();
+  }, [children]);
+
+  return (
+    <p
+      ref={ref}
+      role="alert"
+      tabIndex={-1}
+      className="mb-6 flex items-start gap-2 font-bold text-rojo text-etiqueta focus:outline-none"
+    >
+      <Icono nombre="alerta" className="mt-px size-5" />
+      <span>{children}</span>
+    </p>
   );
 }
 
