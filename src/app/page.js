@@ -27,7 +27,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { estaAbierto } from "@/lib/estados";
+import { casosPorAprobar, estaAbierto } from "@/lib/estados";
+import { diasDesde } from "@/lib/fechas";
 import {
   ALTO_FILA,
   COLUMNAS,
@@ -61,7 +62,8 @@ const enAlgoQueSeToca = (destino) =>
   destino instanceof Element && destino.closest("button, select, input, a, label");
 
 export default function Inicio() {
-  const { cargando, casos, negocio, inicio, cambiarInicio, avisarExito } = useDatos();
+  const { cargando, casos, pasos, insumos, negocio, inicio, cambiarInicio, avisarExito } =
+    useDatos();
   useTitulo("Inicio");
 
   const [acomodando, setAcomodando] = useState(false);
@@ -120,6 +122,26 @@ export default function Inicio() {
   const sePuedenAgregar = agregables([...(borrador ?? []), ...ocultos], modulosActivos);
 
   const abiertos = casos.filter(estaAbierto).length;
+
+  // Casos que esperan respuesta del cliente hace más de tres días, e insumos
+  // por debajo del mínimo: lo que hay que destrabar hoy.
+  const trabados = casosPorAprobar(casos, pasos).filter(
+    (c) => diasDesde(c.esperandoDesde) > 3
+  ).length;
+  const bajoMinimo = insumos.filter(
+    (i) => i.estado === "en_stock" && i.cantidad <= i.minimo
+  ).length;
+
+  const hayQueMirar = [
+    trabados > 0 && {
+      href: "/aprobar",
+      texto: `${trabados} ${trabados === 1 ? "caso espera" : "casos esperan"} respuesta hace más de 3 días`,
+    },
+    bajoMinimo > 0 && {
+      href: "/inventario",
+      texto: `${bajoMinimo} ${bajoMinimo === 1 ? "insumo" : "insumos"} por debajo del mínimo`,
+    },
+  ].filter(Boolean);
   const fecha = new Intl.DateTimeFormat("es-AR", {
     weekday: "long",
     day: "numeric",
@@ -204,12 +226,19 @@ export default function Inicio() {
       (m) => m.y !== borrador.find((b) => b.clave === m.clave)?.y
     );
 
+    // Cómo estaba antes de guardar, para poder deshacerlo desde el aviso.
+    // "Volver al orden de fábrica" pierde también lo que la persona había
+    // acomodado bien antes; deshacer el último guardado es lo que se necesita
+    // (auditoría, H3).
+    const comoEstaba = inicio;
+
     cambiarInicio([...acomodado, ...ocultos]);
     salirDeAcomodar();
     avisarExito(
       subioAlgo
         ? "Listo. Juntamos los módulos para arriba así no te quedan espacios en blanco."
-        : "Listo. Tu pantalla de inicio quedó como la dejaste."
+        : "Listo. Tu pantalla de inicio quedó como la dejaste.",
+      { deshacer: () => cambiarInicio(comoEstaba) }
     );
   }
 
@@ -279,6 +308,26 @@ export default function Inicio() {
           </div>
         )}
       </div>
+
+      {/* Lo que está trabado, arriba de todo. La cabecera dice la fecha y
+          cuántos casos hay abiertos, y ninguno de esos dos números cambia lo
+          que la persona va a hacer en los próximos diez minutos (auditoría,
+          H1). Esto sí: son las dos cosas que hay que destrabar. */}
+      {!acomodando && hayQueMirar.length > 0 && (
+        <ul className="mb-6 flex flex-wrap gap-2">
+          {hayQueMirar.map(({ href, texto }) => (
+            <li key={href}>
+              <Link
+                href={href}
+                className="flex min-h-12 items-center gap-2 rounded-campo border-2 border-espera bg-espera-fondo px-4 font-bold text-espera"
+              >
+                <Icono nombre="alerta" className="size-5" />
+                {texto}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {enPantalla.length === 0 ? (
         <Vacio icono="cajas" titulo="Tu inicio está vacío">
