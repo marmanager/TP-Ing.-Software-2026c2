@@ -30,7 +30,14 @@ import { useParams } from "next/navigation";
 import { buscarSeguimiento, responderDesdeElLink } from "@/lib/datos";
 import { ESTADOS, pesos } from "@/lib/estados";
 import { comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
-import { QUE_SIGNIFICA, lineaDeEstados, totalAprobado } from "@/lib/seguimiento";
+import {
+  QUE_SIGNIFICA,
+  lineaDeEstados,
+  linkDeLlamada,
+  linkDeWhatsAppA,
+  mensajeDeConsulta,
+  totalAprobado,
+} from "@/lib/seguimiento";
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
@@ -44,6 +51,9 @@ export default function Seguimiento() {
   const [decidiendo, setDecidiendo] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [problema, setProblema] = useState(null);
+  // Lo que se acaba de contestar, para el comprobante: qué, cuánto, qué se
+  // respondió y en cuánto quedó el total. Se guarda al contestar porque
+  // después el paso ya no está en la lista de la que salió.
   const [contestado, setContestado] = useState(null);
 
   // El título de la pestaña no usa useTitulo(): ese hook cuelga el nombre
@@ -78,6 +88,7 @@ export default function Seguimiento() {
   }, [codigo]);
 
   async function contestar(paso, respuesta) {
+    const totalYa = totalAprobado(caso?.pasos ?? []);
     setProblema(null);
     setGuardando(true);
     const r = await responderDesdeElLink(codigo, paso.id, respuesta);
@@ -92,11 +103,12 @@ export default function Seguimiento() {
       return;
     }
 
-    setContestado(
-      respuesta === "aprobado"
-        ? `Listo. «${paso.nombre}» quedó aprobado. El negocio ya lo ve.`
-        : `Listo. Anotamos que «${paso.nombre}» no lo hacés.`
-    );
+    setContestado({
+      nombre: paso.nombre,
+      monto: paso.monto,
+      respuesta,
+      total: respuesta === "aprobado" ? totalYa + Number(paso.monto || 0) : totalYa,
+    });
     await traer();
   }
 
@@ -183,17 +195,57 @@ export default function Seguimiento() {
         </div>
       </div>
 
-      {/* Qué pasó con lo que acaba de contestar. role="status" para que un
-          lector de pantalla lo diga solo: el botón que se tocó desaparece de
-          la pantalla, y sin esto no quedaría ninguna señal de que anduvo. */}
+      {/* El comprobante de lo que acaba de contestar. Repite qué y cuánto,
+          porque el renglón que se tocó desapareció de la pantalla y sin esto
+          no queda ninguna constancia de qué se aprobó.
+
+          role="status" para que un lector de pantalla lo diga solo. */}
       {contestado && (
-        <p
+        <div
           role="status"
-          className="mt-4 flex items-start gap-2 rounded-campo bg-completo-fondo p-4 font-bold text-completo"
+          className={`mt-4 overflow-hidden rounded-tarjeta border-2 ${
+            contestado.respuesta === "aprobado"
+              ? "border-completo bg-completo-fondo"
+              : "border-borde-fuerte bg-superficie"
+          }`}
         >
-          <Icono nombre="listo" className="mt-0.5 size-6 shrink-0" />
-          <span>{contestado}</span>
-        </p>
+          <div className="p-4 sm:p-5">
+            <p
+              className={`flex items-center gap-2 font-titulo font-extrabold text-subtitulo ${
+                contestado.respuesta === "aprobado" ? "text-completo" : "text-tinta"
+              }`}
+            >
+              <Icono
+                nombre={contestado.respuesta === "aprobado" ? "listo" : "check"}
+                className="size-7 shrink-0"
+              />
+              {contestado.respuesta === "aprobado"
+                ? "Listo, quedó aprobado"
+                : "Listo, anotamos que no"}
+            </p>
+
+            <p className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <span className="min-w-0 font-bold text-cuerpo">«{contestado.nombre}»</span>
+              <span className="font-bold tabular-nums">{pesos(contestado.monto)}</span>
+            </p>
+
+            <p className="mt-2 max-w-[65ch] text-tinta-media">
+              {contestado.respuesta === "aprobado" ? (
+                <>
+                  {caso.negocio_nombre} ya lo ve y lo va a hacer. Con este, lo que
+                  aprobaste hasta ahora suma{" "}
+                  <span className="font-bold text-tinta">{pesos(contestado.total)}</span>.
+                </>
+              ) : (
+                <>
+                  No lo van a hacer y no te lo van a cobrar. Lo que aprobaste sigue
+                  siendo <span className="font-bold text-tinta">{pesos(contestado.total)}</span>
+                  . Si cambiás de idea, pedíselo a {caso.negocio_nombre}.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
       )}
 
       {problema && (
@@ -246,13 +298,50 @@ export default function Seguimiento() {
 
                     {preguntando === "aprobado" ? (
                       <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                        <p className="font-bold text-cuerpo">
-                          ¿Aprobás «{paso.nombre}» por {pesos(paso.monto)}?
+                        <p className="font-bold text-subtitulo">
+                          ¿Aprobás «{paso.nombre}»?
                         </p>
-                        <p className="mt-1 max-w-[65ch] text-tinta-media">
-                          Lo van a hacer y te lo van a cobrar. Una vez que decís que sí,
-                          no se puede volver atrás desde acá.
-                        </p>
+
+                        {/* Tres renglones, y cada uno contesta una pregunta
+                            distinta: qué te están por cobrar, cuánto, y qué
+                            pasa cuando decís que sí. Antes era una sola
+                            frase que las mezclaba. */}
+                        <dl className="mt-3 flex flex-col gap-2">
+                          <div>
+                            <dt className="font-bold text-cuerpo">Qué es</dt>
+                            <dd className="max-w-[65ch] text-tinta-media">
+                              {paso.descripcion || (
+                                <>
+                                  {caso.negocio_nombre} no dejó una explicación de este
+                                  trabajo. Si no te queda claro qué te van a hacer,
+                                  preguntale antes de aprobar.
+                                </>
+                              )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-bold text-cuerpo">Cuánto te van a cobrar</dt>
+                            <dd className="max-w-[65ch] text-tinta-media">
+                              <span className="font-bold text-tinta tabular-nums">
+                                {pesos(paso.monto)}
+                              </span>{" "}
+                              por este trabajo. Con este, lo que aprobaste pasa de{" "}
+                              {pesos(total)} a{" "}
+                              <span className="font-bold text-tinta tabular-nums">
+                                {pesos(total + Number(paso.monto || 0))}
+                              </span>
+                              .
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-bold text-cuerpo">Qué pasa después</dt>
+                            <dd className="max-w-[65ch] text-tinta-media">
+                              {caso.negocio_nombre} lo va a empezar a hacer. Desde esta
+                              pantalla no vas a poder volver atrás: si cambiás de idea,
+                              tenés que hablarlo con ellos.
+                            </dd>
+                          </div>
+                        </dl>
                         <div className="mt-4 flex flex-wrap gap-3">
                           <Boton
                             variante="principal"
@@ -270,12 +359,17 @@ export default function Seguimiento() {
                       </div>
                     ) : preguntando === "rechazado" ? (
                       <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                        <p className="font-bold text-cuerpo">
+                        <p className="font-bold text-subtitulo">
                           ¿Decís que no a «{paso.nombre}»?
                         </p>
-                        <p className="mt-1 max-w-[65ch] text-tinta-media">
-                          No lo van a hacer y no te lo van a cobrar. Si después cambiás
-                          de idea, pedíselo al negocio.
+                        <p className="mt-3 max-w-[65ch] text-tinta-media">
+                          No lo van a hacer y no te van a cobrar esos {pesos(paso.monto)}:
+                          lo que aprobaste sigue siendo{" "}
+                          <span className="font-bold text-tinta tabular-nums">
+                            {pesos(total)}
+                          </span>
+                          . Si más adelante cambiás de idea, pedíselo a{" "}
+                          {caso.negocio_nombre} y te lo vuelven a ofrecer.
                         </p>
                         <div className="mt-4 flex flex-wrap gap-3">
                           <Boton
@@ -331,6 +425,58 @@ export default function Seguimiento() {
               venías aprobando.
             </p>
           )}
+
+          {/* La salida para el que no está seguro. Sin esto, dudar significa
+              cerrar la pantalla y buscar el número del negocio en algún
+              lado, que es volver al teléfono que esto vino a evitar, pero
+              peor: ahora además hay una decisión con plata esperando.
+
+              Va acá abajo y no arriba: primero lo que tiene que decidir,
+              después la ayuda para decidirlo. */}
+          <div className="mt-6 rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-5">
+            <p className="font-bold text-subtitulo">¿No estás seguro?</p>
+            <p className="mt-1 max-w-[65ch] text-tinta-media">
+              Preguntale a {caso.negocio_nombre} antes de decidir. Mientras no
+              contestes no se hace nada, y el link te va a seguir esperando acá.
+            </p>
+
+            {caso.negocio_telefono ? (
+              <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+                <a
+                  href={linkDeWhatsAppA(
+                    caso.negocio_telefono,
+                    mensajeDeConsulta({
+                      clienteNombre: caso.cliente_nombre,
+                      identificador: caso.identificador,
+                      servicio: caso.servicio,
+                      numero: caso.numero,
+                      paso: porResponder.length === 1 ? porResponder[0].nombre : null,
+                    })
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
+                >
+                  <Icono nombre="chat" />
+                  Escribirle por WhatsApp
+                </a>
+                {/* El número escrito al lado y no sólo en el enlace: en una
+                    computadora "Llamar" puede no hacer nada, y ahí lo que
+                    salva es poder leerlo y marcarlo a mano. */}
+                <a
+                  href={linkDeLlamada(caso.negocio_telefono)}
+                  className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
+                >
+                  <Icono nombre="telefono" />
+                  Llamar al {caso.negocio_telefono}
+                </a>
+              </div>
+            ) : (
+              <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
+                Escribile o llamalo por donde venís hablando con ellos.
+              </p>
+            )}
+          </div>
         </>
       )}
 

@@ -1076,15 +1076,20 @@ export function DatosProvider({ children }) {
       //
       // La foto viene como data URL ya achicado por src/lib/imagen.js, o null
       // para volver al ícono.
-      guardarNegocio({ nombre, descripcion, foto }) {
+      guardarNegocio({ nombre, descripcion, foto, telefono }) {
         const cambios = {
           nombre: nombre.trim(),
           // Vacío es que no hay descripción, no una descripción en blanco.
           descripcion: descripcion.trim() || null,
           foto: foto ?? null,
+          // El teléfono nace en 020_telefono_del_negocio.sql: en una base sin
+          // esa migración la ficha se guarda igual, sin él.
+          telefono: (telefono ?? "").trim() || null,
         };
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
-        escribir("negocio", { id: datos.negocio?.id, ...cambios });
+        escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, ...cambios }, [
+          "telefono",
+        ]);
       },
 
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.

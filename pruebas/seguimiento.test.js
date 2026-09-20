@@ -14,7 +14,11 @@ import {
   CAMPOS_PUBLICOS,
   casoPublico,
   lineaDeEstados,
+  linkDeLlamada,
   linkDeSeguimiento,
+  linkDeWhatsApp,
+  linkDeWhatsAppA,
+  mensajeDeConsulta,
   mensajeDeWhatsApp,
   totalAprobado,
 } from "../src/lib/seguimiento.js";
@@ -24,7 +28,15 @@ const CODIGO = "a3f1c9d84b27e650a3f1c9d84b27e650";
 // Un negocio entero, con todo lo interno puesto a propósito: diagnóstico,
 // notas, el mecánico, el teléfono del cliente, lo cobrado, un insumo y dos
 // pasos que el cliente no aprobó.
-const negocio = { id: "n1", nombre: "Taller Sur", rubro: "taller", inicio: { columnas: 2 } };
+const negocio = {
+  id: "n1",
+  nombre: "Taller Sur",
+  rubro: "taller",
+  // Distinto del de la clienta a propósito: si fueran iguales, el test de
+  // que no viaja el teléfono del cliente pasaría por el motivo equivocado.
+  telefono: "341 222 3333",
+  inicio: { columnas: 2 },
+};
 
 const clientes = [
   {
@@ -401,4 +413,72 @@ test("sin identificador, el mensaje habla de lo que pidió", () => {
     link: "x",
   });
   assert.ok(mensaje.includes("Dolor de cabeza"));
+});
+
+// ------------------------------------------------------------
+// Preguntarle al negocio antes de decidir
+// ------------------------------------------------------------
+
+test("el teléfono del negocio viaja; el del cliente, no", () => {
+  assert.equal(publico.negocio_telefono, "341 222 3333");
+  assert.ok(!estaAdentro(publico, clientes[0].telefono));
+});
+
+test("un negocio sin teléfono cargado no manda un vacío disfrazado", () => {
+  for (const sinTelefono of [undefined, null, "", "   "]) {
+    const r = casoPublico({ codigo: CODIGO, ...todo, negocio: { ...negocio, telefono: sinTelefono } });
+    assert.equal(r.negocio_telefono, null, `con ${JSON.stringify(sinTelefono)}`);
+  }
+});
+
+test("el link de WhatsApp lleva el número al formato que quiere WhatsApp", () => {
+  // Diez dígitos, como los pide el sistema: con característica y sin el 0
+  // ni el 15. Para un celular argentino eso es 54 9 adelante.
+  assert.ok(linkDeWhatsAppA("341 456 7890", "hola").startsWith("https://wa.me/5493414567890?text="));
+  assert.ok(linkDeWhatsAppA("3414567890", "hola").startsWith("https://wa.me/5493414567890?text="));
+});
+
+test("un número que ya viene con el país no se le suma otro", () => {
+  assert.ok(linkDeWhatsAppA("+54 9 341 456 7890", "hola").startsWith("https://wa.me/5493414567890?"));
+});
+
+test("sin número no hay link, ni de WhatsApp ni de llamada", () => {
+  assert.equal(linkDeWhatsAppA(null, "hola"), null);
+  assert.equal(linkDeWhatsAppA("", "hola"), null);
+  assert.equal(linkDeLlamada(null), null);
+  assert.equal(linkDeLlamada("sin números"), null);
+});
+
+test("llamar marca sólo los dígitos", () => {
+  assert.equal(linkDeLlamada("341 456 7890"), "tel:3414567890");
+});
+
+test("el mensaje de consulta dice quién escribe, por qué cosa y sobre qué paso", () => {
+  const m = mensajeDeConsulta({
+    clienteNombre: "Marcela",
+    identificador: "AB 123 CD",
+    servicio: "Ruido raro",
+    numero: 248,
+    paso: "Cambio de pastillas de freno",
+  });
+
+  assert.ok(m.includes("Marcela"), "dice quién es");
+  assert.ok(m.includes("AB 123 CD"), "dice de qué auto habla");
+  assert.ok(m.includes("Cambio de pastillas de freno"), "dice qué está dudando");
+});
+
+test("sin patente, la consulta se identifica con el número de caso", () => {
+  const m = mensajeDeConsulta({ clienteNombre: "Marcela", identificador: null, numero: 248 });
+  assert.ok(m.includes("caso 248"));
+});
+
+test("sin nombre ni patente, el mensaje sigue siendo una frase entera", () => {
+  const m = mensajeDeConsulta({ servicio: "Ruido raro" });
+  assert.ok(m.startsWith("Hola."), m);
+  assert.ok(m.includes("Ruido raro"));
+});
+
+test("el link de WhatsApp sin número sigue sirviendo para el negocio", () => {
+  // El de la otra punta: lo toca el negocio y elige el contacto en su agenda.
+  assert.ok(linkDeWhatsApp("hola").startsWith("https://wa.me/?text="));
 });
