@@ -85,8 +85,13 @@ export default function VerCaso() {
         <div className={`h-1.5 w-full ${barra}`} aria-hidden="true" />
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-ident">Caso {caso.numero}</h1>
+            <div className="min-w-0">
+              <h1 className="text-ident">
+                Caso {caso.numero}
+                {caso.identificador && (
+                  <span className="text-tinta-media"> · {caso.identificador}</span>
+                )}
+              </h1>
               <p className="mt-1 text-tinta-media">
                 {caso.servicio}
                 {cliente && ` · ${cliente.nombre}`}
@@ -126,6 +131,64 @@ export default function VerCaso() {
               </li>
             )}
           </ul>
+
+          {/* El identificador —la patente, el DNI, el número de serie— es
+              cómo se reconoce el caso, no un diagnóstico: vive acá arriba, al
+              lado del número, y se carga y se corrige acá. Antes estaba bajo
+              un título que habla de lo que se encontró al revisar, y había
+              que acordarse de dónde estaba (auditoría, H2). */}
+          {editandoIdent && sePuedeEditar ? (
+            <div className="mt-4 max-w-[320px]">
+              <Campo
+                id="identificador"
+                etiqueta={comoIdent.nombre}
+                ayuda={`Con esto lo vas a poder buscar después. Ejemplo: ${comoIdent.ejemplo}.`}
+                autoComplete="off"
+                value={identificador}
+                onChange={(e) => setIdentificador(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-3">
+                <Boton
+                  icono="check"
+                  motivo={!identificador.trim() ? `falta ${comoIdent.enFrase}` : null}
+                  onClick={() => {
+                    datos.ponerIdentificador(caso.id, identificador.trim());
+                    // "Cambiamos" y no "quedó corregida": el artículo de
+                    // enFrase cambia con el rubro y el adjetivo no concuerda
+                    // ("corregida la patente", pero "corregido el DNI").
+                    datos.avisarExito(
+                      caso.identificador
+                        ? `Listo. Cambiamos ${comoIdent.enFrase} del caso ${caso.numero}.`
+                        : `Listo. El caso ${caso.numero} ya tiene ${comoIdent.enFrase}.`
+                    );
+                    setEditandoIdent(false);
+                  }}
+                >
+                  Guardar
+                </Boton>
+                <Boton variante="plano" onClick={() => setEditandoIdent(false)}>
+                  Dejarlo
+                </Boton>
+              </div>
+            </div>
+          ) : (
+            sePuedeEditar && (
+              <div className="mt-2">
+                <Boton
+                  variante="plano"
+                  icono="nota"
+                  onClick={() => {
+                    setIdentificador(caso.identificador ?? "");
+                    setEditandoIdent(true);
+                  }}
+                >
+                  {caso.identificador
+                    ? `Corregir ${comoIdent.enFrase}`
+                    : `Cargar ${comoIdent.enFrase}`}
+                </Boton>
+              </div>
+            )
+          )}
 
           {/* Un único botón azul: el que casi siempre se va a tocar.
               Aparece siempre, también sin pasos: si no, a un caso recién
@@ -392,65 +455,7 @@ export default function VerCaso() {
             corregir, volvé a abrirlo arriba y cerralo de nuevo después.
           </p>
         )}
-        <p className="font-bold text-cuerpo">{comoIdent.nombre}</p>
-        {editandoIdent && sePuedeEditar ? (
-          <div className="mt-2 max-w-[320px]">
-            <Campo
-              id="identificador"
-              etiqueta={comoIdent.nombre}
-              ayuda={`Con esto lo vas a poder buscar después. Ejemplo: ${comoIdent.ejemplo}.`}
-              autoComplete="off"
-              value={identificador}
-              onChange={(e) => setIdentificador(e.target.value)}
-            />
-            <div className="flex flex-wrap gap-3">
-              <Boton
-                icono="check"
-                motivo={!identificador.trim() ? `falta ${comoIdent.enFrase}` : null}
-                onClick={() => {
-                  datos.ponerIdentificador(caso.id, identificador.trim());
-                  // "Cambiamos" y no "quedó corregida": el artículo de
-                  // enFrase cambia con el rubro y el adjetivo no concuerda
-                  // ("corregida la patente", pero "corregido el DNI").
-                  datos.avisarExito(
-                    caso.identificador
-                      ? `Listo. Cambiamos ${comoIdent.enFrase} del caso ${caso.numero}.`
-                      : `Listo. El caso ${caso.numero} ya tiene ${comoIdent.enFrase}.`
-                  );
-                  setEditandoIdent(false);
-                }}
-              >
-                Guardar
-              </Boton>
-              <Boton variante="plano" onClick={() => setEditandoIdent(false)}>
-                Dejarlo
-              </Boton>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            <p className="text-tinta-media">
-              {caso.identificador ||
-                `Todavía no cargaron ${comoIdent.enFrase}.`}
-            </p>
-            {sePuedeEditar && (
-              <Boton
-                variante="plano"
-                icono="nota"
-                onClick={() => {
-                  setIdentificador(caso.identificador ?? "");
-                  setEditandoIdent(true);
-                }}
-              >
-                {caso.identificador
-                  ? "Cambiarlo"
-                  : `Cargar ${comoIdent.enFrase}`}
-              </Boton>
-            )}
-          </div>
-        )}
-
-        <p className="mt-6 font-bold text-cuerpo">Qué encontramos</p>
+        <p className="font-bold text-cuerpo">Qué encontramos</p>
         {editandoDiag && sePuedeEditar ? (
           <div className="mt-2">
             <label htmlFor="diagnostico" className="sr-only">

@@ -50,6 +50,11 @@ export default function AprobarPasos() {
   const [monto, setMonto] = useState("");
   const [tocado, setTocado] = useState(false);
   const [sacando, setSacando] = useState(null);
+  // "Corregir el presupuesto": mientras está prendido aparece, en cada paso
+  // que todavía espera respuesta, la opción de sacarlo. Antes estaba en cada
+  // tarjeta: con seis pasos eran dieciocho botones en la pantalla donde hay
+  // que decidir sobre plata, y sacar un paso es raro (auditoría, H8).
+  const [corrigiendo, setCorrigiendo] = useState(false);
   const [aprobando, setAprobando] = useState(null);
 
   // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
@@ -155,13 +160,29 @@ export default function AprobarPasos() {
           {abierto ? "Pasos a aprobar" : "Los pasos del caso"}
         </TituloSeccion>
         {sePuedeTocar && (
-          <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
-            {armando ? "Cerrar" : "Sumar un paso"}
-          </Boton>
+          <div className="flex flex-wrap gap-2">
+            <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
+              {armando ? "Cerrar" : "Sumar un paso"}
+            </Boton>
+            {mios.some((p) => p.estado === "esperando") && (
+              <Boton
+                variante="plano"
+                icono={corrigiendo ? "check" : "tacho"}
+                onClick={() => {
+                  setCorrigiendo((v) => !v);
+                  setSacando(null);
+                }}
+              >
+                {corrigiendo ? "Listo, terminé" : "Corregir el presupuesto"}
+              </Boton>
+            )}
+          </div>
         )}
       </div>
       <p className="mt-2 mb-4 text-tinta-media">
-        {!abierto
+        {corrigiendo
+          ? "Sacá los pasos que sobren. Sólo se pueden sacar los que el cliente todavía no contestó."
+          : !abierto
           ? "El caso ya se entregó y se cerró. Los pasos quedan como quedaron."
           : puedeResponder
             ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
@@ -315,7 +336,7 @@ export default function AprobarPasos() {
 
                       {/* Sacar un paso sólo se puede mientras espera respuesta:
                           después sería borrar algo que el cliente ya contestó. */}
-                      {aprobando === paso.id ? null : sacando === paso.id ? (
+                      {aprobando === paso.id || !corrigiendo ? null : sacando === paso.id ? (
                         <div className="mt-3 rounded-tarjeta bg-superficie p-4">
                           <p className="font-bold text-cuerpo">
                             ¿Sacar «{paso.nombre}» del presupuesto?
