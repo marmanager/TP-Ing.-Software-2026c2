@@ -595,6 +595,18 @@ export function DatosProvider({ children }) {
         escribir("insumo", insumo, { insertar: true });
       },
 
+      // Escribir la cantidad directo. Después de un inventario físico hay
+      // que pasar de 3 a 40, y de a uno son treinta y siete toques, cada uno
+      // con su escritura a la base (auditoría, H7).
+      fijarCantidad(insumoId, cantidad) {
+        const limpia = Math.max(0, Math.floor(Number(cantidad) || 0));
+        setDatos((d) => ({
+          ...d,
+          insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad: limpia } : i)),
+        }));
+        escribir("insumo", { id: insumoId, cantidad: limpia });
+      },
+
       ajustarCantidad(insumoId, delta) {
         const insumo = datos.insumos.find((i) => i.id === insumoId);
         if (!insumo) return;
