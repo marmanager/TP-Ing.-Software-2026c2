@@ -292,8 +292,17 @@ export default function Seguimiento() {
                         {pesos(paso.monto)}
                       </p>
                     </div>
-                    {paso.descripcion && (
+                    {/* Lo que el negocio escribió para explicárselo, o el
+                        aviso de que no escribió nada. El hueco callado era
+                        peor: se lee como si no hubiera nada que saber. */}
+                    {paso.descripcion ? (
                       <p className="mt-2 max-w-[65ch] text-tinta-media">{paso.descripcion}</p>
+                    ) : (
+                      <p className="mt-2 max-w-[65ch] text-tinta-media">
+                        {caso.negocio_nombre} no dejó una explicación de este trabajo. Si
+                        no te queda claro qué te van a hacer, preguntale antes de
+                        aprobar.
+                      </p>
                     )}
 
                     {preguntando === "aprobado" ? (
@@ -302,23 +311,15 @@ export default function Seguimiento() {
                           ¿Aprobás «{paso.nombre}»?
                         </p>
 
-                        {/* Tres renglones, y cada uno contesta una pregunta
-                            distinta: qué te están por cobrar, cuánto, y qué
-                            pasa cuando decís que sí. Antes era una sola
-                            frase que las mezclaba. */}
+                        {/* Dos renglones, y cada uno contesta una pregunta
+                            distinta: cuánto, y qué pasa cuando decís que sí.
+                            Antes era una sola frase que las mezclaba.
+
+                            Qué es el trabajo NO va acá: la explicación del
+                            negocio está en la tarjeta, arriba, y sigue a la
+                            vista mientras se lee esto. Repetirla era hacer
+                            leer dos veces lo mismo. */}
                         <dl className="mt-3 flex flex-col gap-2">
-                          <div>
-                            <dt className="font-bold text-cuerpo">Qué es</dt>
-                            <dd className="max-w-[65ch] text-tinta-media">
-                              {paso.descripcion || (
-                                <>
-                                  {caso.negocio_nombre} no dejó una explicación de este
-                                  trabajo. Si no te queda claro qué te van a hacer,
-                                  preguntale antes de aprobar.
-                                </>
-                              )}
-                            </dd>
-                          </div>
                           <div>
                             <dt className="font-bold text-cuerpo">Cuánto te van a cobrar</dt>
                             <dd className="max-w-[65ch] text-tinta-media">
