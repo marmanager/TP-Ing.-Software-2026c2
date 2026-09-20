@@ -106,6 +106,10 @@ export function DatosProvider({ children }) {
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
   const [exito, setExito] = useState(null);
+  // Lo que deshace la acción que se acaba de confirmar, si se puede deshacer.
+  // Vive mientras el aviso esté en pantalla: el "Deshacer" está donde ocurrió
+  // la acción, no en un menú (auditoría, H3).
+  const [deshacerExito, setDeshacerExito] = useState(null);
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
   // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
@@ -471,6 +475,10 @@ export function DatosProvider({ children }) {
           monto: Number(monto),
           estado: "esperando",
           orden: Math.max(0, ...delCaso.map((p) => p.orden ?? 0)) + 1,
+          // Desde cuándo el cliente tiene la pelota. En Supabase lo pone la
+          // base sola (creado_en default now()); acá hay que escribirlo, o el
+          // modo de ejemplo se quedaría sin la fecha.
+          creado_en: new Date().toISOString(),
         };
         setDatos((d) => ({ ...d, pasos: [...d.pasos, paso] }));
         escribir("paso", paso, { insertar: true });
@@ -587,6 +595,18 @@ export function DatosProvider({ children }) {
         escribir("insumo", insumo, { insertar: true });
       },
 
+      // Escribir la cantidad directo. Después de un inventario físico hay
+      // que pasar de 3 a 40, y de a uno son treinta y siete toques, cada uno
+      // con su escritura a la base (auditoría, H7).
+      fijarCantidad(insumoId, cantidad) {
+        const limpia = Math.max(0, Math.floor(Number(cantidad) || 0));
+        setDatos((d) => ({
+          ...d,
+          insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad: limpia } : i)),
+        }));
+        escribir("insumo", { id: insumoId, cantidad: limpia });
+      },
+
       ajustarCantidad(insumoId, delta) {
         const insumo = datos.insumos.find((i) => i.id === insumoId);
         if (!insumo) return;
@@ -619,6 +639,15 @@ export function DatosProvider({ children }) {
         return empleado;
       },
 
+      // OJO AL CAMBIAR ESTO. Hoy el rol del empleado es sólo el nombre con
+      // el que figura en la lista: quién puede qué sale de usuario.rol, que
+      // mira la base con mi_rol() (008_permisos.sql). Por eso el desplegable
+      // cambia el rol sin preguntar nada.
+      //
+      // El día que este rol dé permisos, el cambio tiene que pedir
+      // confirmación diciendo qué gana y qué pierde esa persona: en un
+      // desplegable de celular el dedo arrastra y elige otra opción sin
+      // querer (auditoría, H5).
       cambiarRolEmpleado(empleadoId, rol) {
         setDatos((d) => ({
           ...d,
@@ -699,6 +728,16 @@ export function DatosProvider({ children }) {
         };
         setDatos((d) => ({ ...d, clientes: [...d.clientes, cliente] }));
         escribir("cliente", cliente, { insertar: true });
+      },
+
+      // Corregir el teléfono desde la ficha del cliente. Antes, uno mal
+      // cargado no se podía arreglar en ningún lado.
+      corregirTelefono(clienteId, telefono) {
+        setDatos((d) => ({
+          ...d,
+          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono } : c)),
+        }));
+        escribir("cliente", { id: clienteId, telefono });
       },
 
       // ---------- agenda ----------
@@ -865,9 +904,18 @@ export function DatosProvider({ children }) {
         setDatos(construirSemilla());
       },
 
-      avisarExito: (texto) => setExito(texto),
+      // avisarExito("Listo…", { deshacer: () => … }) suma un botón "Deshacer"
+      // al aviso. El setter recibe una función que devuelve la función, porque
+      // si se le pasa la función directo React la ejecuta.
+      avisarExito: (texto, { deshacer = null } = {}) => {
+        setExito(texto);
+        setDeshacerExito(() => deshacer);
+      },
       descartarAviso: () => setAviso(null),
-      descartarExito: () => setExito(null),
+      descartarExito: () => {
+        setExito(null);
+        setDeshacerExito(null);
+      },
     };
   }, [datos, fuente, esDemo, usuario]);
 
@@ -880,6 +928,7 @@ export function DatosProvider({ children }) {
     fuente,
     aviso,
     exito,
+    deshacerExito,
     ...acciones,
   };
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

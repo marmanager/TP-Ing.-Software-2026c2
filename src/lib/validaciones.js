@@ -39,3 +39,25 @@ export const montoCobrado = (valor = "") => {
   const limpio = String(valor).trim();
   return limpio === "" ? null : Number(limpio);
 };
+
+// Qué le falta al alta de un caso, en el orden de la pantalla. Cada uno dice
+// en qué campo está y cómo se nombra en el botón apagado.
+//
+// Antes el botón decía sólo el primer faltante: con el formulario en blanco
+// había que completar, mirar el botón, completar, mirar el botón, cuatro
+// veces (auditoría, H9). Ahora la pantalla puede marcar todos a la vez.
+export function faltantesDelAlta({ nombre, telefono, identificador, servicio }, identificadorEnFrase) {
+  const faltan = [];
+  if (!nombre?.trim()) faltan.push({ campo: "cliente", frase: "falta el nombre" });
+  if (!telefono?.trim() || !telefonoValido(telefono))
+    faltan.push({ campo: "telefono", frase: "falta el teléfono" });
+  if (!identificador?.trim())
+    faltan.push({ campo: "identificador", frase: `falta ${identificadorEnFrase}` });
+  if (!servicio?.trim()) faltan.push({ campo: "servicio", frase: "falta qué necesita" });
+  return faltan;
+}
+
+// Lo que dice el botón apagado: el dato si falta uno solo, la cuenta si
+// faltan varios (y entonces los campos vacíos van marcados en la pantalla).
+export const motivoDeFaltantes = (faltan) =>
+  faltan.length === 0 ? null : faltan.length === 1 ? faltan[0].frase : `faltan ${faltan.length} datos`;

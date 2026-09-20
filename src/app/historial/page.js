@@ -27,7 +27,7 @@ import {
   resumirHistorial,
 } from "@/lib/historial";
 import Icono from "@/componentes/Icono";
-import { Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
 function Opcion({ elegida, onClick, children }) {
   return (
@@ -53,6 +53,9 @@ export default function Historial() {
 
   const [periodo, setPeriodo] = useState("semana");
   const [tipo, setTipo] = useState("todo");
+  // Para reconstruir un reclamo: lo que pasó con un caso solo, sin recorrer
+  // el historial general a ojo (auditoría, H7).
+  const [soloCaso, setSoloCaso] = useState(null);
 
   if (cargando) return <Cargando />;
 
@@ -61,7 +64,12 @@ export default function Historial() {
   const delPeriodo = filtrarHistorial(eventos, { periodo });
   const { entraron, entregados } = resumirHistorial(delPeriodo);
   const aprobado = plataAprobada(pasos, { periodo });
-  const visibles = filtrarHistorial(eventos, { periodo, tipo });
+  const visibles = filtrarHistorial(eventos, { periodo, tipo }).filter(
+    (e) => !soloCaso || e.caso_id === soloCaso
+  );
+  const casoElegido = soloCaso ? casos.find((c) => c.id === soloCaso) : null;
+  const clienteElegido =
+    casoElegido && clientes.find((c) => c.id === casoElegido.cliente_id);
   const dias = agruparPorDia(visibles);
 
   const numeros = [
@@ -77,8 +85,15 @@ export default function Historial() {
         cada paso, con quién lo hizo.
       </p>
 
+      {/* Los dos grupos de filtros parecían hacer lo mismo, y uno cambia los
+          números y el otro no. El período ya estaba arriba, junto a los
+          números que gobierna, y "Qué mostrar" abajo, pegado a la lista: lo
+          que faltaba era decirlo (auditoría, H8). */}
       <fieldset className="mb-4">
-        <legend className="mb-2 font-bold text-cuerpo">Desde cuándo</legend>
+        <legend className="mb-2 font-bold text-cuerpo">
+          Desde cuándo{" "}
+          <span className="font-normal text-tinta-media">· cambia los números de abajo</span>
+        </legend>
         <div className="flex flex-wrap gap-2">
           {LISTA_PERIODOS.map((p) => (
             <Opcion key={p.clave} elegida={periodo === p.clave} onClick={() => setPeriodo(p.clave)}>
@@ -88,7 +103,7 @@ export default function Historial() {
         </div>
       </fieldset>
 
-      <dl className="mb-8 grid gap-3 sm:grid-cols-3">
+      <dl className="mb-8 grid gap-3 @xl:grid-cols-3">
         {numeros.map(([que, cuanto, unidad]) => (
           <div key={que} className="rounded-tarjeta border border-borde bg-tarjeta p-4">
             <dt className="text-tinta-media">{que}</dt>
@@ -113,7 +128,12 @@ export default function Historial() {
       </dl>
 
       <fieldset className="mb-8">
-        <legend className="mb-2 font-bold text-cuerpo">Qué mostrar</legend>
+        <legend className="mb-2 font-bold text-cuerpo">
+          Qué mostrar{" "}
+          <span className="font-normal text-tinta-media">
+            · filtra la lista, no los números
+          </span>
+        </legend>
         <div className="flex flex-wrap gap-2">
           <Opcion elegida={tipo === "todo"} onClick={() => setTipo("todo")}>
             Todo
@@ -125,6 +145,18 @@ export default function Historial() {
           ))}
         </div>
       </fieldset>
+
+      {casoElegido && (
+        <p className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="font-bold text-cuerpo">
+            Mostrando sólo el caso {casoElegido.numero}
+            {clienteElegido ? ` de ${clienteElegido.nombre}` : ""}
+          </span>
+          <Boton variante="plano" icono="cruz" onClick={() => setSoloCaso(null)}>
+            Ver todo de nuevo
+          </Boton>
+        </p>
+      )}
 
       {dias.length === 0 ? (
         <Vacio icono="historial" titulo="No pasó nada con este filtro">
@@ -141,10 +173,13 @@ export default function Historial() {
                 const caso = casos.find((c) => c.id === e.caso_id);
                 const cliente = caso && clientes.find((c) => c.id === caso.cliente_id);
                 return (
-                  <li key={e.id} className="border-b border-borde last:border-b-0">
+                  <li
+                    key={e.id}
+                    className="flex items-start border-b border-borde last:border-b-0"
+                  >
                     <Link
                       href={caso ? `/casos/${caso.id}` : "/casos"}
-                      className="flex items-start gap-3 p-4 hover:bg-superficie"
+                      className="flex min-w-0 flex-1 items-start gap-3 p-4 hover:bg-superficie"
                     >
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-superficie text-tinta-media">
                         <Icono nombre={e.icono} className="size-5" />
@@ -166,6 +201,18 @@ export default function Historial() {
                         </span>
                       )}
                     </Link>
+                    {/* Afuera del enlace: un botón adentro de un enlace no se
+                        puede tocar por separado. */}
+                    {caso && !soloCaso && (
+                      <button
+                        type="button"
+                        aria-label={`Ver sólo lo del caso ${caso.numero}`}
+                        onClick={() => setSoloCaso(caso.id)}
+                        className="flex min-h-12 w-12 shrink-0 cursor-pointer items-center justify-center self-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
+                      >
+                        <Icono nombre="buscar" className="size-5" />
+                      </button>
+                    )}
                   </li>
                 );
               })}

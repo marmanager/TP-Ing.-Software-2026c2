@@ -12,6 +12,8 @@ import {
   montoValido,
   montoCobrado,
   cobroValido,
+  faltantesDelAlta,
+  motivoDeFaltantes,
 } from "../src/lib/validaciones.js";
 
 test("el teléfono va con característica, sin el 0 ni el 15", () => {
@@ -80,4 +82,45 @@ test("el cobro acepta que no haya monto, pero no acepta cualquier cosa", () => {
   assert.equal(cobroValido("120.000"), false, "sin puntos, como el resto del sistema");
   assert.equal(cobroValido("-500"), false);
   assert.equal(cobroValido("ciento veinte mil"), false);
+});
+
+// ---------------------------------------------------------------
+// Qué falta en el alta de un caso
+// ---------------------------------------------------------------
+
+const completo = {
+  nombre: "Marcela Suárez",
+  telefono: "341 456 7890",
+  identificador: "AB 123 CD",
+  servicio: "Frenos",
+};
+
+test("con todo cargado no falta nada y el botón se prende", () => {
+  const faltan = faltantesDelAlta(completo, "la patente");
+  assert.deepEqual(faltan, []);
+  assert.equal(motivoDeFaltantes(faltan), null);
+});
+
+test("si falta uno solo, el botón dice cuál", () => {
+  const faltan = faltantesDelAlta({ ...completo, identificador: "" }, "el DNI");
+  assert.equal(motivoDeFaltantes(faltan), "falta el DNI");
+});
+
+test("si faltan varios, el botón dice cuántos y se sabe cuáles marcar", () => {
+  const faltan = faltantesDelAlta({ nombre: "", telefono: "", identificador: "", servicio: "" }, "la patente");
+  assert.equal(motivoDeFaltantes(faltan), "faltan 4 datos");
+  assert.deepEqual(
+    faltan.map((f) => f.campo),
+    ["cliente", "telefono", "identificador", "servicio"]
+  );
+});
+
+test("un teléfono mal escrito cuenta como faltante", () => {
+  const faltan = faltantesDelAlta({ ...completo, telefono: "0341 15 456" }, "la patente");
+  assert.equal(motivoDeFaltantes(faltan), "falta el teléfono");
+});
+
+test("los espacios solos no cuentan como dato", () => {
+  const faltan = faltantesDelAlta({ ...completo, nombre: "   " }, "la patente");
+  assert.equal(motivoDeFaltantes(faltan), "falta el nombre");
 });

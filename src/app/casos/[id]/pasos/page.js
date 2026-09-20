@@ -50,6 +50,11 @@ export default function AprobarPasos() {
   const [monto, setMonto] = useState("");
   const [tocado, setTocado] = useState(false);
   const [sacando, setSacando] = useState(null);
+  // "Corregir el presupuesto": mientras está prendido aparece, en cada paso
+  // que todavía espera respuesta, la opción de sacarlo. Antes estaba en cada
+  // tarjeta: con seis pasos eran dieciocho botones en la pantalla donde hay
+  // que decidir sobre plata, y sacar un paso es raro (auditoría, H8).
+  const [corrigiendo, setCorrigiendo] = useState(false);
   const [aprobando, setAprobando] = useState(null);
 
   // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
@@ -155,13 +160,29 @@ export default function AprobarPasos() {
           {abierto ? "Pasos a aprobar" : "Los pasos del caso"}
         </TituloSeccion>
         {sePuedeTocar && (
-          <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
-            {armando ? "Cerrar" : "Sumar un paso"}
-          </Boton>
+          <div className="flex flex-wrap gap-2">
+            <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
+              {armando ? "Cerrar" : "Sumar un paso"}
+            </Boton>
+            {mios.some((p) => p.estado === "esperando") && (
+              <Boton
+                variante="plano"
+                icono={corrigiendo ? "check" : "tacho"}
+                onClick={() => {
+                  setCorrigiendo((v) => !v);
+                  setSacando(null);
+                }}
+              >
+                {corrigiendo ? "Listo, terminé" : "Corregir el presupuesto"}
+              </Boton>
+            )}
+          </div>
         )}
       </div>
       <p className="mt-2 mb-4 text-tinta-media">
-        {!abierto
+        {corrigiendo
+          ? "Sacá los pasos que sobren. Sólo se pueden sacar los que el cliente todavía no contestó."
+          : !abierto
           ? "El caso ya se entregó y se cerró. Los pasos quedan como quedaron."
           : puedeResponder
             ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
@@ -301,8 +322,10 @@ export default function AprobarPasos() {
                           >
                             Lo aprueba
                           </Boton>
+                          {/* Neutro y no rojo: rechazar se puede deshacer. El
+                              rojo queda para sacar un paso, que borra. */}
                           <Boton
-                            variante="peligro"
+                            variante="neutro"
                             className="min-h-13 flex-1"
                             onClick={() => responderPaso(paso.id, "rechazado")}
                           >
@@ -313,7 +336,7 @@ export default function AprobarPasos() {
 
                       {/* Sacar un paso sólo se puede mientras espera respuesta:
                           después sería borrar algo que el cliente ya contestó. */}
-                      {aprobando === paso.id ? null : sacando === paso.id ? (
+                      {aprobando === paso.id || !corrigiendo ? null : sacando === paso.id ? (
                         <div className="mt-3 rounded-tarjeta bg-superficie p-4">
                           <p className="font-bold text-cuerpo">
                             ¿Sacar «{paso.nombre}» del presupuesto?
@@ -371,6 +394,27 @@ export default function AprobarPasos() {
         </ul>
       )}
 
+      {/* En celular el total se queda a la vista mientras se recorre la lista:
+          la conversación sobre plata pasa entera mirando los pasos, y el
+          número que se discute estaba recién al final (auditoría, H1). Va
+          clavado encima de la barra de secciones; el detalle completo sigue
+          abajo. En escritorio la lista entra y no hace falta. */}
+      {mios.length > 0 && (
+        <div
+          aria-hidden="true"
+          className="sticky bottom-[calc(var(--alto-barra,4rem)+0.5rem)] z-10 mt-4 flex justify-between gap-4 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 shadow-lg md:hidden"
+        >
+          <p>
+            <span className="block text-apoyo text-tinta-media">Aprobado</span>
+            <span className="font-bold tabular-nums">{pesos(aprobado)}</span>
+          </p>
+          <p className="text-right text-espera">
+            <span className="block text-apoyo">Esperando respuesta</span>
+            <span className="font-bold tabular-nums">{pesos(esperando)}</span>
+          </p>
+        </div>
+      )}
+
       {/* La plata siempre a la vista, separada en aprobado y esperando. */}
       {mios.length > 0 && (
         <div className="mt-6 rounded-tarjeta border border-borde bg-superficie p-4 sm:p-6">
@@ -412,7 +456,31 @@ export default function AprobarPasos() {
                 Se lee completo en el mensaje, sin abrir el sistema. Mandarlo de verdad es
                 del próximo sprint.
               </p>
-              <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media">
+              {/* El mensaje existe para pegarlo en WhatsApp, y seleccionar
+                  varias líneas a mano en un celular era la parte más difícil
+                  de toda la tarea (auditoría, H7). Si el navegador no deja
+                  copiar, queda seleccionado para copiarlo a mano. */}
+              <div className="mt-3">
+                <Boton
+                  icono="copiar"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(mensaje);
+                      datos.avisarExito("Listo. Copiamos el mensaje: pegalo en la conversación con el cliente.");
+                    } catch {
+                      const pre = document.getElementById("mensaje-cliente");
+                      window.getSelection()?.selectAllChildren(pre);
+                      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+                    }
+                  }}
+                >
+                  Copiar el mensaje
+                </Boton>
+              </div>
+              <pre
+                id="mensaje-cliente"
+                className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media"
+              >
                 {mensaje}
               </pre>
             </div>

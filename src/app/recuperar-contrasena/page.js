@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { emailValido } from "@/lib/validaciones";
-import { Boton, Campo, Tarjeta, TituloPantalla } from "@/componentes/ui";
+import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function RecuperarContrasena() {
@@ -104,10 +104,7 @@ export default function RecuperarContrasena() {
         />
 
         {error && (
-          <p className="mb-6 flex items-start gap-2 font-bold text-rojo text-etiqueta">
-            <Icono nombre="alerta" className="mt-px size-5" />
-            <span>{error}</span>
-          </p>
+          <ErrorGeneral>{error}</ErrorGeneral>
         )}
 
         <Boton

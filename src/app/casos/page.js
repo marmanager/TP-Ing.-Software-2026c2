@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
@@ -8,12 +8,14 @@ import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { etiquetaEstado, comoSeIdentifica } from "@/lib/presets";
 import FilaCaso from "@/componentes/FilaCaso";
 import Icono from "@/componentes/Icono";
-import { Cargando, Vacio } from "@/componentes/ui";
+import { Boton, Cargando, Vacio } from "@/componentes/ui";
 
 export default function Casos() {
   const { cargando, casos, clientes, negocio } = useDatos();
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
+  const [orden, setOrden] = useState("estado");
+  const campoBusqueda = useRef(null);
   useTitulo("Casos");
 
   if (cargando) return <Cargando />;
@@ -33,7 +35,14 @@ export default function Casos() {
         (cliente?.nombre ?? "").toLowerCase().includes(texto)
       );
     })
-    .sort((a, b) => ORDEN_ESTADOS.indexOf(a.estado) - ORDEN_ESTADOS.indexOf(b.estado));
+    // Por estado es el orden de todos los días. Por antigüedad es el único
+    // que sirve para encontrar lo que se está atrasando: antes había que leer
+    // las fechas caso por caso (auditoría, H7).
+    .sort((a, b) =>
+      orden === "viejos"
+        ? new Date(a.abierto_en) - new Date(b.abierto_en)
+        : ORDEN_ESTADOS.indexOf(a.estado) - ORDEN_ESTADOS.indexOf(b.estado)
+    );
 
   const cuantos = (estado) => casos.filter((c) => c.estado === estado).length;
 
@@ -65,14 +74,32 @@ export default function Casos() {
         </span>
         <input
           id="buscar"
+          ref={campoBusqueda}
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder={`248, ${comoIdent.ejemplo}, frenos, Marcela…`}
-          className="block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta pl-13 pr-4 text-cuerpo placeholder:text-tinta-suave"
+          className="block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta pl-13 pr-14 text-cuerpo placeholder:text-tinta-suave"
         />
+        {/* Borrar letra por letra en el teclado de un celular son doce
+            toques para volver a la lista completa; esto es uno. Devuelve el
+            foco al campo, así se puede escribir otra búsqueda de una
+            (auditoría, H3). */}
+        {busqueda && (
+          <button
+            type="button"
+            aria-label="Borrar la búsqueda"
+            onClick={() => {
+              setBusqueda("");
+              campoBusqueda.current?.focus();
+            }}
+            className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center rounded-r-campo text-tinta-media hover:text-tinta"
+          >
+            <Icono nombre="cruz" />
+          </button>
+        )}
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <BotonFiltro activo={filtro === "todos"} onClick={() => setFiltro("todos")}>
           Todos ({casos.length})
         </BotonFiltro>
@@ -87,6 +114,46 @@ export default function Casos() {
           </BotonFiltro>
         ))}
       </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="text-tinta-media">Ordenados</span>
+        <BotonFiltro activo={orden === "estado"} onClick={() => setOrden("estado")}>
+          Por estado
+        </BotonFiltro>
+        <BotonFiltro activo={orden === "viejos"} onClick={() => setOrden("viejos")}>
+          Los más viejos primero
+        </BotonFiltro>
+      </div>
+
+      {/* Con un filtro puesto, alguien se distrae, vuelve y ve cuatro casos
+          donde tenía veintitrés: la conclusión inmediata es que se perdieron
+          datos. La línea dice cuántos se están viendo de cuántos, y cada
+          filtro se saca desde acá (auditoría, H1). */}
+      {(filtro !== "todos" || texto) && casos.length > 0 && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-tinta-media">
+          <span>
+            Mostrando <span className="font-bold text-tinta">{visibles.length}</span> de{" "}
+            {casos.length} {casos.length === 1 ? "caso" : "casos"}
+          </span>
+          {filtro !== "todos" && (
+            <Boton variante="plano" icono="cruz" onClick={() => setFiltro("todos")}>
+              {etiquetaEstado(negocio?.rubro, filtro)}
+            </Boton>
+          )}
+          {texto && (
+            <Boton
+              variante="plano"
+              icono="cruz"
+              onClick={() => {
+                setBusqueda("");
+                campoBusqueda.current?.focus();
+              }}
+            >
+              «{busqueda.trim()}»
+            </Boton>
+          )}
+        </p>
+      )}
 
       {visibles.length === 0 ? (
         <Vacio icono="buscar" titulo="No hay casos que coincidan">

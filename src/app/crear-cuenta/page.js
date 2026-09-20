@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { emailValido, telefonoValido, contrasenaValida } from "@/lib/validaciones";
-import { Boton, Campo, Tarjeta, TituloPantalla } from "@/componentes/ui";
+import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function CrearCuenta() {
@@ -153,10 +153,7 @@ export default function CrearCuenta() {
         </button>
 
         {errorGeneral && (
-          <p className="mb-6 flex items-start gap-2 font-bold text-rojo text-etiqueta">
-            <Icono nombre="alerta" className="mt-px size-5" />
-            <span>{errorGeneral}</span>
-          </p>
+          <ErrorGeneral>{errorGeneral}</ErrorGeneral>
         )}
 
         <Boton

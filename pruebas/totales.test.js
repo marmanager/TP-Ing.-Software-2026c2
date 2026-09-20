@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { casosPorAprobar, totalesDeCaso } from "../src/lib/estados.js";
+import { casosPorAprobar, quienLoTieneEnPalabras, totalesDeCaso } from "../src/lib/estados.js";
 
 // Los cinco pasos del caso 248, textuales de la sección 09 de la cartilla.
 const caso248 = [
@@ -135,4 +135,43 @@ test("los montos que vienen como texto desde la base también se suman bien", ()
   ];
 
   assert.equal(casosPorAprobar(casos, pasos)[0].plata, 76500);
+});
+
+// ---------------------------------------------------------------
+// Quién lo tiene, dicho en la cabecera del caso
+// ---------------------------------------------------------------
+
+test("la cabecera dice quién tiene el caso con una frase, no con un nombre suelto", () => {
+  const empleados = [{ id: "e1", nombre: "Diego" }];
+  const decir = (caso) => quienLoTieneEnPalabras(caso, empleados);
+
+  assert.equal(decir({ estado: "en_proceso", responsable_id: "e1" }), "Lo tiene Diego");
+  assert.equal(decir({ estado: "nuevo", responsable_id: null }), "Todavía no lo tiene nadie");
+  assert.equal(decir({ estado: "esperando", responsable_id: null }), "Lo tiene el proveedor");
+  assert.equal(decir({ estado: "completado", responsable_id: null }), "Ya se entregó");
+});
+
+// ---------------------------------------------------------------
+// Desde cuándo espera respuesta un caso
+// ---------------------------------------------------------------
+// Es lo que se mira para decidir a quién llamar, así que tiene que salir del
+// paso sin contestar más viejo y no de cuándo se abrió el caso.
+
+test("espera desde el paso sin contestar más viejo", () => {
+  const casos = [{ id: "a", estado: "en_proceso", abierto_en: "2026-01-01T10:00:00.000Z" }];
+  const pasos = [
+    { id: "1", caso_id: "a", monto: 1000, estado: "esperando", creado_en: "2026-02-10T10:00:00.000Z" },
+    { id: "2", caso_id: "a", monto: 2000, estado: "esperando", creado_en: "2026-02-03T10:00:00.000Z" },
+    // Ya contestado: no cuenta para "desde cuándo espera".
+    { id: "3", caso_id: "a", monto: 5000, estado: "aprobado", creado_en: "2026-01-02T10:00:00.000Z" },
+  ];
+
+  assert.equal(casosPorAprobar(casos, pasos)[0].esperandoDesde, "2026-02-03T10:00:00.000Z");
+});
+
+test("un paso sin fecha cae en la fecha del caso", () => {
+  const casos = [{ id: "a", estado: "en_proceso", abierto_en: "2026-01-01T10:00:00.000Z" }];
+  const pasos = [{ id: "1", caso_id: "a", monto: 1000, estado: "esperando" }];
+
+  assert.equal(casosPorAprobar(casos, pasos)[0].esperandoDesde, "2026-01-01T10:00:00.000Z");
 });

@@ -9,6 +9,7 @@
 // - La ayuda de un campo va visible debajo de la etiqueta, nunca escondida.
 // - El error va debajo del campo, con ícono, texto rojo y un ejemplo correcto.
 
+import { useEffect, useRef } from "react";
 import Icono from "./Icono";
 
 const BASE_BOTON =
@@ -19,7 +20,11 @@ const BASE_BOTON =
 const VARIANTES = {
   principal: "bg-azul text-white hover:bg-azul-apretado",
   borde: "bg-tarjeta text-azul border-2 border-azul hover:bg-azul-claro",
+  // El rojo es sólo para lo que borra o no tiene vuelta. Una opción opuesta
+  // pero reversible —"No lo hace"— va neutra: si no, se aprende que el rojo
+  // es "la opción de la derecha" y no "cuidado" (auditoría, H5).
   peligro: "bg-tarjeta text-rojo border-2 border-rojo hover:bg-rojo/5",
+  neutro: "bg-tarjeta text-tinta border-2 border-borde-fuerte hover:bg-superficie",
   plano: "bg-transparent text-azul hover:bg-azul-claro px-3",
 };
 
@@ -53,15 +58,36 @@ export function Boton({
   );
 }
 
+// Con el teléfono acostado quedan menos de 400 px de alto: ahí lo fijo no
+// puede comerse la pantalla, así que el botón deja de ir clavado y acompaña
+// al formulario (auditoría, criterio "funciona acostado").
+// Las clases van escritas enteras y no armadas con una variable: Tailwind
+// lee el código fuente buscando nombres completos, y un nombre partido en
+// pedazos no genera ninguna regla.
+const BOTON_SUELTO_ACOSTADO =
+  "[@media(max-height:480px)]:static [@media(max-height:480px)]:mx-0 " +
+  "[@media(max-height:480px)]:border-0 [@media(max-height:480px)]:bg-transparent " +
+  "[@media(max-height:480px)]:p-0";
+
 // El botón principal en celular va fijo abajo, 56 px de alto y ancho completo.
+//
+// Fijo, pero ENCIMA de la barra de secciones del celular, no detrás: las dos
+// cosas se anclan abajo, y la barra (64 px, Navegacion.js) está por encima
+// en el orden de capas. Por eso se clava al alto de la barra (--alto-barra,
+// que publica Navegacion.js) y no a cero. Como
+// es sticky y no fixed, ocupa su lugar en la página y el contenido no queda
+// tapado. Desde md en adelante no hay barra abajo y el botón va en su lugar,
+// con el mismo punto de quiebre que la barra.
 export function BotonPrincipalFijo({ children, motivo, ...props }) {
   return (
-    <div className="sticky bottom-0 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+    <div
+      className={`sticky bottom-[var(--alto-barra,4rem)] z-10 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 ${BOTON_SUELTO_ACOSTADO}`}
+    >
       <Boton
         variante="principal"
         motivo={motivo}
         {...props}
-        className="min-h-14 w-full sm:w-auto"
+        className="min-h-14 w-full md:w-auto"
       >
         {children}
       </Boton>
@@ -89,17 +115,44 @@ export function TituloPantalla({ children, apoyo }) {
   );
 }
 
-export function TituloSeccion({ children, className = "" }) {
-  return <h2 className={`text-seccion mb-4 ${className}`}>{children}</h2>;
+export function TituloSeccion({ children, className = "", ...props }) {
+  return (
+    <h2 {...props} className={`text-seccion mb-4 scroll-mt-6 ${className}`}>
+      {children}
+    </h2>
+  );
+}
+
+// Un punto al lado de la etiqueta de un campo que falta completar, cuando
+// faltan varios y el botón apagado dice sólo cuántos. El punto es para la
+// vista; el lector de pantalla oye "falta completar".
+export function MarcaFalta() {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="ml-2 inline-block size-2.5 rounded-full bg-espera align-middle"
+      />
+      <span className="sr-only">, falta completar</span>
+    </>
+  );
 }
 
 // Un campo por fila. La ayuda va debajo de la etiqueta, siempre visible.
+//
+// Va en 16 px y gris medio, no en los 15 px del gris suave: la cartilla
+// reserva los 15 para datos de apoyo —una hora, el autor de un evento— y la
+// ayuda del campo no es apoyo, es la instrucción que evita el error, y
+// nuestro público es justo el que no llega a leerla (auditoría, H10). La
+// auditoría pedía 17 px, que no existe en la escala de la cartilla (15 · 16 ·
+// 18): gana la cartilla, y 16 es el más cercano hacia arriba.
 export function Campo({
   etiqueta,
   ayuda,
   error,
   ejemplo,
   exito,
+  falta = false,
   children,
   id,
   ...props
@@ -111,9 +164,10 @@ export function Campo({
     <div className="mb-6">
       <label htmlFor={id} className="block font-bold text-cuerpo">
         {etiqueta}
+        {falta && <MarcaFalta />}
       </label>
       {ayuda && (
-        <p id={idAyuda} className="mt-1 text-apoyo text-tinta-suave">
+        <p id={idAyuda} className="mt-1 text-etiqueta text-tinta-media">
           {ayuda}
         </p>
       )}
@@ -151,6 +205,31 @@ export function Campo({
   );
 }
 
+// El error que no es de un campo: no se pudo entrar, el mail ya tiene cuenta,
+// el link venció. Va con role="alert" y se lleva el foco cuando aparece: el
+// mensaje se dibuja arriba del botón, así que quien usa lector de pantalla
+// tocaba "Iniciar sesión", no escuchaba nada y no sabía que había fallado
+// (auditoría, H9).
+export function ErrorGeneral({ children }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    ref.current?.focus();
+  }, [children]);
+
+  return (
+    <p
+      ref={ref}
+      role="alert"
+      tabIndex={-1}
+      className="mb-6 flex items-start gap-2 font-bold text-rojo text-etiqueta focus:outline-none"
+    >
+      <Icono nombre="alerta" className="mt-px size-5" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
 // Lo que se ve cuando todavía no hay nada. Nunca una pantalla en blanco.
 export function Vacio({ icono = "carpeta", titulo, children }) {
   return (
@@ -164,10 +243,27 @@ export function Vacio({ icono = "carpeta", titulo, children }) {
   );
 }
 
-export function Cargando() {
+// Mientras llegan los datos: la forma de lo que va a aparecer —un título y
+// unas filas—, en gris. Una palabra sola en una pantalla vacía se leía como
+// que algo había fallado; ver la forma dice que se está en el lugar correcto
+// y que hay que esperar (auditoría, H1). El lector de pantalla oye
+// "Cargando…". El pulso se apaga si la persona pidió menos movimiento.
+export function Cargando({ filas = 3 }) {
   return (
-    <div className="p-6 text-tinta-suave" role="status">
-      Cargando…
+    <div role="status">
+      <span className="sr-only">Cargando…</span>
+      <div aria-hidden="true" className="motion-safe:animate-pulse">
+        <div className="h-9 w-2/3 max-w-sm rounded-campo bg-superficie" />
+        <div className="mt-3 h-5 w-full max-w-md rounded-campo bg-superficie" />
+        <div className="mt-8 flex flex-col gap-3">
+          {Array.from({ length: filas }, (_, i) => (
+            <div key={i} className="rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-6">
+              <div className="h-5 w-1/2 rounded-campo bg-superficie" />
+              <div className="mt-3 h-4 w-3/4 rounded-campo bg-superficie" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

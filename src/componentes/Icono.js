@@ -67,6 +67,16 @@ const TRAZOS = {
   llave: (
     <path d="M17.5 3.5a5 5 0 0 0-6.3 6.3L4 17l3 3 7.2-7.2a5 5 0 0 0 6.3-6.3l-3 3-2.5-.5-.5-2.5z" />
   ),
+  // Cuatro cuadrados: "todas las secciones", el lugar "Más" de la barra del
+  // celular. No es el "+", que en el sistema quiere decir "agregar".
+  secciones: (
+    <>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    </>
+  ),
   // Un reloj con la flecha para atrás: lo que ya pasó. Distinto de "reloj",
   // que es un reloj de arena y quiere decir "esperando".
   historial: (
@@ -170,6 +180,12 @@ const TRAZOS = {
   // La sección 06 no quiere engranajes sueltos, así que éste nunca va solo:
   // siempre lleva la palabra "Ajustes" al lado, y sólo aparece acomodando
   // la pantalla de inicio.
+  tuerca: (
+    <>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M19.4 13.9a7.9 7.9 0 0 0 0-3.8l2-1.5-2-3.4-2.3 1a7.9 7.9 0 0 0-3.3-1.9L13.5 2h-3l-.3 2.3a7.9 7.9 0 0 0-3.3 1.9l-2.3-1-2 3.4 2 1.5a7.9 7.9 0 0 0 0 3.8l-2 1.5 2 3.4 2.3-1a7.9 7.9 0 0 0 3.3 1.9l.3 2.3h3l.3-2.3a7.9 7.9 0 0 0 3.3-1.9l2.3 1 2-3.4z" />
+    </>
+  ),
   // El mango en diagonal y las cerdas en la punta de abajo. Va sobre la foto
   // del negocio mientras se la edita, y es la única vez en todo el sistema
   // que un botón queda sin palabra al lado: encima de la foto no entra. Por
@@ -178,12 +194,6 @@ const TRAZOS = {
     <>
       <path d="M20.3 3.7a2.3 2.3 0 0 0-3.3 0l-7.6 7.6 3.3 3.3 7.6-7.6a2.3 2.3 0 0 0 0-3.3z" />
       <path d="M9.4 11.3 5.9 14.8a4.2 4.2 0 0 0-1.2 2.4c-.1.9-.7 1.5-1.6 1.9 1.2 1 2.7 1.6 4.3 1.6a4.6 4.6 0 0 0 4.6-4.6c0-.5.2-1 .5-1.4z" />
-    </>
-  ),
-  tuerca: (
-    <>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M19.4 13.9a7.9 7.9 0 0 0 0-3.8l2-1.5-2-3.4-2.3 1a7.9 7.9 0 0 0-3.3-1.9L13.5 2h-3l-.3 2.3a7.9 7.9 0 0 0-3.3 1.9l-2.3-1-2 3.4 2 1.5a7.9 7.9 0 0 0 0 3.8l-2 1.5 2 3.4 2.3-1a7.9 7.9 0 0 0 3.3 1.9l.3 2.3h3l.3-2.3a7.9 7.9 0 0 0 3.3-1.9l2.3 1 2-3.4z" />
     </>
   ),
 };
