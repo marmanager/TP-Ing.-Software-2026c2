@@ -12,6 +12,7 @@ import {
   casosPorAprobar,
   estaAbierto,
   ORDEN_ESTADOS,
+  queFalta,
   pesos,
   quienLoTiene,
 } from "@/lib/estados";
@@ -130,7 +131,7 @@ function CuerpoPendientes() {
 // ---------- casos ----------
 
 function CuerpoCasos({ filtro, filas }) {
-  const { casos, clientes, empleados, negocio } = useDatos();
+  const { casos, clientes, empleados, negocio, pasos, insumos } = useDatos();
 
   const elegidos = casos
     .filter((c) => {
@@ -162,7 +163,7 @@ function CuerpoCasos({ filtro, filas }) {
                 Caso {caso.numero} · {caso.servicio}
               </span>
               <span className="block truncate text-apoyo text-tinta-suave">
-                {cliente?.nombre ?? "Sin cliente"} · {caso.que_falta}
+                {cliente?.nombre ?? "Sin cliente"} · {queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente })}
               </span>
             </span>
             <span className="hidden shrink-0 text-apoyo text-tinta-suave sm:block">

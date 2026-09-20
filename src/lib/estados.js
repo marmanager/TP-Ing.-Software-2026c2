@@ -6,6 +6,10 @@
 // Las clases de Tailwind van escritas enteras a propósito: el escáner de
 // Tailwind lee el código fuente, así que un `bg-${x}-fondo` no generaría nada.
 
+// La extensión va escrita: Next la perdona, pero `node --test` corre con el
+// ESM de Node, que la pide. Sin ella los tests no encuentran el módulo.
+import { preset } from "./presets.js";
+
 export const ORDEN_ESTADOS = [
   "nuevo",
   "en_proceso",
@@ -65,6 +69,100 @@ export const ESTADOS = {
 
 // Un caso está abierto mientras no se entregó.
 export const estaAbierto = (caso) => caso.estado !== "completado";
+
+// Qué falta hacer en un caso, dicho en el idioma del mostrador.
+//
+// Sale de los pasos y los insumos del caso, no de una tabla por estado: la
+// cartilla (sección 05, punto 5 de la anatomía de la tarjeta) pide que diga
+// el próximo paso, y su ejemplo es «que la clienta apruebe 3 de los 5 pasos».
+// Con una tabla por estado terminaba repitiendo el chip: para en_proceso
+// devolvía "Está en el taller", que es la etiqueta del estado.
+//
+// El orden importa: gana lo más concreto. Que el cliente conteste tres pasos
+// es más accionable que "está en el taller".
+export function queFalta(caso, { rubro, pasos = [], insumos = [], cliente } = {}) {
+  if (caso.estado === "completado") return "Nada, el caso está cerrado.";
+
+  if (caso.estado === "nuevo" && !caso.responsable_id) {
+    return "Asignar a alguien del equipo";
+  }
+
+  const sinContestar = pasos.filter(
+    (p) => p.caso_id === caso.id && p.estado === "esperando"
+  ).length;
+  if (sinContestar > 0) {
+    const quien = cliente?.nombre ?? "el cliente";
+    return `Que ${quien} apruebe ${sinContestar} ${sinContestar === 1 ? "paso" : "pasos"}`;
+  }
+
+  const trabado = insumos.find(
+    (i) => i.caso_id === caso.id && i.estado !== "en_stock"
+  );
+  // Entre comillas y con su mayúscula: el artículo depende del género del
+  // insumo ("la correa", "el filtro") y no vale la pena adivinarlo.
+  if (trabado) return `Que llegue «${trabado.nombre}»`;
+
+  const p = preset(rubro);
+  if (caso.estado === "revision_final") return p.explica.revision_final;
+  if (caso.estado === "esperando") return p.explica.esperando;
+
+  const mios = pasos.filter((x) => x.caso_id === caso.id);
+  return mios.length === 0 ? "Armar el presupuesto" : "Hacer el trabajo";
+}
+
+// Qué queda escrito en el historial al pasar a cada estado.
+//
+// Vive en una tabla y no en cada botón porque desde el desplegable cualquier
+// estado puede ir a cualquier otro: son veinte pasajes posibles y repartir el
+// texto por la pantalla era garantía de que alguno quedara sin escribir.
+// pruebas/pasajes.test.js se asegura de que no falte ninguno.
+export const AL_PASAR_A = {
+  nuevo: {
+    titulo: "Volvió a quedar sin empezar",
+    detalle: "Todavía no lo está atendiendo nadie.",
+    icono: "carpeta",
+  },
+  en_proceso: {
+    titulo: "Se puso a trabajar",
+    detalle: "Alguien del equipo lo está atendiendo.",
+    icono: "llave",
+  },
+  esperando: {
+    titulo: "Quedó esperando",
+    detalle: "Está detenido por algo de afuera.",
+    icono: "reloj",
+  },
+  revision_final: {
+    titulo: "Terminó el trabajo",
+    detalle: "Pasa al control antes de entregar.",
+    icono: "nota",
+  },
+  completado: {
+    titulo: "Se entregó el caso",
+    detalle: "Queda cerrado.",
+    icono: "listo",
+  },
+};
+
+// Los estados a los que se puede pasar desde uno dado: todos menos ése.
+//
+// Salen siempre en el orden del ciclo de vida, no reordenados según dónde
+// estés parado: así el encargado aprende dónde está cada opción y deja de
+// leer la lista.
+export const otrosEstados = (actual) => ORDEN_ESTADOS.filter((e) => e !== actual);
+
+// Los estados que ofrece el desplegable de la pantalla del caso.
+//
+// Son los otros abiertos, y nunca "completado". Entregar no es un pasaje
+// más: abre el formulario de cobro, escribe cuánto se cobró y cierra el
+// caso, y es el único momento en que alguien tiene el número delante. Si
+// estuviera acá habría dos formas de cerrar un caso y una se saltearía la
+// plata.
+//
+// Por lo mismo tampoco vuelve: de un caso cerrado se sale por "Volver a
+// abrirlo", que deja dicho en el historial que se había cerrado de más.
+export const estadosAElegir = (actual) =>
+  ORDEN_ESTADOS.filter((e) => e !== actual && e !== "completado");
 
 // "Quién lo tiene". Si nadie del equipo lo tiene, se deriva del estado
 // en vez de mostrar un hueco (cartilla, lista de casos de la sección 05).

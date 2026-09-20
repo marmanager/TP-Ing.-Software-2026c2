@@ -22,7 +22,7 @@ import {
   linkDeWhatsApp,
   mensajeDeWhatsApp,
 } from "@/lib/seguimiento";
-import ChipEstado from "@/componentes/ChipEstado";
+import SelectorEstado from "@/componentes/SelectorEstado";
 import Icono from "@/componentes/Icono";
 import {
   Boton,
@@ -93,9 +93,15 @@ export default function VerCaso() {
         Volver a los casos
       </Link>
 
-      {/* Lo importante, sin scrollear: identificador, estado y qué falta. */}
-      <div className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-        <div className={`h-1.5 w-full ${barra}`} aria-hidden="true" />
+      {/* Lo importante, sin scrollear: identificador, estado y qué falta.
+
+          La tarjeta NO lleva overflow-hidden: el desplegable del estado sale
+          de sus bordes y quedaba cortado al medio. El recorte estaba sólo
+          para que la barra de color respetara las esquinas, así que la barra
+          se redondea sola y el problema desaparece de raíz —si no, cualquier
+          menú que se abra acá adentro vuelve a cortarse. */}
+      <div className="rounded-tarjeta border border-borde bg-tarjeta">
+        <div className={`h-1.5 w-full rounded-t-tarjeta ${barra}`} aria-hidden="true" />
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -110,12 +116,36 @@ export default function VerCaso() {
                 {cliente && ` · ${cliente.nombre}`}
               </p>
             </div>
-            <ChipEstado estado={caso.estado} />
+            {/* El estado se cambia donde se lee. Antes había que leerlo acá
+                arriba, bajar hasta "Cómo sigue" y buscar cuál de tres botones
+                correspondía; ahora se toca el chip y se elige.
+
+                Sólo mueve el caso entre los estados abiertos: entregar abre
+                el formulario de cobro y tiene su botón, y de un caso cerrado
+                se sale por "Volver a abrirlo". */}
+            <SelectorEstado
+              estado={caso.estado}
+              rubro={negocio?.rubro}
+              sePuedeCambiar={sePuedeEditar}
+              alElegir={(nuevo, dice) =>
+                datos.cambiarEstado(
+                  caso.id,
+                  nuevo,
+                  queFaltaPara(negocio?.rubro, nuevo),
+                  dice
+                )
+              }
+            />
           </div>
 
           <p className="mt-4 text-cuerpo">
             <span className="font-bold">Qué falta:</span> {caso.que_falta}
-            {explica && <span className="text-tinta-media"> ({explica})</span>}
+            {/* La aclaración sólo suma cuando dice algo distinto: en control
+                final las dos salen del mismo texto del preset y quedaba
+                "Control antes de entregar (Control antes de entregar)". */}
+            {explica && explica !== caso.que_falta && (
+              <span className="text-tinta-media"> ({explica})</span>
+            )}
           </p>
 
           {/* Cada dato dice qué es con palabras, y el ícono acompaña. Antes
@@ -124,9 +154,40 @@ export default function VerCaso() {
               quien hace el trabajo (auditoría, H2; cartilla: ícono y palabra
               juntos). */}
           <ul className="mt-4 grid gap-2 text-tinta-media @3xl:grid-cols-3">
-            <li className="flex items-center gap-2">
+            {/* Asignar no es un cambio de estado, así que no va en el
+                desplegable: va acá, al lado de a quién reemplaza. */}
+            <li className="flex flex-wrap items-center gap-2">
               <Icono nombre="persona" className="size-5" />
               <span>{quienLoTieneEnPalabras(caso, empleados)}</span>
+              {sePuedeEditar && (
+                <div className="relative">
+                  <Boton
+                    variante="plano"
+                    icono="persona-mas"
+                    onClick={() => setEligiendo((v) => !v)}
+                  >
+                    {caso.responsable_id ? "Cambiar" : "Asignar"}
+                  </Boton>
+                  {eligiendo && (
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {empleados.map((e) => (
+                        <li key={e.id}>
+                          <Boton
+                            variante="plano"
+                            icono="persona"
+                            onClick={() => {
+                              datos.asignarResponsable(caso.id, e.id);
+                              setEligiendo(false);
+                            }}
+                          >
+                            {e.nombre}
+                          </Boton>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </li>
             <li className="flex items-center gap-2">
               <Icono nombre="reloj" className="size-5" />
@@ -240,111 +301,22 @@ export default function VerCaso() {
         </div>
       </div>
 
-      {/* Hacer avanzar el caso. Los estados son un ciclo de vida, no adorno.
+      {/* Lo que queda acá NO son cambios de estado: esos se hacen desde el
+          desplegable del chip, arriba, donde el estado se lee.
 
-          Una acción destacada por estado —la que sigue en el ciclo, con
-          borde— y las demás en texto plano. Antes eran cuatro botones iguales
-          que había que leer todos y decidir cada vez (auditoría, H8). El único
-          azul lleno de la pantalla sigue siendo el de los pasos, arriba.
-
-          Entregar va aparte, con su título: es lo más pesado que se le hace a
-          un caso y antes quedaba entre medio de los otros. */}
-      <TituloSeccion className="mt-12">Cómo sigue</TituloSeccion>
-
-      {abierto && (
-        <div className="flex flex-wrap items-start gap-3">
-          {caso.estado === "nuevo" && (
-            <div className="relative">
-              <Boton icono="persona-mas" onClick={() => setEligiendo((v) => !v)}>
-                Asignar responsable
+          Marcar que un insumo llegó es una acción sobre el insumo —cambia su
+          estado, no el del caso— y por eso sobrevive a la desaparición de
+          "Cómo sigue". Antes estaba mezclada con los pasajes y parecía una
+          más del montón. */}
+      {abierto && insumosDelCaso.some((i) => i.estado !== "en_stock") && (
+        <div className="mt-12 flex flex-wrap items-start gap-3">
+          {insumosDelCaso
+            .filter((i) => i.estado !== "en_stock")
+            .map((i) => (
+              <Boton key={i.id} icono="camion" onClick={() => datos.marcarInsumoLlegado(i.id)}>
+                Marcar que llegó {i.nombre.toLowerCase()}
               </Boton>
-              {eligiendo && (
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {empleados.map((e) => (
-                    <li key={e.id}>
-                      <Boton
-                        variante="plano"
-                        icono="persona"
-                        onClick={() => {
-                          datos.asignarResponsable(caso.id, e.id);
-                          setEligiendo(false);
-                        }}
-                      >
-                        {e.nombre}
-                      </Boton>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {caso.estado === "en_proceso" && (
-            <>
-              <Boton
-                icono="listo"
-                onClick={() =>
-                  datos.cambiarEstado(caso.id, "revision_final", queFaltaPara(negocio?.rubro, "revision_final"), {
-                    titulo: "Terminó el trabajo",
-                    detalle: "Pasa al control final.",
-                    icono: "nota",
-                  })
-                }
-              >
-                Marcar el trabajo terminado
-              </Boton>
-              <Boton
-                variante="plano"
-                icono="reloj"
-                onClick={() =>
-                  // Este texto lo lee también el cliente, en la pantalla
-                  // que le comparte el negocio: "Se está esperando: espera
-                  // respuesta del cliente" lo nombra en tercera persona en su
-                  // propia pantalla (SCRUM-68).
-                  datos.cambiarEstado(caso.id, "esperando", "la respuesta del cliente", {
-                    titulo: "Quedó esperando",
-                    detalle: "Falta que el cliente conteste.",
-                    icono: "reloj",
-                  })
-                }
-              >
-                Marcar que espera al cliente
-              </Boton>
-            </>
-          )}
-
-          {/* Esperando: si lo que se espera es un insumo, lo que sigue es que
-              llegue; si no, retomar. */}
-          {caso.estado === "esperando" &&
-            insumosDelCaso
-              .filter((i) => i.estado !== "en_stock")
-              .map((i) => (
-                <Boton key={i.id} icono="camion" onClick={() => datos.marcarInsumoLlegado(i.id)}>
-                  Marcar que llegó {i.nombre.toLowerCase()}
-                </Boton>
-              ))}
-
-          {caso.estado === "esperando" && (
-            <Boton
-              variante={insumosDelCaso.some((i) => i.estado !== "en_stock") ? "plano" : "borde"}
-              icono="llave"
-              onClick={() =>
-                datos.cambiarEstado(caso.id, "en_proceso", queFaltaPara(negocio?.rubro, "en_proceso"), {
-                  titulo: "Volvió al trabajo",
-                  detalle: "Se destrabó lo que estaba esperando.",
-                  icono: "llave",
-                })
-              }
-            >
-              Retomar el trabajo
-            </Boton>
-          )}
-
-          {caso.estado === "revision_final" && (
-            <p className="max-w-[65ch] text-tinta-media">
-              El trabajo está hecho y pasó el control. Lo que sigue es entregarlo.
-            </p>
-          )}
+            ))}
         </div>
       )}
 
