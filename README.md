@@ -241,16 +241,33 @@ en el panel de Supabase (ver el paso 2 de "Conectar la base").
 ## El cliente mira su caso sin cuenta
 
 Es la historia que ataca el problema que dio origen al proyecto: que el teléfono
-no pare de sonar (SCRUM-68). Desde el detalle de un caso, el dueño o el
-encargado arman un link y se lo mandan al cliente por WhatsApp. El cliente lo
-abre en el celular, sin cuenta y sin instalar nada, y ve en qué estado está lo
-suyo, por dónde va y lo que aprobó.
+no pare de sonar (SCRUM-68). Desde la pantalla de los pasos —"Mandarle los
+pasos al cliente"—, el dueño o el encargado arman un link y se lo mandan por
+WhatsApp con el presupuesto entero escrito. El cliente lo abre en el celular,
+sin cuenta y sin instalar nada, y ve en qué estado está lo suyo, por dónde va y
+lo que aprobó.
+
+Va ahí y no en el detalle del caso porque lo que se manda es el presupuesto. En
+el detalle queda un renglón que dice si está compartido y si el cliente lo
+abrió, que es lo que responde si hace falta llamarlo.
+
+**Mandar el link deja el caso esperando al cliente.** La pelota pasó a su lado,
+así que el estado se mueve solo a "esperando" y el "qué falta" pasa a ser "la
+respuesta del cliente". Si no, el tablero seguiría diciendo que el trabajo
+avanza mientras en realidad no se puede hacer nada hasta que conteste.
 
 **Un link por caso, con un código secreto adentro.** El código lo genera la base
 con `gen_random_bytes`: no sale del id del caso ni de su número, así que no se
 puede adivinar ni recorrer probando valores cercanos. Compartir dos veces el
 mismo caso devuelve el mismo link, porque uno nuevo dejaría muerto el que el
 negocio ya mandó. Dejar de compartirlo corta el acceso en el mismo instante.
+
+**El mostrador puede seguir contestando por él.** No todos los clientes van a
+usar el link: el que llama por teléfono o pasa por el local se sigue
+contestando a mano desde la pantalla de los pasos. Esa confirmación avisa que
+se está contestando en nombre de otro y que va a quedar registrado como que lo
+aprobó él, porque es un acuerdo por plata y el que toca el botón no es el que
+acepta.
 
 **Y contesta el presupuesto desde ahí.** Los pasos que esperan su respuesta
 aparecen en la misma pantalla y los aprueba o los rechaza de a uno, con el monto

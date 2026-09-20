@@ -628,10 +628,39 @@ export function DatosProvider({ children }) {
       // Devuelve siempre el mismo código para el mismo caso. Tocar
       // "Compartir" dos veces no puede invalidar el link que el negocio ya
       // mandó por WhatsApp.
+      //
+      // Mandar el link es pasarle la pelota al cliente, así que el caso queda
+      // esperando su respuesta. Si no, el tablero seguiría diciendo que el
+      // trabajo avanza mientras en realidad no se puede hacer nada hasta que
+      // conteste, y "A aprobar" no lo mostraría.
+      //
+      // Son dos escrituras y no una: el código lo genera la base con su
+      // propia función, y el estado va por el camino de siempre, con sus
+      // permisos y su evento en el historial. Si la segunda fallara, el link
+      // ya anda y el estado se puede mover a mano.
       async compartirCaso(casoId) {
         const caso = datos.casos.find((c) => c.id === casoId);
         if (!caso) return { ok: false, error: "No encontramos ese caso." };
         if (caso.seguimiento_codigo) return { ok: true, codigo: caso.seguimiento_codigo };
+
+        // Un caso entregado no vuelve a esperar nada, y uno que ya está
+        // esperando no necesita que se lo digan dos veces.
+        const quedaEsperando = caso.estado !== "completado" && caso.estado !== "esperando";
+        const pasarAEsperando = () => {
+          if (!quedaEsperando) return;
+          parchearCaso(casoId, {
+            estado: "esperando",
+            que_falta: "la respuesta del cliente",
+          });
+          anotar({
+            casoId,
+            tipo: "estado",
+            estado: "esperando",
+            titulo: "Le compartieron el link al cliente",
+            detalle: "El caso queda esperando su respuesta.",
+            icono: "reloj",
+          });
+        };
 
         if (enSupabase()) {
           const { data, error } = await supabase.rpc("compartir_caso", { p_caso_id: casoId });
@@ -642,12 +671,14 @@ export function DatosProvider({ children }) {
               c.id === casoId ? { ...c, seguimiento_codigo: data, seguimiento_visto_en: null } : c
             ),
           }));
-          return { ok: true, codigo: data };
+          pasarAEsperando();
+          return { ok: true, codigo: data, quedaEsperando };
         }
 
         const codigo = codigoAlAzar();
         parchearCaso(casoId, { seguimiento_codigo: codigo, seguimiento_visto_en: null });
-        return { ok: true, codigo };
+        pasarAEsperando();
+        return { ok: true, codigo, quedaEsperando };
       },
 
       // El link anterior deja de funcionar en el mismo momento. La fecha de
