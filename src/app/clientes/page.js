@@ -115,6 +115,21 @@ export default function Clientes() {
         className="mt-2 mb-6 block min-h-12 w-full max-w-[560px] rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo placeholder:text-tinta-suave"
       />
 
+      {/* Con las tarjetas en varias columnas no se percibe si el resultado
+          son tres o treinta (auditoría, H1). */}
+      {texto && clientes.length > 0 && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-tinta-media">
+          <span>
+            <span className="font-bold text-tinta">{visibles.length}</span>{" "}
+            {visibles.length === 1 ? "cliente" : "clientes"} con «{busqueda.trim()}», de{" "}
+            {clientes.length}
+          </span>
+          <Boton variante="plano" icono="cruz" onClick={() => setBusqueda("")}>
+            Ver todos
+          </Boton>
+        </p>
+      )}
+
       {vinieron.length === 0 && porVenir.length === 0 ? (
         <Vacio icono="persona" titulo="Todavía no hay clientes cargados">
           Cuando abras un caso, el cliente se da de alta solo.

@@ -8,7 +8,7 @@ import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { etiquetaEstado, comoSeIdentifica } from "@/lib/presets";
 import FilaCaso from "@/componentes/FilaCaso";
 import Icono from "@/componentes/Icono";
-import { Cargando, Vacio } from "@/componentes/ui";
+import { Boton, Cargando, Vacio } from "@/componentes/ui";
 
 export default function Casos() {
   const { cargando, casos, clientes, negocio } = useDatos();
@@ -124,6 +124,36 @@ export default function Casos() {
           Los más viejos primero
         </BotonFiltro>
       </div>
+
+      {/* Con un filtro puesto, alguien se distrae, vuelve y ve cuatro casos
+          donde tenía veintitrés: la conclusión inmediata es que se perdieron
+          datos. La línea dice cuántos se están viendo de cuántos, y cada
+          filtro se saca desde acá (auditoría, H1). */}
+      {(filtro !== "todos" || texto) && casos.length > 0 && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-tinta-media">
+          <span>
+            Mostrando <span className="font-bold text-tinta">{visibles.length}</span> de{" "}
+            {casos.length} {casos.length === 1 ? "caso" : "casos"}
+          </span>
+          {filtro !== "todos" && (
+            <Boton variante="plano" icono="cruz" onClick={() => setFiltro("todos")}>
+              {etiquetaEstado(negocio?.rubro, filtro)}
+            </Boton>
+          )}
+          {texto && (
+            <Boton
+              variante="plano"
+              icono="cruz"
+              onClick={() => {
+                setBusqueda("");
+                campoBusqueda.current?.focus();
+              }}
+            >
+              «{busqueda.trim()}»
+            </Boton>
+          )}
+        </p>
+      )}
 
       {visibles.length === 0 ? (
         <Vacio icono="buscar" titulo="No hay casos que coincidan">
