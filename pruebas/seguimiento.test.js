@@ -112,9 +112,12 @@ const PROHIBIDO = [
   ["el id del caso", casos[0].id],
   ["el id del negocio", negocio.id],
   ["el código del link", CODIGO],
-  ["un paso que no aprobó", pasos[2].nombre],
-  ["el monto de un paso que no aprobó", pasos[2].monto],
+  // Un paso que espera respuesta SÍ viaja desde que el cliente puede
+  // contestarlo desde el link (019_aprobar_desde_el_link.sql). Lo que sigue
+  // afuera es el rechazado: ya lo contestó, y volver a ofrecerlo es del
+  // negocio.
   ["un paso que rechazó", pasos[3].nombre],
+  ["el monto de un paso que rechazó", pasos[3].monto],
   ["los títulos del historial, escritos para adentro", eventos[0].titulo],
   ["otro caso del mismo cliente", casos[1].servicio],
 ];
@@ -147,6 +150,74 @@ test("un paso aprobado lleva sólo el nombre y el monto", () => {
   for (const paso of publico.pasos) {
     assert.deepEqual(Object.keys(paso).sort(), ["monto", "nombre"]);
   }
+});
+
+test("un paso por contestar lleva el id, el nombre, el porqué y el monto, y nada más", () => {
+  for (const paso of publico.por_responder) {
+    assert.deepEqual(Object.keys(paso).sort(), ["descripcion", "id", "monto", "nombre"]);
+  }
+});
+
+// ------------------------------------------------------------
+// Lo que falta que conteste
+// ------------------------------------------------------------
+
+test("le llega lo que espera su respuesta, y sólo eso", () => {
+  assert.deepEqual(
+    publico.por_responder.map((p) => p.nombre),
+    ["Reemplazo de amortiguadores"]
+  );
+  assert.equal(publico.por_responder[0].id, "p3");
+  assert.equal(totalAprobado(publico.por_responder), 58500);
+});
+
+test("un caso entregado no ofrece nada para contestar", () => {
+  const entregado = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    casos: casos.map((c) => (c.id === "k1" ? { ...c, estado: "completado" } : c)),
+  });
+  assert.deepEqual(entregado.por_responder, []);
+  // Y el paso sin contestar tampoco viaja escondido en otro lado.
+  assert.ok(!estaAdentro(entregado, pasos[2].nombre));
+});
+
+test("los pasos de otro caso no entran en lo que hay que contestar", () => {
+  const otro = casoPublico({ codigo: "ffffffffffffffffffffffffffffffff", ...todo });
+  assert.deepEqual(
+    otro.por_responder.map((p) => p.nombre),
+    []
+  );
+  assert.deepEqual(
+    otro.pasos.map((p) => p.nombre),
+    ["Cambio de aceite"]
+  );
+});
+
+test("contestar mueve el paso de una lista a la otra", () => {
+  // Es lo que ve el cliente después de aprobar: el paso deja de estar entre
+  // los que esperan respuesta y aparece entre los que aprobó.
+  const despues = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    pasos: pasos.map((p) => (p.id === "p3" ? { ...p, estado: "aprobado" } : p)),
+  });
+
+  assert.deepEqual(despues.por_responder, []);
+  assert.equal(despues.pasos.length, 3);
+  assert.equal(totalAprobado(despues.pasos), 154500);
+});
+
+test("rechazar lo saca de las dos listas", () => {
+  const despues = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    pasos: pasos.map((p) => (p.id === "p3" ? { ...p, estado: "rechazado" } : p)),
+  });
+
+  assert.deepEqual(despues.por_responder, []);
+  assert.equal(despues.pasos.length, 2);
+  assert.ok(!estaAdentro(despues, pasos[2].nombre), "lo rechazado no se sigue mostrando");
 });
 
 // ------------------------------------------------------------

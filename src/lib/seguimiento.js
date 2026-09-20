@@ -22,8 +22,8 @@
 import { ORDEN_ESTADOS } from "./estados.js";
 
 // Lo único que sale del negocio hacia afuera. El mismo recorte que hace
-// ver_seguimiento() en supabase/018_seguimiento.sql: si se cambia uno, se
-// cambian los dos.
+// ver_seguimiento(), que nació en supabase/018_seguimiento.sql y hoy vive en
+// 019_aprobar_desde_el_link.sql: si se cambia uno, se cambian los dos.
 export const CAMPOS_PUBLICOS = [
   "sirve",
   "negocio_nombre",
@@ -37,12 +37,20 @@ export const CAMPOS_PUBLICOS = [
   "abierto_en",
   "actualizado_en",
   "pasos",
+  "por_responder",
   "linea",
 ];
 
 // De cada paso aprobado, sólo el nombre y el monto. Lo que el cliente ya
 // aprobó y ya conoce.
 const CAMPOS_PASO = ["nombre", "monto"];
+
+// De cada paso que espera su respuesta, además el porqué —lo escribió el
+// negocio para explicárselo a él— y el id, que es lo único que se expone de
+// más en todo el recorte: hace falta para poder decir "este". Es un uuid al
+// azar, no sirve sin el código, y la base comprueba igual que el paso sea
+// del caso de ese código (019_aprobar_desde_el_link.sql).
+const CAMPOS_PASO_POR_RESPONDER = ["id", "nombre", "descripcion", "monto"];
 
 // Arma el objeto público a partir de los datos completos del negocio.
 //
@@ -82,6 +90,19 @@ export function casoPublico({ codigo, negocio, casos = [], clientes = [], pasos 
       .filter((p) => p.caso_id === caso.id && p.estado === "aprobado")
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       .map((p) => soloEstos(p, CAMPOS_PASO)),
+    // Lo que espera su respuesta. Un caso entregado no lleva ninguno: sobre
+    // un trabajo terminado no hay nada que decidir, y ofrecerlo sería
+    // ofrecer una puerta que no abre.
+    //
+    // Los rechazados tampoco están: ya los contestó, y volver a ofrecerlos
+    // es del negocio, no del cliente.
+    por_responder:
+      caso.estado === "completado"
+        ? []
+        : pasos
+            .filter((p) => p.caso_id === caso.id && p.estado === "esperando")
+            .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+            .map((p) => soloEstos(p, CAMPOS_PASO_POR_RESPONDER)),
     linea: eventos
       .filter((e) => e.caso_id === caso.id && e.estado)
       .map((e) => ({ estado: e.estado, ocurrido_en: e.ocurrido_en ?? null }))
@@ -148,8 +169,9 @@ export function lineaDeEstados(estadoActual, linea = [], { abiertoEn = null } = 
   });
 }
 
-// Lo que el cliente aprobó. No usa totalesDeCaso() porque los pasos públicos
-// no traen estado: ya vienen filtrados, y todos son aprobados.
+// Suma los montos de una lista de pasos públicos. No usa totalesDeCaso()
+// porque estos no traen estado: ya vienen separados en dos listas, los
+// aprobados y los que esperan respuesta.
 export const totalAprobado = (pasos = []) =>
   pasos.reduce((total, p) => total + Number(p.monto || 0), 0);
 

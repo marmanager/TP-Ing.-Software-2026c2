@@ -11,7 +11,8 @@
 // sin nadie al lado para explicarle. De ahí las decisiones de acá abajo.
 //
 //   Lo primero y más grande es el estado, porque es lo único que se vino a
-//   buscar. Todo lo demás está abajo, para quien quiera mirar.
+//   buscar. Justo abajo, si hay algo esperando su respuesta, la decisión.
+//   Todo lo demás está más abajo, para quien quiera mirar.
 //
 //   No hay navegación, ni barra lateral, ni un solo enlace que lleve a una
 //   pantalla del sistema. No hay a dónde ir: esto no es la puerta de entrada
@@ -24,21 +25,26 @@
 // base ver_seguimiento() en supabase/018_seguimiento.sql. Acá no se filtra
 // nada: lo que llega es lo que se puede mostrar.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { buscarSeguimiento } from "@/lib/datos";
+import { buscarSeguimiento, responderDesdeElLink } from "@/lib/datos";
 import { ESTADOS, pesos } from "@/lib/estados";
 import { comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
 import { QUE_SIGNIFICA, lineaDeEstados, totalAprobado } from "@/lib/seguimiento";
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Cargando } from "@/componentes/ui";
+import { Boton, Cargando } from "@/componentes/ui";
 
 export default function Seguimiento() {
   const { codigo } = useParams();
   const [mirando, setMirando] = useState(true);
   const [caso, setCaso] = useState(null);
+  // Cuál paso está preguntando, y qué se le va a contestar.
+  const [decidiendo, setDecidiendo] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [problema, setProblema] = useState(null);
+  const [contestado, setContestado] = useState(null);
 
   // El título de la pestaña no usa useTitulo(): ese hook cuelga el nombre
   // del negocio de quien está usando el sistema, y acá quien mira no tiene
@@ -48,6 +54,15 @@ export default function Seguimiento() {
       ? `Cómo viene lo tuyo · ${caso.negocio_nombre}`
       : "Cómo viene lo tuyo";
   }, [caso]);
+
+  // Después de contestar se vuelve a pedir el caso entero en vez de
+  // remendar lo que hay en pantalla: así lo que se dibuja sale siempre del
+  // mismo lugar, y si mientras tanto el negocio movió algo, se ve.
+  const traer = useCallback(async () => {
+    const r = await buscarSeguimiento(codigo);
+    setCaso(r);
+    setMirando(false);
+  }, [codigo]);
 
   useEffect(() => {
     let vivo = true;
@@ -61,6 +76,29 @@ export default function Seguimiento() {
       vivo = false;
     };
   }, [codigo]);
+
+  async function contestar(paso, respuesta) {
+    setProblema(null);
+    setGuardando(true);
+    const r = await responderDesdeElLink(codigo, paso.id, respuesta);
+    setGuardando(false);
+    setDecidiendo(null);
+
+    if (!r.ok) {
+      setProblema(r.motivo);
+      // Se vuelve a pedir igual: si el paso ya estaba contestado, lo que hay
+      // en pantalla quedó viejo y mostrarlo otra vez sería mentir.
+      await traer();
+      return;
+    }
+
+    setContestado(
+      respuesta === "aprobado"
+        ? `Listo. «${paso.nombre}» quedó aprobado. El negocio ya lo ve.`
+        : `Listo. Anotamos que «${paso.nombre}» no lo hacés.`
+    );
+    await traer();
+  }
 
   if (mirando) {
     return (
@@ -97,6 +135,7 @@ export default function Seguimiento() {
   const e = ESTADOS[caso.estado];
   const comoIdent = comoSeIdentifica(caso.rubro);
   const pasos = caso.pasos ?? [];
+  const porResponder = caso.por_responder ?? [];
   const total = totalAprobado(pasos);
   const linea = lineaDeEstados(caso.estado, caso.linea ?? [], { abiertoEn: caso.abierto_en });
 
@@ -143,6 +182,157 @@ export default function Seguimiento() {
           </p>
         </div>
       </div>
+
+      {/* Qué pasó con lo que acaba de contestar. role="status" para que un
+          lector de pantalla lo diga solo: el botón que se tocó desaparece de
+          la pantalla, y sin esto no quedaría ninguna señal de que anduvo. */}
+      {contestado && (
+        <p
+          role="status"
+          className="mt-4 flex items-start gap-2 rounded-campo bg-completo-fondo p-4 font-bold text-completo"
+        >
+          <Icono nombre="listo" className="mt-0.5 size-6 shrink-0" />
+          <span>{contestado}</span>
+        </p>
+      )}
+
+      {problema && (
+        <p
+          role="alert"
+          className="mt-4 flex items-start gap-2 rounded-campo bg-espera-fondo p-4 font-bold text-espera"
+        >
+          <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+          <span>{problema}</span>
+        </p>
+      )}
+
+      {/* Lo que espera su respuesta, arriba de todo lo demás: es lo único de
+          esta pantalla que le pide algo, y es lo que destraba el trabajo.
+
+          Aprobar desde acá es definitivo, igual que cuando lo carga el
+          mostrador: la base no deja tocar un paso aprobado
+          (015_paso_aprobado_fijo.sql). Por eso pregunta antes, con el monto
+          escrito, y de a uno: un "aprobar todo" convierte cinco decisiones
+          con plata en un solo dedazo. */}
+      {porResponder.length > 0 && (
+        <>
+          <h2 className="mt-10 mb-1 text-seccion">Falta que contestes</h2>
+          <p className="mb-3 max-w-[65ch] text-tinta-media">
+            {porResponder.length === 1
+              ? "Hay un trabajo esperando tu respuesta."
+              : `Hay ${porResponder.length} trabajos esperando tu respuesta.`}{" "}
+            Contestá de a uno. Lo que aprobás se hace y se cobra; lo que no, no.
+          </p>
+
+          <ul className="flex flex-col gap-3">
+            {porResponder.map((paso) => {
+              const preguntando = decidiendo?.id === paso.id ? decidiendo.respuesta : null;
+
+              return (
+                <li
+                  key={paso.id}
+                  className="overflow-hidden rounded-tarjeta border-2 border-espera bg-tarjeta"
+                >
+                  <div className="p-4 sm:p-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                      <p className="min-w-0 font-bold text-subtitulo">{paso.nombre}</p>
+                      <p className="font-titulo font-extrabold text-subtitulo tabular-nums">
+                        {pesos(paso.monto)}
+                      </p>
+                    </div>
+                    {paso.descripcion && (
+                      <p className="mt-2 max-w-[65ch] text-tinta-media">{paso.descripcion}</p>
+                    )}
+
+                    {preguntando === "aprobado" ? (
+                      <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+                        <p className="font-bold text-cuerpo">
+                          ¿Aprobás «{paso.nombre}» por {pesos(paso.monto)}?
+                        </p>
+                        <p className="mt-1 max-w-[65ch] text-tinta-media">
+                          Lo van a hacer y te lo van a cobrar. Una vez que decís que sí,
+                          no se puede volver atrás desde acá.
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <Boton
+                            variante="principal"
+                            icono="listo"
+                            motivo={guardando ? "guardando" : null}
+                            className="min-h-14 w-full sm:min-h-12 sm:w-auto"
+                            onClick={() => contestar(paso, "aprobado")}
+                          >
+                            Sí, lo apruebo
+                          </Boton>
+                          <Boton variante="plano" onClick={() => setDecidiendo(null)}>
+                            Todavía no
+                          </Boton>
+                        </div>
+                      </div>
+                    ) : preguntando === "rechazado" ? (
+                      <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+                        <p className="font-bold text-cuerpo">
+                          ¿Decís que no a «{paso.nombre}»?
+                        </p>
+                        <p className="mt-1 max-w-[65ch] text-tinta-media">
+                          No lo van a hacer y no te lo van a cobrar. Si después cambiás
+                          de idea, pedíselo al negocio.
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <Boton
+                            variante="neutro"
+                            motivo={guardando ? "guardando" : null}
+                            className="min-h-14 w-full sm:min-h-12 sm:w-auto"
+                            onClick={() => contestar(paso, "rechazado")}
+                          >
+                            Sí, no lo hago
+                          </Boton>
+                          <Boton variante="plano" onClick={() => setDecidiendo(null)}>
+                            Volver atrás
+                          </Boton>
+                        </div>
+                      </div>
+                    ) : (
+                      /* 52 px de alto y 10 px en medio, como en la pantalla
+                         del mostrador: para no equivocarse de dedo. */
+                      <div className="mt-4 flex gap-2.5">
+                        <Boton
+                          variante="principal"
+                          className="min-h-13 flex-1"
+                          onClick={() => {
+                            setProblema(null);
+                            setContestado(null);
+                            setDecidiendo({ id: paso.id, respuesta: "aprobado" });
+                          }}
+                        >
+                          Lo apruebo
+                        </Boton>
+                        <Boton
+                          variante="neutro"
+                          className="min-h-13 flex-1"
+                          onClick={() => {
+                            setProblema(null);
+                            setContestado(null);
+                            setDecidiendo({ id: paso.id, respuesta: "rechazado" });
+                          }}
+                        >
+                          No lo hago
+                        </Boton>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {porResponder.length > 1 && (
+            <p className="mt-3 max-w-[65ch] text-apoyo text-tinta-suave">
+              Si aprobás todo, son {pesos(totalAprobado(porResponder))} más de lo que ya
+              venías aprobando.
+            </p>
+          )}
+        </>
+      )}
 
       {/* Por dónde pasó y qué falta. Los cinco pasos siempre, también los que
           todavía no llegaron: saber cuánto queda es parte de la respuesta. */}

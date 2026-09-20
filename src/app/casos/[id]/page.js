@@ -465,7 +465,13 @@ export default function VerCaso() {
           teléfono (SCRUM-68). Va acá, entre las acciones y los datos: es una
           acción sobre el caso, no un dato del caso. */}
       {puedeCargar && (
-        <CompartirConElCliente caso={caso} cliente={cliente} negocio={negocio} datos={datos} />
+        <CompartirConElCliente
+          caso={caso}
+          cliente={cliente}
+          negocio={negocio}
+          datos={datos}
+          porContestar={esperando.length}
+        />
       )}
 
       {/* El historial cuenta la historia: qué pasó, cuándo y quién lo hizo. */}
@@ -623,7 +629,7 @@ export default function VerCaso() {
 // Tocar "Compartir" dos veces devuelve el mismo link. Uno nuevo cada vez
 // dejaría muerto el que el negocio ya mandó por WhatsApp, y el cliente se
 // quedaría mirando una pantalla que le dice que su link no sirve.
-function CompartirConElCliente({ caso, cliente, negocio, datos }) {
+function CompartirConElCliente({ caso, cliente, negocio, datos, porContestar = 0 }) {
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState(null);
   const [cortando, setCortando] = useState(false);
@@ -678,8 +684,15 @@ function CompartirConElCliente({ caso, cliente, negocio, datos }) {
           <>
             <p className="max-w-[65ch] text-tinta-media">
               Le mandás un link y mira solo en qué estado está lo suyo, sin llamar y sin
-              instalar nada. Ve el estado, por dónde va y lo que aprobó. No ve el
-              diagnóstico, ni las notas internas, ni quién lo está atendiendo.
+              instalar nada. Ve el estado, por dónde va y lo que aprobó.
+            </p>
+            <p className="mt-2 max-w-[65ch] text-tinta-media">
+              <span className="font-bold text-tinta">
+                Y puede aprobar o rechazar desde ahí los pasos que esperan respuesta.
+              </span>{" "}
+              Lo que aprueba queda aprobado, igual que si lo cargaras vos, y el historial
+              dice que lo contestó él. No ve el diagnóstico, ni las notas internas, ni
+              quién lo está atendiendo.
             </p>
             <div className="mt-4">
               <Boton
@@ -728,6 +741,22 @@ function CompartirConElCliente({ caso, cliente, negocio, datos }) {
                 Mandarlo por WhatsApp
               </a>
             </div>
+
+            {/* Qué puede hacer con el link que tiene. Si hay pasos esperando,
+                los puede contestar desde ahí, y eso cambia si conviene
+                llamarlo o esperar. */}
+            {porContestar > 0 && (
+              <p className="mt-4 flex items-start gap-2 text-tinta-media">
+                <Icono nombre="nota" className="mt-0.5 size-5 shrink-0" />
+                <span>
+                  Desde el link puede contestar{" "}
+                  <span className="font-bold text-tinta">
+                    {porContestar === 1 ? "el paso" : `los ${porContestar} pasos`}
+                  </span>{" "}
+                  que {porContestar === 1 ? "espera" : "esperan"} su respuesta.
+                </span>
+              </p>
+            )}
 
             {/* Si lo abrió alguna vez, cuándo fue la última. Es lo que dice
                 si hace falta llamarlo o si ya se enteró solo. */}
