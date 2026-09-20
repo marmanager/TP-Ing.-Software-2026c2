@@ -139,6 +139,13 @@ export function MarcaFalta() {
 }
 
 // Un campo por fila. La ayuda va debajo de la etiqueta, siempre visible.
+//
+// Va en 16 px y gris medio, no en los 15 px del gris suave: la cartilla
+// reserva los 15 para datos de apoyo —una hora, el autor de un evento— y la
+// ayuda del campo no es apoyo, es la instrucción que evita el error, y
+// nuestro público es justo el que no llega a leerla (auditoría, H10). La
+// auditoría pedía 17 px, que no existe en la escala de la cartilla (15 · 16 ·
+// 18): gana la cartilla, y 16 es el más cercano hacia arriba.
 export function Campo({
   etiqueta,
   ayuda,
@@ -160,7 +167,7 @@ export function Campo({
         {falta && <MarcaFalta />}
       </label>
       {ayuda && (
-        <p id={idAyuda} className="mt-1 text-apoyo text-tinta-suave">
+        <p id={idAyuda} className="mt-1 text-etiqueta text-tinta-media">
           {ayuda}
         </p>
       )}

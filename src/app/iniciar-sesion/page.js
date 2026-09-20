@@ -109,23 +109,31 @@ export default function IniciarSesion() {
           Iniciar sesión
         </Boton>
 
-        <p className="mt-6 text-apoyo text-tinta-suave">
-          {haySupabase
-            ? "¿Solo querés recorrer el sistema?"
-            : "Todavía no hay una base de Supabase conectada. Podés recorrer todo el sistema igual: lo que cargues queda en este navegador."}
-        </p>
-        <div className="mt-2">
-          <Boton icono="tienda" onClick={verEjemplo} className="w-full">
-            Probar sin cuenta
-          </Boton>
-        </div>
+        {!haySupabase && (
+          <p className="mt-6 text-etiqueta text-tinta-media">
+            Todavía no hay una base de Supabase conectada. Podés recorrer todo el sistema
+            igual: lo que cargues queda en este navegador.
+          </p>
+        )}
       </Tarjeta>
 
+      {/* Debajo de la tarjeta y como enlace, no como segundo botón de ancho
+          completo: dos botones iguales, uno arriba del otro, hacen dudar
+          sobre cuál es el camino normal, y quien viene a entrar a su cuenta
+          no está eligiendo entre dos caminos (auditoría, H8). */}
       <p className="mt-6 text-tinta-media">
         ¿No tenés cuenta?{" "}
         <Link href="/crear-cuenta" className="font-bold text-azul">
           Creá una
         </Link>
+        . ¿Solo querés recorrer el sistema?{" "}
+        <button
+          type="button"
+          onClick={verEjemplo}
+          className="cursor-pointer font-bold text-azul underline-offset-4 hover:underline"
+        >
+          Probá sin cuenta
+        </button>
         .
       </p>
     </>
