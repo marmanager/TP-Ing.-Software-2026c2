@@ -125,3 +125,35 @@ test("nunca queda vacío, en ningún estado ni rubro", () => {
     }
   }
 });
+
+// ------------------------------------------------------------
+// Que las pantallas la usen
+// ------------------------------------------------------------
+// Esto no prueba comportamiento: lee el código fuente. Está acá porque el
+// cableado ya se perdió una vez —en un merge con conflictos, sin que nada
+// se quejara— y los tests de arriba no lo iban a notar: la función seguía
+// estando y seguía andando; lo que faltaba era que alguien la llamara.
+//
+// El caso y su fila tienen que decir lo mismo, y "caso.que_falta" es la
+// columna guardada, que es justamente lo que esto vino a reemplazar. La
+// pantalla pública de seguimiento sí la usa, y a propósito: ahí el texto
+// viaja ya recortado desde la base.
+
+import { readFileSync } from "node:fs";
+
+const PANTALLAS = [
+  ["la pantalla del caso", "src/app/casos/[id]/page.js"],
+  ["la fila de la lista de casos", "src/componentes/FilaCaso.js"],
+  ["el módulo del Inicio", "src/componentes/inicio/cuerpos.js"],
+];
+
+for (const [donde, archivo] of PANTALLAS) {
+  test(`${donde} deriva el "qué falta" en vez de mostrar la columna guardada`, () => {
+    const fuente = readFileSync(new URL("../" + archivo, import.meta.url), "utf8");
+    assert.ok(fuente.includes("queFalta("), `${archivo} no llama a queFalta()`);
+    assert.ok(
+      !fuente.includes("caso.que_falta"),
+      `${archivo} sigue mostrando la columna guardada`
+    );
+  });
+}

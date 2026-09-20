@@ -13,9 +13,9 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ESTADOS, estaAbierto, pesos, quienLoTieneEnPalabras } from "@/lib/estados";
+import { ESTADOS, estaAbierto, pesos, queFalta, quienLoTieneEnPalabras } from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { preset, queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import {
   linkDeSeguimiento,
@@ -77,8 +77,9 @@ export default function VerCaso() {
   const aprobado = mios.filter((p) => p.estado === "aprobado").reduce((s, p) => s + Number(p.monto), 0);
   const esperando = mios.filter((p) => p.estado === "esperando");
   const barra = ESTADOS[caso.estado].barra;
-  const explica = preset(negocio?.rubro).explica[caso.estado];
   const comoIdent = comoSeIdentifica(negocio?.rubro);
+  const falta = queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente });
+  const aprobados = mios.filter((p) => p.estado === "aprobado");
 
   // Un caso cerrado es el registro de lo que pasó, no un borrador: no se le
   // cambian el diagnóstico ni los pasos sin volver a abrirlo primero. No queda
@@ -139,13 +140,13 @@ export default function VerCaso() {
           </div>
 
           <p className="mt-4 text-cuerpo">
-            <span className="font-bold">Qué falta:</span> {caso.que_falta}
-            {/* La aclaración sólo suma cuando dice algo distinto: en control
-                final las dos salen del mismo texto del preset y quedaba
-                "Control antes de entregar (Control antes de entregar)". */}
-            {explica && explica !== caso.que_falta && (
-              <span className="text-tinta-media"> ({explica})</span>
-            )}
+            {/* Derivado de los pasos y los insumos, no de lo guardado: así
+                dice el próximo paso y no repite el chip de arriba. Se fue
+                también la aclaración entre paréntesis del rubro: con un texto
+                específico pasó a ser ruido, y en control final las dos salían
+                del mismo lugar y se leía "Control antes de entregar (Control
+                antes de entregar)". */}
+            <span className="font-bold">Qué falta:</span> {falta}
           </p>
 
           {/* Cada dato dice qué es con palabras, y el ícono acompaña. Antes
@@ -193,15 +194,22 @@ export default function VerCaso() {
               <Icono nombre="reloj" className="size-5" />
               <span>{haceCuanto(caso.abierto_en)}</span>
             </li>
+            {/* El teléfono es lo único de esta lista que se toca, y llamar
+                al cliente es lo que se hace apurado y con una mano. Como
+                enlace suelto en medio del renglón medía 26 px de alto: la
+                cartilla pide 48, así que el área táctil es todo el renglón y
+                no sólo los dígitos. */}
             {cliente?.telefono && (
-              <li className="flex items-center gap-2">
-                <Icono nombre="telefono" className="size-5" />
-                <span>
-                  Teléfono{" "}
-                  <a href={`tel:${cliente.telefono.replace(/\s/g, "")}`} className="text-azul">
-                    {cliente.telefono}
-                  </a>
-                </span>
+              <li>
+                <a
+                  href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                  className="-mx-2 inline-flex min-h-12 items-center gap-2 rounded-campo px-2 hover:bg-azul-claro"
+                >
+                  <Icono nombre="telefono" className="size-5 text-azul" />
+                  <span className="text-tinta-media">
+                    Teléfono <span className="font-bold text-azul">{cliente.telefono}</span>
+                  </span>
+                </a>
               </li>
             )}
           </ul>
@@ -271,7 +279,7 @@ export default function VerCaso() {
             <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
               <Icono nombre="nota" />
               {esperando.length > 0 && abierto
-                ? `Ver los ${esperando.length} pasos a aprobar`
+                ? `Ver ${esperando.length === 1 ? "el paso" : `los ${esperando.length} pasos`} a aprobar`
                 : mios.length > 0
                   ? "Ver los pasos del caso"
                   : sePuedeEditar
@@ -279,6 +287,38 @@ export default function VerCaso() {
                     : "Ver el presupuesto"}
             </span>
           </Link>
+
+          {/* Lo que el cliente ya aprobó, que es la lista de trabajo del
+              técnico. Estaba un toque más adentro, en la pantalla de los
+              pasos, y es lo primero que se viene a mirar. */}
+          {aprobados.length > 0 && (
+            <div className="mt-6">
+              <p className="font-bold text-cuerpo">
+                Lo que hay que hacer{" "}
+                <span className="font-normal text-apoyo text-tinta-suave">
+                  {aprobados.length} {aprobados.length === 1 ? "paso aprobado" : "pasos aprobados"}
+                </span>
+              </p>
+              <ul className="mt-2 divide-y divide-borde rounded-campo border border-borde">
+                {aprobados.map((p) => (
+                  <li key={p.id} className="flex items-start justify-between gap-4 px-4 py-3">
+                    <span className="flex min-w-0 items-start gap-2">
+                      <Icono nombre="listo" className="size-5 shrink-0 text-completo" />
+                      <span className="min-w-0">
+                        <span className="block font-bold">{p.nombre}</span>
+                        {p.descripcion && (
+                          <span className="block text-apoyo text-tinta-suave">
+                            {p.descripcion}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {mios.length > 0 && (
             <p className="mt-3 text-tinta-media">
