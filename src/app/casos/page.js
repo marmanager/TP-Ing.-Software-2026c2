@@ -14,6 +14,7 @@ export default function Casos() {
   const { cargando, casos, clientes, negocio } = useDatos();
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
+  const [orden, setOrden] = useState("estado");
   const campoBusqueda = useRef(null);
   useTitulo("Casos");
 
@@ -34,7 +35,14 @@ export default function Casos() {
         (cliente?.nombre ?? "").toLowerCase().includes(texto)
       );
     })
-    .sort((a, b) => ORDEN_ESTADOS.indexOf(a.estado) - ORDEN_ESTADOS.indexOf(b.estado));
+    // Por estado es el orden de todos los días. Por antigüedad es el único
+    // que sirve para encontrar lo que se está atrasando: antes había que leer
+    // las fechas caso por caso (auditoría, H7).
+    .sort((a, b) =>
+      orden === "viejos"
+        ? new Date(a.abierto_en) - new Date(b.abierto_en)
+        : ORDEN_ESTADOS.indexOf(a.estado) - ORDEN_ESTADOS.indexOf(b.estado)
+    );
 
   const cuantos = (estado) => casos.filter((c) => c.estado === estado).length;
 
@@ -91,7 +99,7 @@ export default function Casos() {
         )}
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <BotonFiltro activo={filtro === "todos"} onClick={() => setFiltro("todos")}>
           Todos ({casos.length})
         </BotonFiltro>
@@ -105,6 +113,16 @@ export default function Casos() {
             {etiquetaEstado(negocio?.rubro, estado)} ({cuantos(estado)})
           </BotonFiltro>
         ))}
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="text-tinta-media">Ordenados</span>
+        <BotonFiltro activo={orden === "estado"} onClick={() => setOrden("estado")}>
+          Por estado
+        </BotonFiltro>
+        <BotonFiltro activo={orden === "viejos"} onClick={() => setOrden("viejos")}>
+          Los más viejos primero
+        </BotonFiltro>
       </div>
 
       {visibles.length === 0 ? (

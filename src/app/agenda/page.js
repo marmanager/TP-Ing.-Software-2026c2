@@ -21,6 +21,9 @@ export default function Agenda() {
   const [abierto, setAbierto] = useState(false);
   // El turno que se está por cancelar, esperando la confirmación.
   const [cancelando, setCancelando] = useState(null);
+  // La agenda mira para adelante. Los que ya pasaron se piden aparte: sirven
+  // para saber si alguien faltó la semana pasada (auditoría, H7).
+  const [cuando, setCuando] = useState("proximos");
   const [form, setForm] = useState({
     nombreCliente: "",
     telefono: "",
@@ -31,11 +34,21 @@ export default function Agenda() {
 
   if (cargando) return <Cargando />;
 
-  const proximos = turnos
-    .filter((t) => new Date(t.empieza_en) >= new Date(new Date().toDateString()))
-    .sort((a, b) => new Date(a.empieza_en) - new Date(b.empieza_en));
+  const arrancaHoy = new Date(new Date().toDateString());
+  const proximos =
+    cuando === "pasados"
+      ? turnos
+          .filter((t) => new Date(t.empieza_en) < arrancaHoy)
+          // Los pasados, del más reciente al más viejo: lo de ayer importa
+          // más que lo del mes pasado.
+          .sort((a, b) => new Date(b.empieza_en) - new Date(a.empieza_en))
+      : turnos
+          .filter((t) => new Date(t.empieza_en) >= arrancaHoy)
+          .sort((a, b) => new Date(a.empieza_en) - new Date(b.empieza_en));
 
-  // Agrupados por día, para leer la semana de un vistazo.
+  // Agrupados por día, para leer la semana de un vistazo. Como "proximos" ya
+  // viene ordenado —para adelante, o para atrás si se miran los pasados—, los
+  // días salen en ese mismo orden.
   const porDia = proximos.reduce((acc, t) => {
     const clave = new Date(t.empieza_en).toDateString();
     (acc[clave] ??= []).push(t);
@@ -132,9 +145,34 @@ export default function Agenda() {
         </Tarjeta>
       )}
 
+      {/* La agenda mira para adelante; los que ya pasaron se piden. */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {[
+          ["proximos", "Los que vienen"],
+          ["pasados", "Los que ya pasaron"],
+        ].map(([clave, palabra]) => (
+          <button
+            key={clave}
+            type="button"
+            aria-pressed={cuando === clave}
+            onClick={() => setCuando(clave)}
+            className={[
+              "min-h-12 cursor-pointer rounded-full border-2 px-4 text-etiqueta",
+              cuando === clave
+                ? "border-azul bg-azul-claro font-bold text-azul"
+                : "border-borde bg-tarjeta text-tinta-media hover:bg-superficie",
+            ].join(" ")}
+          >
+            {palabra}
+          </button>
+        ))}
+      </div>
+
       {proximos.length === 0 ? (
         <Vacio icono="calendario" titulo="No hay turnos anotados">
-          Anotá el primero y va a aparecer acá, ordenado por día.
+          {cuando === "pasados"
+            ? "Todavía no pasó ningún turno."
+            : "Anotá el primero y va a aparecer acá, ordenado por día."}
         </Vacio>
       ) : (
         Object.entries(porDia).map(([clave, delDia]) => (
