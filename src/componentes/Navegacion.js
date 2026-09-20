@@ -145,8 +145,13 @@ function usarAltoPublicado(ref) {
   }, [ref]);
 }
 
+// Acostado, el ícono y la palabra van en la misma línea: la barra pasa de
+// 64 px de alto a 48 y le deja ese espacio al contenido (auditoría, criterio
+// "funciona acostado").
 const CLASE_DESTINO =
-  "flex min-h-16 w-full flex-col items-center justify-center gap-1 px-1 text-apoyo";
+  "flex min-h-16 w-full flex-col items-center justify-center gap-1 px-1 text-apoyo " +
+  "[@media(max-height:480px)]:min-h-12 [@media(max-height:480px)]:flex-row " +
+  "[@media(max-height:480px)]:gap-2";
 
 export function BarraCelular() {
   const ruta = usePathname();

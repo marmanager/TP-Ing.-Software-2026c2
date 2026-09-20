@@ -57,6 +57,17 @@ export function Boton({
   );
 }
 
+// Con el teléfono acostado quedan menos de 400 px de alto: ahí lo fijo no
+// puede comerse la pantalla, así que el botón deja de ir clavado y acompaña
+// al formulario (auditoría, criterio "funciona acostado").
+// Las clases van escritas enteras y no armadas con una variable: Tailwind
+// lee el código fuente buscando nombres completos, y un nombre partido en
+// pedazos no genera ninguna regla.
+const BOTON_SUELTO_ACOSTADO =
+  "[@media(max-height:480px)]:static [@media(max-height:480px)]:mx-0 " +
+  "[@media(max-height:480px)]:border-0 [@media(max-height:480px)]:bg-transparent " +
+  "[@media(max-height:480px)]:p-0";
+
 // El botón principal en celular va fijo abajo, 56 px de alto y ancho completo.
 //
 // Fijo, pero ENCIMA de la barra de secciones del celular, no detrás: las dos
@@ -68,7 +79,9 @@ export function Boton({
 // con el mismo punto de quiebre que la barra.
 export function BotonPrincipalFijo({ children, motivo, ...props }) {
   return (
-    <div className="sticky bottom-[var(--alto-barra,4rem)] z-10 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+    <div
+      className={`sticky bottom-[var(--alto-barra,4rem)] z-10 -mx-4 mt-8 border-t border-borde bg-fondo p-4 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 ${BOTON_SUELTO_ACOSTADO}`}
+    >
       <Boton
         variante="principal"
         motivo={motivo}
