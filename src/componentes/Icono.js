@@ -186,6 +186,16 @@ const TRAZOS = {
       <path d="M19.4 13.9a7.9 7.9 0 0 0 0-3.8l2-1.5-2-3.4-2.3 1a7.9 7.9 0 0 0-3.3-1.9L13.5 2h-3l-.3 2.3a7.9 7.9 0 0 0-3.3 1.9l-2.3-1-2 3.4 2 1.5a7.9 7.9 0 0 0 0 3.8l-2 1.5 2 3.4 2.3-1a7.9 7.9 0 0 0 3.3 1.9l.3 2.3h3l.3-2.3a7.9 7.9 0 0 0 3.3-1.9l2.3 1 2-3.4z" />
     </>
   ),
+  // El mango en diagonal y las cerdas en la punta de abajo. Va sobre la foto
+  // del negocio mientras se la edita, y es la única vez en todo el sistema
+  // que un botón queda sin palabra al lado: encima de la foto no entra. Por
+  // eso ese botón lleva aria-label, que es lo que lee un lector de pantalla.
+  pincel: (
+    <>
+      <path d="M20.3 3.7a2.3 2.3 0 0 0-3.3 0l-7.6 7.6 3.3 3.3 7.6-7.6a2.3 2.3 0 0 0 0-3.3z" />
+      <path d="M9.4 11.3 5.9 14.8a4.2 4.2 0 0 0-1.2 2.4c-.1.9-.7 1.5-1.6 1.9 1.2 1 2.7 1.6 4.3 1.6a4.6 4.6 0 0 0 4.6-4.6c0-.5.2-1 .5-1.4z" />
+    </>
+  ),
 };
 
 export default function Icono({ nombre, className = "size-6" }) {

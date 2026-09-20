@@ -1,0 +1,21 @@
+-- ============================================================
+-- 017_negocio_descripcion.sql — la descripción del negocio (SCRUM-30)
+--
+-- Correr entero en el SQL Editor de Supabase, después de 001..016.
+-- Es idempotente.
+--
+-- POR QUÉ:
+-- La tarjeta de Mi negocio mostraba el nombre y el rubro, y nada más. Un
+-- renglón corto —"Service oficial, zona sur"— dice lo que el rubro no dice.
+--
+-- Es una línea, no un texto largo: el campo de la pantalla la corta en 140
+-- caracteres. La base no lo hace cumplir a propósito, porque el largo es una
+-- decisión de cómo se ve la tarjeta y puede cambiar sin migrar nada.
+--
+-- null es que no cargaron ninguna, y entonces el renglón no se dibuja.
+--
+-- Las políticas de negocio (005_rls.sql) son por fila y no nombran columnas,
+-- así que ésta queda cubierta sola.
+-- ============================================================
+
+alter table negocio add column if not exists descripcion text;

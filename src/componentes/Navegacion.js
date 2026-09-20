@@ -111,9 +111,20 @@ export function BarraLateral() {
       className="hidden w-64 shrink-0 border-r border-borde bg-fondo p-4 md:block"
     >
       <div className="mb-6 flex items-center gap-3 px-3">
-        <span className="flex size-11 items-center justify-center rounded-campo bg-azul text-white">
-          <Icono nombre="tienda" />
-        </span>
+        {/* La foto va sin texto alternativo a propósito: el nombre del
+            negocio está al lado, y describirla otra vez haría que un lector
+            de pantalla lo diga dos veces seguidas. */}
+        {negocio?.foto ? (
+          <img
+            src={negocio.foto}
+            alt=""
+            className="size-11 shrink-0 rounded-campo object-cover"
+          />
+        ) : (
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
+            <Icono nombre="tienda" />
+          </span>
+        )}
         <span className="font-titulo font-extrabold text-subtitulo leading-tight">
           {negocio?.nombre ?? "Mi negocio"}
         </span>
@@ -267,9 +278,17 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
     >
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
-            <Icono nombre="tienda" />
-          </span>
+          {negocio?.foto ? (
+            <img
+              src={negocio.foto}
+              alt=""
+              className="size-11 shrink-0 rounded-campo object-cover"
+            />
+          ) : (
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
+              <Icono nombre="tienda" />
+            </span>
+          )}
           <div className="min-w-0">
             <h2 id="panel-secciones-titulo" className="text-seccion">
               Todas las secciones
