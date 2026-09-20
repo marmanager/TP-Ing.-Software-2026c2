@@ -10,13 +10,14 @@
 // a que alguien reparta las claves, y para que la demo no dependa del wifi.
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { supabase } from "./supabase";
+import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
 import { pesos } from "./estados";
 import { normalizarInicio } from "./inicio";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
+import { casoPublico } from "./seguimiento.js";
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -33,10 +34,77 @@ const VACIO = {
 
 const Contexto = createContext(null);
 
+// Por qué no se pudo compartir, en una frase que sirva.
+//
+// El caso más probable no es un permiso: es que la base todavía no tenga
+// corrida la migración. Decir "no se pudo" a secas mandaría a alguien a
+// buscar el problema en el lugar equivocado.
+const porQueNoSePudoCompartir = (error) => {
+  const texto = error?.message ?? "";
+  if (error?.code === "PGRST202" || texto.includes("compartir_caso")) {
+    return "Falta correr 018_seguimiento.sql en Supabase. Hasta entonces no se puede compartir el estado.";
+  }
+  // Los mensajes de la función ya están escritos para leerse.
+  return texto || "No se pudo compartir el estado.";
+};
+
 const nuevoId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : "id" + Math.random().toString(36).slice(2);
+
+// El código del link que se le manda al cliente, para el modo de ejemplo.
+// Con Supabase lo genera la base (018_seguimiento.sql); acá no hay base, así
+// que lo genera el navegador con el mismo generador criptográfico que usan
+// las claves, no con Math.random(): un código adivinable haría que el link
+// deje de ser secreto, que es lo único que lo protege.
+const codigoAlAzar = () => {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+};
+
+// Buscar un caso compartido, desde afuera del sistema.
+//
+// Es una función suelta y no una acción del proveedor a propósito: la
+// pantalla pública no tiene sesión, ni negocio, ni nada del contexto que
+// useDatos() necesita. Quien la abre no es del negocio.
+//
+// Las dos fuentes devuelven el mismo objeto: con Supabase lo recorta la base
+// campo por campo, y en el modo de ejemplo lo recorta casoPublico(). El
+// recorte del modo de ejemplo no protege nada —los datos ya están en ese
+// navegador— pero tiene que dar lo mismo, o la pantalla mostraría una cosa
+// distinta según dónde corra.
+export async function buscarSeguimiento(codigo) {
+  // Primero la base, si la hay. Si ahí no está, se busca igual en el
+  // navegador: tener credenciales cargadas no quiere decir que quien armó el
+  // link las estuviera usando. El modo de ejemplo se puede estar usando en
+  // una instalación conectada —es lo que pasa cuando alguien prueba el
+  // sistema antes de crearse la cuenta—, y su link tiene que andar lo mismo.
+  //
+  // Buscar de más no abre nada: el código del navegador sólo existe en ese
+  // navegador, y el de la base no aparece acá.
+  if (haySupabase && supabase) {
+    const { data, error } = await supabase.rpc("ver_seguimiento", { p_codigo: codigo });
+    // Un error se ve igual que un código que no sirve: al cliente no le sirve
+    // saber la diferencia, y contarla sería contar de más.
+    if (!error && data?.sirve) return data;
+  }
+
+  // En el modo de ejemplo la visita NO queda registrada, así que del lado
+  // del negocio el caso va a decir siempre "todavía no lo abrió". Es a
+  // propósito: el proveedor de datos guarda el estado entero del navegador
+  // cada vez que cambia, y escribir la visita desde acá sería escribir sobre
+  // lo mismo desde dos lados. Con la base conectada lo anota la función
+  // ver_seguimiento(), que es donde corresponde.
+  try {
+    const guardado = window.localStorage.getItem(LLAVE);
+    if (!guardado) return { sirve: false };
+    return casoPublico({ codigo, ...JSON.parse(guardado) });
+  } catch {
+    return { sirve: false };
+  }
+}
 
 // Un negocio guardado antes de que existieran los módulos no trae la lista.
 // En ese caso valen los del preset de su rubro: si dejáramos la lista vacía,
@@ -249,9 +317,11 @@ export function DatosProvider({ children }) {
       if (reintento.error) setAviso("No se pudo guardar en la base: " + reintento.error.message);
     };
 
-    // tipo y monto nacen en 014_evento_tipo.sql.
+    // tipo y monto nacen en 014_evento_tipo.sql; estado, en 018_seguimiento.sql.
     const escribirEvento = (evento) =>
-      escribirConColumnasNuevas("evento", evento, ["tipo", "monto"], { insertar: true });
+      escribirConColumnasNuevas("evento", evento, ["tipo", "monto", "estado"], {
+        insertar: true,
+      });
 
     // No recibe autor: si se pudiera pasar de afuera, volverían los
     // personajes. Lo firma siempre quien está usando el sistema.
@@ -259,7 +329,21 @@ export function DatosProvider({ children }) {
     // "tipo" es obligatorio en la práctica: es lo que usa el historial del
     // negocio para filtrar (lib/historial.js). Un evento sin tipo sólo se ve
     // en "Todo". "monto" va en los de plata.
-    const nuevoEvento = ({ casoId, tipo, titulo, detalle, icono = "carpeta", monto = null, cuando }) => ({
+    // "estado" es a qué estado pasó el caso, y va sólo en los eventos que lo
+    // mueven. El título cuenta lo mismo con palabras, pero escritas para
+    // adentro del negocio: la línea de tiempo que ve el cliente necesita el
+    // estado pelado, porque las palabras se las pone el preset de su rubro
+    // (SCRUM-68).
+    const nuevoEvento = ({
+      casoId,
+      tipo,
+      titulo,
+      detalle,
+      icono = "carpeta",
+      monto = null,
+      estado = null,
+      cuando,
+    }) => ({
       id: nuevoId(),
       caso_id: casoId,
       tipo,
@@ -268,6 +352,7 @@ export function DatosProvider({ children }) {
       autor: firma(),
       icono,
       monto: monto === null ? null : Number(monto),
+      estado,
       ocurrido_en: cuando ?? new Date().toISOString(),
     });
 
@@ -458,7 +543,53 @@ export function DatosProvider({ children }) {
           titulo: textoHistorial.titulo,
           detalle: textoHistorial.detalle,
           icono: textoHistorial.icono,
+          estado,
         });
+      },
+
+      // ---------- compartir el estado con el cliente (SCRUM-68) ----------
+      // Devuelve siempre el mismo código para el mismo caso. Tocar
+      // "Compartir" dos veces no puede invalidar el link que el negocio ya
+      // mandó por WhatsApp.
+      async compartirCaso(casoId) {
+        const caso = datos.casos.find((c) => c.id === casoId);
+        if (!caso) return { ok: false, error: "No encontramos ese caso." };
+        if (caso.seguimiento_codigo) return { ok: true, codigo: caso.seguimiento_codigo };
+
+        if (enSupabase()) {
+          const { data, error } = await supabase.rpc("compartir_caso", { p_caso_id: casoId });
+          if (error) return { ok: false, error: porQueNoSePudoCompartir(error) };
+          setDatos((d) => ({
+            ...d,
+            casos: d.casos.map((c) =>
+              c.id === casoId ? { ...c, seguimiento_codigo: data, seguimiento_visto_en: null } : c
+            ),
+          }));
+          return { ok: true, codigo: data };
+        }
+
+        const codigo = codigoAlAzar();
+        parchearCaso(casoId, { seguimiento_codigo: codigo, seguimiento_visto_en: null });
+        return { ok: true, codigo };
+      },
+
+      // El link anterior deja de funcionar en el mismo momento. La fecha de
+      // la última visita se va con él: es de ese link, no del caso.
+      async dejarDeCompartirCaso(casoId) {
+        if (enSupabase()) {
+          const { error } = await supabase.rpc("dejar_de_compartir_caso", { p_caso_id: casoId });
+          if (error) return { ok: false, error: porQueNoSePudoCompartir(error) };
+          setDatos((d) => ({
+            ...d,
+            casos: d.casos.map((c) =>
+              c.id === casoId ? { ...c, seguimiento_codigo: null, seguimiento_visto_en: null } : c
+            ),
+          }));
+          return { ok: true };
+        }
+
+        parchearCaso(casoId, { seguimiento_codigo: null, seguimiento_visto_en: null });
+        return { ok: true };
       },
 
       // ---------- pasos del presupuesto ----------

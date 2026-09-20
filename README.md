@@ -34,7 +34,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `017_negocio_descripcion.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `018_seguimiento.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 
@@ -64,6 +64,7 @@ src/
 ├── app/                    una carpeta por pantalla (App Router)
 │   ├── page.js             Inicio, armado por módulos
 │   ├── casos/              lista, alta, detalle y aprobación de pasos
+│   ├── seguimiento/        la pantalla pública que abre el cliente, sin cuenta
 │   ├── agenda/  clientes/  inventario/  aprobar/  equipo/  historial/  negocio/
 │   └── globals.css         los tokens de la cartilla, en Tailwind
 ├── componentes/            piezas base: botones, campos, chips, íconos
@@ -78,6 +79,7 @@ src/
     ├── modulos.js          el catálogo de módulos que un negocio puede prender
     ├── historial.js        el historial del negocio: tipos de evento, filtros y resumen
     ├── imagen.js           achica la foto del negocio antes de guardarla
+    ├── seguimiento.js      qué ve y qué no ve el cliente en la pantalla pública
     └── inicio.js           la grilla del Inicio: catálogo, tamaños y orden
 ```
 
@@ -235,6 +237,42 @@ escribe y un dedazo dejaría a alguien afuera de su propia cuenta.
 
 La verificación de mail y la recuperación de contraseña necesitan el mail prendido
 en el panel de Supabase (ver el paso 2 de "Conectar la base").
+
+## El cliente mira su caso sin cuenta
+
+Es la historia que ataca el problema que dio origen al proyecto: que el teléfono
+no pare de sonar (SCRUM-68). Desde el detalle de un caso, el dueño o el
+encargado arman un link y se lo mandan al cliente por WhatsApp. El cliente lo
+abre en el celular, sin cuenta y sin instalar nada, y ve en qué estado está lo
+suyo, por dónde va y lo que aprobó.
+
+**Un link por caso, con un código secreto adentro.** El código lo genera la base
+con `gen_random_bytes`: no sale del id del caso ni de su número, así que no se
+puede adivinar ni recorrer probando valores cercanos. Compartir dos veces el
+mismo caso devuelve el mismo link, porque uno nuevo dejaría muerto el que el
+negocio ya mandó. Dejar de compartirlo corta el acceso en el mismo instante.
+
+**Qué ve y qué no.** Ve el estado con las palabras de su rubro, qué significa,
+qué se está esperando si está frenado, la línea de los cinco estados con sus
+fechas, y los pasos que él mismo aprobó con su total. No ve el diagnóstico
+interno, ni los pasos que no aprobó, ni las notas, ni quién lo está atendiendo,
+ni nada del inventario, ni ningún otro caso.
+
+Eso está escrito en dos lugares que tienen que decir lo mismo: la función
+`ver_seguimiento()` de `supabase/018_seguimiento.sql`, que arma el objeto campo
+por campo, y `src/lib/seguimiento.js`, que hace el mismo recorte para el modo de
+ejemplo. `pruebas/seguimiento.test.js` está escrito al revés de lo habitual:
+comprueba que **no hay ningún campo de más**, así que falla si mañana alguien le
+agrega una columna a `caso` sin acordarse de esta pantalla.
+
+**No hay política de RLS para el rol anónimo.** Una política tendría que abrirle
+`select` sobre `caso`, y con eso las columnas internas viajarían igual. La
+función `security definer` es la única puerta y el código es la llave, el mismo
+patrón que las invitaciones.
+
+En el modo de ejemplo el link anda en ese mismo navegador, que es donde viven
+los datos. Lo único que no funciona ahí es el registro de la última visita: eso
+lo anota la base.
 
 ## Aislamiento por negocio
 
