@@ -72,7 +72,8 @@ src/
     ├── auth.js             sesión: cuentas de Supabase o modo de ejemplo
     ├── datos.js            capa de datos: Supabase si hay claves, si no local
     ├── semilla.js          el estado inicial del modo de ejemplo: vacío
-    ├── estados.js          los cinco estados y sus reglas
+    ├── estados.js          los cinco estados del caso y sus reglas
+    ├── turnos.js           los cuatro estados de un turno de la agenda
     ├── presets.js          los diccionarios de rubro
     ├── modulos.js          el catálogo de módulos que un negocio puede prender
     ├── historial.js        el historial del negocio: tipos de evento, filtros y resumen
@@ -97,6 +98,27 @@ lector de pantalla la lee siempre.
   se sigue entendiendo.
 - El anillo de foco azul de 3 px está siempre y no se saca.
 - Sin jerga: no hay «dashboard», «settings», «loading» ni «item» en ningún texto.
+
+## Dos vocabularios de estado, a propósito
+
+Un **caso** avanza por los **cinco estados** de la cartilla, que son fijos y
+están en `src/lib/estados.js`. Un preset de rubro los renombra —"Está en el
+taller" o "En consulta"— pero no agrega un sexto ni cambia su color.
+
+Un **turno** de la agenda cuenta otra cosa: si la persona va a venir y si
+vino. Son **cuatro estados** propios, en `src/lib/turnos.js`, con su palabra,
+su color y su ícono:
+
+| Estado | Se lee | Qué quiere decir |
+| --- | --- | --- |
+| `agendado` | Sin confirmar | Está anotado, pero todavía no confirmó que viene. |
+| `confirmado` | Confirmado | Dijo que viene. |
+| `cancelado` | Cancelado | No va a venir. Queda en la agenda para que se sepa que estaba. |
+| `atendido` | Ya vino | Vino y se la atendió. Si traía un trabajo, el turno apunta al caso que salió de él. |
+
+Que sean distintos está bien: un turno no es un trabajo, y la Agenda es un
+módulo que un negocio puede tener apagado. Lo que estaba mal era que no
+estuvieran escritos en ningún lado.
 
 ## Decisiones que se apartan de la cartilla
 

@@ -8,16 +8,10 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { ejemplosDe } from "@/lib/presets";
 import { estaAbierto } from "@/lib/estados";
+import { estadoDeTurno } from "@/lib/turnos";
 import { diaLargo, horaYMinutos, paraInput } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
-
-const TONO = {
-  agendado: "text-tinta-media",
-  confirmado: "text-completo",
-  cancelado: "text-tinta-suave line-through",
-  atendido: "text-tinta-suave",
-};
 
 export default function Agenda() {
   const datos = useDatos();
@@ -168,7 +162,9 @@ export default function Agenda() {
                       {horaYMinutos(t.empieza_en)}
                     </p>
                     <div className="min-w-0 flex-1">
-                      <p className={`font-bold ${cancelado ? TONO.cancelado : ""}`}>{t.motivo}</p>
+                      <p className={`font-bold ${cancelado ? estadoDeTurno("cancelado").texto : ""}`}>
+                        {t.motivo}
+                      </p>
                       <p className="text-tinta-media">
                         {cliente?.nombre ?? "Sin cliente todavía"}
                         {caso && (
@@ -182,26 +178,13 @@ export default function Agenda() {
                       </p>
                     </div>
 
-                    <p className={`flex items-center gap-1.5 font-bold text-etiqueta ${TONO[t.estado]}`}>
-                      <Icono
-                        nombre={
-                          t.estado === "confirmado"
-                            ? "listo"
-                            : t.estado === "cancelado"
-                              ? "cruz"
-                              : t.estado === "atendido"
-                                ? "persona-check"
-                                : "reloj"
-                        }
-                        className="size-5"
-                      />
-                      {t.estado === "agendado"
-                        ? "Sin confirmar"
-                        : t.estado === "confirmado"
-                          ? "Confirmado"
-                          : t.estado === "cancelado"
-                            ? "Cancelado"
-                            : "Ya vino"}
+                    {/* El estado con su color, su ícono y su palabra, del
+                        vocabulario de turnos (lib/turnos.js). */}
+                    <p
+                      className={`flex items-center gap-1.5 font-bold text-etiqueta ${estadoDeTurno(t.estado).texto}`}
+                    >
+                      <Icono nombre={estadoDeTurno(t.estado).icono} className="size-5" />
+                      {estadoDeTurno(t.estado).palabra}
                     </p>
 
                     {/* "Vino" quiere decir dos cosas según el turno, y el

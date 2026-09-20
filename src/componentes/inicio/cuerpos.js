@@ -19,6 +19,7 @@ import { ESTADOS } from "@/lib/estados";
 import { etiquetaEstado } from "@/lib/presets";
 import { horaYMinutos, diaLargo, cuando } from "@/lib/fechas";
 import { filtrarHistorial } from "@/lib/historial";
+import { estadoDeTurno } from "@/lib/turnos";
 import Icono from "@/componentes/Icono";
 
 // ---------- piezas compartidas ----------
@@ -227,7 +228,9 @@ function CuerpoAgenda({ filtro, filas }) {
               </span>
             </span>
             {t.estado === "agendado" && (
-              <span className="shrink-0 text-apoyo text-espera">Sin confirmar</span>
+              <span className="shrink-0 text-apoyo text-espera">
+                {estadoDeTurno("agendado").palabra}
+              </span>
             )}
           </Fila>
         );
