@@ -93,9 +93,15 @@ export default function VerCaso() {
         Volver a los casos
       </Link>
 
-      {/* Lo importante, sin scrollear: identificador, estado y qué falta. */}
-      <div className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-        <div className={`h-1.5 w-full ${barra}`} aria-hidden="true" />
+      {/* Lo importante, sin scrollear: identificador, estado y qué falta.
+
+          La tarjeta NO lleva overflow-hidden: el desplegable del estado sale
+          de sus bordes y quedaba cortado al medio. El recorte estaba sólo
+          para que la barra de color respetara las esquinas, así que la barra
+          se redondea sola y el problema desaparece de raíz —si no, cualquier
+          menú que se abra acá adentro vuelve a cortarse. */}
+      <div className="rounded-tarjeta border border-borde bg-tarjeta">
+        <div className={`h-1.5 w-full rounded-t-tarjeta ${barra}`} aria-hidden="true" />
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">

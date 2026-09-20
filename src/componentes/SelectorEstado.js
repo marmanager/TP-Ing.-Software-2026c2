@@ -76,8 +76,13 @@ export default function SelectorEstado({ estado, rubro, sePuedeCambiar, alElegir
         />
       </button>
 
+      {/* El menú se ancla a la izquierda del chip en celular y recién a la
+          derecha en pantalla grande: en celular el chip baja de renglón y
+          queda a la izquierda, así que anclado a la derecha el menú arrancaba
+          en −64 px y se salía de la pantalla. El ancho además nunca pasa de
+          lo que entra, para que en un teléfono angosto no vuelva a pasar. */}
       {abierto && (
-        <div className="absolute right-0 z-20 mt-2 w-72 overflow-hidden rounded-tarjeta border border-borde bg-tarjeta shadow-sm">
+        <div className="absolute left-0 z-20 mt-2 w-[min(18rem,calc(100vw-3rem))] overflow-hidden rounded-tarjeta border border-borde bg-tarjeta shadow-sm sm:left-auto sm:right-0">
           <p className="border-b border-borde px-4 py-3 font-bold text-etiqueta">
             Pasar el caso a
           </p>
