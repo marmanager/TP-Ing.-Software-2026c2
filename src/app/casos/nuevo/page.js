@@ -214,22 +214,17 @@ function Formulario() {
           onChange={(e) => setIdentificador(e.target.value)}
         />
 
-        <div className="mb-6">
-          <label htmlFor="servicio" className="block font-bold text-cuerpo">
-            Qué necesita
-            {marcar("servicio") && <MarcaFalta />}
-          </label>
-          <p className="mt-1 text-apoyo text-tinta-suave">
-            Con las palabras del cliente. Podés elegir uno de los de siempre.
-          </p>
-          <input
-            id="servicio"
-            value={servicio}
-            onChange={(e) => setServicio(e.target.value)}
-            className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo placeholder:text-tinta-suave"
-            placeholder={ejemplosDe(negocio?.rubro).servicio}
-          />
-          <ul className="mt-3 flex flex-wrap gap-2">
+        <Campo
+          id="servicio"
+          etiqueta="Qué necesita"
+          falta={marcar("servicio")}
+          ayuda="Con las palabras del cliente. Podés elegir uno de los de siempre."
+          value={servicio}
+          onChange={(e) => setServicio(e.target.value)}
+          placeholder={ejemplosDe(negocio?.rubro).servicio}
+        />
+        <div className="-mt-3 mb-6">
+          <ul className="flex flex-wrap gap-2">
             {motivos.map((m) => (
               <li key={m}>
                 <button
@@ -249,15 +244,14 @@ function Formulario() {
           </ul>
         </div>
 
-        <div className="mb-6">
-          <label htmlFor="responsable" className="block font-bold text-cuerpo">
-            Quién lo va a atender
-          </label>
-          <p className="mt-1 text-apoyo text-tinta-suave">
-            Si todavía no sabés, dejalo sin asignar y lo elegís después.
-          </p>
+        <Campo
+          id="responsable"
+          etiqueta="Quién lo va a atender"
+          ayuda="Si todavía no sabés, dejalo sin asignar y lo elegís después."
+        >
           <select
             id="responsable"
+            aria-describedby="responsable-ayuda"
             value={responsable}
             onChange={(e) => setResponsable(e.target.value)}
             className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
@@ -269,7 +263,7 @@ function Formulario() {
               </option>
             ))}
           </select>
-        </div>
+        </Campo>
 
       </div>
 

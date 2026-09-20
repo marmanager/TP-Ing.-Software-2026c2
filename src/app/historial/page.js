@@ -85,8 +85,15 @@ export default function Historial() {
         cada paso, con quién lo hizo.
       </p>
 
+      {/* Los dos grupos de filtros parecían hacer lo mismo, y uno cambia los
+          números y el otro no. El período ya estaba arriba, junto a los
+          números que gobierna, y "Qué mostrar" abajo, pegado a la lista: lo
+          que faltaba era decirlo (auditoría, H8). */}
       <fieldset className="mb-4">
-        <legend className="mb-2 font-bold text-cuerpo">Desde cuándo</legend>
+        <legend className="mb-2 font-bold text-cuerpo">
+          Desde cuándo{" "}
+          <span className="font-normal text-tinta-media">· cambia los números de abajo</span>
+        </legend>
         <div className="flex flex-wrap gap-2">
           {LISTA_PERIODOS.map((p) => (
             <Opcion key={p.clave} elegida={periodo === p.clave} onClick={() => setPeriodo(p.clave)}>
@@ -121,7 +128,12 @@ export default function Historial() {
       </dl>
 
       <fieldset className="mb-8">
-        <legend className="mb-2 font-bold text-cuerpo">Qué mostrar</legend>
+        <legend className="mb-2 font-bold text-cuerpo">
+          Qué mostrar{" "}
+          <span className="font-normal text-tinta-media">
+            · filtra la lista, no los números
+          </span>
+        </legend>
         <div className="flex flex-wrap gap-2">
           <Opcion elegida={tipo === "todo"} onClick={() => setTipo("todo")}>
             Todo
