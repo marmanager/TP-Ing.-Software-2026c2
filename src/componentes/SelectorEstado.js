@@ -14,7 +14,7 @@
 // consultorio "En consulta". Es el mismo estado abajo.
 
 import { useEffect, useRef, useState } from "react";
-import { AL_PASAR_A, ESTADOS, otrosEstados } from "@/lib/estados";
+import { AL_PASAR_A, ESTADOS, estadosAElegir } from "@/lib/estados";
 import { etiquetaEstado, preset } from "@/lib/presets";
 import Icono from "./Icono";
 
@@ -82,7 +82,7 @@ export default function SelectorEstado({ estado, rubro, sePuedeCambiar, alElegir
             Pasar el caso a
           </p>
           <ul>
-            {otrosEstados(estado).map((otro) => {
+            {estadosAElegir(estado).map((otro) => {
               const e = ESTADOS[otro];
               const suPalabra = etiquetaEstado(rubro, otro);
               return (

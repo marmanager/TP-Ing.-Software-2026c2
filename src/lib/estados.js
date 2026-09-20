@@ -151,6 +151,19 @@ export const AL_PASAR_A = {
 // leer la lista.
 export const otrosEstados = (actual) => ORDEN_ESTADOS.filter((e) => e !== actual);
 
+// Los estados que ofrece el desplegable de la pantalla del caso.
+//
+// Son los otros abiertos, y nunca "completado". Entregar no es un pasaje
+// más: abre el formulario de cobro, escribe cuánto se cobró y cierra el
+// caso, y es el único momento en que alguien tiene el número delante. Si
+// estuviera acá habría dos formas de cerrar un caso y una se saltearía la
+// plata.
+//
+// Por lo mismo tampoco vuelve: de un caso cerrado se sale por "Volver a
+// abrirlo", que deja dicho en el historial que se había cerrado de más.
+export const estadosAElegir = (actual) =>
+  ORDEN_ESTADOS.filter((e) => e !== actual && e !== "completado");
+
 // "Quién lo tiene". Si nadie del equipo lo tiene, se deriva del estado
 // en vez de mostrar un hueco (cartilla, lista de casos de la sección 05).
 export function quienLoTiene(caso, empleados) {
