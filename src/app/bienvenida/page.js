@@ -366,7 +366,7 @@ function usarPasos(activo, cuantos) {
     const el = caja.current;
     if (!activo || !el) return;
 
-    // Sólo en escritorio: clavar tres pantallas enteras en un celular es
+    // Sólo en escritorio: clavar pantallas enteras en un celular es
     // pelearse con el pulgar del que está leyendo. Ahí las cinco fichas
     // apiladas ya cuentan lo mismo sin trabar nada.
     const escritorio = matchMedia("(min-width: 48rem)");

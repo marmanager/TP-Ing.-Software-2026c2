@@ -639,6 +639,15 @@ export function DatosProvider({ children }) {
         return empleado;
       },
 
+      // OJO AL CAMBIAR ESTO. Hoy el rol del empleado es sólo el nombre con
+      // el que figura en la lista: quién puede qué sale de usuario.rol, que
+      // mira la base con mi_rol() (008_permisos.sql). Por eso el desplegable
+      // cambia el rol sin preguntar nada.
+      //
+      // El día que este rol dé permisos, el cambio tiene que pedir
+      // confirmación diciendo qué gana y qué pierde esa persona: en un
+      // desplegable de celular el dedo arrastra y elige otra opción sin
+      // querer (auditoría, H5).
       cambiarRolEmpleado(empleadoId, rol) {
         setDatos((d) => ({
           ...d,

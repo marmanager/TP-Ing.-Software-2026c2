@@ -521,14 +521,19 @@
    Las dos reglas que hacen el efecto viven detrás de .mov Y de la consulta
    de escritorio, y ninguna de las dos toca la maqueta base. Sin JS la
    sección mide lo que mide su contenido y la matriz está completa desde el
-   primer momento; en celular, lo mismo, porque clavar tres pantallas
-   enteras en un teléfono es pelearse con el pulgar del que está leyendo.
+   primer momento; en celular, lo mismo, porque clavar pantallas enteras en
+   un teléfono es pelearse con el pulgar del que está leyendo.
 
    Con prefers-reduced-motion no hace falta apagar nada acá: la clase .mov
    nunca llega a ponerse. */
 @media (min-width: 48rem) {
   .mov .landing .recorrido {
-    height: 400vh;
+    /* 300vh son tres pantallas: una la ocupa la sección clavada y quedan dos
+       de scroll para que lleguen los cinco estados. Eran cuatro, y cuatro
+       pantallas bajando sin que la vista se mueva se sienten como que la
+       página se trabó: quien no está acostumbrado a este recurso cierra
+       antes de llegar al argumento (auditoría de diseño, H3). */
+    height: 300vh;
   }
 
   .mov .landing .escenario {
