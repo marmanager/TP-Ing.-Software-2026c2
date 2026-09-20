@@ -138,11 +138,20 @@ export function casosPorAprobar(casos, pasos) {
       const pendientes = pasos.filter(
         (p) => p.caso_id === caso.id && p.estado === "esperando"
       );
+      // Desde cuándo espera: la fecha del paso sin contestar más viejo. Es
+      // lo que hay que saber para decidir a quién llamar; la fecha del caso
+      // contestaba otra cosa (auditoría, H1). Un paso sin fecha —cargado
+      // antes de que se guardara— cae en la del caso.
+      const esperandoDesde = pendientes
+        .map((p) => p.creado_en ?? caso.abierto_en)
+        .sort()[0];
+
       return {
         caso,
         pendientes,
         cuantos: pendientes.length,
         plata: pendientes.reduce((total, p) => total + Number(p.monto), 0),
+        esperandoDesde,
       };
     })
     .filter((x) => x.cuantos > 0)

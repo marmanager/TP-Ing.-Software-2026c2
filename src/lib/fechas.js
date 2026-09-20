@@ -82,3 +82,16 @@ export function elDia(iso) {
   if (mismoDia(d, ayer)) return "ayer";
   return `el ${dia(d)}`;
 }
+
+// Hace cuánto que pasó algo, para meter en medio de una frase: "hoy", "ayer"
+// o "hace 12 días". haceCuanto() dice lo mismo pero ya armado para un caso
+// ("Abierto hace 12 días").
+export function cuantoHace(iso) {
+  const dias = Math.floor((Date.now() - new Date(iso)) / 86400000);
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+  return `hace ${dias} días`;
+}
+
+// Cuántos días pasaron, para decidir si algo se está atrasando.
+export const diasDesde = (iso) => Math.floor((Date.now() - new Date(iso)) / 86400000);

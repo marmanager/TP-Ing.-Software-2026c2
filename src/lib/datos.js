@@ -475,6 +475,10 @@ export function DatosProvider({ children }) {
           monto: Number(monto),
           estado: "esperando",
           orden: Math.max(0, ...delCaso.map((p) => p.orden ?? 0)) + 1,
+          // Desde cuándo el cliente tiene la pelota. En Supabase lo pone la
+          // base sola (creado_en default now()); acá hay que escribirlo, o el
+          // modo de ejemplo se quedaría sin la fecha.
+          creado_en: new Date().toISOString(),
         };
         setDatos((d) => ({ ...d, pasos: [...d.pasos, paso] }));
         escribir("paso", paso, { insertar: true });
