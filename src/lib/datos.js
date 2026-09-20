@@ -106,6 +106,83 @@ export async function buscarSeguimiento(codigo) {
   }
 }
 
+// La respuesta del cliente a un paso del presupuesto, desde el link
+// (SCRUM-68, segunda parte).
+//
+// Va al lado de buscarSeguimiento() y por el mismo motivo: quien contesta no
+// tiene sesión ni negocio, así que no puede pasar por el proveedor.
+//
+// Devuelve { ok } o { ok: false, motivo }. El motivo está escrito para el
+// cliente y se muestra tal cual.
+export async function responderDesdeElLink(codigo, pasoId, respuesta) {
+  if (haySupabase && supabase) {
+    const { data, error } = await supabase.rpc("responder_paso_desde_el_link", {
+      p_codigo: codigo,
+      p_paso_id: pasoId,
+      p_respuesta: respuesta,
+    });
+    if (!error && data) return data;
+    // Con la base conectada pero sin la migración corrida, la función no
+    // existe y hay que seguir buscando en el navegador, igual que la
+    // búsqueda. Si el paso tampoco está acá, el mensaje de abajo lo dice.
+    if (!error) return { ok: false, motivo: "No pudimos guardar tu respuesta. Probá de nuevo." };
+  }
+
+  // Modo de ejemplo. Acá sí se escribe en el navegador, a diferencia de la
+  // visita: esto pasa cuando la persona toca un botón, mucho después de que
+  // el proveedor de datos terminó de cargar y guardar. La visita, en cambio,
+  // se registraría justo durante esa carga, y los dos se pisarían.
+  try {
+    const guardado = window.localStorage.getItem(LLAVE);
+    if (!guardado) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
+    const d = JSON.parse(guardado);
+
+    const caso = (d.casos ?? []).find((c) => c.seguimiento_codigo === codigo);
+    if (!caso) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
+    if (caso.estado === "completado") {
+      return {
+        ok: false,
+        motivo: "Este trabajo ya se entregó. Si querés agregar algo, hablá con el negocio.",
+      };
+    }
+
+    const paso = (d.pasos ?? []).find((p) => p.id === pasoId && p.caso_id === caso.id);
+    if (!paso) return { ok: false, motivo: "Ese paso ya no está en el presupuesto." };
+    if (paso.estado === "aprobado") return { ok: false, motivo: "Ese paso ya estaba aprobado." };
+    if (paso.estado === "rechazado") return { ok: false, motivo: "Ese paso ya lo habías contestado." };
+
+    const ahora = new Date().toISOString();
+    d.pasos = d.pasos.map((p) =>
+      p.id === pasoId
+        ? { ...p, estado: respuesta, aprobado_en: respuesta === "aprobado" ? ahora : p.aprobado_en }
+        : p
+    );
+    d.eventos = [
+      {
+        id: nuevoId(),
+        caso_id: caso.id,
+        tipo: "plata",
+        titulo:
+          respuesta === "aprobado"
+            ? "Lo aprobó el cliente desde el link"
+            : "El cliente no lo hace, contestó desde el link",
+        detalle: `${paso.nombre} · ${pesos(paso.monto)}`,
+        autor: "El cliente",
+        icono: respuesta === "aprobado" ? "listo" : "nota",
+        monto: Number(paso.monto),
+        estado: null,
+        ocurrido_en: ahora,
+      },
+      ...(d.eventos ?? []),
+    ];
+
+    window.localStorage.setItem(LLAVE, JSON.stringify(d));
+    return { ok: true };
+  } catch {
+    return { ok: false, motivo: "No pudimos guardar tu respuesta. Probá de nuevo." };
+  }
+}
+
 // Un negocio guardado antes de que existieran los módulos no trae la lista.
 // En ese caso valen los del preset de su rubro: si dejáramos la lista vacía,
 // la navegación se quedaría sin secciones de golpe.
@@ -999,15 +1076,20 @@ export function DatosProvider({ children }) {
       //
       // La foto viene como data URL ya achicado por src/lib/imagen.js, o null
       // para volver al ícono.
-      guardarNegocio({ nombre, descripcion, foto }) {
+      guardarNegocio({ nombre, descripcion, foto, telefono }) {
         const cambios = {
           nombre: nombre.trim(),
           // Vacío es que no hay descripción, no una descripción en blanco.
           descripcion: descripcion.trim() || null,
           foto: foto ?? null,
+          // El teléfono nace en 020_telefono_del_negocio.sql: en una base sin
+          // esa migración la ficha se guarda igual, sin él.
+          telefono: (telefono ?? "").trim() || null,
         };
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
-        escribir("negocio", { id: datos.negocio?.id, ...cambios });
+        escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, ...cambios }, [
+          "telefono",
+        ]);
       },
 
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.

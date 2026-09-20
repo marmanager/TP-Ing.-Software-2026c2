@@ -14,7 +14,11 @@ import {
   CAMPOS_PUBLICOS,
   casoPublico,
   lineaDeEstados,
+  linkDeLlamada,
   linkDeSeguimiento,
+  linkDeWhatsApp,
+  linkDeWhatsAppA,
+  mensajeDeConsulta,
   mensajeDeWhatsApp,
   totalAprobado,
 } from "../src/lib/seguimiento.js";
@@ -24,7 +28,15 @@ const CODIGO = "a3f1c9d84b27e650a3f1c9d84b27e650";
 // Un negocio entero, con todo lo interno puesto a propósito: diagnóstico,
 // notas, el mecánico, el teléfono del cliente, lo cobrado, un insumo y dos
 // pasos que el cliente no aprobó.
-const negocio = { id: "n1", nombre: "Taller Sur", rubro: "taller", inicio: { columnas: 2 } };
+const negocio = {
+  id: "n1",
+  nombre: "Taller Sur",
+  rubro: "taller",
+  // Distinto del de la clienta a propósito: si fueran iguales, el test de
+  // que no viaja el teléfono del cliente pasaría por el motivo equivocado.
+  telefono: "341 222 3333",
+  inicio: { columnas: 2 },
+};
 
 const clientes = [
   {
@@ -112,9 +124,12 @@ const PROHIBIDO = [
   ["el id del caso", casos[0].id],
   ["el id del negocio", negocio.id],
   ["el código del link", CODIGO],
-  ["un paso que no aprobó", pasos[2].nombre],
-  ["el monto de un paso que no aprobó", pasos[2].monto],
+  // Un paso que espera respuesta SÍ viaja desde que el cliente puede
+  // contestarlo desde el link (019_aprobar_desde_el_link.sql). Lo que sigue
+  // afuera es el rechazado: ya lo contestó, y volver a ofrecerlo es del
+  // negocio.
   ["un paso que rechazó", pasos[3].nombre],
+  ["el monto de un paso que rechazó", pasos[3].monto],
   ["los títulos del historial, escritos para adentro", eventos[0].titulo],
   ["otro caso del mismo cliente", casos[1].servicio],
 ];
@@ -147,6 +162,74 @@ test("un paso aprobado lleva sólo el nombre y el monto", () => {
   for (const paso of publico.pasos) {
     assert.deepEqual(Object.keys(paso).sort(), ["monto", "nombre"]);
   }
+});
+
+test("un paso por contestar lleva el id, el nombre, el porqué y el monto, y nada más", () => {
+  for (const paso of publico.por_responder) {
+    assert.deepEqual(Object.keys(paso).sort(), ["descripcion", "id", "monto", "nombre"]);
+  }
+});
+
+// ------------------------------------------------------------
+// Lo que falta que conteste
+// ------------------------------------------------------------
+
+test("le llega lo que espera su respuesta, y sólo eso", () => {
+  assert.deepEqual(
+    publico.por_responder.map((p) => p.nombre),
+    ["Reemplazo de amortiguadores"]
+  );
+  assert.equal(publico.por_responder[0].id, "p3");
+  assert.equal(totalAprobado(publico.por_responder), 58500);
+});
+
+test("un caso entregado no ofrece nada para contestar", () => {
+  const entregado = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    casos: casos.map((c) => (c.id === "k1" ? { ...c, estado: "completado" } : c)),
+  });
+  assert.deepEqual(entregado.por_responder, []);
+  // Y el paso sin contestar tampoco viaja escondido en otro lado.
+  assert.ok(!estaAdentro(entregado, pasos[2].nombre));
+});
+
+test("los pasos de otro caso no entran en lo que hay que contestar", () => {
+  const otro = casoPublico({ codigo: "ffffffffffffffffffffffffffffffff", ...todo });
+  assert.deepEqual(
+    otro.por_responder.map((p) => p.nombre),
+    []
+  );
+  assert.deepEqual(
+    otro.pasos.map((p) => p.nombre),
+    ["Cambio de aceite"]
+  );
+});
+
+test("contestar mueve el paso de una lista a la otra", () => {
+  // Es lo que ve el cliente después de aprobar: el paso deja de estar entre
+  // los que esperan respuesta y aparece entre los que aprobó.
+  const despues = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    pasos: pasos.map((p) => (p.id === "p3" ? { ...p, estado: "aprobado" } : p)),
+  });
+
+  assert.deepEqual(despues.por_responder, []);
+  assert.equal(despues.pasos.length, 3);
+  assert.equal(totalAprobado(despues.pasos), 154500);
+});
+
+test("rechazar lo saca de las dos listas", () => {
+  const despues = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    pasos: pasos.map((p) => (p.id === "p3" ? { ...p, estado: "rechazado" } : p)),
+  });
+
+  assert.deepEqual(despues.por_responder, []);
+  assert.equal(despues.pasos.length, 2);
+  assert.ok(!estaAdentro(despues, pasos[2].nombre), "lo rechazado no se sigue mostrando");
 });
 
 // ------------------------------------------------------------
@@ -330,4 +413,72 @@ test("sin identificador, el mensaje habla de lo que pidió", () => {
     link: "x",
   });
   assert.ok(mensaje.includes("Dolor de cabeza"));
+});
+
+// ------------------------------------------------------------
+// Preguntarle al negocio antes de decidir
+// ------------------------------------------------------------
+
+test("el teléfono del negocio viaja; el del cliente, no", () => {
+  assert.equal(publico.negocio_telefono, "341 222 3333");
+  assert.ok(!estaAdentro(publico, clientes[0].telefono));
+});
+
+test("un negocio sin teléfono cargado no manda un vacío disfrazado", () => {
+  for (const sinTelefono of [undefined, null, "", "   "]) {
+    const r = casoPublico({ codigo: CODIGO, ...todo, negocio: { ...negocio, telefono: sinTelefono } });
+    assert.equal(r.negocio_telefono, null, `con ${JSON.stringify(sinTelefono)}`);
+  }
+});
+
+test("el link de WhatsApp lleva el número al formato que quiere WhatsApp", () => {
+  // Diez dígitos, como los pide el sistema: con característica y sin el 0
+  // ni el 15. Para un celular argentino eso es 54 9 adelante.
+  assert.ok(linkDeWhatsAppA("341 456 7890", "hola").startsWith("https://wa.me/5493414567890?text="));
+  assert.ok(linkDeWhatsAppA("3414567890", "hola").startsWith("https://wa.me/5493414567890?text="));
+});
+
+test("un número que ya viene con el país no se le suma otro", () => {
+  assert.ok(linkDeWhatsAppA("+54 9 341 456 7890", "hola").startsWith("https://wa.me/5493414567890?"));
+});
+
+test("sin número no hay link, ni de WhatsApp ni de llamada", () => {
+  assert.equal(linkDeWhatsAppA(null, "hola"), null);
+  assert.equal(linkDeWhatsAppA("", "hola"), null);
+  assert.equal(linkDeLlamada(null), null);
+  assert.equal(linkDeLlamada("sin números"), null);
+});
+
+test("llamar marca sólo los dígitos", () => {
+  assert.equal(linkDeLlamada("341 456 7890"), "tel:3414567890");
+});
+
+test("el mensaje de consulta dice quién escribe, por qué cosa y sobre qué paso", () => {
+  const m = mensajeDeConsulta({
+    clienteNombre: "Marcela",
+    identificador: "AB 123 CD",
+    servicio: "Ruido raro",
+    numero: 248,
+    paso: "Cambio de pastillas de freno",
+  });
+
+  assert.ok(m.includes("Marcela"), "dice quién es");
+  assert.ok(m.includes("AB 123 CD"), "dice de qué auto habla");
+  assert.ok(m.includes("Cambio de pastillas de freno"), "dice qué está dudando");
+});
+
+test("sin patente, la consulta se identifica con el número de caso", () => {
+  const m = mensajeDeConsulta({ clienteNombre: "Marcela", identificador: null, numero: 248 });
+  assert.ok(m.includes("caso 248"));
+});
+
+test("sin nombre ni patente, el mensaje sigue siendo una frase entera", () => {
+  const m = mensajeDeConsulta({ servicio: "Ruido raro" });
+  assert.ok(m.startsWith("Hola."), m);
+  assert.ok(m.includes("Ruido raro"));
+});
+
+test("el link de WhatsApp sin número sigue sirviendo para el negocio", () => {
+  // El de la otra punta: lo toca el negocio y elige el contacto en su agenda.
+  assert.ok(linkDeWhatsApp("hola").startsWith("https://wa.me/?text="));
 });

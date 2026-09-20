@@ -34,7 +34,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `018_seguimiento.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `020_telefono_del_negocio.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 
@@ -252,16 +252,43 @@ puede adivinar ni recorrer probando valores cercanos. Compartir dos veces el
 mismo caso devuelve el mismo link, porque uno nuevo dejaría muerto el que el
 negocio ya mandó. Dejar de compartirlo corta el acceso en el mismo instante.
 
+**Y contesta el presupuesto desde ahí.** Los pasos que esperan su respuesta
+aparecen en la misma pantalla y los aprueba o los rechaza de a uno, con el monto
+escrito y una confirmación antes. Aprobar es definitivo, igual que cuando lo
+carga el mostrador: el trigger de `015_paso_aprobado_fijo.sql` no deja tocar un
+paso aprobado, venga de donde venga. El historial deja escrito que lo contestó
+él —el evento dice "desde el link" y firma "El cliente"—, que es lo que contesta
+la discusión si mañana hay una sobre quién aprobó qué.
+
+Es una decisión con plata tomada por quien tiene un link, sin cuenta: **el link
+es la firma**. Por eso la respuesta entra sólo por una función que pide el
+código, sólo sobre un paso de ese caso, sólo si está esperando respuesta y sólo
+mientras el caso está abierto.
+
+Y por eso la pantalla, antes de que diga que sí, contesta tres preguntas
+distintas en tres renglones: **qué es** el trabajo (el "por qué conviene" que
+escribió el negocio, o el aviso de que no dejó ninguno), **cuánto** le van a
+cobrar y en cuánto queda su total, y **qué pasa después**. Cuando contesta, un
+comprobante repite qué aprobó y por cuánto: el renglón que tocó ya no está en la
+pantalla, y sin eso no le queda constancia de nada.
+
+**La salida para el que duda** es el teléfono del negocio, que se carga en "Mi
+negocio" y vive en `negocio.telefono` (`020_telefono_del_negocio.sql`). No es el
+de ninguna persona: es el del cartel. Con él, la pantalla ofrece escribirle por
+WhatsApp con el mensaje ya armado —dice quién es, por qué cosa escribe y sobre
+qué paso duda— o llamarlo. Si el negocio no lo cargó, no aparece ningún botón:
+una puerta que no abre es peor que ninguna.
+
 **Qué ve y qué no.** Ve el estado con las palabras de su rubro, qué significa,
 qué se está esperando si está frenado, la línea de los cinco estados con sus
-fechas, y los pasos que él mismo aprobó con su total. No ve el diagnóstico
-interno, ni los pasos que no aprobó, ni las notas, ni quién lo está atendiendo,
-ni nada del inventario, ni ningún otro caso.
+fechas, los pasos que aprobó con su total y los que esperan su respuesta. No ve
+el diagnóstico interno, ni los pasos que ya rechazó, ni las notas, ni quién lo
+está atendiendo, ni nada del inventario, ni ningún otro caso.
 
 Eso está escrito en dos lugares que tienen que decir lo mismo: la función
-`ver_seguimiento()` de `supabase/018_seguimiento.sql`, que arma el objeto campo
-por campo, y `src/lib/seguimiento.js`, que hace el mismo recorte para el modo de
-ejemplo. `pruebas/seguimiento.test.js` está escrito al revés de lo habitual:
+`ver_seguimiento()`, que nació en `supabase/018_seguimiento.sql` y hoy vive en
+`019_aprobar_desde_el_link.sql`, y `src/lib/seguimiento.js`, que hace el mismo
+recorte para el modo de ejemplo. `pruebas/seguimiento.test.js` está escrito al revés de lo habitual:
 comprueba que **no hay ningún campo de más**, así que falla si mañana alguien le
 agrega una columna a `caso` sin acordarse de esta pantalla.
 

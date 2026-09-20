@@ -16,7 +16,7 @@
 //   esto la contradice por decisión del equipo (ver 015_paso_aprobado_fijo.sql).
 //   Como no tiene vuelta, aprobar pide confirmación.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
@@ -28,6 +28,7 @@ import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
 import { ejemplosDe } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
+import { linkDeSeguimiento } from "@/lib/seguimiento";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 const DICHO = {
@@ -42,6 +43,10 @@ export default function AprobarPasos() {
   const { cargando, casos, clientes, pasos, negocio, responderPaso } = datos;
   const { usuario } = useAuth();
   const [mostrandoMensaje, setMostrandoMensaje] = useState(false);
+  // De dónde sale el link que se le manda al cliente. Se lee en un efecto
+  // porque en el servidor no hay window.
+  const [origen, setOrigen] = useState("");
+  useEffect(() => setOrigen(window.location.origin), []);
 
   // Armar el presupuesto: se suman pasos de a uno (SCRUM-59).
   const [armando, setArmando] = useState(false);
@@ -96,6 +101,12 @@ export default function AprobarPasos() {
     `Todo el caso: ${pesos(todo)}`,
     "",
     "Se puede aprobar de a uno. Lo que no apruebes queda anotado para más adelante.",
+    // Si el caso está compartido, el mensaje lleva el link: ahí mismo puede
+    // contestar, en vez de tener que escribir la respuesta a mano y que
+    // alguien del mostrador la cargue después (SCRUM-68).
+    ...(caso.seguimiento_codigo && origen
+      ? ["", `Podés contestar acá: ${linkDeSeguimiento(origen, caso.seguimiento_codigo)}`]
+      : []),
   ].join("\n");
 
   const errorMonto =
