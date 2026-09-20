@@ -42,6 +42,16 @@ const RUTA_BIENVENIDA = "/bienvenida";
 // negocio, o con negocio. La pantalla explica qué pasa en cada caso.
 const esInvitacion = (ruta) => ruta.startsWith("/unirme");
 
+// "/seguimiento/<código>" es la pantalla que abre el cliente del negocio
+// desde un link de WhatsApp (SCRUM-68). No es una pantalla de entrada ni
+// lleva a ninguna: quien la abre no tiene cuenta, no la va a tener, y
+// pedirle que inicie sesión sería volver al teléfono que no para de sonar.
+//
+// Se va antes que todo lo demás, incluso antes de esperar a que resuelva la
+// sesión: la pantalla no necesita nada de acá y mostrarle un "cargando" a
+// quien viene de afuera es hacerlo esperar por algo que no le importa.
+const esSeguimiento = (ruta) => ruta.startsWith("/seguimiento");
+
 // La pantalla de un módulo apagado se sigue pudiendo escribir en la barra de
 // direcciones: un favorito viejo, un link que alguien pasó, el módulo apagado
 // hace un rato. No alcanza con sacarlo de la navegación.
@@ -66,6 +76,7 @@ export default function Guardia({ children }) {
   const ruta = usePathname();
   const router = useRouter();
 
+  const publica = esSeguimiento(ruta);
   const hayEntrada = esDemo || Boolean(sesion);
   const tieneNegocio = esDemo ? Boolean(negocio) : Boolean(usuario?.negocio_id);
 
@@ -73,7 +84,7 @@ export default function Guardia({ children }) {
   const esperando = cargando || datosCargando;
 
   let destino = null;
-  if (!esperando) {
+  if (!esperando && !publica) {
     if (!hayEntrada) {
       // Sin cuenta, lo primero es la landing y no el formulario: quien llega
       // por primera vez todavía no sabe qué es esto.
@@ -100,6 +111,9 @@ export default function Guardia({ children }) {
   useEffect(() => {
     if (destino && destino !== ruta) router.replace(destino);
   }, [destino, ruta, router]);
+
+  // Sin marco, sin navegación y sin esperar a la sesión.
+  if (publica) return children;
 
   if (esperando || (destino && destino !== ruta)) {
     return (
