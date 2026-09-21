@@ -23,7 +23,7 @@ import {
 import { normalizarInicio } from "./inicio";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
-import { casoPublico } from "./seguimiento.js";
+import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -779,7 +779,7 @@ export function DatosProvider({ children }) {
           if (!quedaEsperando) return;
           parchearCaso(casoId, {
             estado: "esperando",
-            que_falta: "la respuesta del cliente",
+            que_falta: ESPERA_AL_CLIENTE,
           });
           anotar({
             casoId,

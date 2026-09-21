@@ -18,6 +18,7 @@ import {
   linkDeLlamada,
   linkDeSeguimiento,
   linkDeWhatsApp,
+  laEspera,
   linkDeWhatsAppA,
   mensajeDeConsulta,
   mensajeDeWhatsApp,
@@ -497,4 +498,112 @@ test("sin nombre ni patente, el mensaje sigue siendo una frase entera", () => {
 test("el link de WhatsApp sin número sigue sirviendo para el negocio", () => {
   // El de la otra punta: lo toca el negocio y elige el contacto en su agenda.
   assert.ok(linkDeWhatsApp("hola").startsWith("https://wa.me/?text="));
+});
+
+// ------------------------------------------------------------
+// De quién es la pelota (flujo, 3.6)
+// ------------------------------------------------------------
+// "Esperando" a secas no le dice nada al que abre el link: si la pelota es
+// suya y la pantalla no se lo dice, se queda esperando a que lo llamen y el
+// presupuesto se muere ahí.
+
+import { comoSeEspera } from "../src/lib/presets.js";
+
+const taller = comoSeEspera("taller");
+
+test("con algo por contestar, le dice que la pelota es suya y qué hacer", () => {
+  const e = laEspera({ estado: "esperando", porResponder: 2, espera: taller });
+
+  assert.equal(e.deQuien, "cliente");
+  assert.match(e.titulo, /esperando tu respuesta/);
+  assert.match(e.detalle, /contestes/);
+});
+
+test("esperando al negocio, lo dice y no le pide nada", () => {
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "El filtro de aceite",
+    porResponder: 0,
+    espera: taller,
+  });
+
+  assert.equal(e.deQuien, "negocio");
+  assert.equal(e.titulo, "Estamos esperando el filtro de aceite.");
+  assert.match(e.detalle, /No hace falta que hagas nada/);
+});
+
+test("lo que tiene la pelota manda por sobre lo que alguien escribió a mano", () => {
+  // El mostrador puede haber dejado escrito cualquier cosa en "qué falta".
+  // Lo que decide es si quedó algo sin contestar.
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "El filtro de aceite",
+    porResponder: 1,
+    espera: taller,
+  });
+  assert.equal(e.deQuien, "cliente");
+});
+
+test("no se le habla en tercera persona en su propia pantalla", () => {
+  // Compartir el link deja escrito "la respuesta del cliente". Si ya no
+  // queda nada por contestar, ese texto quedó viejo: repetirlo sería decirle
+  // "estamos esperando la respuesta del cliente" al cliente.
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "la respuesta del cliente",
+    porResponder: 0,
+    espera: taller,
+  });
+
+  assert.equal(e.deQuien, "negocio");
+  assert.ok(!e.titulo.includes("del cliente"), e.titulo);
+  assert.equal(e.titulo, "Estamos esperando un repuesto.");
+});
+
+test("cada rubro espera con sus palabras", () => {
+  const dice = (rubro) =>
+    laEspera({ estado: "esperando", porResponder: 0, espera: comoSeEspera(rubro) }).titulo;
+
+  assert.equal(dice("taller"), "Estamos esperando un repuesto.");
+  assert.equal(dice("medicina"), "Estamos esperando un estudio o un turno con el especialista.");
+  assert.equal(dice("service"), "Estamos esperando un repuesto.");
+});
+
+test("el texto mezclado del rubro tampoco se le repite", () => {
+  // Al mover el estado desde el desplegable, el sistema escribe el genérico
+  // del preset, que mezcla las dos esperas: "El repuesto o el sí del
+  // cliente". Adentro del negocio alcanza; acá es la confusión que esta
+  // pantalla vino a sacar.
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "El repuesto o el sí del cliente",
+    porResponder: 0,
+    espera: taller,
+    generico: "El repuesto o el sí del cliente",
+  });
+
+  assert.equal(e.titulo, "Estamos esperando un repuesto.");
+  assert.ok(!e.titulo.includes("cliente"));
+});
+
+test("un nombre propio no se pasa a minúscula", () => {
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "Bosch, que confirme el precio",
+    porResponder: 0,
+    espera: taller,
+  });
+  assert.match(e.titulo, /Bosch/);
+});
+
+test("si el caso no está frenado no hay espera que explicar", () => {
+  for (const estado of ["nuevo", "en_proceso", "revision_final", "completado"]) {
+    assert.equal(laEspera({ estado, porResponder: 3, espera: taller }), null, estado);
+  }
+});
+
+test("sin nada escrito y sin preset, igual dice algo entero", () => {
+  const e = laEspera({ estado: "esperando" });
+  assert.equal(e.deQuien, "negocio");
+  assert.ok(e.titulo.endsWith("."), e.titulo);
 });

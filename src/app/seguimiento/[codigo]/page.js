@@ -29,9 +29,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { buscarSeguimiento, responderDesdeElLink } from "@/lib/datos";
 import { ESTADOS, pesos } from "@/lib/estados";
-import { comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
+import { comoSeEspera, comoSeIdentifica, etiquetaEstado, preset } from "@/lib/presets";
 import {
   QUE_SIGNIFICA,
+  laEspera,
   lineaDeEstados,
   linkDeLlamada,
   linkDeWhatsAppA,
@@ -151,6 +152,15 @@ export default function Seguimiento() {
   const total = totalAprobado(pasos);
   const hechos = pasos.filter((p) => p.hecho).length;
   const linea = lineaDeEstados(caso.estado, caso.linea ?? [], { abiertoEn: caso.abierto_en });
+  // De quién es la pelota. Es la pregunta que decide si el cliente contesta
+  // o se queda esperando a que lo llamen.
+  const espera = laEspera({
+    estado: caso.estado,
+    queFalta: caso.que_falta,
+    porResponder: porResponder.length,
+    espera: comoSeEspera(caso.rubro),
+    generico: preset(caso.rubro).explica.esperando,
+  });
 
   return (
     <Marco negocio={caso.negocio_nombre}>
@@ -176,17 +186,39 @@ export default function Seguimiento() {
           <div className="mt-5">
             <ChipEstado estado={caso.estado} rubro={caso.rubro} grande />
           </div>
-          <p className="mt-3 max-w-[65ch] text-cuerpo">{QUE_SIGNIFICA[caso.estado]}</p>
+          {/* Frenado, el texto genérico sobra: lo que hace falta saber es de
+              quién es la pelota, y eso lo dice el bloque de abajo. */}
+          {!espera && (
+            <p className="mt-3 max-w-[65ch] text-cuerpo">{QUE_SIGNIFICA[caso.estado]}</p>
+          )}
 
-          {/* Por qué tarda. Es la pregunta que trae a esta pantalla, así que
-              cuando hay respuesta va acá arriba y no escondida abajo. */}
-          {caso.que_falta && (
-            <p className="mt-4 flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
-              <Icono nombre="reloj" className="mt-0.5 size-6 shrink-0" />
-              <span>
-                <span className="font-bold">Se está esperando:</span> {caso.que_falta}
+          {/* Por qué tarda, y sobre todo si le toca a él. Es la pregunta que
+              trae a esta pantalla, así que va acá arriba y no escondida
+              abajo.
+
+              Cuando la pelota es suya el cartel es azul y pide algo; cuando
+              es del negocio es amarillo de espera y dice que no haga nada.
+              Dos colores distintos para dos situaciones distintas, con el
+              ícono y el texto diciendo lo mismo por si el color no se ve. */}
+          {espera && (
+            <div
+              className={`mt-4 flex items-start gap-2 rounded-campo p-4 ${
+                espera.deQuien === "cliente"
+                  ? "bg-azul-claro text-azul"
+                  : "bg-espera-fondo text-espera"
+              }`}
+            >
+              <Icono
+                nombre={espera.deQuien === "cliente" ? "alerta" : "reloj"}
+                className="mt-0.5 size-6 shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="block font-bold text-cuerpo">{espera.titulo}</span>
+                <span className="mt-1 block max-w-[65ch] text-tinta-media">
+                  {espera.detalle}
+                </span>
               </span>
-            </p>
+            </div>
           )}
 
           <p className="mt-5 text-apoyo text-tinta-suave">
