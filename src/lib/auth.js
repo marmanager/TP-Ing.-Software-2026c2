@@ -12,7 +12,8 @@
 // las políticas de Row Level Security (supabase/005_rls.sql y 008_permisos.sql).
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { supabase, haySupabase } from "./supabase";
+import { supabase, haySupabase, formasDeEntrar } from "./supabase";
+import { errorAlSalirHaciaGoogle, googleActivado, nombreDeLaCuenta } from "./ingreso-google.js";
 
 const LLAVE_DEMO = "marmanager.demo.v1";
 const LLAVE_MAIL = "marmanager.mail-a-confirmar";
@@ -99,6 +100,18 @@ export function AuthProvider({ children }) {
   // Se prende cuando la persona entró por el enlace de "recuperar contraseña",
   // para dejarla llegar a /nueva-contrasena aunque ya tenga sesión y negocio.
   const [recuperando, setRecuperando] = useState(false);
+  // Si "Entrar con Google" está activado en Supabase. Hasta saberlo, no.
+  const [hayGoogle, setHayGoogle] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    formasDeEntrar().then((formas) => {
+      if (vivo) setHayGoogle(googleActivado(formas));
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   // Trae (o crea) la fila de `usuario` que liga la cuenta con su negocio.
   async function traerUsuario(user) {
@@ -107,7 +120,9 @@ export function AuthProvider({ children }) {
       id: user.id,
       email: user.email ?? null,
       telefono: user.user_metadata?.telefono ?? null,
-      nombre: user.user_metadata?.nombre ?? null,
+      // Con mail y contraseña viene como "nombre"; con Google, como
+      // "full_name" (ingreso-google.js).
+      nombre: nombreDeLaCuenta(user.user_metadata),
       negocio_id: null,
       rol: "duenio",
     };
@@ -245,6 +260,34 @@ export function AuthProvider({ children }) {
         return { ok: true };
       },
 
+      // Entrar con Google. Sirve igual para entrar y para crear la cuenta: si
+      // no existe, Supabase la crea. Sale de la página hacia Google y vuelve
+      // a /iniciar-sesion con la sesión puesta; de ahí la Guardia la lleva a
+      // donde corresponda (crear el negocio, o Inicio). Una invitación
+      // pendiente sobrevive al viaje porque está guardada en el navegador.
+      //
+      // Pide sólo quién es la persona: NO conecta Google Calendar, que es un
+      // permiso aparte (src/lib/google-calendar-server.js).
+      async entrarConGoogle() {
+        if (!haySupabase)
+          return {
+            ok: false,
+            error:
+              "Para entrar con Google hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
+          };
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: window.location.origin + "/iniciar-sesion",
+            // Que siempre pregunte con qué cuenta: en la compu del local puede
+            // haber una cuenta de Google abierta que no es la de esta persona.
+            queryParams: { prompt: "select_account" },
+          },
+        });
+        if (error) return { ok: false, error: errorAlSalirHaciaGoogle(error) };
+        return { ok: true };
+      },
+
       async cerrarSesion() {
         if (esDemo) {
           window.localStorage.removeItem(LLAVE_DEMO);
@@ -357,6 +400,7 @@ export function AuthProvider({ children }) {
     cargando,
     necesitaConfirmarMail,
     haySupabase,
+    hayGoogle,
     ...acciones,
   };
 
