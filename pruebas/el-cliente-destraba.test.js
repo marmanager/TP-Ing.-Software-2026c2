@@ -16,6 +16,8 @@ import {
   FIRMA_DEL_CLIENTE,
   casosQueContestoElCliente,
   elClienteDestraba,
+  elClienteVolvioADarTrabajo,
+  quedoTrabajoPendiente,
 } from "../src/lib/estados.js";
 
 const caso = (estado = "esperando", extra = {}) => ({ id: "k1", numero: 1, estado, ...extra });
@@ -169,4 +171,55 @@ test("un caso no se repite por más que el cliente haya contestado tres pasos", 
 test("sin eventos y sin casos no explota", () => {
   assert.deepEqual(casosQueContestoElCliente(), []);
   assert.deepEqual(casosQueContestoElCliente([], []), []);
+});
+
+// ------------------------------------------------------------
+// El camino de vuelta (flujo, punto 10)
+// ------------------------------------------------------------
+
+const aprobado = (hecho_en = null) => ({ caso_id: "k1", estado: "aprobado", hecho_en });
+
+test("un caso en control final con trabajo sin hacer lo dice", () => {
+  // Se controló todo y justo ahí apareció otra cosa: se sumó un paso, se
+  // aprobó, y el caso quedó diciendo "control final" con trabajo adentro.
+  assert.equal(
+    quedoTrabajoPendiente(caso("revision_final"), [aprobado("2026-09-20T10:00:00.000Z"), aprobado()]),
+    true
+  );
+});
+
+test("si está todo hecho, control final es control final", () => {
+  assert.equal(
+    quedoTrabajoPendiente(caso("revision_final"), [aprobado("2026-09-20T10:00:00.000Z")]),
+    false
+  );
+});
+
+test("en cualquier otro estado no se avisa nada", () => {
+  // En el taller con trabajo sin hacer no es una contradicción: es el estado
+  // normal de un caso en el taller.
+  for (const estado of ["nuevo", "en_proceso", "esperando", "completado"]) {
+    assert.equal(quedoTrabajoPendiente(caso(estado), [aprobado()]), false, estado);
+  }
+});
+
+test("un paso sin contestar no cuenta como trabajo sin hacer", () => {
+  assert.equal(
+    quedoTrabajoPendiente(caso("revision_final"), [paso("esperando"), paso("rechazado")]),
+    false
+  );
+});
+
+test("aprobar desde el link saca al caso de control final", () => {
+  assert.equal(elClienteVolvioADarTrabajo(caso("revision_final"), "aprobado"), true);
+});
+
+test("rechazar no lo saca: un «no» no agrega trabajo", () => {
+  assert.equal(elClienteVolvioADarTrabajo(caso("revision_final"), "rechazado"), false);
+});
+
+test("desde cualquier otro estado, aprobar no mueve el caso por este camino", () => {
+  for (const estado of ["nuevo", "en_proceso", "esperando"]) {
+    assert.equal(elClienteVolvioADarTrabajo(caso(estado), "aprobado"), false, estado);
+  }
 });

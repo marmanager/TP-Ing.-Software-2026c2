@@ -20,6 +20,7 @@ import {
   estaAbierto,
   pesos,
   queFalta,
+  quedoTrabajoPendiente,
   quienLoTieneEnPalabras,
   sePuedeMarcarHecho,
 } from "@/lib/estados";
@@ -399,6 +400,47 @@ export default function VerCaso() {
               {errorPaso && (
                 <div className="mt-3">
                   <ErrorGeneral>{errorPaso}</ErrorGeneral>
+                </div>
+              )}
+
+              {/* El camino de vuelta (flujo, punto 10). Se controló todo y
+                  justo ahí apareció otra cosa: se sumó un paso, el cliente
+                  lo aprobó, y el caso quedó diciendo "control final" con
+                  trabajo nuevo adentro.
+
+                  Acá se avisa y se ofrece volver, no se corrige solo: puede
+                  ser que el paso nuevo se haga después de entregar, y eso lo
+                  decide quien está mirando. Cuando el que aprueba es el
+                  cliente desde el link no hay nadie mirando, y ahí sí el
+                  caso vuelve solo (022_el_cliente_destraba.sql). */}
+              {quedoTrabajoPendiente(caso, mios) && abierto && (
+                <div className="mt-3 rounded-tarjeta border-2 border-espera bg-espera-fondo p-4">
+                  <p className="flex items-start gap-2 font-bold text-cuerpo text-espera">
+                    <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                    <span>Quedó trabajo sin hacer</span>
+                  </p>
+                  <p className="mt-1 max-w-[65ch] text-tinta-media">
+                    El caso figura en {etiquetaEstado(negocio?.rubro, "revision_final")}, pero{" "}
+                    {avance.faltan === 1
+                      ? "hay un paso aprobado sin hacer"
+                      : `hay ${avance.faltan} pasos aprobados sin hacer`}
+                    . El control se hizo sobre otro trabajo.
+                  </p>
+                  <div className="mt-4">
+                    <Boton
+                      icono="llave"
+                      onClick={() =>
+                        datos.cambiarEstado(
+                          caso.id,
+                          "en_proceso",
+                          queFaltaPara(negocio?.rubro, "en_proceso"),
+                          AL_PASAR_A.en_proceso
+                        )
+                      }
+                    >
+                      Volverlo a {etiquetaEstado(negocio?.rubro, "en_proceso")}
+                    </Boton>
+                  </div>
                 </div>
               )}
 

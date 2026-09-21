@@ -13,7 +13,13 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
-import { FIRMA_DEL_CLIENTE, elClienteDestraba, pesos, sePuedeMarcarHecho } from "./estados";
+import {
+  FIRMA_DEL_CLIENTE,
+  elClienteDestraba,
+  elClienteVolvioADarTrabajo,
+  pesos,
+  sePuedeMarcarHecho,
+} from "./estados";
 import { normalizarInicio } from "./inicio";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
@@ -195,9 +201,26 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
       ...(d.eventos ?? []),
     ];
 
-    // Si ya no queda nada esperando su respuesta, el caso se suelta solo.
-    // La misma cuenta que hace la base en 022_el_cliente_destraba.sql.
-    if (elClienteDestraba(caso, { pasos: d.pasos, insumos: d.insumos ?? [] })) {
+    // El caso se mueve solo en dos casos, los mismos que hace la base en
+    // 022_el_cliente_destraba.sql: cuando ya no queda nada esperando su
+    // respuesta, y cuando aprueba algo nuevo sobre un caso que ya estaba
+    // controlado.
+    const porQueSeMueve = elClienteDestraba(caso, {
+      pasos: d.pasos,
+      insumos: d.insumos ?? [],
+    })
+      ? {
+          titulo: "El cliente terminó de contestar",
+          detalle: "Ya no queda nada esperando su respuesta.",
+        }
+      : elClienteVolvioADarTrabajo(caso, respuesta)
+        ? {
+            titulo: "El cliente aprobó algo más",
+            detalle: "El caso vuelve al trabajo: el control ya no alcanza.",
+          }
+        : null;
+
+    if (porQueSeMueve) {
       d.casos = d.casos.map((c) =>
         c.id === caso.id ? { ...c, estado: "en_proceso", que_falta: "Hacer el trabajo" } : c
       );
@@ -206,8 +229,8 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
           id: nuevoId(),
           caso_id: caso.id,
           tipo: "estado",
-          titulo: "El cliente terminó de contestar",
-          detalle: "Ya no queda nada esperando su respuesta.",
+          titulo: porQueSeMueve.titulo,
+          detalle: porQueSeMueve.detalle,
           autor: FIRMA_DEL_CLIENTE,
           icono: "llave",
           monto: null,

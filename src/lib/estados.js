@@ -299,6 +299,32 @@ export function elClienteDestraba(caso, { pasos = [], insumos = [] } = {}) {
   return !trabado;
 }
 
+// Un caso que figura controlado pero tiene trabajo sin hacer.
+//
+// Es el punto 10 del flujo: se controló todo, y justo ahí apareció otra cosa
+// que hay que presupuestar. Se suma el paso, el cliente lo aprueba, y el
+// caso queda diciendo "control final" con trabajo nuevo esperando adentro.
+//
+// No se corrige solo desde acá: lo dice, y ofrece el camino de vuelta. Del
+// lado del negocio siempre hay alguien mirando la pantalla, y puede ser que
+// el paso nuevo se haga después de entregar.
+export function quedoTrabajoPendiente(caso, pasosDelCaso = []) {
+  if (caso?.estado !== "revision_final") return false;
+  return avanceDePasos(pasosDelCaso).faltan > 0;
+}
+
+// Cuando la respuesta del cliente vuelve a dar trabajo.
+//
+// Aprobar algo nuevo sobre un caso que ya estaba controlado lo saca de
+// control final: ese control se hizo sobre otro trabajo, y el caso ya no
+// está listo para entregar. Acá sí se corrige solo, y por el mismo motivo
+// que en elClienteDestraba(): del otro lado no hay nadie del negocio para
+// darse cuenta.
+//
+// Rechazar no mueve nada: un "no" no agrega trabajo.
+export const elClienteVolvioADarTrabajo = (caso, respuesta) =>
+  caso?.estado === "revision_final" && respuesta === "aprobado";
+
 // Los casos donde el cliente contestó algo hace poco.
 //
 // Sirve para avisar en el Inicio: el cliente contesta cuando puede —un

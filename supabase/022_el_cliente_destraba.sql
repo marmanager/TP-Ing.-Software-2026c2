@@ -25,6 +25,12 @@
 -- sigue con lo aprobado y, si hace falta, propone otra cosa. Un paso
 -- rechazado no puede dejar un caso trabado para siempre.
 --
+-- Y EL CAMINO DE VUELTA (punto 10 del flujo):
+-- Aprobar algo nuevo sobre un caso que ya estaba en control final lo saca de
+-- ahí. Ese control se hizo sobre otro trabajo: con un paso nuevo aprobado el
+-- caso ya no está listo para entregar. También se corrige solo, y por el
+-- mismo motivo: del otro lado no hay nadie del negocio para darse cuenta.
+--
 -- POR QUÉ DEVUELVE "existe":
 -- El mismo navegador puede tener credenciales cargadas y estar usando el
 -- modo de ejemplo, que guarda todo local. Un link armado en modo de ejemplo
@@ -127,6 +133,25 @@ begin
       'en_proceso',
       'El cliente terminó de contestar',
       'Ya no queda nada esperando su respuesta.',
+      'El cliente',
+      'llave'
+    );
+
+    destrabo := true;
+
+  elsif c.estado = 'revision_final' and p_respuesta = 'aprobado' then
+    update caso
+    set estado = 'en_proceso',
+        que_falta = 'Hacer el trabajo'
+    where id = c.id;
+
+    insert into evento (caso_id, tipo, estado, titulo, detalle, autor, icono)
+    values (
+      c.id,
+      'estado',
+      'en_proceso',
+      'El cliente aprobó algo más',
+      'El caso vuelve al trabajo: el control ya no alcanza.',
       'El cliente',
       'llave'
     );
