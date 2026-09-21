@@ -82,6 +82,10 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
    están en esta rama, son los cobros). Todos se pueden volver a correr
    cuantas veces haga falta.
 
+   Si una base existente muestra `function gen_random_bytes(integer) does not exist`,
+   ejecutar `supabase/029_reparar_codigos.sql` en el SQL Editor. Actualiza las
+   funciones y el valor por defecto que quedaron instalados con versiones viejas.
+
    **En una base nueva se corren todos.** El 001 crea las tablas y nada más: no
    trae la tabla `usuario` (003), ni las invitaciones y los roles (007), ni prende
    el aislamiento (005) o los permisos (008). Saltearse cualquiera de esos cuatro
