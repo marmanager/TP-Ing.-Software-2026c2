@@ -27,7 +27,9 @@ import {
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
 import { queFaltaPara, comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
+import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } from "@/lib/cobros";
 import SelectorEstado from "@/componentes/SelectorEstado";
+import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
 import Icono from "@/componentes/Icono";
 import {
   Boton,
@@ -68,6 +70,14 @@ export default function VerCaso() {
   // Lo que la base contestó cuando no se pudo marcar un paso.
   const [errorPaso, setErrorPaso] = useState(null);
   const [cobro, setCobro] = useState("");
+  // Cómo pagó lo que se cobra al entregar, y lo que contestó la base si no
+  // se pudo anotar (025).
+  const [medioEntrega, setMedioEntrega] = useState("efectivo");
+  const [errorEntrega, setErrorEntrega] = useState(null);
+  const [cerrando, setCerrando] = useState(false);
+  // Si cobra menos de lo que falta: ¿el resto lo paga después, o no se le
+  // cobra? Sin esta pregunta, todo lo que no se cobra queda como deuda.
+  const [elResto, setElResto] = useState("despues");
 
   const caso = casos.find((c) => c.id === id);
   useTitulo(caso ? `Caso ${caso.numero}` : "Caso");
@@ -95,6 +105,11 @@ export default function VerCaso() {
   const falta = queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente });
   const aprobados = mios.filter((p) => p.estado === "aprobado");
   const avance = avanceDePasos(mios);
+  // Los cobros de este caso y la cuenta contra lo aprobado (025). Un caso
+  // puede tener varios: una seña y el resto.
+  const cobrosDeEste = cobrosConLoDeAntes(cobrosDelCaso(datos.cobros ?? [], caso.id), caso);
+  const descuento = descuentoDelCaso(caso, aprobado);
+  const cuenta = cuentaDelCaso({ aprobado, cobros: cobrosDeEste, descuento });
 
   // Marcar el propio trabajo no es mover plata, así que el técnico también
   // puede — pero sólo sobre un caso que tiene asignado, que es la misma
@@ -549,6 +564,20 @@ export default function VerCaso() {
       {/* Contarle al cliente que ya está (flujo, punto 9). Va antes de
           "Terminar el caso" porque es lo que se hace justo antes: primero se
           le avisa, después viene a buscarlo y recién ahí se entrega. */}
+      {/* Lo que se cobró y lo que falta. Va antes de avisarle y de
+          entregar porque es lo que se mira justo antes: si dejó una seña,
+          cuánto le queda por pagar. */}
+      <SeccionCobros
+        caso={caso}
+        aprobado={aprobado}
+        cobros={cobrosDeEste}
+        descuento={descuento}
+        puedeCargar={puedeCargar}
+        datos={datos}
+        cliente={cliente}
+        negocio={negocio}
+      />
+
       {puedeCargar && (caso.estado === "revision_final" || caso.estado === "completado") && (
         <AvisarleQueEstaListo
           caso={caso}
@@ -581,18 +610,23 @@ export default function VerCaso() {
               <>
                 <p className="max-w-[65ch] text-tinta-media">
                   Se lo entregás {cliente?.nombre ? `a ${cliente.nombre.split(" ")[0]}` : "al cliente"},
-                  anotás cuánto cobraste y el caso queda cerrado. Mientras esté
-                  cerrado no se le tocan los pasos ni el diagnóstico.
+                  anotás lo que te pagó y el caso queda cerrado. Si te paga después,
+                  queda anotado lo que falta cobrar. Mientras esté cerrado no se le
+                  tocan los pasos ni el diagnóstico.
                 </p>
                 <div className="mt-4">
                   <Boton
                     variante={caso.estado === "revision_final" ? "borde" : "neutro"}
                     icono="listo"
                     onClick={() => {
-                      // Viene precargado con lo que el cliente aprobó, que es
-                      // lo que casi siempre se cobra.
-                      setCobro(aprobado > 0 ? String(aprobado) : "");
-                      setCambiandoCobro(aprobado === 0);
+                      // Viene precargado con lo que falta cobrar, que es lo
+                      // que casi siempre se cobra: lo aprobado, menos la seña
+                      // si dejó una.
+                      setCobro(cuenta.falta > 0 ? String(cuenta.falta) : "");
+                      setCambiandoCobro(cuenta.falta === 0 && cobrosDeEste.length === 0);
+                      setMedioEntrega("efectivo");
+                      setElResto("despues");
+                      setErrorEntrega(null);
                       setEntregando(true);
                     }}
                   >
@@ -604,51 +638,86 @@ export default function VerCaso() {
               /* El cobro se registra acá y no en una pantalla aparte:
                  entregar y cobrar son un solo momento en el mostrador, y es
                  el único en que alguien tiene el número delante. Se puede
-                 entregar sin registrarlo —una garantía, algo que se cobró por
-                 afuera—, y por eso el campo vacío también cierra el caso. */
+                 entregar sin cobrar —te paga después, o es una garantía—, y
+                 por eso el campo vacío también cierra el caso. */
               <>
                 <p className="flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
                   <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                   <span>
                     <span className="font-bold">Vas a cerrar el caso.</span> Lo que
-                    anotes acá queda registrado como lo que cobraste, y lo va a ver
-                    el cliente en su ficha. Después, para cambiarlo, hay que volver
-                    a abrir el caso.
+                    anotes acá queda registrado como lo que cobraste. Si te paga
+                    después, lo anotás en Cobros cuando pase.
                   </span>
                 </p>
 
+                {/* Si ya dejó algo (una seña), se dice antes que nada: el
+                    monto de abajo es lo que falta, no el total. */}
+                {cobrosDeEste.length > 0 && (
+                  <p className="mt-4 text-tinta-media">
+                    Ya te pagó <span className="font-bold text-tinta">{pesos(cuenta.pagado)}</span>
+                    {cuenta.pendiente > 0 && (
+                      <>
+                        {" "}y se espera un pago de{" "}
+                        <span className="font-bold text-tinta">{pesos(cuenta.pendiente)}</span>
+                      </>
+                    )}
+                    {aprobado > 0 && <> de {pesos(aprobado)} aprobados</>}.
+                  </p>
+                )}
+
                 {/* El monto no arranca editable: en la enorme mayoría de los
-                    casos se cobra lo aprobado, y lo que hay que hacer es
+                    casos se cobra lo que falta, y lo que hay que hacer es
                     confirmar, no escribir. Cambiarlo es la excepción y pide un
                     toque más, con su propio aviso. */}
                 {!cambiandoCobro ? (
                   <div className="mt-4">
-                    <p className="text-tinta-media">Vas a anotar que cobraste</p>
-                    <p className="font-titulo font-extrabold text-dato tabular-nums">
-                      {pesos(aprobado)}
-                    </p>
-                    <p className="mt-1 max-w-[65ch] text-tinta-media">
-                      Es lo que {cliente?.nombre?.split(" ")[0] ?? "el cliente"} aprobó.
-                    </p>
+                    {cuenta.falta > 0 ? (
+                      <>
+                        <p className="text-tinta-media">Vas a anotar que cobraste</p>
+                        <p className="font-titulo font-extrabold text-dato tabular-nums">
+                          {pesos(cuenta.falta)}
+                        </p>
+                        <p className="mt-1 max-w-[65ch] text-tinta-media">
+                          {cobrosDeEste.length > 0
+                            ? "Es lo que falta de lo aprobado."
+                            : `Es lo que ${cliente?.nombre?.split(" ")[0] ?? "el cliente"} aprobó.`}
+                        </p>
+                      </>
+                    ) : (
+                      (() => {
+                        const frase = fraseDeLaCuenta(cuenta);
+                        return (
+                          frase && (
+                            <p className={`flex items-start gap-2 font-bold ${frase.color}`}>
+                              <Icono nombre={frase.icono} className="mt-0.5 size-6 shrink-0" />
+                              <span>{frase.texto}</span>
+                            </p>
+                          )
+                        );
+                      })()
+                    )}
                     <div className="mt-3">
                       <Boton
                         variante="plano"
                         icono="nota"
-                        onClick={() => setCambiandoCobro(true)}
+                        onClick={() => {
+                          if (cuenta.falta === 0) setCobro("");
+                          setCambiandoCobro(true);
+                        }}
                       >
-                        Cobré otra cosa
+                        {cuenta.falta > 0 ? "Cobré otra cosa" : "Cobré algo más"}
                       </Boton>
                     </div>
                   </div>
                 ) : (
                   <div className="mt-4">
-                    {aprobado > 0 && (
+                    {cuenta.falta > 0 && (
                       <p className="mb-3 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
                         <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
                         <span>
-                          Estás cambiando el monto. El cliente aprobó{" "}
-                          <span className="font-bold">{pesos(aprobado)}</span>
-                          {montoCobrado(cobro) != null && montoCobrado(cobro) !== aprobado
+                          Estás cambiando el monto. Falta cobrar{" "}
+                          <span className="font-bold">{pesos(cuenta.falta)}</span>
+                          {montoCobrado(cobro) != null && montoCobrado(cobro) !== cuenta.falta
                             ? `, y estás anotando ${pesos(montoCobrado(cobro))}.`
                             : "."}
                         </span>
@@ -657,7 +726,11 @@ export default function VerCaso() {
                     <Campo
                       id="cobro"
                       etiqueta="¿Cuánto cobraste?"
-                      ayuda="Con números y sin puntos. Si no cobrás acá, dejalo vacío: el caso se entrega igual."
+                      ayuda={
+                        cobrosDeEste.length > 0
+                          ? "Con números y sin puntos. Si hoy no te paga nada más, dejalo vacío: el caso se entrega igual."
+                          : "Con números y sin puntos. Si te paga después, dejalo vacío: el caso se entrega igual. Si no le cobrás nada, poné 0."
+                      }
                       ejemplo="120000"
                       error={!cobroValido(cobro) ? "El monto va con números y sin puntos." : null}
                       inputMode="numeric"
@@ -667,12 +740,95 @@ export default function VerCaso() {
                   </div>
                 )}
 
+                {/* Cómo pagó, sólo si hay plata que anotar. */}
+                {cobroValido(cobro) && montoCobrado(cobro) > 0 && (
+                  <div className="mb-6">
+                    <ElegirMedio valor={medioEntrega} alElegir={setMedioEntrega} />
+                  </div>
+                )}
+
+                {/* Cobró menos de lo que faltaba (incluido 0): ¿y el resto?
+                    Con el campo vacío no se pregunta: vacío es "hoy no se
+                    anota nada", y lo que falta sigue faltando. */}
+                {cobroValido(cobro) &&
+                  montoCobrado(cobro) != null &&
+                  cuenta.falta > 0 &&
+                  montoCobrado(cobro) < cuenta.falta && (
+                    <fieldset className="mb-6">
+                      <legend className="mb-2 font-bold text-cuerpo">
+                        ¿Y los {pesos(cuenta.falta - montoCobrado(cobro))} que faltan?
+                      </legend>
+                      <ul className="flex flex-wrap gap-2.5">
+                        {[
+                          { valor: "despues", palabra: "Me los paga después" },
+                          { valor: "no_se_cobra", palabra: "No se los cobro" },
+                        ].map((o) => {
+                          const puesta = o.valor === elResto;
+                          return (
+                            <li key={o.valor}>
+                              <button
+                                type="button"
+                                aria-pressed={puesta}
+                                onClick={() => setElResto(o.valor)}
+                                className={[
+                                  "flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 px-4 font-bold text-cuerpo",
+                                  puesta
+                                    ? "border-azul bg-azul-claro text-azul"
+                                    : "border-borde-fuerte bg-tarjeta text-tinta hover:bg-superficie",
+                                ].join(" ")}
+                              >
+                                {puesta && <Icono nombre="listo" className="size-5" />}
+                                {o.palabra}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </fieldset>
+                  )}
+
+                {errorEntrega && (
+                  <p role="alert" className="mb-4 flex items-start gap-2 font-bold text-rojo">
+                    <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                    <span>{errorEntrega}</span>
+                  </p>
+                )}
+
                 <div className="flex flex-wrap gap-3">
                   <Boton
                     icono="listo"
-                    motivo={!cobroValido(cobro) ? "revisá el monto" : null}
-                    onClick={() => {
+                    motivo={
+                      cerrando ? "guardando" : !cobroValido(cobro) ? "revisá el monto" : null
+                    }
+                    onClick={async () => {
                       const monto = montoCobrado(cobro);
+                      setErrorEntrega(null);
+
+                      // Primero el cobro, después el cierre: si el cobro no
+                      // se pudo anotar, el caso no se cierra como si se
+                      // hubiera cobrado.
+                      if (monto > 0) {
+                        setCerrando(true);
+                        const r = await datos.registrarCobro({
+                          casoId: caso.id,
+                          monto,
+                          medio: medioEntrega,
+                        });
+                        setCerrando(false);
+                        if (!r.ok) return setErrorEntrega(r.error);
+                      }
+
+                      // Lo que queda después de lo que se cobra hoy. Si se
+                      // eligió no cobrarlo, pasa a descuento y no se debe.
+                      const restoAntes = Math.max(0, cuenta.falta - (monto > 0 ? monto : 0));
+                      const descuenta = monto != null && restoAntes > 0 && elResto === "no_se_cobra";
+                      const resto = descuenta ? 0 : restoAntes;
+
+                      // El 0 de SCRUM-74: se entregó sin cobrar nada. Sólo
+                      // tiene sentido en un caso sin cobros; con una seña,
+                      // "0 hoy" no es "no se cobró nada".
+                      const sinCobrarNada = monto === 0 && cobrosDeEste.length === 0;
+
                       datos.cambiarEstado(
                         caso.id,
                         "completado",
@@ -680,17 +836,31 @@ export default function VerCaso() {
                         {
                           titulo: "Entregaron el trabajo",
                           detalle:
-                            monto === null
-                              ? "El caso queda cerrado."
-                              : `El caso queda cerrado. Cobraron ${pesos(monto)}.`,
+                            "El caso queda cerrado." +
+                            (monto > 0 ? ` Cobraron ${pesos(monto)}.` : "") +
+                            (sinCobrarNada && descuenta ? " No se cobró nada." : "") +
+                            (descuenta && !sinCobrarNada ? ` No le cobran ${pesos(restoAntes)}.` : "") +
+                            (resto > 0 ? ` Falta cobrar ${pesos(resto)}.` : ""),
                           icono: "listo",
                         },
-                        { cobrado: monto, cobrado_en: monto === null ? null : new Date().toISOString() }
+                        {
+                          ...(sinCobrarNada && descuenta
+                            ? { cobrado: 0, cobrado_en: new Date().toISOString() }
+                            : {}),
+                          // El descuento se escribe siempre, aunque sea 0: es
+                          // la marca de que se cerró sabiendo cuánto quedaba
+                          // (saldoConocido en lib/cobros.js). Sin ella, un
+                          // caso cerrado "me paga después" no se distinguiría
+                          // de uno viejo cobrado por afuera.
+                          descuento: descuenta ? cuenta.descuento + restoAntes : cuenta.descuento,
+                        }
                       );
                       datos.avisarExito(
-                        monto === null
-                          ? `Listo. El caso ${caso.numero} quedó entregado.`
-                          : `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
+                        resto > 0
+                          ? `Listo. El caso ${caso.numero} quedó entregado. Falta cobrar ${pesos(resto)}.`
+                          : monto > 0
+                            ? `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
+                            : `Listo. El caso ${caso.numero} quedó entregado.`
                       );
                       setEntregando(false);
                     }}
@@ -711,6 +881,15 @@ export default function VerCaso() {
           <Tarjeta>
             <p className="max-w-[65ch] text-tinta-media">
               Se entregó{caso.cobrado != null ? ` y se cobró ${pesos(Number(caso.cobrado))}` : ""}.
+              {aprobado > 0 && cuenta.falta > 0 && (
+                <>
+                  {" "}
+                  <span className="font-bold text-espera">
+                    Falta cobrar {pesos(cuenta.falta)}
+                  </span>
+                  : lo anotás en Cobros cuando te pague.
+                </>
+              )}{" "}
               Mientras siga cerrado no se le cambian los pasos ni el diagnóstico.
             </p>
             {/* Nada es definitivo: se puede haber cerrado de más. Es la única

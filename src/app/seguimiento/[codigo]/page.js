@@ -40,6 +40,7 @@ import {
   totalAprobado,
 } from "@/lib/seguimiento";
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
+import { API_PAGOS, pagarDesdeSeguimiento } from "@/lib/pagos";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando } from "@/componentes/ui";
@@ -516,6 +517,20 @@ export default function Seguimiento() {
 
       {/* Por dónde pasó y qué falta. Los cinco pasos siempre, también los que
           todavía no llegaron: saber cuánto queda es parte de la respuesta. */}
+      {/* Cuánto pagó y cuánto falta. Pagar desde acá es una opción, no una
+          obligación: también puede pagar en el local. Va antes de "Por dónde
+          va" porque, cuando está listo, es lo que viene a resolver. */}
+      {caso.pago && (
+        <SeccionPago
+          pago={caso.pago}
+          codigo={codigo}
+          completado={caso.estado === "completado"}
+          // Un solo botón azul por pantalla (cartilla): si hay pasos para
+          // contestar, el azul es de esa decisión.
+          principal={porResponder.length === 0}
+        />
+      )}
+
       <h2 className="mt-10 mb-3 text-seccion">Por dónde va</h2>
       <ol className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
         {linea.map((paso) => {
@@ -627,6 +642,119 @@ export default function Seguimiento() {
         directamente con {caso.negocio_nombre}.
       </p>
     </Marco>
+  );
+}
+
+// El pago, visto por el cliente. Lo que llega ya viene recortado por la base
+// (026_pago_en_el_seguimiento.sql): cuánto pagó, cuánto falta y los links
+// que le mandaron. Nada de cómo pagó cada cosa ni de descuentos.
+function SeccionPago({ pago, codigo, completado, principal }) {
+  const [armando, setArmando] = useState(false);
+  const [problema, setProblema] = useState(null);
+  const pendientes = pago.pendientes ?? [];
+  const todoPago = pago.falta === 0 && pendientes.length === 0;
+  const claseBoton = principal
+    ? "bg-azul text-white hover:bg-azul-apretado"
+    : "bg-tarjeta text-azul border-2 border-azul hover:bg-azul-claro";
+
+  return (
+    <>
+      <h2 className="mt-10 mb-3 text-seccion">El pago</h2>
+      <div className="rounded-tarjeta border border-borde bg-tarjeta p-5 sm:p-6">
+        {todoPago ? (
+          <p className="flex items-start gap-2 font-bold text-completo">
+            <Icono nombre="listo" className="mt-0.5 size-6 shrink-0" />
+            <span>
+              Está todo pago{pago.pagado > 0 ? `: pagaste ${pesos(pago.pagado)}` : ""}. Gracias.
+            </span>
+          </p>
+        ) : (
+          <>
+            {pago.pagado > 0 && (
+              <p className="text-tinta-media">
+                Ya pagaste <span className="font-bold text-tinta">{pesos(pago.pagado)}</span>.
+              </p>
+            )}
+            {pago.falta > 0 && (
+              <>
+                <p className="mt-1 text-tinta-media">Falta pagar</p>
+                <p className="font-titulo font-extrabold text-dato tabular-nums">{pesos(pago.falta)}</p>
+              </>
+            )}
+
+            {/* Los links que le mandó el negocio. En el modo de ejemplo no
+                hay link de verdad, y se dice. */}
+            {pendientes.map((x, i) => (
+              <div key={i} className="mt-4 rounded-campo bg-superficie p-4">
+                <p className="text-tinta-media">
+                  {pago.falta > 0 ? "Además, te mandaron" : "Te mandaron"} un
+                  link para pagar <span className="font-bold text-tinta">{pesos(x.monto)}</span>.
+                </p>
+                {x.link ? (
+                  <a
+                    href={x.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-campo px-5 font-bold text-cuerpo sm:min-h-12 sm:w-auto sm:inline-flex ${claseBoton}`}
+                  >
+                    <Icono nombre="listo" className="size-6" />
+                    Pagar {pesos(x.monto)}
+                  </a>
+                ) : (
+                  <p className="mt-2 text-tinta-suave">
+                    Simulación: acá aparece el botón para pagar con el medio de pago.
+                  </p>
+                )}
+                {x.vence_en && (
+                  <p className="mt-2 text-apoyo text-tinta-suave">
+                    El link sirve hasta {elDia(x.vence_en)}.
+                  </p>
+                )}
+              </div>
+            ))}
+
+            {/* Pagar lo que falta, sin esperar a que le manden un link. Sólo
+                si el negocio tiene conectado el sistema de pagos y no hay ya
+                un link esperando (no se le ofrecen dos caminos para lo mismo). */}
+            {pago.falta > 0 && pendientes.length === 0 && API_PAGOS && (
+              <div className="mt-4">
+                <Boton
+                  variante={principal ? "principal" : "borde"}
+                  icono="listo"
+                  className="min-h-14 w-full sm:min-h-12 sm:w-auto"
+                  motivo={armando ? "armando el pago" : null}
+                  onClick={async () => {
+                    setProblema(null);
+                    setArmando(true);
+                    const r = await pagarDesdeSeguimiento({ codigo });
+                    setArmando(false);
+                    if (!r.ok) return setProblema(r.error);
+                    window.location.href = r.link;
+                  }}
+                >
+                  Pagar {pesos(pago.falta)} ahora
+                </Boton>
+              </div>
+            )}
+
+            {problema && (
+              <p role="alert" className="mt-3 flex items-start gap-2 font-bold text-espera">
+                <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                <span>{problema}</span>
+              </p>
+            )}
+
+            {pago.falta > 0 && (
+              <p className="mt-4 max-w-[65ch] text-tinta-media">
+                {completado
+                  ? "Si preferís, pagalo directamente en el local."
+                  : "Si preferís, pagalo en el local cuando lo retires."}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }
 

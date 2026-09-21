@@ -25,6 +25,15 @@ import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
 import { agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
+import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
+import {
+  MEDIOS_DEL_LOCAL,
+  MEDIOS_EN_LINEA,
+  conCobro as ponerCobro,
+  medioDe,
+  montoDeCobroValido,
+  sePuedeAnular,
+} from "./cobros.js";
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -37,6 +46,8 @@ const VACIO = {
   insumos: [],
   turnos: [],
   invitaciones: [],
+  // Los cobros de cada caso (025). Un caso puede tener varios.
+  cobros: [],
 };
 
 const Contexto = createContext(null);
@@ -73,6 +84,16 @@ const porQueNoSePudoCompartirAgenda = (error) => {
     return "Falta correr 024_pedir_turno.sql en Supabase. Hasta entonces no se puede compartir la agenda.";
   }
   return texto || "No se pudo compartir la agenda.";
+};
+
+// Por qué no se pudo anotar o anular un cobro. Lo más probable, antes que un
+// permiso, es que falte la migración.
+const porQueNoSePudoCobrar = (error) => {
+  const texto = error?.message ?? "";
+  if (error?.code === "PGRST202" || texto.includes("registrar_cobro") || texto.includes("anular_cobro")) {
+    return "Falta correr 025_cobros.sql en Supabase. Hasta entonces no se pueden anotar cobros sueltos.";
+  }
+  return texto || "No se pudo guardar el cobro.";
 };
 
 const porQueNoSePudoCompartirCalendario = (error) => {
@@ -376,7 +397,7 @@ const conModulos = (negocio) =>
 // (supabase/005_rls.sql), que ya no devolverían nada de otro negocio aunque
 // acá pidiéramos todo.
 async function leerDeSupabase(negocioId) {
-  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones] =
+  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones, cobros] =
     await Promise.all([
       supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
       supabase.from("empleado").select("*").eq("negocio_id", negocioId),
@@ -385,6 +406,7 @@ async function leerDeSupabase(negocioId) {
       supabase.from("insumo").select("*").eq("negocio_id", negocioId),
       supabase.from("turno").select("*").eq("negocio_id", negocioId),
       supabase.from("invitacion").select("*").eq("negocio_id", negocioId),
+      supabase.from("cobro").select("*").eq("negocio_id", negocioId),
     ]);
 
   const conError = [negocio, empleados, clientes, casos, insumos, turnos].find((r) => r.error);
@@ -416,6 +438,9 @@ async function leerDeSupabase(negocioId) {
     turnos: turnos.data ?? [],
     // Si la migración de invitaciones todavía no corrió, el resto anda igual.
     invitaciones: invitaciones.error ? [] : (invitaciones.data ?? []),
+    // Lo mismo con los cobros: sin 025 corrida, cada caso sigue con su
+    // número único de 012 y nada se rompe.
+    cobros: cobros.error ? [] : (cobros.data ?? []),
   };
 }
 
@@ -565,6 +590,14 @@ export function DatosProvider({ children }) {
       if (error) setAviso("No se pudo borrar en la base: " + error.message);
     };
 
+    // La sesión de quien está usando el sistema, para llamar a la API de
+    // pagos como esa persona (docs/api-pagos.md).
+    const tokenDeSesion = async () => {
+      if (!supabase) return null;
+      const { data } = await supabase.auth.getSession();
+      return data?.session?.access_token ?? null;
+    };
+
     // Quién firma el historial. La regla vive en permisos.js y tiene test.
     const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
 
@@ -645,12 +678,14 @@ export function DatosProvider({ children }) {
       return evento;
     };
 
+    // "descuento" nace en 025_cobros.sql: si la base todavía no lo tiene,
+    // el resto del cambio (cerrar el caso, por ejemplo) se guarda igual.
     const parchearCaso = (casoId, cambios) => {
       setDatos((d) => ({
         ...d,
         casos: d.casos.map((c) => (c.id === casoId ? { ...c, ...cambios } : c)),
       }));
-      escribir("caso", { id: casoId, ...cambios });
+      escribirConColumnasNuevas("caso", { id: casoId, ...cambios }, ["descuento"]);
     };
 
     return {
@@ -832,6 +867,251 @@ export function DatosProvider({ children }) {
           icono: textoHistorial.icono,
           estado,
         });
+      },
+
+      // ---------- cobros (025) ----------
+      //
+      // Anotar un pago que ya pasó en el local: efectivo, transferencia o
+      // tarjeta. Nace pagado. Un caso puede tener varios (una seña y el
+      // resto), y caso.cobrado pasa a ser la suma: en la base lo mantiene un
+      // trigger, acá lo recalcula conCobro() con la misma cuenta.
+      //
+      // Los cobros por link o QR no pasan por acá: los pide la API de pagos
+      // y los marca pagados ella, cuando el medio de pago confirma.
+      async registrarCobro({ casoId, monto, medio, nota = null }) {
+        const caso = datos.casos.find((c) => c.id === casoId);
+        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        if (!montoDeCobroValido(String(monto ?? ""))) {
+          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+        }
+        if (!MEDIOS_DEL_LOCAL.includes(medio)) {
+          return { ok: false, error: "Los cobros por link o QR se piden desde el sistema de pagos." };
+        }
+
+        let nuevo;
+        if (enSupabase()) {
+          const { data, error } = await supabase.rpc("registrar_cobro", {
+            p_caso_id: casoId,
+            p_monto: Number(monto),
+            p_medio: medio,
+            p_nota: nota,
+          });
+          if (error) return { ok: false, error: porQueNoSePudoCobrar(error) };
+          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo anotar el cobro." };
+          nuevo = data.cobro;
+        } else {
+          const ahora = new Date().toISOString();
+          nuevo = {
+            id: nuevoId(),
+            negocio_id: datos.negocio.id,
+            caso_id: casoId,
+            monto: Number(monto),
+            medio,
+            estado: "pagado",
+            nota: nota?.trim() || null,
+            creado_en: ahora,
+            pagado_en: ahora,
+          };
+        }
+
+        setDatos((d) => ponerCobro(d, nuevo, { adoptarLoViejo: !enSupabase(), nuevoId }));
+        anotar({
+          casoId,
+          tipo: "plata",
+          titulo: "Cobraron",
+          detalle: `${pesos(Number(monto))} · ${medioDe(medio).palabra}`,
+          icono: "listo",
+          monto: Number(monto),
+        });
+        return { ok: true, cobro: nuevo };
+      },
+
+      // Lo que no se le cobra: un descuento, una cortesía, una garantía. Va
+      // en el caso y no como cobro, porque no es plata que entra. "monto" es
+      // el descuento total que queda (0 lo saca).
+      cambiarDescuento(casoId, monto, { antes = 0 } = {}) {
+        const nuevo = Math.max(0, Number(monto) || 0);
+        parchearCaso(casoId, { descuento: nuevo });
+        anotar({
+          casoId,
+          tipo: "plata",
+          titulo: nuevo > 0 ? "No le cobran una parte" : "Sacaron el descuento",
+          detalle:
+            nuevo > 0
+              ? `Descuento de ${pesos(nuevo)}.`
+              : `Ya no se descuentan ${pesos(Number(antes))}: vuelve a figurar como por cobrar.`,
+          icono: nuevo > 0 ? "nota" : "deshacer",
+          monto: nuevo > 0 ? nuevo : Number(antes),
+        });
+        return { ok: true };
+      },
+
+      // ---------- pagos por link o QR (la API de pagos) ----------
+      //
+      // Qué se puede hoy: de verdad (hay API), simulado (modo de ejemplo) o
+      // nada (Supabase sin API todavía). Lo lee la pantalla para decidir si
+      // ofrece el botón o lo muestra apagado con el motivo.
+      pagosEnLinea: pagosEnLinea({ esDemo }),
+
+      // Pedir un pago: la API arma el link o el QR y guarda el cobro
+      // "pendiente". Pasa a pagado sólo cuando el medio de pago le avisa a la
+      // API; acá nunca.
+      async pedirCobroEnLinea({ casoId, monto, medio }) {
+        const caso = datos.casos.find((c) => c.id === casoId);
+        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        if (!montoDeCobroValido(String(monto ?? ""))) {
+          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+        }
+        if (!MEDIOS_EN_LINEA.includes(medio)) return { ok: false, error: "Elegí link o QR." };
+
+        const enLinea = pagosEnLinea({ esDemo });
+        if (!enLinea.disponible) return { ok: false, error: "Todavía no está conectado el sistema de pagos." };
+
+        let nuevo;
+        if (enLinea.simulado) {
+          const ahora = new Date();
+          nuevo = {
+            id: nuevoId(),
+            negocio_id: datos.negocio.id,
+            caso_id: casoId,
+            monto: Number(monto),
+            medio,
+            estado: "pendiente",
+            proveedor: "simulado",
+            link: null,
+            vence_en: new Date(ahora.getTime() + 3 * 86400000).toISOString(),
+            creado_en: ahora.toISOString(),
+          };
+        } else {
+          const token = await tokenDeSesion();
+          if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+          const r = await pedirPagoEnLinea({ casoId, monto, medio, token });
+          if (!r.ok) return { ok: false, error: r.error };
+          nuevo = r.cobro;
+        }
+
+        setDatos((d) => ponerCobro(d, nuevo, { nuevoId }));
+        anotar({
+          casoId,
+          tipo: "plata",
+          titulo: medio === "qr" ? "Pidieron un pago con QR" : "Pidieron un pago por link",
+          detalle: `${pesos(Number(monto))} · esperando el pago`,
+          icono: "reloj",
+          monto: Number(monto),
+        });
+        return { ok: true, cobro: nuevo };
+      },
+
+      // Sólo en el modo de ejemplo: hacer de cuenta que el medio de pago
+      // avisó. Con la API, esto lo hace el webhook del lado del servidor.
+      simularPago(cobroId, resultado = "pagado") {
+        if (!pagosEnLinea({ esDemo }).simulado) return { ok: false };
+        const cobro = datos.cobros.find((c) => c.id === cobroId);
+        if (!cobro || cobro.estado !== "pendiente") return { ok: false };
+        const ahora = new Date().toISOString();
+        const nuevo = {
+          ...cobro,
+          estado: resultado,
+          pagado_en: resultado === "pagado" ? ahora : null,
+        };
+        setDatos((d) => ponerCobro(d, nuevo, { nuevoId }));
+        anotar({
+          casoId: cobro.caso_id,
+          tipo: "plata",
+          titulo:
+            resultado === "pagado"
+              ? "Entró un pago"
+              : resultado === "vencido"
+                ? "Venció un pedido de pago"
+                : "No pasó un pago",
+          detalle: `${pesos(Number(cobro.monto))} · ${medioDe(cobro.medio).palabra}`,
+          icono: resultado === "pagado" ? "listo" : "alerta",
+          monto: Number(cobro.monto),
+        });
+        return { ok: true };
+      },
+
+      // Volver a leer los cobros de un caso: lo que cambió del otro lado
+      // (un pago que entró por link) no llega solo. Devuelve los que pasaron
+      // a pagado desde la última vez, para que la pantalla lo pueda contar.
+      async refrescarCobros(casoId) {
+        if (!enSupabase()) return { ok: true, pagados: [] };
+        const [cobros, caso] = await Promise.all([
+          supabase.from("cobro").select("*").eq("caso_id", casoId),
+          supabase.from("caso").select("id, cobrado, cobrado_en").eq("id", casoId).maybeSingle(),
+        ]);
+        if (cobros.error || caso.error) return { ok: false, pagados: [] };
+
+        const antes = new Map(datos.cobros.filter((c) => c.caso_id === casoId).map((c) => [c.id, c.estado]));
+        const pagados = (cobros.data ?? []).filter((c) => c.estado === "pagado" && antes.get(c.id) === "pendiente");
+
+        setDatos((d) => ({
+          ...d,
+          cobros: [...d.cobros.filter((c) => c.caso_id !== casoId), ...(cobros.data ?? [])],
+          casos: d.casos.map((c) =>
+            c.id === casoId && caso.data
+              ? { ...c, cobrado: caso.data.cobrado, cobrado_en: caso.data.cobrado_en }
+              : c
+          ),
+        }));
+        return { ok: true, pagados };
+      },
+
+      // Corregir un cobro mal anotado. No se borra: queda anulado, y el
+      // historial dice quién y por qué. Un pago por link que ya entró no se
+      // anula: se devuelve desde el medio de pago.
+      async anularCobro(cobroId, motivo = null) {
+        const cobro = datos.cobros.find((c) => c.id === cobroId);
+        if (!cobro) return { ok: false, error: "Ese cobro ya no está." };
+        if (!sePuedeAnular(cobro)) {
+          return {
+            ok: false,
+            error:
+              cobro.estado === "pagado"
+                ? "Ese pago ya entró por el medio de pago. Para devolverlo, hay que hacerlo desde ahí."
+                : "Ese cobro ya no cuenta: no hay nada que anular.",
+          };
+        }
+
+        let anulado;
+        const enLinea = pagosEnLinea({ esDemo });
+        if (cobro.estado === "pendiente" && MEDIOS_EN_LINEA.includes(cobro.medio) && !enLinea.simulado) {
+          // Además de anularlo en la tabla hay que dar de baja el link en el
+          // medio de pago: si no, el cliente todavía podría pagarlo. Eso lo
+          // hace la API, que es la única que habla con él.
+          const token = await tokenDeSesion();
+          const r = await anularPagoEnLinea({ cobroId, motivo, token });
+          if (!r.ok) return { ok: false, error: r.error };
+          anulado = r.cobro;
+        } else if (enSupabase()) {
+          const { data, error } = await supabase.rpc("anular_cobro", {
+            p_cobro_id: cobroId,
+            p_motivo: motivo,
+          });
+          if (error) return { ok: false, error: porQueNoSePudoCobrar(error) };
+          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo anular el cobro." };
+          anulado = data.cobro;
+        } else {
+          anulado = {
+            ...cobro,
+            estado: "anulado",
+            anulado_en: new Date().toISOString(),
+            motivo_anulacion: motivo?.trim() || null,
+          };
+        }
+
+        setDatos((d) => ponerCobro(d, anulado, { nuevoId }));
+        anotar({
+          casoId: cobro.caso_id,
+          tipo: "plata",
+          titulo: "Anularon un cobro",
+          detalle:
+            `${pesos(Number(cobro.monto))} · ${medioDe(cobro.medio).palabra}` +
+            (motivo?.trim() ? ` · ${motivo.trim()}` : ""),
+          icono: "cruz",
+          monto: Number(cobro.monto),
+        });
+        return { ok: true, cobro: anulado };
       },
 
       // Marcar que un paso aprobado ya se hizo, o desmarcarlo (flujo, 7).

@@ -27,8 +27,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { casosPorAprobar, casosQueContestoElCliente, estaAbierto } from "@/lib/estados";
+import { casosPorAprobar, casosQueContestoElCliente, estaAbierto, pesos } from "@/lib/estados";
 import { turnosSinVer } from "@/lib/turnos";
+import { casosConSaldo } from "@/lib/cobros";
 import { diasDesde } from "@/lib/fechas";
 import {
   ALTO_FILA,
@@ -70,6 +71,7 @@ export default function Inicio() {
     insumos,
     eventos,
     turnos,
+    cobros,
     negocio,
     inicio,
     cambiarInicio,
@@ -152,6 +154,11 @@ export default function Inicio() {
   // del lado del negocio nadie se enteró hasta que alguien mira la agenda.
   const turnosNuevos = turnosSinVer(turnos ?? []);
 
+  // Los entregados que todavía deben plata (025): el cliente se llevó el
+  // trabajo y paga después. Si nadie lo mira, se olvida.
+  const conSaldo = casosConSaldo({ casos, pasos, cobros: cobros ?? [] });
+  const saldoTotal = conSaldo.reduce((s, x) => s + x.cuenta.falta, 0);
+
   const hayQueMirar = [
     turnosNuevos.length > 0 && {
       href: "/agenda",
@@ -166,6 +173,13 @@ export default function Inicio() {
         contestados.length === 1
           ? `El cliente contestó el caso ${contestados[0].numero}`
           : `${contestados.length} casos que contestó el cliente`,
+    },
+    conSaldo.length > 0 && {
+      href: conSaldo.length === 1 ? `/casos/${conSaldo[0].caso.id}` : "/casos",
+      texto:
+        conSaldo.length === 1
+          ? `Falta cobrar ${pesos(saldoTotal)} del caso ${conSaldo[0].caso.numero}`
+          : `Falta cobrar ${pesos(saldoTotal)} de ${conSaldo.length} casos entregados`,
     },
     trabados > 0 && {
       href: "/aprobar",
