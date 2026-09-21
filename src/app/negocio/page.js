@@ -18,6 +18,7 @@ import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
 import { LISTA_MODULOS } from "@/lib/modulos";
+import { DIAS, normalizarHorarios } from "@/lib/horarios";
 import { contrasenaValida, telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
@@ -173,6 +174,7 @@ export default function MiNegocio() {
   const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
   const prendidos = LISTA_MODULOS.filter((m) => modulosActivos.includes(m.clave));
   const nuevo = rubroElegido ? preset(rubroElegido) : null;
+  const horarios = normalizarHorarios(negocio?.horarios);
 
   function cerrarCambioDeRubro() {
     setCambiandoRubro(false);
@@ -207,6 +209,7 @@ export default function MiNegocio() {
           {[
             ["#estados", "Los estados"],
             ["#modulos", "Los módulos"],
+            ...(modulosActivos.includes("agenda") ? [["#horarios", "Cuándo atendés"]] : []),
             ["#rubro", "El rubro"],
             ["#cuenta", "Mi cuenta"],
           ].map(([href, texto]) => (
@@ -432,6 +435,55 @@ export default function MiNegocio() {
           </Link>
         </div>
       </Tarjeta>
+
+      {/* Cuándo atiende. Sólo si la agenda está prendida: sin agenda no hay
+          turnos que dar, y configurar horarios sería configurar algo que no
+          se usa. */}
+      {modulosActivos.includes("agenda") && (
+        <>
+          <TituloSeccion id="horarios">Cuándo atendés</TituloSeccion>
+          <Tarjeta className="mb-12">
+            {horarios ? (
+              <>
+                <p className="text-tinta-media">
+                  Atendés{" "}
+                  <span className="font-bold text-tinta">
+                    {DIAS.filter((d) => horarios.dias.includes(d.clave))
+                      .map((d) => d.corto)
+                      .join(" · ") || "ningún día"}
+                  </span>
+                  , de {horarios.desde} a {horarios.hasta}
+                  {horarios.corte
+                    ? `, cortando de ${horarios.corte.desde} a ${horarios.corte.hasta}`
+                    : ""}
+                  .
+                </p>
+                <p className="mt-1 max-w-[65ch] text-apoyo text-tinta-suave">
+                  Turnos de {horarios.minutos} minutos.
+                </p>
+              </>
+            ) : (
+              <p className="max-w-[65ch] text-tinta-media">
+                Todavía no configuraste tus horarios. Hasta que lo hagas, tus
+                clientes no pueden pedir turno solos.
+              </p>
+            )}
+            <div className="mt-4">
+              <Link
+                href="/negocio/horarios"
+                className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+              >
+                <Icono nombre="calendario" />
+                {puedeConfigurar
+                  ? horarios
+                    ? "Ver y cambiar los horarios"
+                    : "Configurar los horarios"
+                  : "Ver los horarios"}
+              </Link>
+            </div>
+          </Tarjeta>
+        </>
+      )}
 
       <TituloSeccion id="rubro">El rubro de tu negocio</TituloSeccion>
       <Tarjeta className="mb-12">

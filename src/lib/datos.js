@@ -1268,6 +1268,15 @@ export function DatosProvider({ children }) {
         ]);
       },
 
+      // Los días y horas en los que el negocio da turnos (023). De acá sale
+      // lo que se le ofrece a un cliente para pedir uno solo.
+      guardarHorarios(horarios) {
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, horarios } }));
+        escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, horarios }, [
+          "horarios",
+        ]);
+      },
+
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
       cambiarModulos(claves) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));
