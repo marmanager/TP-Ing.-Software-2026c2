@@ -46,6 +46,16 @@ export const ANTICIPACIONES = [
   { horas: 48, palabra: "Dos días antes" },
 ];
 
+// Hasta cuándo se puede pedir. Sin tope, alguien podría anotarse para
+// dentro de un año, cuando el negocio no sabe ni si va a abrir ese día.
+export const HORIZONTES = [
+  { dias: 14, palabra: "Dos semanas" },
+  { dias: 30, palabra: "Un mes" },
+  { dias: 60, palabra: "Dos meses" },
+  { dias: 90, palabra: "Tres meses" },
+];
+export const HORIZONTE_DE_FABRICA = 60;
+
 // La configuración de fábrica: de lunes a viernes, de 9 a 18, cortando de 13
 // a 16. Es el horario del taller de la cartilla, y sirve para que estrenar
 // la pantalla no sea empezar de una hoja en blanco.
@@ -56,6 +66,7 @@ export const HORARIOS_DE_FABRICA = {
   corte: { desde: "13:00", hasta: "16:00" },
   minutos: 30,
   anticipacionHoras: 2,
+  horizonteDias: HORIZONTE_DE_FABRICA,
 };
 
 // Lo que haya guardado puede ser viejo, estar incompleto o no estar. Esto
@@ -80,6 +91,11 @@ export function normalizarHorarios(horarios) {
     anticipacionHoras: Number.isFinite(Number(horarios.anticipacionHoras))
       ? Number(horarios.anticipacionHoras)
       : 2,
+    // Un negocio que guardó sus horarios antes de que existiera el tope
+    // recibe el de fábrica.
+    horizonteDias: HORIZONTES.some((x) => x.dias === Number(horarios.horizonteDias))
+      ? Number(horarios.horizonteDias)
+      : HORIZONTE_DE_FABRICA,
   };
 }
 
@@ -202,11 +218,13 @@ export function huecosLibres({
   horarios,
   turnos = [],
   desde = new Date(),
-  dias = 14,
+  // Cuántos días mirar. Si no se dice, los que el negocio eligió.
+  dias,
   ahora = new Date(),
 } = {}) {
   const h = normalizarHorarios(horarios);
   if (!h || !horariosListos(h)) return [];
+  const cuantos = dias ?? h.horizonteDias;
 
   const noAntesDe = ahora.getTime() + h.anticipacionHoras * 3600000;
 
@@ -223,7 +241,7 @@ export function huecosLibres({
   const cursor = new Date(desde);
   cursor.setHours(0, 0, 0, 0);
 
-  for (let i = 0; i < dias; i++) {
+  for (let i = 0; i < cuantos; i++) {
     const fecha = new Date(cursor);
     fecha.setDate(cursor.getDate() + i);
 
@@ -265,6 +283,15 @@ export function agendaPublica({ codigo, negocio, turnos = [] }) {
   };
 }
 
+// El primer instante que ya queda afuera del tope: la medianoche del día
+// siguiente al último que se ofrece. Hoy cuenta como el día 1.
+function ultimoDiaQueSePide(h, ahora) {
+  const tope = new Date(ahora);
+  tope.setHours(0, 0, 0, 0);
+  tope.setDate(tope.getDate() + h.horizonteDias);
+  return tope;
+}
+
 // Si ese horario exacto sigue libre. Lo usa la reserva antes de escribir:
 // entre que el cliente vio la lista y tocó el botón pudo haber pasado
 // cualquier cosa, incluida otra persona reservando lo mismo.
@@ -275,6 +302,7 @@ export function huecoSigueLibre({ cuando, horarios, turnos = [], ahora = new Dat
   const momento = new Date(cuando);
   if (Number.isNaN(momento.getTime())) return false;
   if (momento.getTime() < ahora.getTime() + h.anticipacionHoras * 3600000) return false;
+  if (momento.getTime() >= ultimoDiaQueSePide(h, ahora).getTime()) return false;
 
   // Tiene que ser uno de los huecos que el negocio ofrece, no una hora
   // cualquiera: si no, alguien podría reservar a las 3 de la mañana mandando

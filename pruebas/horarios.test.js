@@ -19,6 +19,8 @@ import {
   DIAS,
   agendaPublica,
   HORARIOS_DE_FABRICA,
+  HORIZONTE_DE_FABRICA,
+  HORIZONTES,
   diaDe,
   huecoSigueLibre,
   huecosDelDia,
@@ -483,4 +485,37 @@ test("un día que sólo abre a la tarde no muestra una mañana vacía", () => {
   const franjas = enFranjas([new Date(2026, 8, 22, 16, 0)]);
   assert.deepEqual(franjas.map((f) => f.nombre), ["A la tarde"]);
   assert.deepEqual(enFranjas([]), []);
+});
+
+// ------------------------------------------------------------
+// Hasta cuándo se puede pedir
+// ------------------------------------------------------------
+
+test("sin decir nada, se ofrecen los días que eligió el negocio", () => {
+  const desde = new Date(2026, 8, 21, 0, 0);
+  const ahora = new Date(2026, 8, 21, 0, 0);
+  const todos = { ...HORARIOS_DE_FABRICA, dias: ["lun", "mar", "mie", "jue", "vie", "sab", "dom"] };
+
+  const unMes = huecosLibres({ horarios: { ...todos, horizonteDias: 30 }, desde, ahora });
+  assert.equal(unMes.length, 30);
+  assert.equal(unMes.at(-1).fecha.getDate(), 20); // 20 de octubre
+
+  const tresMeses = huecosLibres({ horarios: { ...todos, horizonteDias: 90 }, desde, ahora });
+  assert.equal(tresMeses.length, 90);
+});
+
+test("un negocio que guardó sus horarios antes del tope recibe el de fábrica", () => {
+  const { horizonteDias, ...viejo } = HORARIOS_DE_FABRICA;
+  assert.equal(normalizarHorarios(viejo).horizonteDias, HORIZONTE_DE_FABRICA);
+  assert.equal(normalizarHorarios({ ...viejo, horizonteDias: 7 }).horizonteDias, HORIZONTE_DE_FABRICA);
+  assert.ok(HORIZONTES.some((x) => x.dias === HORIZONTE_DE_FABRICA));
+});
+
+test("un horario más allá del tope no se puede reservar aunque esté libre", () => {
+  const ahora = new Date(2026, 8, 21, 8, 0); // lunes
+  const horarios = { ...HORARIOS_DE_FABRICA, horizonteDias: 14 };
+  // Viernes 2 de octubre: día 12, adentro.
+  assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 2, 10, 0), horarios, ahora }), true);
+  // Lunes 5 de octubre: día 15, afuera.
+  assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 5, 10, 0), horarios, ahora }), false);
 });

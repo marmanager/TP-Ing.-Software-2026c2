@@ -191,7 +191,6 @@ export default function PedirTurno() {
   const dias = huecosLibres({
     horarios,
     turnos: (agenda.ocupados ?? []).map((o) => ({ ...o, estado: "agendado" })),
-    dias: 21,
   });
 
   const meses = mesesConLugar(dias);
@@ -236,8 +235,8 @@ export default function PedirTurno() {
       {dias.length === 0 ? (
         <div className="mt-6">
           <Tarjetita titulo="No queda ningún horario libre" icono="reloj">
-            Por ahora {agenda.negocio_nombre} no tiene lugar en las próximas tres
-            semanas. Probá más adelante o escribiles directamente.
+            Por ahora {agenda.negocio_nombre} no tiene lugar en los días que abrió
+            para pedir turno. Probá más adelante o escribiles directamente.
           </Tarjetita>
         </div>
       ) : (
