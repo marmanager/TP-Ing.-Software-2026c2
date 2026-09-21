@@ -19,10 +19,11 @@ import { useTitulo } from "@/lib/useTitulo";
 import { emailValido, telefonoValido, contrasenaValida } from "@/lib/validaciones";
 import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
+import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
 
 export default function CrearCuenta() {
   const router = useRouter();
-  const { crearCuenta } = useAuth();
+  const { crearCuenta, hayGoogle } = useAuth();
   useTitulo("Crear cuenta");
 
   const [nombre, setNombre] = useState("");
@@ -90,6 +91,15 @@ export default function CrearCuenta() {
       </TituloPantalla>
 
       <Tarjeta>
+        {/* Con Google no hace falta nada de lo de abajo: el nombre y el mail
+            salen de la cuenta de Google, y no hay contraseña que inventar. */}
+        {hayGoogle && (
+          <>
+            <BotonGoogle>Crear la cuenta con Google</BotonGoogle>
+            <SeparadorO />
+          </>
+        )}
+
         <Campo
           id="nombre"
           etiqueta="Tu nombre"
