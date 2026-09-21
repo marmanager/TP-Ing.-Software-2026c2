@@ -25,8 +25,10 @@ import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
 import { agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
+import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
 import {
   MEDIOS_DEL_LOCAL,
+  MEDIOS_EN_LINEA,
   conCobro as ponerCobro,
   medioDe,
   montoDeCobroValido,
@@ -550,6 +552,14 @@ export function DatosProvider({ children }) {
       if (error) setAviso("No se pudo borrar en la base: " + error.message);
     };
 
+    // La sesión de quien está usando el sistema, para llamar a la API de
+    // pagos como esa persona (docs/api-pagos.md).
+    const tokenDeSesion = async () => {
+      if (!supabase) return null;
+      const { data } = await supabase.auth.getSession();
+      return data?.session?.access_token ?? null;
+    };
+
     // Quién firma el historial. La regla vive en permisos.js y tiene test.
     const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
 
@@ -898,6 +908,117 @@ export function DatosProvider({ children }) {
         return { ok: true };
       },
 
+      // ---------- pagos por link o QR (la API de pagos) ----------
+      //
+      // Qué se puede hoy: de verdad (hay API), simulado (modo de ejemplo) o
+      // nada (Supabase sin API todavía). Lo lee la pantalla para decidir si
+      // ofrece el botón o lo muestra apagado con el motivo.
+      pagosEnLinea: pagosEnLinea({ esDemo }),
+
+      // Pedir un pago: la API arma el link o el QR y guarda el cobro
+      // "pendiente". Pasa a pagado sólo cuando el medio de pago le avisa a la
+      // API; acá nunca.
+      async pedirCobroEnLinea({ casoId, monto, medio }) {
+        const caso = datos.casos.find((c) => c.id === casoId);
+        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        if (!montoDeCobroValido(String(monto ?? ""))) {
+          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+        }
+        if (!MEDIOS_EN_LINEA.includes(medio)) return { ok: false, error: "Elegí link o QR." };
+
+        const enLinea = pagosEnLinea({ esDemo });
+        if (!enLinea.disponible) return { ok: false, error: "Todavía no está conectado el sistema de pagos." };
+
+        let nuevo;
+        if (enLinea.simulado) {
+          const ahora = new Date();
+          nuevo = {
+            id: nuevoId(),
+            negocio_id: datos.negocio.id,
+            caso_id: casoId,
+            monto: Number(monto),
+            medio,
+            estado: "pendiente",
+            proveedor: "simulado",
+            link: null,
+            vence_en: new Date(ahora.getTime() + 3 * 86400000).toISOString(),
+            creado_en: ahora.toISOString(),
+          };
+        } else {
+          const token = await tokenDeSesion();
+          if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+          const r = await pedirPagoEnLinea({ casoId, monto, medio, token });
+          if (!r.ok) return { ok: false, error: r.error };
+          nuevo = r.cobro;
+        }
+
+        setDatos((d) => ponerCobro(d, nuevo, { nuevoId }));
+        anotar({
+          casoId,
+          tipo: "plata",
+          titulo: medio === "qr" ? "Pidieron un pago con QR" : "Pidieron un pago por link",
+          detalle: `${pesos(Number(monto))} · esperando el pago`,
+          icono: "reloj",
+          monto: Number(monto),
+        });
+        return { ok: true, cobro: nuevo };
+      },
+
+      // Sólo en el modo de ejemplo: hacer de cuenta que el medio de pago
+      // avisó. Con la API, esto lo hace el webhook del lado del servidor.
+      simularPago(cobroId, resultado = "pagado") {
+        if (!pagosEnLinea({ esDemo }).simulado) return { ok: false };
+        const cobro = datos.cobros.find((c) => c.id === cobroId);
+        if (!cobro || cobro.estado !== "pendiente") return { ok: false };
+        const ahora = new Date().toISOString();
+        const nuevo = {
+          ...cobro,
+          estado: resultado,
+          pagado_en: resultado === "pagado" ? ahora : null,
+        };
+        setDatos((d) => ponerCobro(d, nuevo, { nuevoId }));
+        anotar({
+          casoId: cobro.caso_id,
+          tipo: "plata",
+          titulo:
+            resultado === "pagado"
+              ? "Entró un pago"
+              : resultado === "vencido"
+                ? "Venció un pedido de pago"
+                : "No pasó un pago",
+          detalle: `${pesos(Number(cobro.monto))} · ${medioDe(cobro.medio).palabra}`,
+          icono: resultado === "pagado" ? "listo" : "alerta",
+          monto: Number(cobro.monto),
+        });
+        return { ok: true };
+      },
+
+      // Volver a leer los cobros de un caso: lo que cambió del otro lado
+      // (un pago que entró por link) no llega solo. Devuelve los que pasaron
+      // a pagado desde la última vez, para que la pantalla lo pueda contar.
+      async refrescarCobros(casoId) {
+        if (!enSupabase()) return { ok: true, pagados: [] };
+        const [cobros, caso] = await Promise.all([
+          supabase.from("cobro").select("*").eq("caso_id", casoId),
+          supabase.from("caso").select("id, cobrado, cobrado_en").eq("id", casoId).maybeSingle(),
+        ]);
+        if (cobros.error || caso.error) return { ok: false, pagados: [] };
+
+        const antes = new Map(datos.cobros.filter((c) => c.caso_id === casoId).map((c) => [c.id, c.estado]));
+        const pagados = (cobros.data ?? []).filter((c) => c.estado === "pagado" && antes.get(c.id) === "pendiente");
+
+        setDatos((d) => ({
+          ...d,
+          cobros: [...d.cobros.filter((c) => c.caso_id !== casoId), ...(cobros.data ?? [])],
+          casos: d.casos.map((c) =>
+            c.id === casoId && caso.data
+              ? { ...c, cobrado: caso.data.cobrado, cobrado_en: caso.data.cobrado_en }
+              : c
+          ),
+        }));
+        return { ok: true, pagados };
+      },
+
       // Corregir un cobro mal anotado. No se borra: queda anulado, y el
       // historial dice quién y por qué. Un pago por link que ya entró no se
       // anula: se devuelve desde el medio de pago.
@@ -915,7 +1036,16 @@ export function DatosProvider({ children }) {
         }
 
         let anulado;
-        if (enSupabase()) {
+        const enLinea = pagosEnLinea({ esDemo });
+        if (cobro.estado === "pendiente" && MEDIOS_EN_LINEA.includes(cobro.medio) && !enLinea.simulado) {
+          // Además de anularlo en la tabla hay que dar de baja el link en el
+          // medio de pago: si no, el cliente todavía podría pagarlo. Eso lo
+          // hace la API, que es la única que habla con él.
+          const token = await tokenDeSesion();
+          const r = await anularPagoEnLinea({ cobroId, motivo, token });
+          if (!r.ok) return { ok: false, error: r.error };
+          anulado = r.cobro;
+        } else if (enSupabase()) {
           const { data, error } = await supabase.rpc("anular_cobro", {
             p_cobro_id: cobroId,
             p_motivo: motivo,

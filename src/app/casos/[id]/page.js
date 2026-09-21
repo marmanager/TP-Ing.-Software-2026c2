@@ -574,6 +574,8 @@ export default function VerCaso() {
         descuento={descuento}
         puedeCargar={puedeCargar}
         datos={datos}
+        cliente={cliente}
+        negocio={negocio}
       />
 
       {puedeCargar && (caso.estado === "revision_final" || caso.estado === "completado") && (

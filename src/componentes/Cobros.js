@@ -9,14 +9,22 @@
 // Se puede cobrar con el caso abierto (una seña) y también cerrado: el
 // cliente se llevó el auto y vuelve a pagar el resto otro día.
 //
-// Acá sólo se anota lo que se cobró en el local —efectivo, transferencia,
-// tarjeta—, que nace pagado porque la plata ya está en la mano. El cobro por
-// link o QR es la pieza siguiente y pasa por la API de pagos.
+// Dos maneras de cobrar:
+//   · Anotar lo que ya se cobró en el local —efectivo, transferencia,
+//     tarjeta—, que nace pagado porque la plata ya está en la mano.
+//   · Pedir un pago por link (para mandárselo) o por QR (para mostrarlo en
+//     el mostrador). Eso pasa por la API de pagos (src/lib/pagos.js): el
+//     cobro queda "esperando el pago" y pasa a pagado cuando el medio de pago
+//     le avisa a la API. Mientras tanto, la pantalla pregunta cada tanto.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MEDIOS,
   MEDIOS_DEL_LOCAL,
+  MEDIOS_EN_LINEA,
+  hayPagosEnCamino,
+  mensajeDePago,
+  montoParaPedir,
   cuentaDelCaso,
   estadoDeCobro,
   medioDe,
@@ -26,6 +34,7 @@ import {
 } from "@/lib/cobros";
 import { pesos } from "@/lib/estados";
 import { cuando } from "@/lib/fechas";
+import { linkDeWhatsApp, linkDeWhatsAppA } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
@@ -127,7 +136,19 @@ export function ElegirMedio({ valor, alElegir }) {
   );
 }
 
-export default function SeccionCobros({ caso, aprobado, cobros, descuento, puedeCargar, datos }) {
+// Cada cuánto se le pregunta a la base si entró un pago por link.
+const CADA_CUANTO = 10000;
+
+export default function SeccionCobros({
+  caso,
+  aprobado,
+  cobros,
+  descuento,
+  puedeCargar,
+  datos,
+  cliente = null,
+  negocio = null,
+}) {
   const [anotando, setAnotando] = useState(false);
   const [monto, setMonto] = useState("");
   const [medio, setMedio] = useState("efectivo");
@@ -139,8 +160,40 @@ export default function SeccionCobros({ caso, aprobado, cobros, descuento, puede
   // "No le cobro lo que falta" pide confirmación: es plata que se resigna.
   const [descontando, setDescontando] = useState(false);
 
+  // Pedir un pago por link o QR.
+  const [pidiendo, setPidiendo] = useState(false);
+  const [montoPedido, setMontoPedido] = useState("");
+  const [medioPedido, setMedioPedido] = useState("link");
+
   const cuenta = cuentaDelCaso({ aprobado, cobros, descuento });
   const frase = fraseDeLaCuenta(cuenta);
+  const enLinea = datos.pagosEnLinea ?? { disponible: false, simulado: false, motivo: null };
+
+  // Un pago por link entra del otro lado: el medio de pago le avisa a la API
+  // y la API escribe la base. Acá no llega solo, así que mientras haya uno
+  // esperando se pregunta cada tanto, y también al volver a la pestaña.
+  const esperandoAlgo = hayPagosEnCamino(cobros) && !enLinea.simulado;
+  useEffect(() => {
+    if (!esperandoAlgo) return;
+    let vivo = true;
+    const mirar = async () => {
+      const r = await datos.refrescarCobros(caso.id);
+      if (vivo && r?.pagados?.length) {
+        const total = r.pagados.reduce((s, c) => s + Number(c.monto), 0);
+        datos.avisarExito(`Entró el pago de ${pesos(total)}.`);
+      }
+    };
+    const reloj = setInterval(mirar, CADA_CUANTO);
+    window.addEventListener("focus", mirar);
+    return () => {
+      vivo = false;
+      clearInterval(reloj);
+      window.removeEventListener("focus", mirar);
+    };
+    // datos cambia en cada render; lo que importa es el caso y si hay algo
+    // esperando.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esperandoAlgo, caso.id]);
 
   // Un caso cerrado con SCRUM-74 que registró un número pero no tiene cobros
   // en la tabla: el 0 de "se entregó sin cobrar", sin nada aprobado contra
@@ -157,6 +210,7 @@ export default function SeccionCobros({ caso, aprobado, cobros, descuento, puede
     setMedio("efectivo");
     setNota("");
     setError(null);
+    setPidiendo(false);
     setAnotando(true);
   }
 
@@ -173,6 +227,33 @@ export default function SeccionCobros({ caso, aprobado, cobros, descuento, puede
     if (!r.ok) return setError(r.error);
     datos.avisarExito(`Listo. Anotamos ${pesos(Number(monto))} en ${medioDe(medio).palabra.toLowerCase()}.`);
     setAnotando(false);
+  }
+
+  function abrirPedido() {
+    const sugerido = montoParaPedir(cuenta);
+    setMontoPedido(sugerido ? String(sugerido) : "");
+    setMedioPedido("link");
+    setError(null);
+    setAnotando(false);
+    setPidiendo(true);
+  }
+
+  async function pedir() {
+    setError(null);
+    setGuardando(true);
+    const r = await datos.pedirCobroEnLinea({
+      casoId: caso.id,
+      monto: Number(montoPedido),
+      medio: medioPedido,
+    });
+    setGuardando(false);
+    if (!r.ok) return setError(r.error);
+    datos.avisarExito(
+      medioPedido === "qr"
+        ? "Listo. Mostrale el QR para que pague."
+        : "Listo. Mandale el link para que pague."
+    );
+    setPidiendo(false);
   }
 
   async function anular(cobro) {
@@ -242,6 +323,16 @@ export default function SeccionCobros({ caso, aprobado, cobros, descuento, puede
                     </p>
                   </div>
 
+                  {c.estado === "pendiente" && MEDIOS_EN_LINEA.includes(c.medio) && (
+                    <PagoEnCamino
+                      cobro={c}
+                      simulado={enLinea.simulado || c.proveedor === "simulado"}
+                      datos={datos}
+                      cliente={cliente}
+                      negocio={negocio}
+                    />
+                  )}
+
                   {puedeCargar && sePuedeAnular(c) && anulando !== c.id && (
                     <div className="mt-2">
                       <Boton
@@ -253,7 +344,7 @@ export default function SeccionCobros({ caso, aprobado, cobros, descuento, puede
                           setError(null);
                         }}
                       >
-                        Anular este cobro
+                        {c.estado === "pendiente" ? "Cancelar este pedido de pago" : "Anular este cobro"}
                       </Boton>
                     </div>
                   )}
@@ -318,12 +409,100 @@ export default function SeccionCobros({ caso, aprobado, cobros, descuento, puede
           </div>
         )}
 
+        {puedeCargar && pidiendo && (
+          <div className="mt-5 rounded-tarjeta border border-borde p-4 sm:p-5">
+            <p className="mb-4 font-bold text-subtitulo">Pedir un pago</p>
+            {enLinea.simulado && (
+              <p className="mb-4 flex items-start gap-2 rounded-campo bg-superficie p-3 text-tinta-media">
+                <Icono nombre="nota" className="mt-0.5 size-5 shrink-0" />
+                <span>
+                  Estás en el modo de ejemplo: el pago se simula. Con el sistema de
+                  pagos conectado, acá se arma un link o un QR de verdad.
+                </span>
+              </p>
+            )}
+            <Campo
+              id="monto-pedido"
+              etiqueta="¿Cuánto le pedís?"
+              ayuda={
+                cuenta.falta > 0
+                  ? `Con números y sin puntos. Falta cobrar ${pesos(cuenta.falta)}.`
+                  : "Con números y sin puntos."
+              }
+              ejemplo="60000"
+              inputMode="numeric"
+              error={
+                montoPedido.trim() && !montoDeCobroValido(montoPedido)
+                  ? "El monto va con números, sin puntos, y mayor que cero."
+                  : null
+              }
+              value={montoPedido}
+              onChange={(ev) => setMontoPedido(ev.target.value)}
+            />
+            <fieldset>
+              <legend className="mb-2 font-bold text-cuerpo">¿Cómo te va a pagar?</legend>
+              <ul className="flex flex-wrap gap-2.5">
+                {[
+                  { valor: "link", palabra: "Con un link que le mando" },
+                  { valor: "qr", palabra: "Con un QR, acá en el local" },
+                ].map((o) => {
+                  const puesto = o.valor === medioPedido;
+                  return (
+                    <li key={o.valor}>
+                      <button
+                        type="button"
+                        aria-pressed={puesto}
+                        onClick={() => setMedioPedido(o.valor)}
+                        className={[
+                          "flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 px-4 font-bold text-cuerpo",
+                          puesto
+                            ? "border-azul bg-azul-claro text-azul"
+                            : "border-borde-fuerte bg-tarjeta text-tinta hover:bg-superficie",
+                        ].join(" ")}
+                      >
+                        {puesto && <Icono nombre="listo" className="size-5" />}
+                        {o.palabra}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Boton
+                icono="listo"
+                motivo={
+                  guardando ? "armando el pedido" : !montoDeCobroValido(montoPedido) ? "falta el monto" : null
+                }
+                onClick={pedir}
+              >
+                Pedir el pago
+              </Boton>
+              <Boton variante="plano" onClick={() => setPidiendo(false)}>
+                Mejor no
+              </Boton>
+            </div>
+          </div>
+        )}
+
         {puedeCargar &&
           (!anotando ? (
             <div className="mt-5 flex flex-wrap gap-3">
               <Boton icono="mas" onClick={abrir}>
                 Anotar un cobro
               </Boton>
+              {/* Con todo cobrado o pedido no hay nada que pedir. Sin
+                  presupuesto aprobado sí: no hay contra qué comparar. */}
+              {!pidiendo && (cuenta.falta > 0 || cuenta.total === 0) && (
+                <Boton
+                  variante="neutro"
+                  icono="sobre"
+                  motivo={enLinea.disponible ? null : enLinea.motivo}
+                  onClick={abrirPedido}
+                >
+                  Pedir un pago por link o QR
+                </Boton>
+              )}
               {cuenta.falta > 0 && cuenta.total > 0 && !descontando && (
                 <Boton variante="plano" icono="nota" onClick={() => setDescontando(true)}>
                   No le cobro lo que falta
@@ -387,5 +566,91 @@ export default function SeccionCobros({ caso, aprobado, cobros, descuento, puede
           ))}
       </Tarjeta>
     </>
+  );
+}
+
+// Un pedido de pago que todavía no se pagó: el link para mandar, el QR para
+// mostrar y hasta cuándo vale. En el modo de ejemplo, los botones para hacer
+// de cuenta que el medio de pago avisó.
+function PagoEnCamino({ cobro, simulado, datos, cliente, negocio }) {
+  const mensaje = cobro.link
+    ? mensajeDePago({ negocio: negocio?.nombre, cliente: cliente?.nombre, monto: cobro.monto, link: cobro.link })
+    : null;
+  const whatsapp = mensaje
+    ? (cliente?.telefono && linkDeWhatsAppA(cliente.telefono, mensaje)) || linkDeWhatsApp(mensaje)
+    : null;
+
+  return (
+    <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+      {simulado ? (
+        <>
+          <p className="max-w-[65ch] text-tinta-media">
+            Simulación: con el sistema de pagos conectado, acá aparece{" "}
+            {cobro.medio === "qr" ? "el QR para que lo escanee" : "el link para mandarle"}.
+            Hacé de cuenta que el medio de pago avisó:
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Boton variante="neutro" icono="listo" onClick={() => datos.simularPago(cobro.id, "pagado")}>
+              Simular que pagó
+            </Boton>
+            <Boton variante="plano" icono="reloj" onClick={() => datos.simularPago(cobro.id, "vencido")}>
+              Simular que venció
+            </Boton>
+          </div>
+        </>
+      ) : cobro.medio === "qr" ? (
+        cobro.qr_imagen ? (
+          <div>
+            <p className="mb-2 font-bold text-cuerpo">Mostrale este QR para que pague</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cobro.qr_imagen}
+              alt={`QR para pagar ${pesos(Number(cobro.monto))}`}
+              className="size-56 rounded-campo bg-white p-2"
+            />
+          </div>
+        ) : (
+          <p className="text-tinta-media">El QR todavía no llegó del medio de pago. Esperá unos segundos.</p>
+        )
+      ) : cobro.link ? (
+        <>
+          <p className="mb-1 font-bold text-cuerpo">El link para pagar</p>
+          <p className="break-all text-tinta-media">{cobro.link}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Boton
+              variante="neutro"
+              icono="copiar"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(cobro.link);
+                  datos.avisarExito("Copiamos el link. Pegalo donde quieras mandarlo.");
+                } catch {
+                  datos.avisarExito("No pudimos copiarlo solo. Seleccionalo y copialo a mano.");
+                }
+              }}
+            >
+              Copiar el link
+            </Boton>
+            {whatsapp && (
+              <a
+                href={whatsapp}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
+              >
+                <Icono nombre="chat" />
+                Mandarlo por WhatsApp
+              </a>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="text-tinta-media">El link todavía no llegó del medio de pago. Esperá unos segundos.</p>
+      )}
+
+      {cobro.vence_en && (
+        <p className="mt-3 text-tinta-media">Vence: {cuando(cobro.vence_en)}.</p>
+      )}
+    </div>
   );
 }

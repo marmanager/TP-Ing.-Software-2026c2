@@ -16,6 +16,7 @@
 // recibe la confirmación del medio de pago. Acá sólo se muestra.
 
 import { montoValido } from "./validaciones.js";
+import { pesos } from "./estados.js";
 
 // ------------------------------------------------------------
 // Cómo se pagó
@@ -262,4 +263,25 @@ export function conCobro(d, cobro, { adoptarLoViejo = false, nuevoId } = {}) {
     cobros,
     casos: d.casos.map((c) => (c.id === cobro.caso_id ? { ...c, cobrado, cobrado_en } : c)),
   };
+}
+
+// ------------------------------------------------------------
+// Pedir un pago por link o QR (la API de pagos, src/lib/pagos.js)
+// ------------------------------------------------------------
+
+// Lo que tiene sentido pedir: lo que falta. "falta" ya descuenta lo que se
+// está esperando, así que no se pide dos veces lo mismo.
+export const montoParaPedir = (cuenta) => (cuenta.falta > 0 ? cuenta.falta : null);
+
+// Los cobros en línea que siguen esperando: mientras haya alguno, la
+// pantalla le pregunta a la base cada tanto si ya se pagó.
+export const hayPagosEnCamino = (cobros = []) =>
+  cobros.some((c) => c.estado === "pendiente" && MEDIOS_EN_LINEA.includes(c.medio));
+
+// El mensaje de WhatsApp con el link. Sin datos del caso que el cliente no
+// necesite: quién cobra, cuánto, y dónde pagar.
+export function mensajeDePago({ negocio, cliente, monto, link }) {
+  const saludo = cliente ? `Hola ${String(cliente).split(" ")[0]}` : "Hola";
+  const quien = negocio ? ` Te escribimos de ${negocio}.` : "";
+  return `${saludo}.${quien} Podés pagar los ${pesos(monto)} desde acá: ${link}`;
 }
