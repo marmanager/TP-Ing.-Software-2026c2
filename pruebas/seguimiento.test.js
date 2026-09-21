@@ -11,6 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  CAMPOS_PASO,
   CAMPOS_PUBLICOS,
   casoPublico,
   lineaDeEstados,
@@ -158,10 +159,25 @@ test("una columna nueva en caso no se publica sola", () => {
   assert.ok(!estaAdentro(conColumnaNueva, "Repuestos Díaz"));
 });
 
-test("un paso aprobado lleva sólo el nombre y el monto", () => {
+test("un paso aprobado lleva el nombre, el monto y si ya se hizo, y nada más", () => {
   for (const paso of publico.pasos) {
-    assert.deepEqual(Object.keys(paso).sort(), ["monto", "nombre"]);
+    assert.deepEqual(Object.keys(paso).sort(), [...CAMPOS_PASO].sort());
   }
+});
+
+test("el cliente ve cuáles de los pasos que pagó ya están hechos", () => {
+  const conUnoHecho = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    pasos: pasos.map((p) => (p.id === "p1" ? { ...p, hecho_en: "2026-09-13T10:00:00.000Z" } : p)),
+  });
+
+  assert.deepEqual(
+    conUnoHecho.pasos.map((p) => [p.nombre, p.hecho]),
+    [["Revisión completa", true], ["Cambio de pastillas", false]]
+  );
+  // La hora en que el mecánico tocó el botón es de adentro del taller.
+  assert.ok(!estaAdentro(conUnoHecho, "2026-09-13T10:00:00.000Z"));
 });
 
 test("un paso por contestar lleva el id, el nombre, el porqué y el monto, y nada más", () => {

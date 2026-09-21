@@ -13,13 +13,30 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ESTADOS, estaAbierto, pesos, queFalta, quienLoTieneEnPalabras } from "@/lib/estados";
+import {
+  AL_PASAR_A,
+  ESTADOS,
+  avanceDePasos,
+  estaAbierto,
+  pesos,
+  queFalta,
+  quienLoTieneEnPalabras,
+  sePuedeMarcarHecho,
+} from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica, ejemplosDe, etiquetaEstado } from "@/lib/presets";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import SelectorEstado from "@/componentes/SelectorEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import {
+  Boton,
+  Campo,
+  Cargando,
+  ErrorGeneral,
+  Tarjeta,
+  TituloSeccion,
+  Vacio,
+} from "@/componentes/ui";
 
 const EVENTOS_A_LA_VISTA = 5;
 
@@ -40,6 +57,8 @@ export default function VerCaso() {
   const [nota, setNota] = useState("");
   // Entregar abre el cobro en vez de cerrar de una (SCRUM-74).
   const [entregando, setEntregando] = useState(false);
+  // Lo que la base contestó cuando no se pudo marcar un paso.
+  const [errorPaso, setErrorPaso] = useState(null);
   const [cobro, setCobro] = useState("");
 
   const caso = casos.find((c) => c.id === id);
@@ -67,6 +86,15 @@ export default function VerCaso() {
   const comoIdent = comoSeIdentifica(negocio?.rubro);
   const falta = queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente });
   const aprobados = mios.filter((p) => p.estado === "aprobado");
+  const avance = avanceDePasos(mios);
+
+  // Marcar el propio trabajo no es mover plata, así que el técnico también
+  // puede — pero sólo sobre un caso que tiene asignado, que es la misma
+  // frontera que ya usa la tabla "caso". La base hace cumplir las dos reglas
+  // (021_paso_hecho.sql); esto es para no ofrecer un botón que va a fallar.
+  const miFicha = empleados.find((e) => e.usuario_id === usuario?.id) ?? null;
+  const puedoMarcar =
+    puedeCargar || Boolean(miFicha && caso.responsable_id === miFicha.id);
 
   // Un caso cerrado es el registro de lo que pasó, no un borrador: no se le
   // cambian el diagnóstico ni los pasos sin volver a abrirlo primero. No queda
@@ -298,27 +326,109 @@ export default function VerCaso() {
               <p className="font-bold text-cuerpo">
                 Lo que hay que hacer{" "}
                 <span className="font-normal text-apoyo text-tinta-suave">
-                  {aprobados.length} {aprobados.length === 1 ? "paso aprobado" : "pasos aprobados"}
+                  {avance.hechos} de {avance.aprobados} hechos
                 </span>
               </p>
               <ul className="mt-2 divide-y divide-borde rounded-campo border border-borde">
-                {aprobados.map((p) => (
-                  <li key={p.id} className="flex items-start justify-between gap-4 px-4 py-3">
-                    <span className="flex min-w-0 items-start gap-2">
-                      <Icono nombre="listo" className="size-5 shrink-0 text-completo" />
-                      <span className="min-w-0">
-                        <span className="block font-bold">{p.nombre}</span>
-                        {p.descripcion && (
-                          <span className="block text-apoyo text-tinta-suave">
-                            {p.descripcion}
-                          </span>
+                {aprobados.map((p) => {
+                  const hecho = Boolean(p.hecho_en);
+                  const sePuede = puedoMarcar && sePuedeMarcarHecho(p, caso);
+
+                  /* Hecho y pendiente se distinguen por tres cosas y no sólo
+                     por el color: el ícono cambia de círculo vacío a tilde,
+                     aparece la palabra "Hecho" y el nombre se pone gris. En
+                     blanco y negro se sigue leyendo (cartilla, 02). */
+                  const adentro = (
+                    <>
+                      <span
+                        className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${
+                          hecho ? "bg-completo-fondo text-completo" : "bg-superficie text-tinta-suave"
+                        }`}
+                      >
+                        <Icono nombre={hecho ? "listo" : "circulo"} className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block font-bold ${hecho ? "text-tinta-suave line-through" : ""}`}
+                        >
+                          {p.nombre}
+                        </span>
+                        {hecho ? (
+                          <span className="block text-apoyo font-bold text-completo">Hecho</span>
+                        ) : (
+                          p.descripcion && (
+                            <span className="block text-apoyo text-tinta-suave">
+                              {p.descripcion}
+                            </span>
+                          )
                         )}
                       </span>
-                    </span>
-                    <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
-                  </li>
-                ))}
+                      <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
+                    </>
+                  );
+
+                  return (
+                    <li key={p.id}>
+                      {sePuede ? (
+                        <button
+                          type="button"
+                          aria-pressed={hecho}
+                          aria-label={
+                            hecho
+                              ? `«${p.nombre}» está hecho. Tocá para desmarcarlo.`
+                              : `Marcar «${p.nombre}» como hecho.`
+                          }
+                          onClick={async () => {
+                            const r = await datos.marcarPasoHecho(p.id, !hecho);
+                            if (!r.ok) return setErrorPaso(r.error);
+                            setErrorPaso(null);
+                            if (r.cambio && !hecho) datos.avisarExito(`Listo. «${p.nombre}» quedó hecho.`);
+                          }}
+                          className="flex w-full min-h-12 cursor-pointer items-start gap-3 px-4 py-3 text-left hover:bg-superficie"
+                        >
+                          {adentro}
+                        </button>
+                      ) : (
+                        <div className="flex items-start gap-3 px-4 py-3">{adentro}</div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
+
+              {errorPaso && (
+                <div className="mt-3">
+                  <ErrorGeneral>{errorPaso}</ErrorGeneral>
+                </div>
+              )}
+
+              {/* Lo ofrece, no lo hace solo: terminar el trabajo y decidir que
+                  está para controlar son dos cosas, y la segunda la decide
+                  una persona. */}
+              {avance.todoHecho && abierto && caso.estado !== "revision_final" && (
+                <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+                  <p className="font-bold text-cuerpo">Terminaste todo lo aprobado</p>
+                  <p className="mt-1 max-w-[65ch] text-tinta-media">
+                    Los {avance.aprobados} pasos están hechos. Si ya está para controlar
+                    antes de entregar, pasalo a {etiquetaEstado(negocio?.rubro, "revision_final")}.
+                  </p>
+                  <div className="mt-4">
+                    <Boton
+                      icono="nota"
+                      onClick={() =>
+                        datos.cambiarEstado(
+                          caso.id,
+                          "revision_final",
+                          queFaltaPara(negocio?.rubro, "revision_final"),
+                          AL_PASAR_A.revision_final
+                        )
+                      }
+                    >
+                      Pasarlo a {etiquetaEstado(negocio?.rubro, "revision_final")}
+                    </Boton>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

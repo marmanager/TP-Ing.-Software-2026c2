@@ -259,6 +259,41 @@ export function casosPorAprobar(casos, pasos) {
 export const pesos = (n) =>
   "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
 
+// El avance del trabajo: cuántos de los pasos aprobados ya se hicieron.
+//
+// Es otra cuenta que otra: totalesDeCaso() dice qué contestó el cliente y
+// cuánta plata hay en juego; esto dice cuánto de eso ya está hecho. Un paso
+// que el cliente todavía no contestó no cuenta como trabajo pendiente,
+// porque todavía no es trabajo: es una propuesta.
+//
+// "hecho_en" nulo es pendiente y con fecha es hecho (021_paso_hecho.sql).
+// Acá no se mira la fecha, sólo si está: la hora en que el mecánico tocó el
+// botón no cambia ninguna cuenta.
+export function avanceDePasos(pasosDelCaso = []) {
+  const aprobados = pasosDelCaso.filter((p) => p.estado === "aprobado");
+  const hechos = aprobados.filter((p) => p.hecho_en);
+
+  return {
+    aprobados: aprobados.length,
+    hechos: hechos.length,
+    faltan: aprobados.length - hechos.length,
+    // Con cero pasos aprobados no está "todo hecho": no hay trabajo todavía.
+    // Si devolviera true, un caso recién abierto ofrecería pasar a control
+    // final sin que nadie haya tocado el auto.
+    todoHecho: aprobados.length > 0 && hechos.length === aprobados.length,
+  };
+}
+
+// Si este paso se puede marcar como hecho. Sólo lo aprobado es trabajo, y un
+// caso cerrado es el registro de lo que pasó, no un borrador: para
+// corregirlo se vuelve a abrir. La base hace cumplir las dos reglas
+// (021_paso_hecho.sql); acá sirven para no ofrecer un botón que va a fallar.
+// Sin caso no se decide nada: "caso?.estado !== 'completado'" sobre un nulo
+// da true, y eso ofrecería el botón justo cuando todavía no se sabe sobre
+// qué. El test lo agarró.
+export const sePuedeMarcarHecho = (paso, caso) =>
+  Boolean(paso) && Boolean(caso) && paso.estado === "aprobado" && caso.estado !== "completado";
+
 // El total del caso, separado en aprobado y esperando respuesta.
 //
 // Es la única lógica del sistema donde un bug se ve en pantalla y con plata,

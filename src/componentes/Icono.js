@@ -142,6 +142,9 @@ const TRAZOS = {
   "flecha-abajo": <path d="M6 9l6 6 6-6" />,
   "flecha-arriba": <path d="M6 15l6-6 6 6" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  // Un círculo vacío: el par del tilde. Juntos dicen hecho y todavía no
+  // sin que haga falta el color.
+  circulo: <circle cx="12" cy="12" r="8.5" />,
   cruz: (
     <>
       <circle cx="12" cy="12" r="9" />

@@ -42,9 +42,13 @@ export const CAMPOS_PUBLICOS = [
   "linea",
 ];
 
-// De cada paso aprobado, sólo el nombre y el monto. Lo que el cliente ya
-// aprobó y ya conoce.
-const CAMPOS_PASO = ["nombre", "monto"];
+// De cada paso aprobado: el nombre, el monto y si ya se hizo. Lo que el
+// cliente aprobó, y cuánto de eso está listo.
+//
+// Va el booleano y no la fecha: al cliente le sirve saber que está hecho, y
+// la hora exacta en que el mecánico tocó el botón es un dato de adentro del
+// taller.
+export const CAMPOS_PASO = ["nombre", "monto", "hecho"];
 
 // De cada paso que espera su respuesta, además el porqué —lo escribió el
 // negocio para explicárselo a él— y el id, que es lo único que se expone de
@@ -94,7 +98,7 @@ export function casoPublico({ codigo, negocio, casos = [], clientes = [], pasos 
     pasos: pasos
       .filter((p) => p.caso_id === caso.id && p.estado === "aprobado")
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-      .map((p) => soloEstos(p, CAMPOS_PASO)),
+      .map((p) => ({ ...soloEstos(p, ["nombre", "monto"]), hecho: Boolean(p.hecho_en) })),
     // Lo que espera su respuesta. Un caso entregado no lleva ninguno: sobre
     // un trabajo terminado no hay nada que decidir, y ofrecerlo sería
     // ofrecer una puerta que no abre.
