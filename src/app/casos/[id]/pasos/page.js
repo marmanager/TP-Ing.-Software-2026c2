@@ -155,15 +155,6 @@ export default function AprobarPasos() {
     document.getElementById("paso-nombre")?.focus();
   }
 
-  // De lo que se encontró a lo que hay que hacer, sin salir de la pantalla:
-  // abre el formulario del paso y lleva el foco hasta ahí. Lo escrito en el
-  // diagnóstico queda intacto, que es de lo que se trata (criterio 11).
-  function abrirPaso() {
-    setArmando(true);
-    // En el mismo cuadro no: el formulario todavía no está en pantalla.
-    setTimeout(() => document.getElementById("paso-nombre")?.focus(), 0);
-  }
-
   return (
     <div className="mx-auto max-w-[560px]">
       <Link
@@ -252,10 +243,14 @@ export default function AprobarPasos() {
             <p className="max-w-[65ch] text-tinta-media">
               {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
             </p>
+            {/* Una sola acción acá, y con forma de botón: dos enlaces azules
+                uno abajo del otro no se distinguían entre sí. Lo que había al
+                lado —"armar un paso con esto"— se fue: ahora el diagnóstico
+                aparece al lado del formulario del paso, que es donde sirve. */}
             {sePuedeTocar && (
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-3">
                 <Boton
-                  variante="plano"
+                  variante="neutro"
                   icono="diagnostico"
                   onClick={() => {
                     setDiagnostico(caso.diagnostico ?? "");
@@ -264,14 +259,6 @@ export default function AprobarPasos() {
                 >
                   {caso.diagnostico ? "Corregir el diagnóstico" : "Cargar el diagnóstico"}
                 </Boton>
-                {/* De lo que se encontró a lo que hay que hacer, sin salir ni
-                    perder nada de lo escrito: el formulario del paso se abre
-                    abajo y el diagnóstico queda como estaba. */}
-                {caso.diagnostico && !armando && (
-                  <Boton variante="plano" icono="mas" onClick={abrirPaso}>
-                    Armar un paso con esto
-                  </Boton>
-                )}
               </div>
             )}
           </div>
@@ -337,6 +324,23 @@ export default function AprobarPasos() {
             Cargá uno por cada cosa que haya que hacer. El formulario queda abierto
             para el siguiente.
           </p>
+
+          {/* Lo que se encontró, acá al lado mientras se escribe. De un
+              diagnóstico salen varios pasos —"está todo roto" son cuatro
+              cosas— y tenerlo a la vista es lo que hace que se acuerden todas
+              sin volver a subir a leerlo.
+
+              Es una referencia, no una acción: qué pasos salen de esto lo
+              decide quien lo escribe. */}
+          {caso.diagnostico && (
+            <div className="mb-6 rounded-campo border-l-4 border-borde-fuerte bg-superficie p-4">
+              <p className="flex items-center gap-2 font-bold text-etiqueta text-tinta-media">
+                <Icono nombre="diagnostico" className="size-5" />
+                Lo que encontraste
+              </p>
+              <p className="mt-1 max-w-[65ch] text-tinta-media">{caso.diagnostico}</p>
+            </div>
+          )}
           <Campo
             id="paso-nombre"
             etiqueta="Qué hay que hacer"
