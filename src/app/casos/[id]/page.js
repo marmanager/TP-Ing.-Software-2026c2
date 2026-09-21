@@ -25,7 +25,7 @@ import {
   sePuedeMarcarHecho,
 } from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { queFaltaPara, comoSeIdentifica, ejemplosDe, etiquetaEstado } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import SelectorEstado from "@/componentes/SelectorEstado";
 import Icono from "@/componentes/Icono";
@@ -53,9 +53,8 @@ export default function VerCaso() {
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [eligiendo, setEligiendo] = useState(false);
-  // Diagnóstico, identificador del rubro y notas sueltas (SCRUM-50/51/52).
-  const [editandoDiag, setEditandoDiag] = useState(false);
-  const [diagnostico, setDiagnostico] = useState("");
+  // Identificador del rubro y notas sueltas (SCRUM-51/52). El diagnóstico
+  // vive ahora en la pantalla de los pasos.
   const [editandoIdent, setEditandoIdent] = useState(false);
   const [identificador, setIdentificador] = useState("");
   const [anotando, setAnotando] = useState(false);
@@ -645,73 +644,10 @@ export default function VerCaso() {
         />
       )}
 
-      {/* El historial cuenta la historia: qué pasó, cuándo y quién lo hizo. */}
-      {/* Lo que pidió el cliente está arriba en "servicio". Acá va lo que
-          encontramos al revisar, que es otra cosa. */}
-      <TituloSeccion className="mt-12">El diagnóstico</TituloSeccion>
-      <Tarjeta>
-        {!abierto && puedeCargar && (
-          <p className="mb-4 max-w-[65ch] text-tinta-media">
-            El caso está cerrado, así que esto queda como quedó. Si hay algo que
-            corregir, volvé a abrirlo arriba y cerralo de nuevo después.
-          </p>
-        )}
-        <p className="font-bold text-cuerpo">Qué encontramos</p>
-        {editandoDiag && sePuedeEditar ? (
-          <div className="mt-2">
-            <label htmlFor="diagnostico" className="sr-only">
-              Qué encontramos
-            </label>
-            <p className="mt-1 mb-2 text-apoyo text-tinta-suave">
-              Con tus palabras, como se lo explicarías al cliente.
-            </p>
-            <textarea
-              id="diagnostico"
-              rows={4}
-              value={diagnostico}
-              onChange={(e) => setDiagnostico(e.target.value)}
-              placeholder={ejemplosDe(negocio?.rubro).diagnostico}
-              className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
-            />
-            <div className="mt-3 flex flex-wrap gap-3">
-              <Boton
-                icono="check"
-                motivo={!diagnostico.trim() ? "falta escribir qué encontraron" : null}
-                onClick={() => {
-                  datos.cargarDiagnostico(caso.id, diagnostico.trim());
-                  datos.avisarExito(`Listo. El diagnóstico del caso ${caso.numero} quedó anotado.`);
-                  setEditandoDiag(false);
-                }}
-              >
-                Guardar el diagnóstico
-              </Boton>
-              <Boton variante="plano" onClick={() => setEditandoDiag(false)}>
-                Dejarlo
-              </Boton>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-1">
-            <p className="max-w-[65ch] text-tinta-media">
-              {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
-            </p>
-            {sePuedeEditar && (
-              <div className="mt-2">
-                <Boton
-                  variante="plano"
-                  icono="diagnostico"
-                  onClick={() => {
-                    setDiagnostico(caso.diagnostico ?? "");
-                    setEditandoDiag(true);
-                  }}
-                >
-                  {caso.diagnostico ? "Corregir el diagnóstico" : "Cargar el diagnóstico"}
-                </Boton>
-              </div>
-            )}
-          </div>
-        )}
-      </Tarjeta>
+      {/* El diagnóstico se mudó a la pantalla de los pasos (flujo, 3.2).
+          Revisar y presupuestar son el mismo momento de trabajo, y estaban
+          partidos en dos pantallas: se escribía acá qué se encontró y había
+          que irse a otro lado a cargar lo que hay que hacer con eso. */}
 
       <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
         <TituloSeccion className="mb-0">Lo que pasó con este caso</TituloSeccion>

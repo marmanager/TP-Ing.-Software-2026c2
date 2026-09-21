@@ -238,6 +238,21 @@ escribe y un dedazo dejaría a alguien afuera de su propia cuenta.
 La verificación de mail y la recuperación de contraseña necesitan el mail prendido
 en el panel de Supabase (ver el paso 2 de "Conectar la base").
 
+## Revisar y presupuestar son un solo momento
+
+El diagnóstico —qué se encontró al revisar— vive en la pantalla de los pasos y
+no en el detalle del caso. Es el mismo momento de trabajo: se mira el auto, se
+escribe qué tiene, y de eso salen los pasos del presupuesto. Estaba partido en
+dos pantallas y había que ir y venir con el auto delante.
+
+Va arriba de los pasos porque es el orden en que pasa, y porque así los pasos
+se escriben mirando el diagnóstico y no de memoria. Desde ahí, "Armar un paso
+con esto" abre el formulario sin salir ni perder lo escrito.
+
+Corregir un diagnóstico que ya estaba trae el texto anterior cargado en el
+campo y avisa que guardar lo reemplaza: ampliar es escribir abajo, no volver a
+empezar.
+
 ## El cliente mira su caso sin cuenta
 
 Es la historia que ataca el problema que dio origen al proyecto: que el teléfono
