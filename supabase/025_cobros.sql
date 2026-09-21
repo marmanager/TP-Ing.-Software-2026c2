@@ -2,7 +2,8 @@
 -- 025_cobros.sql — un caso puede tener varios cobros
 --
 -- Correr entero en el SQL Editor de Supabase, después de 001..024.
--- Es idempotente.
+-- Es idempotente. Trae adentro lo de 012 (las columnas del cobro del caso),
+-- por si esa quedó sin correr.
 --
 -- QUÉ RESUELVE:
 -- 012 guardó UN número por caso: cuánto se cobró. Alcanzaba para anotar lo
@@ -45,6 +46,21 @@
 -- de pago le confirma que el pago entró. Si el navegador pudiera escribir
 -- "pagado", cualquiera podría marcar como pagado algo que no pagó.
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- Lo de 012, por si no se corrió
+-- ------------------------------------------------------------
+-- Todo lo de abajo lee y escribe caso.cobrado y caso.cobrado_en, que nacen
+-- en 012_cobro.sql. Si esa migración quedó sin correr, esta fallaba en la
+-- primera línea que los nombra ("column c.cobrado does not exist"). Son las
+-- mismas sentencias que 012, y como son idempotentes, en una base que sí la
+-- corrió no cambian nada.
+alter table caso add column if not exists cobrado    numeric(12, 2);
+alter table caso add column if not exists cobrado_en timestamptz;
+
+alter table caso drop constraint if exists caso_cobrado_no_negativo;
+alter table caso add  constraint caso_cobrado_no_negativo
+  check (cobrado is null or cobrado >= 0);
 
 create table if not exists cobro (
   id               uuid        primary key default gen_random_uuid(),
