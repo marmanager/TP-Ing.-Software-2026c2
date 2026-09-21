@@ -6,7 +6,7 @@
 // el celular. Identificador, estado y "qué falta" tienen que entrar en la
 // primera pantalla, sin scrollear.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
@@ -38,6 +38,11 @@ import {
   TituloSeccion,
   Vacio,
 } from "@/componentes/ui";
+import {
+  linkDeSeguimiento,
+  linkDeWhatsApp,
+  mensajeDeLoHecho,
+} from "@/lib/seguimiento";
 
 const EVENTOS_A_LA_VISTA = 5;
 
@@ -627,6 +632,19 @@ export default function VerCaso() {
         </div>
       )}
 
+      {/* Contarle al cliente que ya está (flujo, punto 9). Va antes de
+          "Terminar el caso" porque es lo que se hace justo antes: primero se
+          le avisa, después viene a buscarlo y recién ahí se entrega. */}
+      {puedeCargar && (caso.estado === "revision_final" || caso.estado === "completado") && (
+        <AvisarleQueEstaListo
+          caso={caso}
+          cliente={cliente}
+          negocio={negocio}
+          datos={datos}
+          aprobados={aprobados}
+        />
+      )}
+
       {/* El historial cuenta la historia: qué pasó, cuándo y quién lo hizo. */}
       {/* Lo que pidió el cliente está arriba en "servicio". Acá va lo que
           encontramos al revisar, que es otra cosa. */}
@@ -770,6 +788,119 @@ export default function VerCaso() {
           </Boton>
         </div>
       )}
+    </>
+  );
+}
+
+// "Ya está listo" — el aviso al cliente cuando el trabajo pasó el control
+// (flujo, punto 9).
+//
+// Es el hermano de "Mandarle los pasos al cliente" de la pantalla de pasos:
+// mismo patrón, mismo link, otro momento. Aquel se manda cuando hay que
+// decidir; este, cuando ya se hizo.
+//
+// Usa el link que ya existe y lo arma si todavía no hay ninguno, en el mismo
+// toque: si hubiera que ir a compartirlo primero, avisar dejaría de ser una
+// sola acción y nadie lo usaría con el mostrador lleno.
+function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
+  const [abierto, setAbierto] = useState(false);
+  const [armando, setArmando] = useState(false);
+  const [error, setError] = useState(null);
+  const [origen, setOrigen] = useState("");
+
+  useEffect(() => setOrigen(window.location.origin), []);
+
+  const entregado = caso.estado === "completado";
+  const codigo = caso.seguimiento_codigo ?? null;
+  const link = codigo && origen ? linkDeSeguimiento(origen, codigo) : "";
+
+  const mensaje = mensajeDeLoHecho({
+    negocioNombre: negocio?.nombre ?? "tu negocio",
+    clienteNombre: cliente?.nombre?.split(" ")[0] ?? null,
+    identificador: caso.identificador,
+    servicio: caso.servicio,
+    estadoEnPalabras: etiquetaEstado(negocio?.rubro, caso.estado),
+    entregado,
+    pasos: aprobados.map((p) => ({ nombre: p.nombre, hecho: Boolean(p.hecho_en) })),
+    link,
+  });
+
+  async function preparar() {
+    setError(null);
+    if (codigo) return setAbierto((v) => !v);
+
+    // Sin link todavía: se arma ahora. compartirCaso() devuelve el mismo
+    // código si ya hubiera uno, así que nunca se genera uno nuevo por error
+    // y el que el cliente ya tenga sigue andando.
+    setArmando(true);
+    const r = await datos.compartirCaso(caso.id);
+    setArmando(false);
+    if (!r.ok) return setError(r.error);
+    setAbierto(true);
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(mensaje);
+      datos.avisarExito("Listo. Copiamos el aviso: pegalo en la conversación con el cliente.");
+    } catch {
+      const pre = document.getElementById("aviso-listo");
+      if (pre) window.getSelection()?.selectAllChildren(pre);
+      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+    }
+  }
+
+  return (
+    <>
+      <TituloSeccion className="mt-12">
+        {entregado ? "Contarle qué se le hizo" : "Avisarle que ya está"}
+      </TituloSeccion>
+      <Tarjeta>
+        {error && <ErrorGeneral>{error}</ErrorGeneral>}
+
+        <p className="max-w-[65ch] text-tinta-media">
+          {entregado
+            ? "Un resumen de lo que se le hizo, con el link para que lo tenga a mano."
+            : `El trabajo está controlado. Avisale a ${cliente?.nombre?.split(" ")[0] ?? "tu cliente"} que puede venir a buscarlo.`}
+        </p>
+
+        <div className="mt-4">
+          <Boton
+            icono="chat"
+            motivo={armando ? "armando el link" : null}
+            onClick={preparar}
+          >
+            {abierto ? "Cerrar" : entregado ? "Armar el resumen" : "Armar el aviso"}
+          </Boton>
+        </div>
+
+        {abierto && (
+          <div className="mt-4 rounded-tarjeta border border-borde bg-superficie p-4">
+            <p className="font-bold">Esto es lo que le va a llegar</p>
+            <pre
+              id="aviso-listo"
+              className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-campo bg-tarjeta p-4 font-cuerpo text-etiqueta text-tinta-media"
+            >
+              {mensaje}
+            </pre>
+
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Boton icono="copiar" onClick={copiar}>
+                Copiar el aviso
+              </Boton>
+              <a
+                href={linkDeWhatsApp(mensaje)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
+              >
+                <Icono nombre="chat" />
+                Mandarlo por WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
+      </Tarjeta>
     </>
   );
 }

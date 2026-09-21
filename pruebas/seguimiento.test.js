@@ -21,6 +21,7 @@ import {
   laEspera,
   linkDeWhatsAppA,
   mensajeDeConsulta,
+  mensajeDeLoHecho,
   mensajeDeWhatsApp,
   totalAprobado,
 } from "../src/lib/seguimiento.js";
@@ -606,4 +607,76 @@ test("sin nada escrito y sin preset, igual dice algo entero", () => {
   const e = laEspera({ estado: "esperando" });
   assert.equal(e.deQuien, "negocio");
   assert.ok(e.titulo.endsWith("."), e.titulo);
+});
+
+// ------------------------------------------------------------
+// El aviso de que ya está (flujo, punto 9)
+// ------------------------------------------------------------
+
+const avisoDe = (extra = {}) =>
+  mensajeDeLoHecho({
+    negocioNombre: "Taller Sur",
+    clienteNombre: "Marcela",
+    identificador: "AB 123 CD",
+    servicio: "Ruido raro",
+    estadoEnPalabras: "Control final",
+    pasos: [
+      { nombre: "Cambio de pastillas", hecho: true },
+      { nombre: "Alineación", hecho: true },
+    ],
+    link: "http://localhost:3000/seguimiento/abc",
+    ...extra,
+  });
+
+test("el aviso dice qué se hizo, en qué estado está y lleva el link", () => {
+  const m = avisoDe();
+
+  assert.ok(m.includes("Cambio de pastillas"), "qué se hizo");
+  assert.ok(m.includes("Alineación"), "y lo demás que se hizo");
+  assert.ok(m.includes("Control final"), "el estado, con la palabra del rubro");
+  assert.ok(m.includes("http://localhost:3000/seguimiento/abc"), "el link");
+  assert.ok(m.includes("Marcela") && m.includes("Taller Sur") && m.includes("AB 123 CD"));
+});
+
+test("habla en el idioma del rubro: le pasan la palabra ya traducida", () => {
+  assert.ok(avisoDe({ estadoEnPalabras: "Control antes del alta" }).includes("Control antes del alta"));
+});
+
+test("lo que no se marcó como hecho no se cuenta como hecho", () => {
+  // Decir "ya está todo" cuando falta algo es la clase de mentira que el
+  // cliente descubre al llegar al mostrador.
+  const m = avisoDe({
+    pasos: [
+      { nombre: "Cambio de pastillas", hecho: true },
+      { nombre: "Alineación", hecho: false },
+    ],
+  });
+
+  assert.ok(m.includes("✓ Cambio de pastillas"));
+  assert.ok(m.includes("• Alineación"));
+});
+
+test("un caso entregado cuenta lo que se le hizo, no lo que falta", () => {
+  const m = avisoDe({ entregado: true, estadoEnPalabras: "Entregado" });
+
+  assert.ok(m.includes("Esto es lo que le hicimos"));
+  assert.ok(!m.includes("te avisamos apenas esté para retirar"));
+});
+
+test("sin link, el mensaje sigue siendo un mensaje entero", () => {
+  const m = avisoDe({ link: "" });
+
+  assert.ok(!m.includes("Podés seguir mirándolo"));
+  assert.ok(m.trim().endsWith("."), m);
+});
+
+test("sin nombre ni patente no queda un hueco", () => {
+  const m = mensajeDeLoHecho({
+    negocioNombre: "Taller Sur",
+    estadoEnPalabras: "Control final",
+    servicio: "Ruido raro",
+    pasos: [],
+  });
+
+  assert.ok(m.startsWith("Hola, te escribimos de Taller Sur por Ruido raro."), m);
 });

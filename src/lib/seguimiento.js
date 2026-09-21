@@ -274,6 +274,42 @@ export function mensajeDeWhatsApp({ negocioNombre, identificador, servicio, link
   );
 }
 
+// El aviso de que el trabajo está listo (flujo, punto 9).
+//
+// Es el hermano del mensaje del presupuesto: mismo patrón, mismo link, otro
+// momento. Aquel se manda cuando hay que decidir; este, cuando ya se hizo.
+//
+// Lleva las tres cosas que pide la historia: qué se hizo, en qué estado está
+// el caso y el link para seguir mirando. Los pasos van con su marca —lo
+// terminado con un tilde y lo que todavía no, con un punto— porque decir
+// "ya está todo" cuando falta algo es la clase de mentira que el cliente
+// descubre al llegar al mostrador.
+export function mensajeDeLoHecho({
+  negocioNombre,
+  clienteNombre,
+  identificador,
+  servicio,
+  estadoEnPalabras,
+  entregado = false,
+  pasos = [],
+  link,
+}) {
+  const hola = clienteNombre ? `Hola ${clienteNombre}` : "Hola";
+  const cual = identificador || servicio || "lo que nos dejaste";
+
+  return [
+    `${hola}, te escribimos de ${negocioNombre} por ${cual}.`,
+    "",
+    entregado ? "Esto es lo que le hicimos:" : "Ya terminamos el trabajo:",
+    ...pasos.map((p) => `${p.hecho ? "✓" : "•"} ${p.nombre}`),
+    "",
+    entregado
+      ? `El caso quedó como ${estadoEnPalabras}. Cualquier cosa, escribinos.`
+      : `Está en ${estadoEnPalabras}: lo revisamos antes de entregártelo y te avisamos apenas esté para retirar.`,
+    ...(link ? ["", `Podés seguir mirándolo acá: ${link}`] : []),
+  ].join("\n");
+}
+
 // wa.me abre WhatsApp con el mensaje ya escrito, sin integración ni
 // servidor: es un link común. Sin número, porque el que lo toca es el
 // negocio y elige a quién mandárselo desde su propia agenda.

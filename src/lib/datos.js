@@ -772,9 +772,20 @@ export function DatosProvider({ children }) {
         if (!caso) return { ok: false, error: "No encontramos ese caso." };
         if (caso.seguimiento_codigo) return { ok: true, codigo: caso.seguimiento_codigo };
 
-        // Un caso entregado no vuelve a esperar nada, y uno que ya está
-        // esperando no necesita que se lo digan dos veces.
-        const quedaEsperando = caso.estado !== "completado" && caso.estado !== "esperando";
+        // Mandar el link deja el caso esperando al cliente SÓLO si hay algo
+        // que el cliente tenga que contestar. Es lo que pasa cuando se manda
+        // el presupuesto, que es de donde salió esta regla.
+        //
+        // No es lo que pasa cuando se comparte para avisar que el trabajo ya
+        // está: ahí no se espera nada de él, y mover el caso a "esperando"
+        // sería decir que la pelota es suya cuando no hay nada que contestar
+        // —y encima saca al caso de control final, que es donde tiene que
+        // estar hasta que lo vengan a buscar—.
+        const hayQueContestar = datos.pasos.some(
+          (p) => p.caso_id === casoId && p.estado === "esperando"
+        );
+        const quedaEsperando =
+          hayQueContestar && caso.estado !== "completado" && caso.estado !== "esperando";
         const pasarAEsperando = () => {
           if (!quedaEsperando) return;
           parchearCaso(casoId, {

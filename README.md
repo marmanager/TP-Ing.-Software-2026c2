@@ -34,7 +34,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `020_telefono_del_negocio.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `022_el_cliente_destraba.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 
@@ -251,7 +251,18 @@ Va ahí y no en el detalle del caso porque lo que se manda es el presupuesto. En
 el detalle queda un renglón que dice si está compartido y si el cliente lo
 abrió, que es lo que responde si hace falta llamarlo.
 
-**Mandar el link deja el caso esperando al cliente.** La pelota pasó a su lado,
+**Y cuando el trabajo está listo hay otro mensaje**, desde el detalle del
+caso: dice qué se le hizo —con un tilde en lo terminado y un punto en lo que
+no—, en qué estado quedó y el mismo link. Si el caso todavía no tenía link, lo
+arma en ese mismo toque. Es el hermano del mensaje del presupuesto: mismo
+patrón, otro momento.
+
+**Mandar el link deja el caso esperando al cliente**, pero sólo cuando hay algo
+que el cliente tenga que contestar. Avisarle que el trabajo ya está también
+comparte el link, y ahí no se espera nada de él: el caso se queda en control
+final, que es donde tiene que estar hasta que lo vengan a buscar.
+
+Cuando sí hay algo para contestar, la pelota pasó a su lado,
 así que el estado se mueve solo a "esperando" y el "qué falta" pasa a ser "la
 respuesta del cliente". Si no, el tablero seguiría diciendo que el trabajo
 avanza mientras en realidad no se puede hacer nada hasta que conteste.
