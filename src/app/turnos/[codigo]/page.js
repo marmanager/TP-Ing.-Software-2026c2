@@ -37,6 +37,7 @@ import {
   normalizarHorarios,
   semanasDelMes,
 } from "@/lib/horarios";
+import { DIAS_DE_LA_SEMANA, MES_CORTO, MES_LARGO } from "@/lib/calendario";
 import { preset } from "@/lib/presets";
 import { diaPasado } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
@@ -385,12 +386,9 @@ export default function PedirTurno() {
   );
 }
 
-const DIAS_DE_LA_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const MES_LARGO = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-];
-const MES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+// Los nombres de los meses y de los días se mudaron a lib/calendario.js: los
+// usa también el calendario del negocio, y dos copias se despegan sola una de
+// la otra.
 
 // El calendario de un mes. Los días con lugar son botones, marcados; los
 // demás van tachados y no se tocan. Abajo, en palabras, qué quiere decir

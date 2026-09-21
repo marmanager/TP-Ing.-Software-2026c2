@@ -6,31 +6,26 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
-import { ejemplosDe } from "@/lib/presets";
 import { estaAbierto } from "@/lib/estados";
 import { estadoDeTurno } from "@/lib/turnos";
-import { diaLargo, horaYMinutos, paraInput } from "@/lib/fechas";
+import { diaLargo, horaYMinutos } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import AltaDeTurno from "@/componentes/AltaDeTurno";
+import PestanasDeAgenda from "@/componentes/PestanasDeAgenda";
+import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Agenda() {
   const datos = useDatos();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
-  const { cargando, turnos, clientes, casos, negocio } = datos;
+  const { cargando, turnos, clientes, casos } = datos;
   const [abierto, setAbierto] = useState(false);
   // El turno que se está por cancelar, esperando la confirmación.
   const [cancelando, setCancelando] = useState(null);
   // La agenda mira para adelante. Los que ya pasaron se piden aparte: sirven
   // para saber si alguien faltó la semana pasada (auditoría, H7).
   const [cuando, setCuando] = useState("proximos");
-  const [form, setForm] = useState({
-    nombreCliente: "",
-    telefono: "",
-    motivo: "",
-    empiezaEn: "",
-  });
-  useTitulo("Agenda");
+  useTitulo("Turnos");
 
   if (cargando) return <Cargando />;
 
@@ -55,94 +50,37 @@ export default function Agenda() {
     return acc;
   }, {});
 
-  // Si el nombre coincide con alguien ya cargado, se le suma el turno a esa
-  // ficha; si no, se da de alta el cliente junto con el turno.
-  const yaEsCliente = clientes.find(
-    (c) => c.nombre.toLowerCase() === form.nombreCliente.trim().toLowerCase()
-  );
-
-  const motivoApagado = !form.motivo.trim()
-    ? "falta el motivo"
-    : !form.empiezaEn
-      ? "falta el día y la hora"
-      : null;
-
-  function guardar() {
-    datos.agregarTurno({ ...form, clienteId: yaEsCliente?.id ?? null });
-    datos.avisarExito(`Listo. El turno de ${form.motivo.trim()} quedó anotado.`);
-    setForm({ nombreCliente: "", telefono: "", motivo: "", empiezaEn: "" });
-    setAbierto(false);
-  }
-
   return (
     <>
+      <PestanasDeAgenda />
+
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-pantalla">Agenda</h1>
+          <h1 className="text-pantalla">Turnos</h1>
           <p className="mt-1 text-tinta-media">Quién viene, cuándo y para qué.</p>
         </div>
+        {/* Mientras hay un alta abierta el botón se apaga en vez de cambiar
+            de texto: queda en el mismo lugar, en gris, diciendo por qué no se
+            puede (cartilla: un botón apagado dice por qué). Así no se abren
+            dos altas, y el lugar de "Anotar un turno" siempre hace lo mismo.
+            Salir del alta es "Cancelar", abajo del formulario. */}
         {puedeCargar && (
-        <Boton icono="mas" onClick={() => setAbierto((v) => !v)}>
-          {abierto ? "Cerrar el alta" : "Anotar un turno"}
-        </Boton>
+          <Boton
+            icono="mas"
+            motivo={abierto ? "ya estás anotando uno" : null}
+            onClick={() => setAbierto(true)}
+          >
+            Anotar un turno
+          </Boton>
         )}
       </div>
 
       {abierto && puedeCargar && (
-        <Tarjeta className="mb-8 max-w-[560px]">
-          <TituloSeccion>Nuevo turno</TituloSeccion>
-
-          <Campo
-            id="turno-cliente"
-            etiqueta="Para quién"
-            ayuda="Si todavía no está cargado, escribí su nombre igual: lo damos de alta con el turno."
-            exito={yaEsCliente ? `Ya es cliente. Le sumamos este turno a ${yaEsCliente.nombre}.` : null}
-            value={form.nombreCliente}
-            onChange={(e) => setForm({ ...form, nombreCliente: e.target.value })}
-            list="clientes-de-la-agenda"
-            autoComplete="off"
-          />
-          <datalist id="clientes-de-la-agenda">
-            {clientes.map((c) => (
-              <option key={c.id} value={c.nombre} />
-            ))}
-          </datalist>
-
-          {/* El teléfono sólo si es alguien nuevo: al que ya está cargado no
-              hay que volver a pedírselo. */}
-          {form.nombreCliente.trim() && !yaEsCliente && (
-            <Campo
-              id="turno-telefono"
-              etiqueta="Su teléfono"
-              ayuda="Opcional. Sirve para avisarle si hay que mover el turno."
-              ejemplo="341 456 7890"
-              type="tel"
-              inputMode="tel"
-              value={form.telefono}
-              onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-            />
-          )}
-
-          <Campo
-            id="turno-motivo"
-            etiqueta="Para qué viene"
-            ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).turno}.`}
-            value={form.motivo}
-            onChange={(e) => setForm({ ...form, motivo: e.target.value })}
-          />
-          <Campo
-            id="turno-cuando"
-            etiqueta="Qué día y a qué hora"
-            ayuda="Se puede cambiar después."
-            type="datetime-local"
-            min={paraInput()}
-            value={form.empiezaEn}
-            onChange={(e) => setForm({ ...form, empiezaEn: e.target.value })}
-          />
-          <Boton variante="principal" icono="check" motivo={motivoApagado} onClick={guardar}>
-            Guardar el turno
-          </Boton>
-        </Tarjeta>
+        <AltaDeTurno
+          className="mb-8"
+          alGuardar={() => setAbierto(false)}
+          alCancelar={() => setAbierto(false)}
+        />
       )}
 
       {/* La agenda mira para adelante; los que ya pasaron se piden. */}

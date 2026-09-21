@@ -45,8 +45,9 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `022_el_cliente_destraba.sql` (el `002`
-   ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
+   de `supabase/`, del `001_schema.sql` al `027_agenda_ics.sql` (el `002`
+   ya no existe: traía datos inventados y se sacó; el `025` y el `026` todavía no
+   están en esta rama, son los cobros). Todos se pueden volver a correr
    cuantas veces haga falta.
 
    **En una base nueva se corren todos.** El 001 crea las tablas y nada más: no
@@ -76,7 +77,8 @@ src/
 │   ├── page.js             Inicio, armado por módulos
 │   ├── casos/              lista, alta, detalle y aprobación de pasos
 │   ├── seguimiento/        la pantalla pública que abre el cliente, sin cuenta
-│   ├── agenda/  clientes/  inventario/  aprobar/  equipo/  historial/  negocio/
+│   ├── agenda/             los turnos en lista, y adentro calendario/, el mes
+│   ├── clientes/  inventario/  aprobar/  equipo/  historial/  negocio/
 │   └── globals.css         los tokens de la cartilla, en Tailwind
 ├── componentes/            piezas base: botones, campos, chips, íconos
 │   └── inicio/             el marco y el contenido de cada módulo del Inicio
@@ -86,8 +88,11 @@ src/
     ├── semilla.js          el estado inicial del modo de ejemplo: vacío
     ├── estados.js          los cinco estados del caso y sus reglas
     ├── turnos.js           los cuatro estados de un turno de la agenda
+    ├── horarios.js         cuándo atiende el negocio y qué huecos quedan
+    ├── calendario.js       turnos por día, meses, semanas y carriles
+    ├── ics.js              el archivo iCalendar de la agenda
     ├── presets.js          los diccionarios de rubro
-    ├── modulos.js          el catálogo de módulos que un negocio puede prender
+    ├── modulos.js          el catálogo de módulos, y las pantallas de adentro
     ├── historial.js        el historial del negocio: tipos de evento, filtros y resumen
     ├── imagen.js           achica la foto del negocio antes de guardarla
     ├── seguimiento.js      qué ve y qué no ve el cliente en la pantalla pública
@@ -196,6 +201,201 @@ estaba.
 
 Agregar un módulo nuevo es sumar una entrada en `src/lib/inicio.js` y su cuerpo
 en `src/componentes/inicio/cuerpos.js`.
+
+## La Agenda tiene dos pantallas
+
+La Agenda dejó de ser una sola pantalla: adentro están **Turnos** —la lista, día
+por día, que es donde se anota, se confirma, se cancela y se marca que alguien
+vino— y **Calendario**, el mes en una grilla (SCRUM-20, fase 1).
+
+**Se cambia de una a otra con dos pestañas arriba de la pantalla**
+(`src/componentes/PestanasDeAgenda.js`), no desde la barra lateral. La barra
+dice a qué sección vas; una vez adentro, elegir la vista es parte de la sección,
+igual que "Los que vienen / Los que ya pasaron" de la lista de turnos. Entrar a
+Agenda cae siempre en Turnos.
+
+Las pestañas son links y no botones: cada vista tiene su dirección, así que
+funciona el botón de atrás del navegador y se puede guardar un favorito. Por eso
+tampoco llevan `role="tab"`, que es para paneles que cambian sin salir de la
+página; lo que corresponde es `aria-current="page"`. Si el negocio dejó una sola
+pantalla prendida no aparece ninguna pestaña: un par donde no hay nada para
+elegir ocupa 48 px de alto para no decir nada.
+
+Las dos son **submódulos**: se prenden por separado desde "Mi negocio" →
+"Módulos", y sólo aparecen si la Agenda está prendida. Sin Agenda no significan
+nada, así que no son módulos sueltos. Están en `SUBMODULOS`, un catálogo aparte
+de `MODULOS` en `src/lib/modulos.js`: de `LISTA_MODULOS` salen el contador de
+"Mi negocio" y lo que recomienda cada preset, y meter los hijos ahí adentro
+habría cambiado esos dos números sin que nadie lo pidiera.
+
+Tres reglas, todas en `modulos.js` y todas con prueba en `pruebas/modulos.test.js`:
+
+- **Prender la Agenda prende las dos.** Apagarla se las lleva.
+- **La última prendida no se apaga.** Dejaría la Agenda prendida y vacía, que es
+  lo mismo que apagarla pero por la puerta de atrás. El botón dice por qué:
+  «Apagar Calendario · apagá Agenda».
+- **Un negocio de antes de esto tiene las dos.** Tiene `agenda` en la lista y
+  ningún hijo escrito, y eso no quiere decir "las dos apagadas": quiere decir que
+  nadie eligió todavía. La primera vez que alguien toca un interruptor quedan
+  escritas las dos. Por eso no hace falta migración.
+
+### Mensual o semanal
+
+El calendario se mira de dos maneras, y se cambia con dos botones arriba:
+
+- **Mensual**: el mes en una grilla, con cuántos turnos tiene cada día. Es la
+  vista de "cómo viene lo que viene". Se navega con los selectores de mes y año,
+  o con "Anterior" / "Siguiente".
+- **Semanal**: los siete días en franjas horarias, como la de Google Calendar.
+  Cada turno se dibuja donde empieza y del alto que ocupa. Se navega con
+  "Semana del" y "Anterior" / "Siguiente", que corren de a siete días.
+
+La vista **no se guarda**: volver a entrar arranca en el mes. Guardarla es una
+columna más en `negocio` o una preferencia por persona, y todavía nadie la pidió.
+
+**La escala sale del área táctil, no al revés.** El turno que da el negocio mide
+siempre 48 px de alto, que es el mínimo de la cartilla, y de ahí sale cuántos
+píxeles vale un minuto. Un negocio que da turnos de 15 minutos tiene la grilla
+más alta que uno que los da de una hora, y en los dos el turno de siempre se
+puede tocar con el dedo.
+
+**La grilla se estira para que no se esconda nada.** Arranca en el horario del
+negocio, pero si hay un turno a las 8 en un negocio que abre a las 9 —lo cargó
+alguien a mano— la grilla empieza a las 8. Una agenda que esconde un turno es
+peor que no tener agenda.
+
+**Los turnos que se pisan se parten el ancho.** El índice `turno_horario_unico`
+(023) impide dos turnos a la misma hora, pero no dos que se pisen: uno de una
+hora a las 9 y otro de media a las 9:30 conviven, y sin carriles el segundo se
+dibujaría encima del primero. `acomodarEnCarriles()` los reparte, y cuenta los
+carriles **por grupo de turnos encadenados y no por día**: si a las 9 hay dos
+pisados y a las 15 hay uno solo, el de las 15 ocupa todo el ancho.
+
+**Los cancelados no se dibujan en la semana.** Ese horario quedó libre, y
+pintarlo diría que el negocio está ocupado cuando no lo está. Es el mismo
+criterio que usa la base en `turno_horario_unico`, que también los deja afuera.
+Siguen estando en Turnos, que es donde importa que se sepa que estaban.
+
+Cada turno de la semana es un **botón** que elige su día. No es una acción —no
+hay acciones en el Calendario— pero un bloque que no se puede enfocar deja la
+grilla entera fuera del alcance del teclado y del lector de pantalla. Al tocarlo,
+la lista de abajo muestra ese día entero, con todo lo que en la franja no entra.
+
+### Los turnos en el calendario del celular
+
+El dueño se suscribe una vez y sus turnos aparecen en el calendario que ya usa
+—Google, Apple, Outlook— sin abrir el sistema (SCRUM-20, fase 2). El link se
+arma en "Mi negocio" → "Cuándo atendés".
+
+**Es un archivo iCalendar, no la API de Google.** Los tres clientes se suscriben
+de fábrica a una dirección que devuelva ese formato: cero OAuth, cero
+credenciales guardadas y ningún servidor nuestro hablándole a Google. Las tres
+piezas son `supabase/027_agenda_ics.sql`, el único route handler del proyecto
+(`src/app/calendario/[codigo]/route.js`) y el armador `src/lib/ics.js`.
+
+**El techo, dicho antes de que sorprenda.** Es de sólo lectura, y Google relee
+los calendarios suscritos cuando quiere —suele tardar horas, y no respeta ningún
+encabezado que le pidamos—. Apple sí deja elegir cada cuánto. Un turno recién
+anotado puede no aparecer al toque. Si algún día hace falta que aparezca en el
+minuto, o poder escribir desde Google, el camino es la API con OAuth por
+negocio, y ahí recién entran las columnas `google_evento_id` y `sincronizado_en`
+que la 023 dejó puestas. Es otra historia, no un parámetro de ésta.
+
+**Dos links, dos códigos, dos interruptores.** `agenda_codigo` (024) es el que
+el negocio reparte por Instagram y muestra sólo qué horarios están ocupados, sin
+ningún nombre. `ics_codigo` (027) es para el dueño y muestra nombre, motivo y
+teléfono de cada turno. Con un solo código, cualquiera que pidiera turno podría
+leer la agenda entera, y dar de baja uno daría de baja el otro. La pantalla dice
+con todas las letras qué expone el segundo, y darlo de baja lo mata en el acto.
+
+**Lo que se publica** sale de `ver_agenda_ics()`, armado campo por campo como
+`ver_seguimiento()`: los turnos de los últimos 30 días para adelante, con nombre,
+motivo, estado y teléfono. Nada de casos, presupuestos, plata ni inventario. La
+ventana de 30 días no es capricho: un calendario no necesita los turnos de hace
+dos años, y publicarlos agranda el archivo y el daño si el link se filtra.
+
+**El formato tiene reglas que no se ven.** Líneas terminadas en CRLF, ninguna de
+más de 75 **octetos** —una "ñ" ocupa dos, así que cortar por caracteres deja
+líneas largas de más— y comas, punto y coma y barras invertidas escapados. Un
+error ahí no se ve en pantalla: se ve en el celular de alguien, tres días
+después, como un calendario vacío. Por eso `pruebas/ics.test.js` prueba el
+formato y no el contenido.
+
+El `UID` de cada evento es el id del turno y no cambia entre lecturas: si
+cambiara, el calendario borraría y recrearía el evento cada vez que relee, y se
+perderían los recordatorios que la persona le puso.
+
+En el modo de ejemplo los turnos viven en el navegador y no hay servidor que los
+publique; la pantalla lo dice y el link queda armado para cuando haya base.
+
+### El calendario cambia según cómo esté el teléfono
+
+En la computadora y **con el teléfono acostado** se ve el mes o la semana, con
+sus controles. **Parado** se ve un día solo, con "Ayer" / "Mañana" y un selector
+para saltar a cualquier otro; ahí no aparece el botón de mensual/semanal.
+
+No es que la grilla no entre: entraría apretada. Son dos trabajos distintos.
+Mirar el mes para planificar se hace sentado; el que abre el teléfono en el
+taller quiere saber qué le queda hoy, y darle una grilla de casillas de 40 px es
+hacerlo apuntar con el dedo para leer lo que ya sabía.
+
+Las dos vistas se dibujan siempre y el navegador esconde una con `display:none`,
+así que la escondida tampoco existe para un lector de pantalla. Al girar el
+teléfono cambia sola, sin recargar y sin perder el día que estabas mirando: el
+estado es uno solo para las dos.
+
+El corte es `max-height:480px`, que es como este código viene diciendo "teléfono
+acostado" desde la auditoría.
+
+### El calendario sólo se mira
+
+Anotar, confirmar, cancelar y marcar que alguien vino se hacen **todos en
+Turnos**. El calendario no tiene ninguna acción: es para ver cómo viene el mes.
+
+Así hay un solo lugar donde buscar cada cosa. El alta llegó a estar en las dos
+pantallas y se sacó: obligaba a mantener dos veces el mismo formulario con sus
+avisos, y le daba al usuario dos lugares para anotar lo mismo sin ninguna
+diferencia entre ellos. El calendario lo dice con un link, en vez de que alguien
+lo descubra buscando.
+
+### Los turnos que pide el cliente aparecen solos
+
+No hubo que integrar nada: un turno pedido por el link (024) es una fila de la
+misma tabla `turno`, y el calendario lo dibuja como a cualquier otro. Los que
+todavía no confirmó nadie del negocio se marcan en azul y con un punto, además
+del número —color, símbolo y número, para que impreso en blanco y negro se siga
+entendiendo—.
+
+Lo que sí hubo que agregar es que la pantalla se entere. Los datos se leían una
+sola vez, al entrar, y un turno que crea otra persona en otro navegador no
+aparecía nunca. Ahora `datos.js` vuelve a leer cuando la pestaña vuelve al
+frente (`visibilitychange`), que es el momento en que a alguien le importa que
+esté al día. Un reloj que pregunta cada tanto gastaría pedidos toda la tarde con
+la pestaña de fondo y seguiría llegando tarde justo cuando la persona vuelve.
+
+Si alguna vez hace falta que el turno aparezca sin tocar nada, el camino es
+Supabase Realtime sobre la tabla `turno` —que no anda en el modo de ejemplo,
+donde no hay servidor—. Queda anotado con un comentario `ponytail:` en el código.
+
+### Abrir el alta y salir de ella no son el mismo botón
+
+El alta vive en `src/componentes/AltaDeTurno.js`, en Turnos.
+
+"Anotar un turno" **no cambia de texto al abrirse el formulario**: se queda donde
+está y se apaga, en gris, diciendo por qué —«Anotar un turno · ya estás anotando
+uno»—, como manda la cartilla para todo botón apagado. Antes ese mismo botón, en
+el mismo lugar, pasaba a decir "Cerrar el alta": el dedo iba al lugar de siempre
+y hacía lo contrario de lo que esperaba. De paso, apagado no se pueden abrir dos
+altas a la vez.
+
+Salir es **"Cancelar"**, al pie del formulario, con tachito y en rojo, al lado de
+"Guardar el turno". Descarta lo que se venía escribiendo.
+
+El rojo acá es una excepción a la regla de `ui.js` —"el rojo es sólo para lo que
+borra o no tiene vuelta"— y está pedida por el equipo. El argumento a favor es
+que cancelar tira el borrador y eso no se deshace; el argumento en contra es que
+todavía no se creó nada, así que por la regla iría `neutro`. Queda anotado para
+que no se "corrija" sin saber que fue una decisión.
 
 ## La ficha del negocio
 

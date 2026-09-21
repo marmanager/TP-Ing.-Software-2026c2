@@ -58,6 +58,11 @@ export default function Horarios() {
   const [compartiendo, setCompartiendo] = useState(false);
   const [errorLink, setErrorLink] = useState(null);
   const [cortando, setCortando] = useState(false);
+  // Lo mismo, para el link del calendario (027). Son dos links distintos con
+  // dos interruptores distintos, así que cada uno lleva su propio estado.
+  const [armandoIcs, setArmandoIcs] = useState(false);
+  const [errorIcs, setErrorIcs] = useState(null);
+  const [cortandoIcs, setCortandoIcs] = useState(false);
   // El origen sale del navegador: así el link anda igual en localhost y el
   // día que esto se publique.
   const [origen, setOrigen] = useState("");
@@ -73,6 +78,17 @@ export default function Horarios() {
   const problemas = problemasDeHorarios(actual);
   const linkAgenda =
     origen && negocio?.agenda_codigo ? origen + "/turnos/" + negocio.agenda_codigo : "";
+  const linkIcs =
+    origen && negocio?.ics_codigo
+      ? origen + "/calendario/" + negocio.ics_codigo + ".ics"
+      : "";
+  // Apple Calendar y Outlook abren la suscripción solos con "webcal://".
+  // Google no lo entiende y pide la dirección pegada a mano, así que la de
+  // arriba se muestra igual.
+  const linkWebcal = linkIcs.replace(/^https?:/, "webcal:");
+  // Sin base no hay servidor que sirva el archivo: los turnos viven en este
+  // navegador. Ahí lo que se puede es bajarlo de una vez.
+  const hayBase = datos.fuente === "supabase";
   const cambiar = (que) => setBorrador((b) => ({ ...(b ?? guardado ?? HORARIOS_DE_FABRICA), ...que }));
 
   const alternarDia = (clave) => {
@@ -443,6 +459,161 @@ export default function Horarios() {
                               onClick={() => setCortando(true)}
                             >
                               Dejar de compartir la agenda
+                            </Boton>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </Tarjeta>
+
+                  {/* ---------- El calendario del dueño (027) ---------- */}
+                  <TituloSeccion>Tus turnos en tu calendario</TituloSeccion>
+                  <Tarjeta className="mb-8">
+                    {errorIcs && (
+                      <p className="mb-3 flex items-start gap-2 font-bold text-rojo">
+                        <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                        <span>{errorIcs}</span>
+                      </p>
+                    )}
+
+                    {!negocio?.ics_codigo ? (
+                      <>
+                        <p className="max-w-[65ch] text-tinta-media">
+                          Los turnos que tenés acá, adentro del calendario que ya usás en
+                          el celular: el de Google, el de Apple o el de Outlook. Te
+                          suscribís una vez y aparecen solos, sin entrar al sistema.
+                        </p>
+                        <p className="mt-3 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+                          <Icono nombre="llave" className="mt-0.5 size-5 shrink-0" />
+                          <span>
+                            Es un link secreto y es tuyo: el que lo tenga ve todos tus
+                            turnos con el nombre, el motivo y el teléfono de cada cliente.
+                            No lo repartas. Si se te escapa, lo das de baja acá y deja de
+                            servir en el momento.
+                          </span>
+                        </p>
+                        <div className="mt-4">
+                          <Boton
+                            icono="calendario"
+                            motivo={armandoIcs ? "armando el link" : null}
+                            onClick={async () => {
+                              setErrorIcs(null);
+                              setArmandoIcs(true);
+                              const r = await datos.compartirCalendario();
+                              setArmandoIcs(false);
+                              if (!r.ok) return setErrorIcs(r.error);
+                              datos.avisarExito(
+                                "Listo. Ya podés cargarlo en tu calendario."
+                              );
+                            }}
+                          >
+                            Armar el link del calendario
+                          </Boton>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Campo
+                          id="link-ics"
+                          etiqueta="El link de tu calendario"
+                          ayuda="Es sólo para vos. No lo repartas: muestra los teléfonos de tus clientes."
+                          value={linkIcs}
+                          readOnly
+                          onFocus={(ev) => ev.target.select()}
+                        />
+
+                        <div className="-mt-2 flex flex-wrap gap-3">
+                          <Boton
+                            icono="copiar"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(linkIcs);
+                                datos.avisarExito("Copiamos el link. Pegalo en tu calendario.");
+                              } catch {
+                                document.getElementById("link-ics")?.select();
+                                datos.avisarExito("Quedó seleccionado. Copialo con Ctrl+C.");
+                              }
+                            }}
+                          >
+                            Copiar el link
+                          </Boton>
+                          {/* Apple y Outlook abren la suscripción solos con
+                              este esquema. Google no lo entiende, y para ése
+                              está el link de arriba y el instructivo. */}
+                          <a
+                            href={linkWebcal}
+                            className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
+                          >
+                            <Icono nombre="calendario" />
+                            Abrirlo en mi calendario
+                          </a>
+                        </div>
+
+                        <div className="mt-2 rounded-tarjeta bg-superficie p-4">
+                          <p className="font-bold text-cuerpo">Cómo se carga en Google</p>
+                          <ol className="mt-2 max-w-[65ch] list-decimal pl-5 text-tinta-media">
+                            <li>Entrá a Google Calendar desde una computadora.</li>
+                            <li>
+                              A la izquierda, al lado de «Otros calendarios», tocá el más
+                              y elegí «Suscribirse a un calendario».
+                            </li>
+                            <li>Pegá el link de arriba y confirmá.</li>
+                          </ol>
+                          <p className="mt-3 max-w-[65ch] text-apoyo text-tinta-suave">
+                            Los turnos aparecen también en el celular, con la misma cuenta.
+                            Google relee el calendario cuando quiere —suele tardar unas
+                            horas— así que un turno recién anotado puede no aparecer al
+                            toque. En el de Apple se elige cada cuánto releer.
+                          </p>
+                        </div>
+
+                        {!hayBase && (
+                          <p className="mt-3 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+                            <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                            <span>
+                              En el modo de ejemplo tus turnos viven en este navegador y no
+                              hay servidor que los publique, así que el link todavía no
+                              trae nada. Anda con las claves de Supabase cargadas.
+                            </span>
+                          </p>
+                        )}
+
+                        {cortandoIcs ? (
+                          <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+                            <p className="font-bold text-cuerpo">
+                              ¿Sacar la agenda de tu calendario?
+                            </p>
+                            <p className="mt-1 max-w-[65ch] text-tinta-media">
+                              El link deja de funcionar ahora mismo. Los turnos que ya se
+                              copiaron a tu calendario quedan ahí hasta que lo borres de tu
+                              lista de calendarios, y no se actualizan más.
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              <Boton
+                                variante="peligro"
+                                icono="tacho"
+                                onClick={async () => {
+                                  setCortandoIcs(false);
+                                  const r = await datos.dejarDeCompartirCalendario();
+                                  if (!r.ok) return setErrorIcs(r.error);
+                                  datos.avisarExito("Listo. Ese link dejó de funcionar.");
+                                }}
+                              >
+                                Sí, dar de baja el link
+                              </Boton>
+                              <Boton variante="plano" onClick={() => setCortandoIcs(false)}>
+                                Dejarlo como está
+                              </Boton>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2">
+                            <Boton
+                              variante="plano"
+                              icono="tacho"
+                              onClick={() => setCortandoIcs(true)}
+                            >
+                              Dar de baja el link del calendario
                             </Boton>
                           </div>
                         )}
