@@ -25,6 +25,13 @@ import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
 import { agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
+import {
+  MEDIOS_DEL_LOCAL,
+  conCobro as ponerCobro,
+  medioDe,
+  montoDeCobroValido,
+  sePuedeAnular,
+} from "./cobros.js";
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -37,6 +44,8 @@ const VACIO = {
   insumos: [],
   turnos: [],
   invitaciones: [],
+  // Los cobros de cada caso (025). Un caso puede tener varios.
+  cobros: [],
 };
 
 const Contexto = createContext(null);
@@ -73,6 +82,16 @@ const porQueNoSePudoCompartirAgenda = (error) => {
     return "Falta correr 024_pedir_turno.sql en Supabase. Hasta entonces no se puede compartir la agenda.";
   }
   return texto || "No se pudo compartir la agenda.";
+};
+
+// Por qué no se pudo anotar o anular un cobro. Lo más probable, antes que un
+// permiso, es que falte la migración.
+const porQueNoSePudoCobrar = (error) => {
+  const texto = error?.message ?? "";
+  if (error?.code === "PGRST202" || texto.includes("registrar_cobro") || texto.includes("anular_cobro")) {
+    return "Falta correr 025_cobros.sql en Supabase. Hasta entonces no se pueden anotar cobros sueltos.";
+  }
+  return texto || "No se pudo guardar el cobro.";
 };
 
 const nuevoId = () =>
@@ -366,7 +385,7 @@ const conModulos = (negocio) =>
 // (supabase/005_rls.sql), que ya no devolverían nada de otro negocio aunque
 // acá pidiéramos todo.
 async function leerDeSupabase(negocioId) {
-  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones] =
+  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones, cobros] =
     await Promise.all([
       supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
       supabase.from("empleado").select("*").eq("negocio_id", negocioId),
@@ -375,6 +394,7 @@ async function leerDeSupabase(negocioId) {
       supabase.from("insumo").select("*").eq("negocio_id", negocioId),
       supabase.from("turno").select("*").eq("negocio_id", negocioId),
       supabase.from("invitacion").select("*").eq("negocio_id", negocioId),
+      supabase.from("cobro").select("*").eq("negocio_id", negocioId),
     ]);
 
   const conError = [negocio, empleados, clientes, casos, insumos, turnos].find((r) => r.error);
@@ -406,6 +426,9 @@ async function leerDeSupabase(negocioId) {
     turnos: turnos.data ?? [],
     // Si la migración de invitaciones todavía no corrió, el resto anda igual.
     invitaciones: invitaciones.error ? [] : (invitaciones.data ?? []),
+    // Lo mismo con los cobros: sin 025 corrida, cada caso sigue con su
+    // número único de 012 y nada se rompe.
+    cobros: cobros.error ? [] : (cobros.data ?? []),
   };
 }
 
@@ -794,6 +817,111 @@ export function DatosProvider({ children }) {
           icono: textoHistorial.icono,
           estado,
         });
+      },
+
+      // ---------- cobros (025) ----------
+      //
+      // Anotar un pago que ya pasó en el local: efectivo, transferencia o
+      // tarjeta. Nace pagado. Un caso puede tener varios (una seña y el
+      // resto), y caso.cobrado pasa a ser la suma: en la base lo mantiene un
+      // trigger, acá lo recalcula conCobro() con la misma cuenta.
+      //
+      // Los cobros por link o QR no pasan por acá: los pide la API de pagos
+      // y los marca pagados ella, cuando el medio de pago confirma.
+      async registrarCobro({ casoId, monto, medio, nota = null }) {
+        const caso = datos.casos.find((c) => c.id === casoId);
+        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        if (!montoDeCobroValido(String(monto ?? ""))) {
+          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+        }
+        if (!MEDIOS_DEL_LOCAL.includes(medio)) {
+          return { ok: false, error: "Los cobros por link o QR se piden desde el sistema de pagos." };
+        }
+
+        let nuevo;
+        if (enSupabase()) {
+          const { data, error } = await supabase.rpc("registrar_cobro", {
+            p_caso_id: casoId,
+            p_monto: Number(monto),
+            p_medio: medio,
+            p_nota: nota,
+          });
+          if (error) return { ok: false, error: porQueNoSePudoCobrar(error) };
+          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo anotar el cobro." };
+          nuevo = data.cobro;
+        } else {
+          const ahora = new Date().toISOString();
+          nuevo = {
+            id: nuevoId(),
+            negocio_id: datos.negocio.id,
+            caso_id: casoId,
+            monto: Number(monto),
+            medio,
+            estado: "pagado",
+            nota: nota?.trim() || null,
+            creado_en: ahora,
+            pagado_en: ahora,
+          };
+        }
+
+        setDatos((d) => ponerCobro(d, nuevo, { adoptarLoViejo: !enSupabase(), nuevoId }));
+        anotar({
+          casoId,
+          tipo: "plata",
+          titulo: "Cobraron",
+          detalle: `${pesos(Number(monto))} · ${medioDe(medio).palabra}`,
+          icono: "listo",
+          monto: Number(monto),
+        });
+        return { ok: true, cobro: nuevo };
+      },
+
+      // Corregir un cobro mal anotado. No se borra: queda anulado, y el
+      // historial dice quién y por qué. Un pago por link que ya entró no se
+      // anula: se devuelve desde el medio de pago.
+      async anularCobro(cobroId, motivo = null) {
+        const cobro = datos.cobros.find((c) => c.id === cobroId);
+        if (!cobro) return { ok: false, error: "Ese cobro ya no está." };
+        if (!sePuedeAnular(cobro)) {
+          return {
+            ok: false,
+            error:
+              cobro.estado === "pagado"
+                ? "Ese pago ya entró por el medio de pago. Para devolverlo, hay que hacerlo desde ahí."
+                : "Ese cobro ya no cuenta: no hay nada que anular.",
+          };
+        }
+
+        let anulado;
+        if (enSupabase()) {
+          const { data, error } = await supabase.rpc("anular_cobro", {
+            p_cobro_id: cobroId,
+            p_motivo: motivo,
+          });
+          if (error) return { ok: false, error: porQueNoSePudoCobrar(error) };
+          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo anular el cobro." };
+          anulado = data.cobro;
+        } else {
+          anulado = {
+            ...cobro,
+            estado: "anulado",
+            anulado_en: new Date().toISOString(),
+            motivo_anulacion: motivo?.trim() || null,
+          };
+        }
+
+        setDatos((d) => ponerCobro(d, anulado, { nuevoId }));
+        anotar({
+          casoId: cobro.caso_id,
+          tipo: "plata",
+          titulo: "Anularon un cobro",
+          detalle:
+            `${pesos(Number(cobro.monto))} · ${medioDe(cobro.medio).palabra}` +
+            (motivo?.trim() ? ` · ${motivo.trim()}` : ""),
+          icono: "cruz",
+          monto: Number(cobro.monto),
+        });
+        return { ok: true, cobro: anulado };
       },
 
       // Marcar que un paso aprobado ya se hizo, o desmarcarlo (flujo, 7).
