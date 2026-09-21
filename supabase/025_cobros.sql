@@ -255,3 +255,41 @@ $$;
 revoke all on function anular_cobro(uuid, text) from public;
 revoke all on function anular_cobro(uuid, text) from anon;
 grant execute on function anular_cobro(uuid, text) to authenticated;
+
+-- ------------------------------------------------------------
+-- Lo que no se le cobra (descuento)
+-- ------------------------------------------------------------
+-- Con varios cobros, "cobré menos de lo aprobado" dejó de ser una sola
+-- cosa: puede ser que el resto lo pague después, o que no se le cobre (un
+-- descuento, una cortesía, una garantía). Sin esta columna, todo lo que no
+-- se cobró quedaría como deuda para siempre.
+--
+-- Es plata que NO entra, así que no es un cobro: va en el caso. Se escribe
+-- como el resto de las columnas del caso (dueño y encargado, 008).
+alter table caso add column if not exists descuento numeric(12, 2);
+
+alter table caso drop constraint if exists caso_descuento_no_negativo;
+alter table caso add  constraint caso_descuento_no_negativo
+  check (descuento is null or descuento >= 0);
+
+-- Los casos cerrados con 012 que registraron cobrar menos de lo aprobado:
+-- antes eso era el precio final ("el usuario puede modificar el importe"),
+-- así que la diferencia es un descuento, no una deuda. Un 0 ("se entregó
+-- sin cobrar") descuenta todo lo aprobado. Un NULL ("no se registró") no se
+-- toca: no se sabe si se cobró por afuera.
+--
+-- Sólo donde descuento todavía es NULL: sacar un descuento lo deja en 0, así
+-- que volver a correr esto no lo repone.
+update caso c
+set descuento = a.total - c.cobrado
+from (
+  select caso_id, sum(monto) as total
+  from paso
+  where estado = 'aprobado'
+  group by caso_id
+) a
+where a.caso_id = c.id
+  and c.estado = 'completado'
+  and c.cobrado is not null
+  and c.descuento is null
+  and a.total > c.cobrado;

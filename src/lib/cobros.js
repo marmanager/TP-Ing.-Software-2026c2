@@ -131,25 +131,44 @@ export function cobradoDelCaso(cobrosDeEseCaso = []) {
 //   pendiente  → links o QR que se mandaron y todavía no se pagaron. No es
 //                plata que entró, pero tampoco hay que volver a pedirla.
 //   falta      → lo que queda por cobrar, sin contar lo pendiente
+//   descuento  → lo que el negocio decidió no cobrar (caso.descuento). No es
+//                plata que entró, pero tampoco se le debe.
 //   deMas      → si se cobró más de lo aprobado (un extra que no pasó por
 //                el presupuesto, una propina): no es un error, pero se dice
 //
 // "situacion" es lo que la pantalla necesita para elegir la frase.
-export function cuentaDelCaso({ aprobado = 0, cobros = [] } = {}) {
+export function cuentaDelCaso({ aprobado = 0, cobros = [], descuento = 0 } = {}) {
   const total = Number(aprobado) || 0;
   const pagado = suma(cobros.filter((c) => c.estado === "pagado"));
   const pendiente = suma(cobros.filter((c) => c.estado === "pendiente"));
-  const falta = Math.max(0, total - pagado - pendiente);
+  const desc = Math.max(0, Number(descuento) || 0);
+  const falta = Math.max(0, total - pagado - pendiente - desc);
   const deMas = Math.max(0, pagado - total);
 
   let situacion;
-  if (pagado === 0 && pendiente === 0) situacion = "sin_cobrar";
-  else if (pagado >= total && total > 0) situacion = deMas > 0 ? "de_mas" : "completo";
-  else if (total === 0) situacion = "sin_presupuesto";
+  if (pagado === 0 && pendiente === 0 && desc === 0) situacion = "sin_cobrar";
+  else if (total > 0 && pagado + desc >= total) {
+    situacion = deMas > 0 ? "de_mas" : desc > 0 ? "con_descuento" : "completo";
+  } else if (total === 0) situacion = "sin_presupuesto";
   else if (falta === 0) situacion = "esperando_pagos";
   else situacion = "parcial";
 
-  return { total, pagado, pendiente, falta, deMas, situacion };
+  return { total, pagado, pendiente, descuento: desc, falta, deMas, situacion };
+}
+
+// Cuánto no se le cobra en este caso. Lo dice caso.descuento; si todavía no
+// tiene (un caso cerrado antes de 025, o la migración sin correr), sale de la
+// misma regla con la que 025 completa los viejos: en un caso entregado con
+// un cobro anotado, lo que se cobró de menos fue el precio final, no una
+// deuda. Un caso entregado sin cobro registrado (NULL) no descuenta nada:
+// no se sabe si se cobró por afuera.
+export function descuentoDelCaso(caso, aprobado = 0) {
+  if (!caso) return 0;
+  if (caso.descuento != null) return Math.max(0, Number(caso.descuento) || 0);
+  if (caso.estado === "completado" && caso.cobrado != null) {
+    return Math.max(0, Number(aprobado) - Number(caso.cobrado));
+  }
+  return 0;
 }
 
 // Lo que se ofrece para cobrar al abrir el formulario: lo que falta. Si ya
@@ -166,10 +185,35 @@ export const montoDeCobroValido = (valor = "") => montoValido(valor);
 // pago por link o QR que ya entró no, porque se devuelve desde el medio de
 // pago.
 export function sePuedeAnular(cobro) {
-  if (!cobro) return false;
+  if (!cobro || cobro.deAntes) return false;
   if (cobro.estado === "pendiente") return true;
   if (cobro.estado !== "pagado") return false;
   return medioDe(cobro.medio).enElLocal;
+}
+
+// Los cobros de un caso para mostrar, contando lo que se anotó antes de que
+// existiera la tabla. En la base, 025 ya lo pasó a la tabla; en el modo de
+// ejemplo puede quedar un caso con el número de 012 y ninguna fila. Sin
+// esto, la cuenta diría que falta todo, y al entregar se volvería a cobrar
+// lo que ya se cobró.
+//
+// La fila que se agrega es sólo para mirar ("deAntes"): no se anula, porque
+// no existe. El primer cobro nuevo la vuelve de verdad (conCobro).
+export function cobrosConLoDeAntes(cobrosDeEseCaso = [], caso) {
+  if (cobrosDeEseCaso.length > 0 || !caso || !(Number(caso.cobrado) > 0)) return cobrosDeEseCaso;
+  const cuando = caso.cobrado_en ?? caso.actualizado_en ?? caso.abierto_en ?? null;
+  return [
+    {
+      id: `de-antes-${caso.id}`,
+      caso_id: caso.id,
+      monto: Number(caso.cobrado),
+      medio: "sin_dato",
+      estado: "pagado",
+      creado_en: cuando,
+      pagado_en: cuando,
+      deAntes: true,
+    },
+  ];
 }
 
 // Los casos con cobros esperando: para el aviso de Inicio.

@@ -630,12 +630,14 @@ export function DatosProvider({ children }) {
       return evento;
     };
 
+    // "descuento" nace en 025_cobros.sql: si la base todavía no lo tiene,
+    // el resto del cambio (cerrar el caso, por ejemplo) se guarda igual.
     const parchearCaso = (casoId, cambios) => {
       setDatos((d) => ({
         ...d,
         casos: d.casos.map((c) => (c.id === casoId ? { ...c, ...cambios } : c)),
       }));
-      escribir("caso", { id: casoId, ...cambios });
+      escribirConColumnasNuevas("caso", { id: casoId, ...cambios }, ["descuento"]);
     };
 
     return {
@@ -874,6 +876,26 @@ export function DatosProvider({ children }) {
           monto: Number(monto),
         });
         return { ok: true, cobro: nuevo };
+      },
+
+      // Lo que no se le cobra: un descuento, una cortesía, una garantía. Va
+      // en el caso y no como cobro, porque no es plata que entra. "monto" es
+      // el descuento total que queda (0 lo saca).
+      cambiarDescuento(casoId, monto, { antes = 0 } = {}) {
+        const nuevo = Math.max(0, Number(monto) || 0);
+        parchearCaso(casoId, { descuento: nuevo });
+        anotar({
+          casoId,
+          tipo: "plata",
+          titulo: nuevo > 0 ? "No le cobran una parte" : "Sacaron el descuento",
+          detalle:
+            nuevo > 0
+              ? `Descuento de ${pesos(nuevo)}.`
+              : `Ya no se descuentan ${pesos(Number(antes))}: vuelve a figurar como por cobrar.`,
+          icono: nuevo > 0 ? "nota" : "deshacer",
+          monto: nuevo > 0 ? nuevo : Number(antes),
+        });
+        return { ok: true };
       },
 
       // Corregir un cobro mal anotado. No se borra: queda anulado, y el

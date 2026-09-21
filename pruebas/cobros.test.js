@@ -10,10 +10,12 @@ import {
   MEDIOS,
   MEDIOS_DEL_LOCAL,
   cobradoDelCaso,
+  cobrosConLoDeAntes,
   cobrosDelCaso,
   cobrosPendientes,
   conCobro,
   cuentaDelCaso,
+  descuentoDelCaso,
   estadoDeCobro,
   montoDeCobroValido,
   montoSugerido,
@@ -243,4 +245,65 @@ test("anular reemplaza el cobro y resta", () => {
   d = conCobro(d, cobro({ id: "y", monto: 5000, estado: "anulado" }), { nuevoId });
   assert.equal(d.cobros.length, 2);
   assert.equal(d.casos[0].cobrado, 20000);
+});
+
+// ------------------------------------------------------------
+// Lo anotado antes de la tabla (012)
+// ------------------------------------------------------------
+
+test("un caso con un cobro de antes lo muestra como pagado, sin dato del medio", () => {
+  const [c] = cobrosConLoDeAntes([], { id: "c1", cobrado: "50000", cobrado_en: "2026-09-01T10:00:00.000Z" });
+  assert.equal(c.monto, 50000);
+  assert.equal(c.medio, "sin_dato");
+  assert.equal(cuentaDelCaso({ aprobado: 80000, cobros: [c] }).falta, 30000);
+});
+
+test("lo de antes se mira pero no se anula: no existe en la tabla", () => {
+  const [c] = cobrosConLoDeAntes([], { id: "c1", cobrado: 50000 });
+  assert.equal(sePuedeAnular(c), false);
+});
+
+test("si ya hay cobros en la tabla, o no se cobró nada, no se agrega nada", () => {
+  const reales = [cobro()];
+  assert.equal(cobrosConLoDeAntes(reales, { id: "c1", cobrado: 50000 }), reales);
+  assert.deepEqual(cobrosConLoDeAntes([], { id: "c1", cobrado: 0 }), []);
+  assert.deepEqual(cobrosConLoDeAntes([], { id: "c1", cobrado: null }), []);
+});
+
+// ------------------------------------------------------------
+// Lo que no se le cobra
+// ------------------------------------------------------------
+
+test("con un descuento, lo que no se cobra no queda como deuda", () => {
+  const c = cuentaDelCaso({ aprobado: 80000, cobros: [cobro({ monto: 70000 })], descuento: 10000 });
+  assert.equal(c.falta, 0);
+  assert.equal(c.situacion, "con_descuento");
+});
+
+test("una garantía: no se cobró nada y no se debe nada", () => {
+  const c = cuentaDelCaso({ aprobado: 80000, cobros: [], descuento: 80000 });
+  assert.equal(c.falta, 0);
+  assert.equal(c.situacion, "con_descuento");
+});
+
+test("un descuento de una parte deja el resto por cobrar", () => {
+  const c = cuentaDelCaso({ aprobado: 80000, cobros: [cobro({ monto: 20000 })], descuento: 10000 });
+  assert.equal(c.falta, 50000);
+  assert.equal(c.situacion, "parcial");
+});
+
+test("un caso cerrado con el sistema anterior cobrando de menos: la diferencia fue un descuento", () => {
+  const viejo = { estado: "completado", cobrado: "50000", descuento: null };
+  assert.equal(descuentoDelCaso(viejo, 70000), 20000);
+  assert.equal(descuentoDelCaso({ ...viejo, cobrado: 0 }, 70000), 70000, "el 0 de 'se entregó sin cobrar'");
+});
+
+test("si no se registró cobro, no se inventa un descuento", () => {
+  assert.equal(descuentoDelCaso({ estado: "completado", cobrado: null }, 70000), 0);
+  assert.equal(descuentoDelCaso({ estado: "en_proceso", cobrado: 20000 }, 70000), 0, "un caso abierto con seña debe el resto");
+});
+
+test("lo que dice la columna manda, incluido un descuento sacado (0)", () => {
+  assert.equal(descuentoDelCaso({ estado: "completado", cobrado: 50000, descuento: 0 }, 70000), 0);
+  assert.equal(descuentoDelCaso({ estado: "en_proceso", descuento: "5000" }, 70000), 5000);
 });
