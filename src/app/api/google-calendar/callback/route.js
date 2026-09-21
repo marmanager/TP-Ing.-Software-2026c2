@@ -13,9 +13,13 @@ export async function GET(request) {
   const nonce = /(?:^|;\s*)google_oauth_state=([^;]+)/.exec(request.headers.get("cookie") || "")?.[1];
   const response = (result) => {
     destination.searchParams.set("google", result);
-    const redirect = Response.redirect(destination, 303);
-    redirect.headers.set("Set-Cookie", "google_oauth_state=; HttpOnly; SameSite=Lax; Path=/api/google-calendar/callback; Max-Age=0");
-    return redirect;
+    return new Response(null, {
+      status: 303,
+      headers: {
+        Location: destination.toString(),
+        "Set-Cookie": "google_oauth_state=; HttpOnly; SameSite=Lax; Path=/api/google-calendar/callback; Max-Age=0",
+      },
+    });
   };
   if (!googleConfigurado || !nonce || !params.get("state") || !params.get("code")) return response("error");
   const state = leerEstadoOAuth(params.get("state"), nonce);
@@ -27,7 +31,8 @@ export async function GET(request) {
     });
     if (!token.refresh_token) throw new Error("Google no devolvió un refresh token.");
     await guardarConexion({ id: state.usuario_id, negocio_id: state.negocio_id }, token.refresh_token);
-    await sincronizarUsuario(state.usuario_id);
+    try { await sincronizarUsuario(state.usuario_id); }
+    catch (error) { console.error("Google Calendar sincronización inicial:", error); }
     return response("conectado");
   } catch (error) {
     console.error("Google Calendar OAuth:", error);
