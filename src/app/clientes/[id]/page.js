@@ -18,6 +18,7 @@ import { estaAbierto, pesos } from "@/lib/estados";
 import { comoSeIdentifica } from "@/lib/presets";
 import { diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
 import { telefonoValido } from "@/lib/validaciones";
+import { saldoDelCaso } from "@/lib/cobros";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -25,7 +26,7 @@ import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/compone
 export default function FichaDeCliente() {
   const { id } = useParams();
   const datos = useDatos();
-  const { cargando, clientes, casos, turnos, negocio } = datos;
+  const { cargando, clientes, casos, turnos, negocio, pasos, cobros } = datos;
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [corrigiendo, setCorrigiendo] = useState(false);
@@ -58,6 +59,16 @@ export default function FichaDeCliente() {
   // Un caso entregado sin cobro registrado no suma cero: no suma.
   const cobrados = suyos.filter((c) => c.cobrado != null);
   const cobradoTotal = cobrados.reduce((s, c) => s + Number(c.cobrado), 0);
+
+  // Lo que todavía debe, caso por caso (025). Sólo donde se sabe: un caso
+  // entregado antes de los cobros sin nada anotado no cuenta como deuda.
+  const saldos = new Map(
+    suyos.map((c) => [c.id, saldoDelCaso({ caso: c, pasos: pasos ?? [], cobros: cobros ?? [] })])
+  );
+  // Sólo de los entregados: en uno abierto, lo que falta se cobra al entregar.
+  const debe = suyos
+    .filter((c) => c.estado === "completado")
+    .reduce((s, c) => s + (saldos.get(c.id)?.falta ?? 0), 0);
 
   const proximos = turnos
     .filter((t) => t.cliente_id === cliente.id && t.estado !== "cancelado")
@@ -184,6 +195,14 @@ export default function FichaDeCliente() {
               {cobrados.length ? pesos(cobradoTotal) : "Nada registrado"}
             </dd>
           </div>
+          {debe > 0 && (
+            <div>
+              <dt className="text-apoyo text-tinta-suave">Te debe</dt>
+              <dd className="font-titulo font-extrabold text-subtitulo tabular-nums text-espera">
+                {pesos(debe)}
+              </dd>
+            </div>
+          )}
         </dl>
       </Tarjeta>
 
@@ -228,6 +247,11 @@ export default function FichaDeCliente() {
                         {c.identificador && `${comoIdent.nombre} ${c.identificador} · `}
                         Abierto {elDia(c.abierto_en)}
                         {c.cobrado != null && ` · Cobrado ${pesos(Number(c.cobrado))}`}
+                        {c.estado === "completado" && saldos.get(c.id)?.falta > 0 && (
+                          <span className="font-bold text-espera">
+                            {` · Falta cobrar ${pesos(saldos.get(c.id).falta)}`}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <ChipEstado estado={c.estado} />

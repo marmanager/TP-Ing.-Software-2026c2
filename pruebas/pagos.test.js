@@ -6,7 +6,12 @@
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
-import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "../src/lib/pagos.js";
+import {
+  anularPagoEnLinea,
+  pagarDesdeSeguimiento,
+  pagosEnLinea,
+  pedirPagoEnLinea,
+} from "../src/lib/pagos.js";
 import { hayPagosEnCamino, mensajeDePago, montoParaPedir, cuentaDelCaso } from "../src/lib/cobros.js";
 
 const API = "https://api.ejemplo";
@@ -137,4 +142,29 @@ test("el mensaje de WhatsApp dice quién cobra, cuánto y dónde pagar", () => {
   const m = mensajeDePago({ negocio: "Taller Sur", cliente: "Marcela Suárez", monto: 60000, link: "https://pago/x" });
   assert.equal(m, "Hola Marcela. Te escribimos de Taller Sur. Podés pagar los $60.000 desde acá: https://pago/x");
   assert.match(mensajeDePago({ monto: 1, link: "l" }), /^Hola\. Podés pagar/);
+});
+
+// ------------------------------------------------------------
+// Pagar desde el seguimiento (sin sesión)
+// ------------------------------------------------------------
+
+
+test("desde el seguimiento no se manda sesión ni monto: sólo el código", async () => {
+  const { fetcher, llamadas } = apiFalsa(200, { ok: true, link: "https://pago/y" });
+  const r = await pagarDesdeSeguimiento({ codigo: "abc", api: API, fetcher });
+  assert.deepEqual(r, { ok: true, link: "https://pago/y" });
+  assert.equal(llamadas[0].url, `${API}/seguimiento/abc/pagos`);
+  assert.equal(llamadas[0].headers.Authorization, undefined);
+  assert.deepEqual(llamadas[0].cuerpo, {});
+});
+
+test("sin API, el cliente lee que puede pagar en el local", async () => {
+  const r = await pagarDesdeSeguimiento({ codigo: "abc", api: null });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /en el local/);
+});
+
+test("una respuesta sin link no manda al cliente a ningún lado", async () => {
+  const r = await pagarDesdeSeguimiento({ codigo: "abc", api: API, fetcher: apiFalsa(200, { ok: true }).fetcher });
+  assert.equal(r.ok, false);
 });

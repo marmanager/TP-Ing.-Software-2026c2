@@ -847,7 +847,12 @@ export default function VerCaso() {
                           ...(sinCobrarNada && descuenta
                             ? { cobrado: 0, cobrado_en: new Date().toISOString() }
                             : {}),
-                          ...(descuenta ? { descuento: cuenta.descuento + restoAntes } : {}),
+                          // El descuento se escribe siempre, aunque sea 0: es
+                          // la marca de que se cerró sabiendo cuánto quedaba
+                          // (saldoConocido en lib/cobros.js). Sin ella, un
+                          // caso cerrado "me paga después" no se distinguiría
+                          // de uno viejo cobrado por afuera.
+                          descuento: descuenta ? cuenta.descuento + restoAntes : cuenta.descuento,
                         }
                       );
                       datos.avisarExito(

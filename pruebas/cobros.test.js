@@ -10,7 +10,10 @@ import {
   MEDIOS,
   MEDIOS_DEL_LOCAL,
   cobradoDelCaso,
+  casosConSaldo,
   cobrosConLoDeAntes,
+  pagoPublico,
+  saldoDelCaso,
   cobrosDelCaso,
   cobrosPendientes,
   conCobro,
@@ -306,4 +309,89 @@ test("si no se registró cobro, no se inventa un descuento", () => {
 test("lo que dice la columna manda, incluido un descuento sacado (0)", () => {
   assert.equal(descuentoDelCaso({ estado: "completado", cobrado: 50000, descuento: 0 }, 70000), 0);
   assert.equal(descuentoDelCaso({ estado: "en_proceso", descuento: "5000" }, 70000), 5000);
+});
+
+// ------------------------------------------------------------
+// El saldo afuera del caso: Inicio, la ficha del cliente, el seguimiento
+// ------------------------------------------------------------
+
+const pasosDe = (casoId, ...montos) =>
+  montos.map((monto, i) => ({ caso_id: casoId, monto, estado: "aprobado", orden: i }));
+
+test("un caso entregado con seña y el resto para después, debe", () => {
+  const caso = { id: "c1", estado: "completado", cobrado: 20000, descuento: 0 };
+  const cuenta = saldoDelCaso({ caso, pasos: pasosDe("c1", 80000), cobros: [cobro({ monto: 20000 })] });
+  assert.equal(cuenta.falta, 60000);
+});
+
+test("uno viejo, entregado sin ningún cobro anotado, no se sabe: no se inventa una deuda", () => {
+  const caso = { id: "c1", estado: "completado", cobrado: null, descuento: null };
+  assert.equal(saldoDelCaso({ caso, pasos: pasosDe("c1", 80000), cobros: [] }), null);
+});
+
+test("uno cerrado con el sistema nuevo sin cobrar nada, sí debe (la marca es el descuento en 0)", () => {
+  const caso = { id: "c1", estado: "completado", cobrado: null, descuento: 0 };
+  assert.equal(saldoDelCaso({ caso, pasos: pasosDe("c1", 80000), cobros: [] }).falta, 80000);
+});
+
+test("Inicio: sólo los entregados que deben", () => {
+  const casos = [
+    { id: "debe", estado: "completado", descuento: 0 },
+    { id: "saldado", estado: "completado", cobrado: 50000, descuento: 0 },
+    { id: "viejo", estado: "completado", cobrado: null, descuento: null },
+    { id: "abierto", estado: "en_proceso" },
+  ];
+  const pasos = [...pasosDe("debe", 30000), ...pasosDe("saldado", 50000), ...pasosDe("viejo", 10000), ...pasosDe("abierto", 9000)];
+  const cobros = [cobro({ caso_id: "saldado", monto: 50000 })];
+  const lista = casosConSaldo({ casos, pasos, cobros });
+  assert.deepEqual(lista.map((x) => x.caso.id), ["debe"]);
+  assert.equal(lista[0].cuenta.falta, 30000);
+});
+
+test("el cliente ve cuánto pagó, cuánto falta y sus links, y nada más", () => {
+  const caso = { id: "c1", estado: "completado", descuento: 5000 };
+  const cobros = [
+    cobro({ monto: 20000, nota: "Seña" }),
+    cobro({ monto: 30000, medio: "link", estado: "pendiente", link: "https://pago/x", vence_en: "2026-09-24T00:00:00.000Z" }),
+    cobro({ monto: 99999, medio: "qr", estado: "pendiente" }),
+    cobro({ monto: 99999, estado: "anulado", motivo_anulacion: "interno" }),
+  ];
+  const p = pagoPublico({ caso, pasos: pasosDe("c1", 80000), cobros });
+  assert.deepEqual(p, {
+    pagado: 20000,
+    falta: 0,
+    pendientes: [{ monto: 30000, link: "https://pago/x", vence_en: "2026-09-24T00:00:00.000Z" }],
+  });
+  const texto = JSON.stringify(p);
+  for (const interno of ["Seña", "efectivo", "interno", "5000", "descuento", "qr"]) {
+    assert.ok(!texto.includes(interno), `no viaja: ${interno}`);
+  }
+});
+
+test("antes de que esté listo no se habla de plata, salvo que le hayan mandado un link", () => {
+  const caso = { id: "c1", estado: "en_proceso" };
+  assert.equal(pagoPublico({ caso, pasos: pasosDe("c1", 80000), cobros: [] }), null);
+  const conLink = pagoPublico({
+    caso,
+    pasos: pasosDe("c1", 80000),
+    cobros: [cobro({ monto: 20000, medio: "link", estado: "pendiente", link: "l" })],
+  });
+  assert.equal(conLink.pendientes.length, 1);
+});
+
+test("listo para retirar: cuánto falta", () => {
+  const caso = { id: "c1", estado: "revision_final" };
+  assert.deepEqual(pagoPublico({ caso, pasos: pasosDe("c1", 80000), cobros: [cobro({ monto: 20000 })] }), {
+    pagado: 20000,
+    falta: 60000,
+    pendientes: [],
+  });
+});
+
+test("sin presupuesto aprobado, o sin saber si debe, no se dice nada", () => {
+  assert.equal(pagoPublico({ caso: { id: "c1", estado: "completado", descuento: 0 }, pasos: [], cobros: [] }), null);
+  assert.equal(
+    pagoPublico({ caso: { id: "c1", estado: "completado", cobrado: null, descuento: null }, pasos: pasosDe("c1", 5), cobros: [] }),
+    null
+  );
 });

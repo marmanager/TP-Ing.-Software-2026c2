@@ -285,3 +285,72 @@ export function mensajeDePago({ negocio, cliente, monto, link }) {
   const quien = negocio ? ` Te escribimos de ${negocio}.` : "";
   return `${saludo}.${quien} Podés pagar los ${pesos(monto)} desde acá: ${link}`;
 }
+
+// ------------------------------------------------------------
+// El saldo de un caso, afuera de su pantalla (Inicio, ficha del cliente,
+// seguimiento público)
+// ------------------------------------------------------------
+
+// Lo aprobado de un caso: la suma de sus pasos aprobados.
+export const aprobadoDelCaso = (pasos = [], casoId) =>
+  pasos
+    .filter((p) => p.caso_id === casoId && p.estado === "aprobado")
+    .reduce((s, p) => s + Number(p.monto), 0);
+
+// Si se sabe cuánto debe. Un caso abierto, sí: lo que falta es lo que
+// falta. Uno entregado, sólo si se cerró con este sistema o tiene algo
+// anotado: uno cerrado antes de 025 sin ningún cobro registrado puede
+// haberse cobrado por afuera (SCRUM-74: vacío = "no se registró"), y
+// decirle al negocio —o peor, al cliente— que debe plata sería inventarlo.
+// Al cerrar, la pantalla deja caso.descuento escrito (aunque sea 0): esa es
+// la marca de "se cerró sabiendo".
+export function saldoConocido(caso, cobrosDeEseCaso = []) {
+  if (!caso) return false;
+  if (caso.estado !== "completado") return true;
+  return cobrosDeEseCaso.length > 0 || caso.descuento != null || caso.cobrado != null;
+}
+
+// La cuenta de un caso con todo lo que hace falta: lo aprobado, los cobros
+// (incluido lo anotado antes de la tabla) y el descuento. null si no se sabe.
+export function saldoDelCaso({ caso, pasos = [], cobros = [] }) {
+  if (!caso) return null;
+  const deEste = cobrosConLoDeAntes(cobrosDelCaso(cobros, caso.id), caso);
+  if (!saldoConocido(caso, deEste)) return null;
+  const aprobado = aprobadoDelCaso(pasos, caso.id);
+  return cuentaDelCaso({ aprobado, cobros: deEste, descuento: descuentoDelCaso(caso, aprobado) });
+}
+
+// Los casos entregados que todavía deben plata: el aviso de Inicio. Los
+// abiertos no, porque lo que falta cobrar ahí se cobra al entregar.
+export function casosConSaldo({ casos = [], pasos = [], cobros = [] }) {
+  return casos
+    .filter((c) => c.estado === "completado")
+    .map((caso) => ({ caso, cuenta: saldoDelCaso({ caso, pasos, cobros }) }))
+    .filter(({ cuenta }) => cuenta && cuenta.falta > 0);
+}
+
+// Lo que ve el cliente en su link de seguimiento sobre el pago. Es el mismo
+// recorte que hace ver_seguimiento() en 026_pago_en_el_seguimiento.sql:
+// cuánto pagó, cuánto falta y los links de pago que le mandaron y todavía
+// no pagó. Nada de cómo pagó cada cosa ni de descuentos: eso es de adentro.
+//
+// null cuando no hay nada que decir: antes de que el trabajo esté listo
+// (el total todavía puede cambiar) salvo que ya le hayan mandado un link,
+// o cuando no se sabe si debe.
+export function pagoPublico({ caso, pasos = [], cobros = [] }) {
+  if (!caso) return null;
+  const deEste = cobrosDelCaso(cobros, caso.id);
+  const links = deEste
+    .filter((c) => c.estado === "pendiente" && c.medio === "link")
+    .map((c) => ({ monto: Number(c.monto), link: c.link ?? null, vence_en: c.vence_en ?? null }));
+
+  const cuenta = saldoDelCaso({ caso, pasos, cobros });
+  const listo = caso.estado === "revision_final" || caso.estado === "completado";
+
+  if (links.length === 0 && !(listo && cuenta && cuenta.total > 0)) return null;
+  return {
+    pagado: cuenta?.pagado ?? 0,
+    falta: cuenta?.falta ?? 0,
+    pendientes: links,
+  };
+}

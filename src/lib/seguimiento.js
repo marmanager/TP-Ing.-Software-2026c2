@@ -20,6 +20,7 @@
 // Next, pero este archivo también lo importa Jest sobre Node, que sigue el
 // estándar y no adivina el ".js".
 import { ORDEN_ESTADOS } from "./estados.js";
+import { pagoPublico } from "./cobros.js";
 
 // Lo único que sale del negocio hacia afuera. El mismo recorte que hace
 // ver_seguimiento(), que nació en supabase/018_seguimiento.sql y hoy vive en
@@ -40,6 +41,8 @@ export const CAMPOS_PUBLICOS = [
   "pasos",
   "por_responder",
   "linea",
+  // Cuánto pagó, cuánto falta y los links de pago que le mandaron (026).
+  "pago",
 ];
 
 // De cada paso aprobado: el nombre, el monto y si ya se hizo. Lo que el
@@ -67,7 +70,15 @@ const CAMPOS_PASO_POR_RESPONDER = ["id", "nombre", "descripcion", "monto"];
 // Devuelve { sirve: false } cuando el código no sirve, sin decir por qué:
 // que no exista, que lo hayan revocado o que el caso ya no esté se ven
 // exactamente igual desde afuera.
-export function casoPublico({ codigo, negocio, casos = [], clientes = [], pasos = [], eventos = [] }) {
+export function casoPublico({
+  codigo,
+  negocio,
+  casos = [],
+  clientes = [],
+  pasos = [],
+  eventos = [],
+  cobros = [],
+}) {
   if (!codigo) return { sirve: false };
 
   const caso = casos.find((c) => c.seguimiento_codigo && c.seguimiento_codigo === codigo);
@@ -116,6 +127,7 @@ export function casoPublico({ codigo, negocio, casos = [], clientes = [], pasos 
       .filter((e) => e.caso_id === caso.id && e.estado)
       .map((e) => ({ estado: e.estado, ocurrido_en: e.ocurrido_en ?? null }))
       .sort((a, b) => new Date(a.ocurrido_en) - new Date(b.ocurrido_en)),
+    pago: pagoPublico({ caso, pasos, cobros }),
   };
 }
 

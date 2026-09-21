@@ -65,6 +65,22 @@ La API da de baja el link en el medio de pago (para que el cliente ya no pueda p
 
 Un pago que **ya entró** no se anula: se devuelve desde el medio de pago, y la fila pasa a `devuelto`.
 
+## `POST /seguimiento/:codigo/pagos` — el cliente paga desde su link (sin sesión)
+
+Es la única ruta **sin autenticación**: la usa el cliente desde la página de seguimiento, que no tiene cuenta. El `:codigo` es el código del link de seguimiento (`caso.seguimiento_codigo`), y es lo único que identifica el caso.
+
+El cuerpo va vacío (`{}`): **el cliente no elige cuánto paga**. La API:
+
+1. Busca el caso por `seguimiento_codigo`. Si no existe, contesta `{ "ok": false, "motivo": "Este link ya no sirve." }`.
+2. Calcula lo que falta con la misma cuenta que `ver_seguimiento()` (`026_pago_en_el_seguimiento.sql`): aprobado − pagado − pendiente − descuento. Si no falta nada, contesta con un `motivo`.
+3. Si ya hay un cobro `pendiente` por `link` para ese caso, devuelve ese link en vez de crear otro.
+4. Si no, crea el pago en el medio de pago y la fila en `cobro` (`estado = 'pendiente'`, `medio = 'link'`, `creado_por` vacío).
+5. Contesta `{ "ok": true, "link": "https://..." }`. El front manda al cliente a ese link.
+
+Conviene limitar cuántas veces se puede llamar por código (por ejemplo, una vez por minuto), porque no hay sesión.
+
+El botón "Pagar $X ahora" sólo aparece si `NEXT_PUBLIC_API_URL` está configurada y el negocio no le mandó ya un link. Pagar desde ahí es opcional: la página también dice que puede pagar en el local.
+
 ## Webhook del medio de pago
 
 Cuando el medio de pago avisa (la ruta la elige la API, por ejemplo `POST /webhooks/mercadopago`):
