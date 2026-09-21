@@ -10,7 +10,7 @@
 // tests son de la versión en JavaScript, que es la que corre en el modo de
 // ejemplo, pero las dos tienen que decir lo mismo.
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   FIRMA_DEL_CLIENTE,

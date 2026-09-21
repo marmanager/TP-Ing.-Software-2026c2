@@ -3,6 +3,10 @@ node_modules/
 out/
 build/
 
+# Lo genera `npm run test:unit`: se rehace en cada corrida y no se lee
+# desde el repo. Estaban versionadas 21 páginas de HTML.
+coverage/
+
 .env
 .env.local
 .env*.local

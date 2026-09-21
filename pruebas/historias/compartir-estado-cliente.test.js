@@ -24,7 +24,11 @@ describe("Historia: Compartir estado con el cliente", () => {
 
   test("incluye sólo ítems aprobados y calcula su total", () => {
     const publico = casoPublico({ codigo, ...datos });
-    expect(publico.pasos).toEqual([{ nombre: "Pastillas", monto: 40000 }]);
+    // "hecho" se sumó al paso público cuando un paso aprobado pasó a poder
+    // marcarse como terminado (021_paso_hecho.sql): el cliente ve cuánto de
+    // lo que pagó ya está. Se compara el objeto entero, así que el campo
+    // nuevo tiene que estar acá también.
+    expect(publico.pasos).toEqual([{ nombre: "Pastillas", monto: 40000, hecho: false }]);
     expect(totalAprobado(publico.pasos)).toBe(40000);
   });
 

@@ -10,7 +10,7 @@
 // hechos", el ofrecimiento de pasar a control final, y el avance que ve el
 // cliente en su link. Por eso vive suelta y con test, como totalesDeCaso().
 
-import { test } from "node:test";
+import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { avanceDePasos, sePuedeMarcarHecho } from "../src/lib/estados.js";
 
