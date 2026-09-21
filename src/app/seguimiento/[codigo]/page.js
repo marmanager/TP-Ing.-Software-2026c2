@@ -29,9 +29,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { buscarSeguimiento, responderDesdeElLink } from "@/lib/datos";
 import { ESTADOS, pesos } from "@/lib/estados";
-import { comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
+import { comoSeEspera, comoSeIdentifica, etiquetaEstado, preset } from "@/lib/presets";
 import {
   QUE_SIGNIFICA,
+  laEspera,
   lineaDeEstados,
   linkDeLlamada,
   linkDeWhatsAppA,
@@ -149,7 +150,17 @@ export default function Seguimiento() {
   const pasos = caso.pasos ?? [];
   const porResponder = caso.por_responder ?? [];
   const total = totalAprobado(pasos);
+  const hechos = pasos.filter((p) => p.hecho).length;
   const linea = lineaDeEstados(caso.estado, caso.linea ?? [], { abiertoEn: caso.abierto_en });
+  // De quién es la pelota. Es la pregunta que decide si el cliente contesta
+  // o se queda esperando a que lo llamen.
+  const espera = laEspera({
+    estado: caso.estado,
+    queFalta: caso.que_falta,
+    porResponder: porResponder.length,
+    espera: comoSeEspera(caso.rubro),
+    generico: preset(caso.rubro).explica.esperando,
+  });
 
   return (
     <Marco negocio={caso.negocio_nombre}>
@@ -175,17 +186,39 @@ export default function Seguimiento() {
           <div className="mt-5">
             <ChipEstado estado={caso.estado} rubro={caso.rubro} grande />
           </div>
-          <p className="mt-3 max-w-[65ch] text-cuerpo">{QUE_SIGNIFICA[caso.estado]}</p>
+          {/* Frenado, el texto genérico sobra: lo que hace falta saber es de
+              quién es la pelota, y eso lo dice el bloque de abajo. */}
+          {!espera && (
+            <p className="mt-3 max-w-[65ch] text-cuerpo">{QUE_SIGNIFICA[caso.estado]}</p>
+          )}
 
-          {/* Por qué tarda. Es la pregunta que trae a esta pantalla, así que
-              cuando hay respuesta va acá arriba y no escondida abajo. */}
-          {caso.que_falta && (
-            <p className="mt-4 flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
-              <Icono nombre="reloj" className="mt-0.5 size-6 shrink-0" />
-              <span>
-                <span className="font-bold">Se está esperando:</span> {caso.que_falta}
+          {/* Por qué tarda, y sobre todo si le toca a él. Es la pregunta que
+              trae a esta pantalla, así que va acá arriba y no escondida
+              abajo.
+
+              Cuando la pelota es suya el cartel es azul y pide algo; cuando
+              es del negocio es amarillo de espera y dice que no haga nada.
+              Dos colores distintos para dos situaciones distintas, con el
+              ícono y el texto diciendo lo mismo por si el color no se ve. */}
+          {espera && (
+            <div
+              className={`mt-4 flex items-start gap-2 rounded-campo p-4 ${
+                espera.deQuien === "cliente"
+                  ? "bg-azul-claro text-azul"
+                  : "bg-espera-fondo text-espera"
+              }`}
+            >
+              <Icono
+                nombre={espera.deQuien === "cliente" ? "alerta" : "reloj"}
+                className="mt-0.5 size-6 shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="block font-bold text-cuerpo">{espera.titulo}</span>
+                <span className="mt-1 block max-w-[65ch] text-tinta-media">
+                  {espera.detalle}
+                </span>
               </span>
-            </p>
+            </div>
           )}
 
           <p className="mt-5 text-apoyo text-tinta-suave">
@@ -533,14 +566,44 @@ export default function Seguimiento() {
           falta cargar. */}
       {pasos.length > 0 && (
         <>
-          <h2 className="mt-10 mb-3 text-seccion">Lo que aprobaste</h2>
+          <h2 className="mt-10 mb-1 text-seccion">Lo que aprobaste</h2>
+          {/* El avance de lo que pagó. Sólo cuando hay algo hecho: antes de
+              que empiecen, "0 de 3 hechos" es una forma de decir "nada",
+              y "nada" ya lo dice el estado de arriba. */}
+          {hechos > 0 && (
+            <p className="mb-3 text-tinta-media">
+              <span className="font-bold text-tinta">
+                {hechos} de {pasos.length}
+              </span>{" "}
+              {pasos.length === 1 ? "ya está hecho" : "ya están hechos"}.
+            </p>
+          )}
+          {hechos === 0 && <div className="mb-3" />}
           <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
             {pasos.map((paso, i) => (
               <li
                 key={`${paso.nombre}-${i}`}
                 className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-borde p-4 last:border-b-0"
               >
-                <span className="min-w-0">{paso.nombre}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {/* Ícono y palabra, no sólo color: en blanco y negro se
+                      sigue entendiendo (cartilla, 02). */}
+                  <Icono
+                    nombre={paso.hecho ? "listo" : "circulo"}
+                    className={`size-5 shrink-0 ${paso.hecho ? "text-completo" : "text-tinta-suave"}`}
+                  />
+                  <span className="min-w-0">
+                    {paso.nombre}
+                    {/* Con espacio de verdad y no sólo margen: el margen se
+                        ve, pero un lector de pantalla lee "adelanteHecho". */}
+                    {paso.hecho && (
+                      <>
+                        {" "}
+                        <span className="font-bold text-apoyo text-completo">Hecho</span>
+                      </>
+                    )}
+                  </span>
+                </span>
                 <span className="font-bold tabular-nums">{pesos(paso.monto)}</span>
               </li>
             ))}

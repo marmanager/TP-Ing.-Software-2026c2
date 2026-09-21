@@ -42,9 +42,13 @@ export const CAMPOS_PUBLICOS = [
   "linea",
 ];
 
-// De cada paso aprobado, sólo el nombre y el monto. Lo que el cliente ya
-// aprobó y ya conoce.
-const CAMPOS_PASO = ["nombre", "monto"];
+// De cada paso aprobado: el nombre, el monto y si ya se hizo. Lo que el
+// cliente aprobó, y cuánto de eso está listo.
+//
+// Va el booleano y no la fecha: al cliente le sirve saber que está hecho, y
+// la hora exacta en que el mecánico tocó el botón es un dato de adentro del
+// taller.
+export const CAMPOS_PASO = ["nombre", "monto", "hecho"];
 
 // De cada paso que espera su respuesta, además el porqué —lo escribió el
 // negocio para explicárselo a él— y el id, que es lo único que se expone de
@@ -94,7 +98,7 @@ export function casoPublico({ codigo, negocio, casos = [], clientes = [], pasos 
     pasos: pasos
       .filter((p) => p.caso_id === caso.id && p.estado === "aprobado")
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-      .map((p) => soloEstos(p, CAMPOS_PASO)),
+      .map((p) => ({ ...soloEstos(p, ["nombre", "monto"]), hecho: Boolean(p.hecho_en) })),
     // Lo que espera su respuesta. Un caso entregado no lleva ninguno: sobre
     // un trabajo terminado no hay nada que decidir, y ofrecerlo sería
     // ofrecer una puerta que no abre.
@@ -138,6 +142,76 @@ export const QUE_SIGNIFICA = {
   esperando: "Está frenado: falta algo para poder seguir.",
   revision_final: "El trabajo está hecho. Lo están controlando antes de entregarlo.",
   completado: "Terminado y entregado.",
+};
+
+// Lo que el negocio escribe en "qué falta" cuando comparte el link: de ahí
+// en más la pelota es del cliente. Es una constante porque la escribe la
+// capa de datos y la lee esta pantalla, y si dejaran de coincidir el cliente
+// leería "estamos esperando la respuesta del cliente", hablando de él en
+// tercera persona en su propia pantalla.
+export const ESPERA_AL_CLIENTE = "la respuesta del cliente";
+
+// A quién se está esperando, dicho para el que abre el link.
+//
+// Es la pregunta que decide si el cliente contesta o no. "Esperando" a secas
+// no le dice nada: si la pelota es suya y la pantalla no se lo dice, se
+// queda esperando a que lo llamen, y el presupuesto se muere ahí.
+//
+// Quién tiene la pelota NO se adivina leyendo el texto de "qué falta": se
+// mira si quedó algo por contestar. Un texto escrito a mano por el mostrador
+// puede decir cualquier cosa; la lista de pasos sin contestar, no.
+//
+// Devuelve null cuando el caso no está frenado: ahí no hay espera que
+// explicar, y el estado de arriba ya cuenta todo.
+export function laEspera({
+  estado,
+  queFalta,
+  porResponder = 0,
+  espera = {},
+  generico,
+} = {}) {
+  if (estado !== "esperando") return null;
+
+  if (porResponder > 0) {
+    return {
+      deQuien: "cliente",
+      titulo: `Estamos esperando ${espera.cliente ?? "tu respuesta"}.`,
+      detalle: "Está acá abajo. Apenas contestes, seguimos.",
+    };
+  }
+
+  // Lo que escribió el mostrador sirve cuando dice algo concreto —"el filtro
+  // de aceite"—, y se descarta en dos casos:
+  //
+  //   Cuando es la marca de "estamos esperando al cliente" y ya no queda
+  //   nada por contestar: quedó viejo, y repetirlo sería nombrar al cliente
+  //   en tercera persona sin pedirle nada.
+  //
+  //   Cuando es el texto genérico del rubro, que mezcla las dos esperas
+  //   ("El repuesto o el sí del cliente"). Lo escribe solo el sistema al
+  //   mover el estado desde el desplegable, y adentro del negocio alcanza;
+  //   acá es justo la confusión que esta pantalla vino a sacar.
+  const escrito = (queFalta ?? "").trim();
+  const sirve = escrito && escrito !== ESPERA_AL_CLIENTE && escrito !== generico;
+  const loQueFalta = sirve ? escrito : (espera.negocio ?? "algo");
+
+  return {
+    deQuien: "negocio",
+    titulo: `Estamos esperando ${primeraMinuscula(loQueFalta)}.`,
+    detalle: "No hace falta que hagas nada: te avisamos apenas podamos seguir.",
+  };
+}
+
+// "El filtro de aceite" en medio de una frase es "el filtro de aceite".
+//
+// Sólo se baja la mayúscula cuando la primera palabra es un artículo. Mirar
+// si empieza en mayúscula no alcanza: "Bosch, que confirme el precio"
+// también empieza en mayúscula, y bajarla lo rompe. El test lo agarró.
+const ARTICULOS = ["el", "la", "los", "las", "un", "una", "unos", "unas", "que"];
+
+const primeraMinuscula = (texto) => {
+  const primera = texto.split(/[\s,.]/)[0].toLowerCase();
+  return ARTICULOS.includes(primera) ? texto[0].toLowerCase() + texto.slice(1) : texto;
 };
 
 // La línea de tiempo: los cinco estados del núcleo, en orden, diciendo cuál
@@ -198,6 +272,42 @@ export function mensajeDeWhatsApp({ negocioNombre, identificador, servicio, link
     `Hola, te escribimos de ${negocioNombre}. ` +
     `Podés ver cómo viene ${cosa} acá, sin instalar nada: ${link}`
   );
+}
+
+// El aviso de que el trabajo está listo (flujo, punto 9).
+//
+// Es el hermano del mensaje del presupuesto: mismo patrón, mismo link, otro
+// momento. Aquel se manda cuando hay que decidir; este, cuando ya se hizo.
+//
+// Lleva las tres cosas que pide la historia: qué se hizo, en qué estado está
+// el caso y el link para seguir mirando. Los pasos van con su marca —lo
+// terminado con un tilde y lo que todavía no, con un punto— porque decir
+// "ya está todo" cuando falta algo es la clase de mentira que el cliente
+// descubre al llegar al mostrador.
+export function mensajeDeLoHecho({
+  negocioNombre,
+  clienteNombre,
+  identificador,
+  servicio,
+  estadoEnPalabras,
+  entregado = false,
+  pasos = [],
+  link,
+}) {
+  const hola = clienteNombre ? `Hola ${clienteNombre}` : "Hola";
+  const cual = identificador || servicio || "lo que nos dejaste";
+
+  return [
+    `${hola}, te escribimos de ${negocioNombre} por ${cual}.`,
+    "",
+    entregado ? "Esto es lo que le hicimos:" : "Ya terminamos el trabajo:",
+    ...pasos.map((p) => `${p.hecho ? "✓" : "•"} ${p.nombre}`),
+    "",
+    entregado
+      ? `El caso quedó como ${estadoEnPalabras}. Cualquier cosa, escribinos.`
+      : `Está en ${estadoEnPalabras}: lo revisamos antes de entregártelo y te avisamos apenas esté para retirar.`,
+    ...(link ? ["", `Podés seguir mirándolo acá: ${link}`] : []),
+  ].join("\n");
 }
 
 // wa.me abre WhatsApp con el mensaje ya escrito, sin integración ni

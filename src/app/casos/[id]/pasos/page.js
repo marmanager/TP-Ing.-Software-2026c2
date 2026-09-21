@@ -70,6 +70,11 @@ export default function AprobarPasos() {
   // que decidir sobre plata, y sacar un paso es raro (auditoría, H8).
   const [corrigiendo, setCorrigiendo] = useState(false);
   const [aprobando, setAprobando] = useState(null);
+  // El diagnóstico, que hasta acá vivía en el detalle del caso (flujo, 3.2).
+  // Revisar y presupuestar son el mismo momento: se mira el auto, se escribe
+  // qué tiene, y de eso salen los pasos. Estaban en dos pantallas.
+  const [editandoDiag, setEditandoDiag] = useState(false);
+  const [diagnostico, setDiagnostico] = useState("");
 
   // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
   // técnico ve los pasos, porque son la lista de lo que tiene que hacer.
@@ -175,6 +180,91 @@ export default function AprobarPasos() {
         </p>
       )}
 
+      {/* Primero qué se encontró, después qué hay que hacer con eso: es el
+          orden en que pasa, y el que hace que los pasos se escriban mirando
+          el diagnóstico y no de memoria. */}
+      <TituloSeccion className="mt-10">El diagnóstico</TituloSeccion>
+      <Tarjeta className="mb-6">
+        {!abierto && puedeResponder && (
+          <p className="mb-4 max-w-[65ch] text-tinta-media">
+            El caso está cerrado, así que esto queda como quedó. Si hay algo que
+            corregir, volvé a abrirlo desde el caso y cerralo de nuevo después.
+          </p>
+        )}
+        <p className="font-bold text-cuerpo">Qué encontramos</p>
+
+        {editandoDiag && sePuedeTocar ? (
+          <div className="mt-2">
+            <label htmlFor="diagnostico" className="sr-only">
+              Qué encontramos
+            </label>
+            <p className="mt-1 mb-2 text-etiqueta text-tinta-media">
+              Con tus palabras, como se lo explicarías al cliente.
+            </p>
+            {/* Lo que ya estaba viene cargado en el campo, no en blanco: así
+                ampliar es escribir abajo y no se pisa nada sin querer. El
+                aviso está igual, porque guardar reemplaza. */}
+            {caso.diagnostico && (
+              <p className="mb-2 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
+                <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                <span>
+                  Estás cambiando lo que ya estaba escrito. Lo de antes está
+                  abajo: agregale lo nuevo en vez de borrarlo.
+                </span>
+              </p>
+            )}
+            <textarea
+              id="diagnostico"
+              rows={4}
+              value={diagnostico}
+              onChange={(e) => setDiagnostico(e.target.value)}
+              placeholder={ejemplosDe(negocio?.rubro).diagnostico}
+              className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
+            />
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Boton
+                icono="check"
+                motivo={!diagnostico.trim() ? "falta escribir qué encontraron" : null}
+                onClick={() => {
+                  datos.cargarDiagnostico(caso.id, diagnostico.trim());
+                  datos.avisarExito(`Listo. El diagnóstico del caso ${caso.numero} quedó anotado.`);
+                  setEditandoDiag(false);
+                }}
+              >
+                Guardar el diagnóstico
+              </Boton>
+              <Boton variante="plano" onClick={() => setEditandoDiag(false)}>
+                Dejarlo
+              </Boton>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1">
+            <p className="max-w-[65ch] text-tinta-media">
+              {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
+            </p>
+            {/* Una sola acción acá, y con forma de botón: dos enlaces azules
+                uno abajo del otro no se distinguían entre sí. Lo que había al
+                lado —"armar un paso con esto"— se fue: ahora el diagnóstico
+                aparece al lado del formulario del paso, que es donde sirve. */}
+            {sePuedeTocar && (
+              <div className="mt-3">
+                <Boton
+                  variante="neutro"
+                  icono="diagnostico"
+                  onClick={() => {
+                    setDiagnostico(caso.diagnostico ?? "");
+                    setEditandoDiag(true);
+                  }}
+                >
+                  {caso.diagnostico ? "Corregir el diagnóstico" : "Cargar el diagnóstico"}
+                </Boton>
+              </div>
+            )}
+          </div>
+        )}
+      </Tarjeta>
+
       <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
         <TituloSeccion className="mb-0">
           {abierto ? "Pasos a aprobar" : "Los pasos del caso"}
@@ -234,6 +324,23 @@ export default function AprobarPasos() {
             Cargá uno por cada cosa que haya que hacer. El formulario queda abierto
             para el siguiente.
           </p>
+
+          {/* Lo que se encontró, acá al lado mientras se escribe. De un
+              diagnóstico salen varios pasos —"está todo roto" son cuatro
+              cosas— y tenerlo a la vista es lo que hace que se acuerden todas
+              sin volver a subir a leerlo.
+
+              Es una referencia, no una acción: qué pasos salen de esto lo
+              decide quien lo escribe. */}
+          {caso.diagnostico && (
+            <div className="mb-6 rounded-campo border-l-4 border-borde-fuerte bg-superficie p-4">
+              <p className="flex items-center gap-2 font-bold text-etiqueta text-tinta-media">
+                <Icono nombre="diagnostico" className="size-5" />
+                Lo que encontraste
+              </p>
+              <p className="mt-1 max-w-[65ch] text-tinta-media">{caso.diagnostico}</p>
+            </div>
+          )}
           <Campo
             id="paso-nombre"
             etiqueta="Qué hay que hacer"

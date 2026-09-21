@@ -28,6 +28,11 @@ export const PRESETS = {
       esperando: "El repuesto o el sí del cliente",
       revision_final: "Control antes de entregar",
     },
+    // Las dos esperas, separadas. "explica.esperando" las mezcla —"el
+    // repuesto O el sí del cliente"— y para adentro alcanza, pero al cliente
+    // que abre el link hay que decirle cuál de las dos es: si la pelota es
+    // suya y la pantalla no se lo dice, no contesta nunca.
+    espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
     motivos: [
       "Ruido raro",
       "Service de rutina",
@@ -66,6 +71,7 @@ export const PRESETS = {
       esperando: "El estudio o el turno con el especialista",
       revision_final: "Control antes del alta",
     },
+    espera: { cliente: "tu respuesta", negocio: "un estudio o un turno con el especialista" },
     motivos: [
       "Primera consulta",
       "Control",
@@ -103,6 +109,7 @@ export const PRESETS = {
       esperando: "El repuesto o el presupuesto aprobado",
       revision_final: "Prueba antes de entregar",
     },
+    espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
     motivos: [
       "No enciende",
       "Pantalla rota",
@@ -156,6 +163,11 @@ export const comoSeIdentifica = (rubro) => preset(rubro).identificador;
 
 // Los textos de muestra de los formularios, en el oficio del negocio.
 export const ejemplosDe = (rubro) => preset(rubro).ejemplos;
+
+// Cómo llama cada rubro a las dos cosas por las que un caso puede estar
+// frenado: la respuesta del cliente, o algo que tiene que conseguir el
+// negocio. Un taller espera un repuesto y un consultorio, un estudio.
+export const comoSeEspera = (rubro) => preset(rubro).espera;
 
 // El "qué falta" de un caso, en el idioma de su rubro.
 //

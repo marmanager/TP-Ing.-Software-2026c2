@@ -11,14 +11,17 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
+  CAMPOS_PASO,
   CAMPOS_PUBLICOS,
   casoPublico,
   lineaDeEstados,
   linkDeLlamada,
   linkDeSeguimiento,
   linkDeWhatsApp,
+  laEspera,
   linkDeWhatsAppA,
   mensajeDeConsulta,
+  mensajeDeLoHecho,
   mensajeDeWhatsApp,
   totalAprobado,
 } from "../src/lib/seguimiento.js";
@@ -158,10 +161,25 @@ test("una columna nueva en caso no se publica sola", () => {
   assert.ok(!estaAdentro(conColumnaNueva, "Repuestos Díaz"));
 });
 
-test("un paso aprobado lleva sólo el nombre y el monto", () => {
+test("un paso aprobado lleva el nombre, el monto y si ya se hizo, y nada más", () => {
   for (const paso of publico.pasos) {
-    assert.deepEqual(Object.keys(paso).sort(), ["monto", "nombre"]);
+    assert.deepEqual(Object.keys(paso).sort(), [...CAMPOS_PASO].sort());
   }
+});
+
+test("el cliente ve cuáles de los pasos que pagó ya están hechos", () => {
+  const conUnoHecho = casoPublico({
+    codigo: CODIGO,
+    ...todo,
+    pasos: pasos.map((p) => (p.id === "p1" ? { ...p, hecho_en: "2026-09-13T10:00:00.000Z" } : p)),
+  });
+
+  assert.deepEqual(
+    conUnoHecho.pasos.map((p) => [p.nombre, p.hecho]),
+    [["Revisión completa", true], ["Cambio de pastillas", false]]
+  );
+  // La hora en que el mecánico tocó el botón es de adentro del taller.
+  assert.ok(!estaAdentro(conUnoHecho, "2026-09-13T10:00:00.000Z"));
 });
 
 test("un paso por contestar lleva el id, el nombre, el porqué y el monto, y nada más", () => {
@@ -481,4 +499,184 @@ test("sin nombre ni patente, el mensaje sigue siendo una frase entera", () => {
 test("el link de WhatsApp sin número sigue sirviendo para el negocio", () => {
   // El de la otra punta: lo toca el negocio y elige el contacto en su agenda.
   assert.ok(linkDeWhatsApp("hola").startsWith("https://wa.me/?text="));
+});
+
+// ------------------------------------------------------------
+// De quién es la pelota (flujo, 3.6)
+// ------------------------------------------------------------
+// "Esperando" a secas no le dice nada al que abre el link: si la pelota es
+// suya y la pantalla no se lo dice, se queda esperando a que lo llamen y el
+// presupuesto se muere ahí.
+
+import { comoSeEspera } from "../src/lib/presets.js";
+
+const taller = comoSeEspera("taller");
+
+test("con algo por contestar, le dice que la pelota es suya y qué hacer", () => {
+  const e = laEspera({ estado: "esperando", porResponder: 2, espera: taller });
+
+  assert.equal(e.deQuien, "cliente");
+  assert.match(e.titulo, /esperando tu respuesta/);
+  assert.match(e.detalle, /contestes/);
+});
+
+test("esperando al negocio, lo dice y no le pide nada", () => {
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "El filtro de aceite",
+    porResponder: 0,
+    espera: taller,
+  });
+
+  assert.equal(e.deQuien, "negocio");
+  assert.equal(e.titulo, "Estamos esperando el filtro de aceite.");
+  assert.match(e.detalle, /No hace falta que hagas nada/);
+});
+
+test("lo que tiene la pelota manda por sobre lo que alguien escribió a mano", () => {
+  // El mostrador puede haber dejado escrito cualquier cosa en "qué falta".
+  // Lo que decide es si quedó algo sin contestar.
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "El filtro de aceite",
+    porResponder: 1,
+    espera: taller,
+  });
+  assert.equal(e.deQuien, "cliente");
+});
+
+test("no se le habla en tercera persona en su propia pantalla", () => {
+  // Compartir el link deja escrito "la respuesta del cliente". Si ya no
+  // queda nada por contestar, ese texto quedó viejo: repetirlo sería decirle
+  // "estamos esperando la respuesta del cliente" al cliente.
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "la respuesta del cliente",
+    porResponder: 0,
+    espera: taller,
+  });
+
+  assert.equal(e.deQuien, "negocio");
+  assert.ok(!e.titulo.includes("del cliente"), e.titulo);
+  assert.equal(e.titulo, "Estamos esperando un repuesto.");
+});
+
+test("cada rubro espera con sus palabras", () => {
+  const dice = (rubro) =>
+    laEspera({ estado: "esperando", porResponder: 0, espera: comoSeEspera(rubro) }).titulo;
+
+  assert.equal(dice("taller"), "Estamos esperando un repuesto.");
+  assert.equal(dice("medicina"), "Estamos esperando un estudio o un turno con el especialista.");
+  assert.equal(dice("service"), "Estamos esperando un repuesto.");
+});
+
+test("el texto mezclado del rubro tampoco se le repite", () => {
+  // Al mover el estado desde el desplegable, el sistema escribe el genérico
+  // del preset, que mezcla las dos esperas: "El repuesto o el sí del
+  // cliente". Adentro del negocio alcanza; acá es la confusión que esta
+  // pantalla vino a sacar.
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "El repuesto o el sí del cliente",
+    porResponder: 0,
+    espera: taller,
+    generico: "El repuesto o el sí del cliente",
+  });
+
+  assert.equal(e.titulo, "Estamos esperando un repuesto.");
+  assert.ok(!e.titulo.includes("cliente"));
+});
+
+test("un nombre propio no se pasa a minúscula", () => {
+  const e = laEspera({
+    estado: "esperando",
+    queFalta: "Bosch, que confirme el precio",
+    porResponder: 0,
+    espera: taller,
+  });
+  assert.match(e.titulo, /Bosch/);
+});
+
+test("si el caso no está frenado no hay espera que explicar", () => {
+  for (const estado of ["nuevo", "en_proceso", "revision_final", "completado"]) {
+    assert.equal(laEspera({ estado, porResponder: 3, espera: taller }), null, estado);
+  }
+});
+
+test("sin nada escrito y sin preset, igual dice algo entero", () => {
+  const e = laEspera({ estado: "esperando" });
+  assert.equal(e.deQuien, "negocio");
+  assert.ok(e.titulo.endsWith("."), e.titulo);
+});
+
+// ------------------------------------------------------------
+// El aviso de que ya está (flujo, punto 9)
+// ------------------------------------------------------------
+
+const avisoDe = (extra = {}) =>
+  mensajeDeLoHecho({
+    negocioNombre: "Taller Sur",
+    clienteNombre: "Marcela",
+    identificador: "AB 123 CD",
+    servicio: "Ruido raro",
+    estadoEnPalabras: "Control final",
+    pasos: [
+      { nombre: "Cambio de pastillas", hecho: true },
+      { nombre: "Alineación", hecho: true },
+    ],
+    link: "http://localhost:3000/seguimiento/abc",
+    ...extra,
+  });
+
+test("el aviso dice qué se hizo, en qué estado está y lleva el link", () => {
+  const m = avisoDe();
+
+  assert.ok(m.includes("Cambio de pastillas"), "qué se hizo");
+  assert.ok(m.includes("Alineación"), "y lo demás que se hizo");
+  assert.ok(m.includes("Control final"), "el estado, con la palabra del rubro");
+  assert.ok(m.includes("http://localhost:3000/seguimiento/abc"), "el link");
+  assert.ok(m.includes("Marcela") && m.includes("Taller Sur") && m.includes("AB 123 CD"));
+});
+
+test("habla en el idioma del rubro: le pasan la palabra ya traducida", () => {
+  assert.ok(avisoDe({ estadoEnPalabras: "Control antes del alta" }).includes("Control antes del alta"));
+});
+
+test("lo que no se marcó como hecho no se cuenta como hecho", () => {
+  // Decir "ya está todo" cuando falta algo es la clase de mentira que el
+  // cliente descubre al llegar al mostrador.
+  const m = avisoDe({
+    pasos: [
+      { nombre: "Cambio de pastillas", hecho: true },
+      { nombre: "Alineación", hecho: false },
+    ],
+  });
+
+  assert.ok(m.includes("✓ Cambio de pastillas"));
+  assert.ok(m.includes("• Alineación"));
+});
+
+test("un caso entregado cuenta lo que se le hizo, no lo que falta", () => {
+  const m = avisoDe({ entregado: true, estadoEnPalabras: "Entregado" });
+
+  assert.ok(m.includes("Esto es lo que le hicimos"));
+  assert.ok(!m.includes("te avisamos apenas esté para retirar"));
+});
+
+test("sin link, el mensaje sigue siendo un mensaje entero", () => {
+  const m = avisoDe({ link: "" });
+
+  assert.ok(!m.includes("Podés seguir mirándolo"));
+  assert.ok(m.trim().endsWith("."), m);
+});
+
+test("sin nombre ni patente no queda un hueco", () => {
+  const m = mensajeDeLoHecho({
+    negocioNombre: "Taller Sur",
+    estadoEnPalabras: "Control final",
+    servicio: "Ruido raro",
+    pasos: [],
+  });
+
+  assert.ok(m.startsWith("Hola, te escribimos de Taller Sur por Ruido raro."), m);
 });

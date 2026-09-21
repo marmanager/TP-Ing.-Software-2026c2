@@ -13,11 +13,17 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
-import { pesos } from "./estados";
+import {
+  FIRMA_DEL_CLIENTE,
+  elClienteDestraba,
+  elClienteVolvioADarTrabajo,
+  pesos,
+  sePuedeMarcarHecho,
+} from "./estados";
 import { normalizarInicio } from "./inicio";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
-import { casoPublico } from "./seguimiento.js";
+import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -46,6 +52,16 @@ const porQueNoSePudoCompartir = (error) => {
   }
   // Los mensajes de la función ya están escritos para leerse.
   return texto || "No se pudo compartir el estado.";
+};
+
+// Lo mismo para marcar un paso: antes que un permiso, lo más probable es
+// que falte la migración.
+const porQueNoSePudoMarcar = (error) => {
+  const texto = error?.message ?? "";
+  if (error?.code === "PGRST202" || texto.includes("marcar_paso_hecho")) {
+    return "Falta correr 021_paso_hecho.sql en Supabase. Hasta entonces no se puede marcar un paso como hecho.";
+  }
+  return texto || "No se pudo marcar el paso.";
 };
 
 const nuevoId = () =>
@@ -121,11 +137,20 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
       p_paso_id: pasoId,
       p_respuesta: respuesta,
     });
-    if (!error && data) return data;
-    // Con la base conectada pero sin la migración corrida, la función no
-    // existe y hay que seguir buscando en el navegador, igual que la
-    // búsqueda. Si el paso tampoco está acá, el mensaje de abajo lo dice.
-    if (!error) return { ok: false, motivo: "No pudimos guardar tu respuesta. Probá de nuevo." };
+    // "existe: false" es la base diciendo "ese código no es mío". Puede ser
+    // un link del modo de ejemplo abierto en un navegador que además tiene
+    // credenciales: hay que seguir buscando abajo, igual que la búsqueda.
+    //
+    // Cualquier otra respuesta es de la base y manda: si dice que el paso ya
+    // estaba contestado, se muestra eso y no se busca en ningún otro lado.
+    //
+    // Se mira además el texto porque la versión anterior de la función no
+    // devolvía "existe", y entre que sale esto y que alguien corre la
+    // migración el link del modo de ejemplo tiene que seguir andando.
+    const noEsDeLaBase =
+      data?.existe === false ||
+      String(data?.motivo ?? "").startsWith("Este link ya no sirve");
+    if (!error && data && !noEsDeLaBase) return data;
   }
 
   // Modo de ejemplo. Acá sí se escribe en el navegador, a diferencia de la
@@ -167,7 +192,7 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
             ? "Lo aprobó el cliente desde el link"
             : "El cliente no lo hace, contestó desde el link",
         detalle: `${paso.nombre} · ${pesos(paso.monto)}`,
-        autor: "El cliente",
+        autor: FIRMA_DEL_CLIENTE,
         icono: respuesta === "aprobado" ? "listo" : "nota",
         monto: Number(paso.monto),
         estado: null,
@@ -175,6 +200,46 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
       },
       ...(d.eventos ?? []),
     ];
+
+    // El caso se mueve solo en dos casos, los mismos que hace la base en
+    // 022_el_cliente_destraba.sql: cuando ya no queda nada esperando su
+    // respuesta, y cuando aprueba algo nuevo sobre un caso que ya estaba
+    // controlado.
+    const porQueSeMueve = elClienteDestraba(caso, {
+      pasos: d.pasos,
+      insumos: d.insumos ?? [],
+    })
+      ? {
+          titulo: "El cliente terminó de contestar",
+          detalle: "Ya no queda nada esperando su respuesta.",
+        }
+      : elClienteVolvioADarTrabajo(caso, respuesta)
+        ? {
+            titulo: "El cliente aprobó algo más",
+            detalle: "El caso vuelve al trabajo: el control ya no alcanza.",
+          }
+        : null;
+
+    if (porQueSeMueve) {
+      d.casos = d.casos.map((c) =>
+        c.id === caso.id ? { ...c, estado: "en_proceso", que_falta: "Hacer el trabajo" } : c
+      );
+      d.eventos = [
+        {
+          id: nuevoId(),
+          caso_id: caso.id,
+          tipo: "estado",
+          titulo: porQueSeMueve.titulo,
+          detalle: porQueSeMueve.detalle,
+          autor: FIRMA_DEL_CLIENTE,
+          icono: "llave",
+          monto: null,
+          estado: "en_proceso",
+          ocurrido_en: ahora,
+        },
+        ...d.eventos,
+      ];
+    }
 
     window.localStorage.setItem(LLAVE, JSON.stringify(d));
     return { ok: true };
@@ -557,6 +622,11 @@ export function DatosProvider({ children }) {
         anotar({
           casoId,
           tipo: "estado",
+          // Asignar mueve el caso a "en proceso", así que el evento lleva el
+          // estado: es lo que la línea de tiempo del cliente usa para poner
+          // la fecha de esa etapa (021/018). Sin esto, un caso que arrancó
+          // por acá se veía sin fecha en "está en el taller".
+          estado: "en_proceso",
           titulo: "Asignaron el caso",
           detalle: `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`,
           icono: "persona-mas",
@@ -624,6 +694,70 @@ export function DatosProvider({ children }) {
         });
       },
 
+      // Marcar que un paso aprobado ya se hizo, o desmarcarlo (flujo, 7).
+      //
+      // "estado" dice qué contestó el cliente y "hecho_en" qué hizo el
+      // negocio: marcar no toca la respuesta del cliente, que sigue siendo
+      // un acuerdo cerrado.
+      //
+      // Marcar algo ya marcado no hace nada y no escribe un evento repetido:
+      // dos dedos sobre el mismo botón no pueden mover la hora en que se
+      // terminó el trabajo ni llenar el historial de líneas iguales.
+      //
+      // Con la base conectada pasa por marcar_paso_hecho(), que es lo que le
+      // deja hacer esto al técnico: 008_permisos.sql no lo deja tocar la
+      // tabla "paso" —mover plata es del dueño y del encargado— y marcar el
+      // propio trabajo no es mover plata (021_paso_hecho.sql).
+      async marcarPasoHecho(pasoId, hecho) {
+        const paso = datos.pasos.find((p) => p.id === pasoId);
+        if (!paso) return { ok: false, error: "Ese paso ya no está en el presupuesto." };
+
+        const caso = datos.casos.find((c) => c.id === paso.caso_id);
+        if (!sePuedeMarcarHecho(paso, caso)) {
+          return {
+            ok: false,
+            error:
+              caso?.estado === "completado"
+                ? "El caso ya se entregó. Volvé a abrirlo si hay algo que corregir."
+                : "Sólo se marca lo que el cliente aprobó.",
+          };
+        }
+
+        // Ya estaba como se lo quiere dejar: no hay nada que escribir.
+        if (Boolean(paso.hecho_en) === Boolean(hecho)) return { ok: true, cambio: false };
+
+        let cuando = hecho ? new Date().toISOString() : null;
+
+        if (enSupabase()) {
+          const { data, error } = await supabase.rpc("marcar_paso_hecho", {
+            p_paso_id: pasoId,
+            p_hecho: Boolean(hecho),
+          });
+          if (error) return { ok: false, error: porQueNoSePudoMarcar(error) };
+          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo marcar el paso." };
+          cuando = data.hecho_en ?? null;
+          setDatos((d) => ({
+            ...d,
+            pasos: d.pasos.map((x) => (x.id === pasoId ? { ...x, hecho_en: cuando } : x)),
+          }));
+        } else {
+          setDatos((d) => ({
+            ...d,
+            pasos: d.pasos.map((x) => (x.id === pasoId ? { ...x, hecho_en: cuando } : x)),
+          }));
+        }
+
+        anotar({
+          casoId: paso.caso_id,
+          tipo: "estado",
+          titulo: hecho ? "Terminaron un paso" : "Volvieron atrás un paso terminado",
+          detalle: `${paso.nombre} · ${pesos(paso.monto)}`,
+          icono: hecho ? "listo" : "deshacer",
+        });
+
+        return { ok: true, cambio: true };
+      },
+
       // ---------- compartir el estado con el cliente (SCRUM-68) ----------
       // Devuelve siempre el mismo código para el mismo caso. Tocar
       // "Compartir" dos veces no puede invalidar el link que el negocio ya
@@ -643,14 +777,25 @@ export function DatosProvider({ children }) {
         if (!caso) return { ok: false, error: "No encontramos ese caso." };
         if (caso.seguimiento_codigo) return { ok: true, codigo: caso.seguimiento_codigo };
 
-        // Un caso entregado no vuelve a esperar nada, y uno que ya está
-        // esperando no necesita que se lo digan dos veces.
-        const quedaEsperando = caso.estado !== "completado" && caso.estado !== "esperando";
+        // Mandar el link deja el caso esperando al cliente SÓLO si hay algo
+        // que el cliente tenga que contestar. Es lo que pasa cuando se manda
+        // el presupuesto, que es de donde salió esta regla.
+        //
+        // No es lo que pasa cuando se comparte para avisar que el trabajo ya
+        // está: ahí no se espera nada de él, y mover el caso a "esperando"
+        // sería decir que la pelota es suya cuando no hay nada que contestar
+        // —y encima saca al caso de control final, que es donde tiene que
+        // estar hasta que lo vengan a buscar—.
+        const hayQueContestar = datos.pasos.some(
+          (p) => p.caso_id === casoId && p.estado === "esperando"
+        );
+        const quedaEsperando =
+          hayQueContestar && caso.estado !== "completado" && caso.estado !== "esperando";
         const pasarAEsperando = () => {
           if (!quedaEsperando) return;
           parchearCaso(casoId, {
             estado: "esperando",
-            que_falta: "la respuesta del cliente",
+            que_falta: ESPERA_AL_CLIENTE,
           });
           anotar({
             casoId,

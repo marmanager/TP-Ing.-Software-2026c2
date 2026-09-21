@@ -6,20 +6,43 @@
 // el celular. Identificador, estado y "qué falta" tienen que entrar en la
 // primera pantalla, sin scrollear.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ESTADOS, estaAbierto, pesos, queFalta, quienLoTieneEnPalabras } from "@/lib/estados";
+import {
+  AL_PASAR_A,
+  ESTADOS,
+  avanceDePasos,
+  estaAbierto,
+  pesos,
+  queFalta,
+  quedoTrabajoPendiente,
+  quienLoTieneEnPalabras,
+  sePuedeMarcarHecho,
+} from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import SelectorEstado from "@/componentes/SelectorEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import {
+  Boton,
+  Campo,
+  Cargando,
+  ErrorGeneral,
+  Tarjeta,
+  TituloSeccion,
+  Vacio,
+} from "@/componentes/ui";
+import {
+  linkDeSeguimiento,
+  linkDeWhatsApp,
+  mensajeDeLoHecho,
+} from "@/lib/seguimiento";
 
 const EVENTOS_A_LA_VISTA = 5;
 
@@ -30,16 +53,20 @@ export default function VerCaso() {
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [eligiendo, setEligiendo] = useState(false);
-  // Diagnóstico, identificador del rubro y notas sueltas (SCRUM-50/51/52).
-  const [editandoDiag, setEditandoDiag] = useState(false);
-  const [diagnostico, setDiagnostico] = useState("");
+  // Identificador del rubro y notas sueltas (SCRUM-51/52). El diagnóstico
+  // vive ahora en la pantalla de los pasos.
   const [editandoIdent, setEditandoIdent] = useState(false);
   const [identificador, setIdentificador] = useState("");
   const [anotando, setAnotando] = useState(false);
   const [historialEntero, setHistorialEntero] = useState(false);
   const [nota, setNota] = useState("");
-  // Entregar abre el cobro en vez de cerrar de una (SCRUM-74).
+  // Entregar abre el cobro en vez de cerrar de una (SCRUM-74). El monto no
+  // arranca editable: confirmar lo aprobado es lo que pasa casi siempre, y
+  // cambiarlo pide un toque más y su propio aviso.
   const [entregando, setEntregando] = useState(false);
+  const [cambiandoCobro, setCambiandoCobro] = useState(false);
+  // Lo que la base contestó cuando no se pudo marcar un paso.
+  const [errorPaso, setErrorPaso] = useState(null);
   const [cobro, setCobro] = useState("");
 
   const caso = casos.find((c) => c.id === id);
@@ -67,6 +94,15 @@ export default function VerCaso() {
   const comoIdent = comoSeIdentifica(negocio?.rubro);
   const falta = queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente });
   const aprobados = mios.filter((p) => p.estado === "aprobado");
+  const avance = avanceDePasos(mios);
+
+  // Marcar el propio trabajo no es mover plata, así que el técnico también
+  // puede — pero sólo sobre un caso que tiene asignado, que es la misma
+  // frontera que ya usa la tabla "caso". La base hace cumplir las dos reglas
+  // (021_paso_hecho.sql); esto es para no ofrecer un botón que va a fallar.
+  const miFicha = empleados.find((e) => e.usuario_id === usuario?.id) ?? null;
+  const puedoMarcar =
+    puedeCargar || Boolean(miFicha && caso.responsable_id === miFicha.id);
 
   // Un caso cerrado es el registro de lo que pasó, no un borrador: no se le
   // cambian el diagnóstico ni los pasos sin volver a abrirlo primero. No queda
@@ -136,92 +172,134 @@ export default function VerCaso() {
             <span className="font-bold">Qué falta:</span> {falta}
           </p>
 
-          {/* Cada dato dice qué es con palabras, y el ícono acompaña. Antes
-              la palabra estaba sólo para el lector de pantalla: un ícono de
-              persona al lado de "Diego" no decía si Diego era el cliente o
-              quien hace el trabajo (auditoría, H2; cartilla: ícono y palabra
-              juntos). */}
-          <ul className="mt-4 grid gap-2 text-tinta-media @3xl:grid-cols-3">
-            {/* Asignar no es un cambio de estado, así que no va en el
-                desplegable: va acá, al lado de a quién reemplaza. */}
-            <li className="flex flex-wrap items-center gap-2">
-              <Icono nombre="persona" className="size-5" />
-              <span>{quienLoTieneEnPalabras(caso, empleados)}</span>
+          {/* Los datos del caso, cada uno con su nombre arriba y su valor
+              abajo. Antes eran frases sueltas con un ícono adelante, en tres
+              columnas, y lo que se abría —elegir a quién asignarle— crecía
+              adentro de su celda: la grilla se deformaba, los nombres del
+              equipo quedaban flotando en el medio de la nada y los otros dos
+              datos se iban al costado.
+
+              Ahora la lista no se mueve: lo que se abre va abajo, a lo ancho
+              de la tarjeta. Y el identificador dejó de ser un enlace suelto
+              perdido al final para ser un dato más, en el lugar donde alguien
+              lo va a buscar. */}
+          <dl className="mt-5 grid gap-x-6 gap-y-4 @2xl:grid-cols-2">
+            <Dato icono="persona" que="Quién lo tiene">
+              {quienLoTieneEnPalabras(caso, empleados)}
               {sePuedeEditar && (
-                <div className="relative">
+                <div className="mt-1 -ml-3">
                   <Boton
                     variante="plano"
                     icono="persona-mas"
                     onClick={() => setEligiendo((v) => !v)}
                   >
-                    {caso.responsable_id ? "Cambiar" : "Asignar"}
+                    {caso.responsable_id ? "Cambiar quién lo atiende" : "Asignar a alguien"}
                   </Boton>
-                  {eligiendo && (
-                    <ul className="mt-2 flex flex-wrap gap-2">
-                      {empleados.map((e) => (
-                        <li key={e.id}>
-                          <Boton
-                            variante="plano"
-                            icono="persona"
-                            onClick={() => {
-                              datos.asignarResponsable(caso.id, e.id);
-                              setEligiendo(false);
-                            }}
-                          >
-                            {e.nombre}
-                          </Boton>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
               )}
-            </li>
-            <li className="flex items-center gap-2">
-              <Icono nombre="reloj" className="size-5" />
-              <span>{haceCuanto(caso.abierto_en)}</span>
-            </li>
-            {/* Compartido o no, sin botones: los controles viven en la
-                pantalla de los pasos, que es donde está lo que se manda.
-                Acá alcanza con saber si el cliente ya lo miró, que es lo
-                que dice si hace falta llamarlo. */}
-            {caso.seguimiento_codigo && (
-              <li className="flex items-center gap-2">
-                <Icono nombre="sobre" className="size-5" />
-                <span>
-                  Link compartido ·{" "}
-                  {caso.seguimiento_visto_en
-                    ? `lo abrió ${cuantoHace(caso.seguimiento_visto_en)}`
-                    : "todavía no lo abrió"}
-                </span>
-              </li>
-            )}
-            {/* El teléfono es lo único de esta lista que se toca, y llamar
-                al cliente es lo que se hace apurado y con una mano. Como
-                enlace suelto en medio del renglón medía 26 px de alto: la
-                cartilla pide 48, así que el área táctil es todo el renglón y
-                no sólo los dígitos. */}
+            </Dato>
+
+            <Dato icono="nota" que={comoIdent.nombre}>
+              {caso.identificador || (
+                <span className="text-tinta-suave">Sin cargar</span>
+              )}
+              {sePuedeEditar && !editandoIdent && (
+                <div className="mt-1 -ml-3">
+                  <Boton
+                    variante="plano"
+                    icono="nota"
+                    onClick={() => {
+                      setIdentificador(caso.identificador ?? "");
+                      setEditandoIdent(true);
+                    }}
+                  >
+                    {caso.identificador ? "Corregir" : `Cargar ${comoIdent.enFrase}`}
+                  </Boton>
+                </div>
+              )}
+            </Dato>
+
+            <Dato icono="reloj" que="Cuándo entró">
+              {haceCuanto(caso.abierto_en)}
+            </Dato>
+
+            {/* El teléfono es lo único de esta lista que se toca, y llamar al
+                cliente es lo que se hace apurado y con una mano: el área
+                táctil es todo el renglón y no sólo los dígitos. */}
             {cliente?.telefono && (
-              <li>
+              <Dato icono="telefono" que="Teléfono">
                 <a
                   href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
-                  className="-mx-2 inline-flex min-h-12 items-center gap-2 rounded-campo px-2 hover:bg-azul-claro"
+                  className="-mx-2 inline-flex min-h-12 items-center rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
                 >
-                  <Icono nombre="telefono" className="size-5 text-azul" />
-                  <span className="text-tinta-media">
-                    Teléfono <span className="font-bold text-azul">{cliente.telefono}</span>
-                  </span>
+                  {cliente.telefono}
                 </a>
-              </li>
+              </Dato>
             )}
-          </ul>
+
+            {/* Compartido o no, sin botones: los controles viven en la
+                pantalla de los pasos, que es donde está lo que se manda. Acá
+                alcanza con saber si el cliente ya lo miró, que es lo que dice
+                si hace falta llamarlo. */}
+            {caso.seguimiento_codigo && (
+              <Dato icono="sobre" que="El link del cliente">
+                {caso.seguimiento_visto_en
+                  ? `Lo abrió ${cuantoHace(caso.seguimiento_visto_en)}`
+                  : "Compartido, todavía no lo abrió"}
+              </Dato>
+            )}
+          </dl>
+
+          {/* Lo que se abre, abajo y a lo ancho. Adentro de la grilla
+              deformaba la fila entera. */}
+          {eligiendo && sePuedeEditar && (
+            <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+              <p className="font-bold text-cuerpo">¿Quién lo va a atender?</p>
+              {empleados.length === 0 ? (
+                <p className="mt-1 max-w-[65ch] text-tinta-media">
+                  Todavía no hay nadie cargado en el equipo. Se agrega desde{" "}
+                  <Link href="/equipo" className="font-bold text-azul">
+                    Equipo
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 max-w-[65ch] text-tinta-media">
+                    Al elegir a alguien, el caso pasa a{" "}
+                    {etiquetaEstado(negocio?.rubro, "en_proceso").toLowerCase()}.
+                  </p>
+                  <ul className="mt-3 flex flex-wrap gap-2.5">
+                    {empleados.map((e) => (
+                      <li key={e.id}>
+                        <Boton
+                          variante={e.id === caso.responsable_id ? "borde" : "neutro"}
+                          icono="persona"
+                          onClick={() => {
+                            datos.asignarResponsable(caso.id, e.id);
+                            datos.avisarExito(`Listo. El caso ${caso.numero} lo atiende ${e.nombre}.`);
+                            setEligiendo(false);
+                          }}
+                        >
+                          {e.nombre}
+                        </Boton>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <div className="mt-3">
+                <Boton variante="plano" onClick={() => setEligiendo(false)}>
+                  Dejarlo como está
+                </Boton>
+              </div>
+            </div>
+          )}
 
           {/* El identificador —la patente, el DNI, el número de serie— es
               cómo se reconoce el caso, no un diagnóstico: vive acá arriba, al
-              lado del número, y se carga y se corrige acá. Antes estaba bajo
-              un título que habla de lo que se encontró al revisar, y había
-              que acordarse de dónde estaba (auditoría, H2). */}
-          {editandoIdent && sePuedeEditar ? (
+              lado del número, y se carga y se corrige acá (auditoría, H2). */}
+          {editandoIdent && sePuedeEditar && (
             <div className="mt-4 max-w-[320px]">
               <Campo
                 id="identificador"
@@ -255,23 +333,6 @@ export default function VerCaso() {
                 </Boton>
               </div>
             </div>
-          ) : (
-            sePuedeEditar && (
-              <div className="mt-2">
-                <Boton
-                  variante="plano"
-                  icono="nota"
-                  onClick={() => {
-                    setIdentificador(caso.identificador ?? "");
-                    setEditandoIdent(true);
-                  }}
-                >
-                  {caso.identificador
-                    ? `Corregir ${comoIdent.enFrase}`
-                    : `Cargar ${comoIdent.enFrase}`}
-                </Boton>
-              </div>
-            )
           )}
 
           {/* Un único botón azul: el que casi siempre se va a tocar.
@@ -298,27 +359,150 @@ export default function VerCaso() {
               <p className="font-bold text-cuerpo">
                 Lo que hay que hacer{" "}
                 <span className="font-normal text-apoyo text-tinta-suave">
-                  {aprobados.length} {aprobados.length === 1 ? "paso aprobado" : "pasos aprobados"}
+                  {avance.hechos} de {avance.aprobados} hechos
                 </span>
               </p>
               <ul className="mt-2 divide-y divide-borde rounded-campo border border-borde">
-                {aprobados.map((p) => (
-                  <li key={p.id} className="flex items-start justify-between gap-4 px-4 py-3">
-                    <span className="flex min-w-0 items-start gap-2">
-                      <Icono nombre="listo" className="size-5 shrink-0 text-completo" />
-                      <span className="min-w-0">
-                        <span className="block font-bold">{p.nombre}</span>
-                        {p.descripcion && (
-                          <span className="block text-apoyo text-tinta-suave">
-                            {p.descripcion}
-                          </span>
+                {aprobados.map((p) => {
+                  const hecho = Boolean(p.hecho_en);
+                  const sePuede = puedoMarcar && sePuedeMarcarHecho(p, caso);
+
+                  /* Hecho y pendiente se distinguen por tres cosas y no sólo
+                     por el color: el ícono cambia de círculo vacío a tilde,
+                     aparece la palabra "Hecho" y el nombre se pone gris. En
+                     blanco y negro se sigue leyendo (cartilla, 02). */
+                  const adentro = (
+                    <>
+                      <span
+                        className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${
+                          hecho ? "bg-completo-fondo text-completo" : "bg-superficie text-tinta-suave"
+                        }`}
+                      >
+                        <Icono nombre={hecho ? "listo" : "circulo"} className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block font-bold ${hecho ? "text-tinta-suave line-through" : ""}`}
+                        >
+                          {p.nombre}
+                        </span>
+                        {hecho ? (
+                          <span className="block text-apoyo font-bold text-completo">Hecho</span>
+                        ) : (
+                          p.descripcion && (
+                            <span className="block text-apoyo text-tinta-suave">
+                              {p.descripcion}
+                            </span>
+                          )
                         )}
                       </span>
-                    </span>
-                    <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
-                  </li>
-                ))}
+                      <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
+                    </>
+                  );
+
+                  return (
+                    <li key={p.id}>
+                      {sePuede ? (
+                        <button
+                          type="button"
+                          aria-pressed={hecho}
+                          aria-label={
+                            hecho
+                              ? `«${p.nombre}» está hecho. Tocá para desmarcarlo.`
+                              : `Marcar «${p.nombre}» como hecho.`
+                          }
+                          onClick={async () => {
+                            const r = await datos.marcarPasoHecho(p.id, !hecho);
+                            if (!r.ok) return setErrorPaso(r.error);
+                            setErrorPaso(null);
+                            if (r.cambio && !hecho) datos.avisarExito(`Listo. «${p.nombre}» quedó hecho.`);
+                          }}
+                          className="flex w-full min-h-12 cursor-pointer items-start gap-3 px-4 py-3 text-left hover:bg-superficie"
+                        >
+                          {adentro}
+                        </button>
+                      ) : (
+                        <div className="flex items-start gap-3 px-4 py-3">{adentro}</div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
+
+              {errorPaso && (
+                <div className="mt-3">
+                  <ErrorGeneral>{errorPaso}</ErrorGeneral>
+                </div>
+              )}
+
+              {/* El camino de vuelta (flujo, punto 10). Se controló todo y
+                  justo ahí apareció otra cosa: se sumó un paso, el cliente
+                  lo aprobó, y el caso quedó diciendo "control final" con
+                  trabajo nuevo adentro.
+
+                  Acá se avisa y se ofrece volver, no se corrige solo: puede
+                  ser que el paso nuevo se haga después de entregar, y eso lo
+                  decide quien está mirando. Cuando el que aprueba es el
+                  cliente desde el link no hay nadie mirando, y ahí sí el
+                  caso vuelve solo (022_el_cliente_destraba.sql). */}
+              {quedoTrabajoPendiente(caso, mios) && abierto && (
+                <div className="mt-3 rounded-tarjeta border-2 border-espera bg-espera-fondo p-4">
+                  <p className="flex items-start gap-2 font-bold text-cuerpo text-espera">
+                    <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                    <span>Quedó trabajo sin hacer</span>
+                  </p>
+                  <p className="mt-1 max-w-[65ch] text-tinta-media">
+                    El caso figura en {etiquetaEstado(negocio?.rubro, "revision_final")}, pero{" "}
+                    {avance.faltan === 1
+                      ? "hay un paso aprobado sin hacer"
+                      : `hay ${avance.faltan} pasos aprobados sin hacer`}
+                    . El control se hizo sobre otro trabajo.
+                  </p>
+                  <div className="mt-4">
+                    <Boton
+                      icono="llave"
+                      onClick={() =>
+                        datos.cambiarEstado(
+                          caso.id,
+                          "en_proceso",
+                          queFaltaPara(negocio?.rubro, "en_proceso"),
+                          AL_PASAR_A.en_proceso
+                        )
+                      }
+                    >
+                      Volverlo a {etiquetaEstado(negocio?.rubro, "en_proceso")}
+                    </Boton>
+                  </div>
+                </div>
+              )}
+
+              {/* Lo ofrece, no lo hace solo: terminar el trabajo y decidir que
+                  está para controlar son dos cosas, y la segunda la decide
+                  una persona. */}
+              {avance.todoHecho && abierto && caso.estado !== "revision_final" && (
+                <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+                  <p className="font-bold text-cuerpo">Terminaste todo lo aprobado</p>
+                  <p className="mt-1 max-w-[65ch] text-tinta-media">
+                    Los {avance.aprobados} pasos están hechos. Si ya está para controlar
+                    antes de entregar, pasalo a {etiquetaEstado(negocio?.rubro, "revision_final")}.
+                  </p>
+                  <div className="mt-4">
+                    <Boton
+                      icono="nota"
+                      onClick={() =>
+                        datos.cambiarEstado(
+                          caso.id,
+                          "revision_final",
+                          queFaltaPara(negocio?.rubro, "revision_final"),
+                          AL_PASAR_A.revision_final
+                        )
+                      }
+                    >
+                      Pasarlo a {etiquetaEstado(negocio?.rubro, "revision_final")}
+                    </Boton>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -362,186 +546,206 @@ export default function VerCaso() {
         </div>
       )}
 
-      {abierto && (
-        <div className="mt-8 border-t border-borde pt-6">
-          <h3 className="text-subtitulo font-bold">Terminar el caso</h3>
+      {/* Contarle al cliente que ya está (flujo, punto 9). Va antes de
+          "Terminar el caso" porque es lo que se hace justo antes: primero se
+          le avisa, después viene a buscarlo y recién ahí se entrega. */}
+      {puedeCargar && (caso.estado === "revision_final" || caso.estado === "completado") && (
+        <AvisarleQueEstaListo
+          caso={caso}
+          cliente={cliente}
+          negocio={negocio}
+          datos={datos}
+          aprobados={aprobados}
+        />
+      )}
 
-          {/* Cerrar se puede desde cualquier estado abierto, no sólo después
-              del control final: un trabajo puede terminarse antes de lo
-              previsto —el cliente lo pasa a buscar, no tenía nada— y obligar
-              a caminar toda la cadena para reflejarlo sería mentirle al
-              estado. El botón dice lo que hace: entrega Y cierra (cartilla,
-              sección 06). Va destacado sólo cuando es lo que sigue. */}
-          {!entregando && (
-            <div className="mt-3">
-              <Boton
-                variante={caso.estado === "revision_final" ? "borde" : "plano"}
-                icono="listo"
-                onClick={() => {
-                  // Viene precargado con lo que el cliente aprobó, que es lo
-                  // que casi siempre se cobra. Si cobró otra cosa, lo pisa y
-                  // listo: escribir el número de nuevo es más trabajo que
-                  // corregirlo.
-                  setCobro(aprobado > 0 ? String(aprobado) : "");
-                  setEntregando(true);
-                }}
-              >
-                Entregar y cerrar
-              </Boton>
-            </div>
-          )}
+      {/* Cerrar el caso y volver a abrirlo: las dos puntas de lo mismo, en
+          el mismo lugar de la pantalla y con el mismo peso.
 
-          {/* El cobro se registra acá y no en una pantalla aparte: entregar y
-              cobrar son un solo momento en el mostrador, y es el único en que
-              alguien tiene el número delante. Se puede entregar sin
-              registrarlo —una garantía, algo que se cobró por afuera—, y por
-              eso el campo vacío también cierra el caso. */}
-          {entregando && (
-            <Tarjeta className="mt-3 w-full">
-              <Campo
-                id="cobro"
-                etiqueta="¿Cuánto cobraste?"
-                ayuda="Con números y sin puntos. Si no cobrás acá, dejalo vacío: el caso se entrega igual."
-                ejemplo="120000"
-                error={!cobroValido(cobro) ? "El monto va con números y sin puntos." : null}
-                inputMode="numeric"
-                value={cobro}
-                onChange={(e) => setCobro(e.target.value)}
-              />
-              <div className="flex flex-wrap gap-3">
+          Van después de "avisarle que ya está" porque ese es el orden en que
+          pasa: primero se le avisa, después viene a buscarlo, y recién ahí se
+          entrega. Antes estaban antes, y encima con una pinta distinta de la
+          de todas las demás secciones: un título suelto con una línea arriba
+          en vez de la tarjeta con título que usa el resto. */}
+      {abierto ? (
+        <>
+          <TituloSeccion className="mt-12">Terminar el caso</TituloSeccion>
+          <Tarjeta>
+            {/* Cerrar se puede desde cualquier estado abierto, no sólo después
+                del control final: un trabajo puede terminarse antes de lo
+                previsto —el cliente lo pasa a buscar, no tenía nada— y obligar
+                a caminar toda la cadena para reflejarlo sería mentirle al
+                estado. El botón dice lo que hace: entrega Y cierra (cartilla,
+                sección 06). Va destacado sólo cuando es lo que sigue. */}
+            {!entregando ? (
+              <>
+                <p className="max-w-[65ch] text-tinta-media">
+                  Se lo entregás {cliente?.nombre ? `a ${cliente.nombre.split(" ")[0]}` : "al cliente"},
+                  anotás cuánto cobraste y el caso queda cerrado. Mientras esté
+                  cerrado no se le tocan los pasos ni el diagnóstico.
+                </p>
+                <div className="mt-4">
+                  <Boton
+                    variante={caso.estado === "revision_final" ? "borde" : "neutro"}
+                    icono="listo"
+                    onClick={() => {
+                      // Viene precargado con lo que el cliente aprobó, que es
+                      // lo que casi siempre se cobra.
+                      setCobro(aprobado > 0 ? String(aprobado) : "");
+                      setCambiandoCobro(aprobado === 0);
+                      setEntregando(true);
+                    }}
+                  >
+                    Entregar y cerrar
+                  </Boton>
+                </div>
+              </>
+            ) : (
+              /* El cobro se registra acá y no en una pantalla aparte:
+                 entregar y cobrar son un solo momento en el mostrador, y es
+                 el único en que alguien tiene el número delante. Se puede
+                 entregar sin registrarlo —una garantía, algo que se cobró por
+                 afuera—, y por eso el campo vacío también cierra el caso. */
+              <>
+                <p className="flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
+                  <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                  <span>
+                    <span className="font-bold">Vas a cerrar el caso.</span> Lo que
+                    anotes acá queda registrado como lo que cobraste, y lo va a ver
+                    el cliente en su ficha. Después, para cambiarlo, hay que volver
+                    a abrir el caso.
+                  </span>
+                </p>
+
+                {/* El monto no arranca editable: en la enorme mayoría de los
+                    casos se cobra lo aprobado, y lo que hay que hacer es
+                    confirmar, no escribir. Cambiarlo es la excepción y pide un
+                    toque más, con su propio aviso. */}
+                {!cambiandoCobro ? (
+                  <div className="mt-4">
+                    <p className="text-tinta-media">Vas a anotar que cobraste</p>
+                    <p className="font-titulo font-extrabold text-dato tabular-nums">
+                      {pesos(aprobado)}
+                    </p>
+                    <p className="mt-1 max-w-[65ch] text-tinta-media">
+                      Es lo que {cliente?.nombre?.split(" ")[0] ?? "el cliente"} aprobó.
+                    </p>
+                    <div className="mt-3">
+                      <Boton
+                        variante="plano"
+                        icono="nota"
+                        onClick={() => setCambiandoCobro(true)}
+                      >
+                        Cobré otra cosa
+                      </Boton>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    {aprobado > 0 && (
+                      <p className="mb-3 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
+                        <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                        <span>
+                          Estás cambiando el monto. El cliente aprobó{" "}
+                          <span className="font-bold">{pesos(aprobado)}</span>
+                          {montoCobrado(cobro) != null && montoCobrado(cobro) !== aprobado
+                            ? `, y estás anotando ${pesos(montoCobrado(cobro))}.`
+                            : "."}
+                        </span>
+                      </p>
+                    )}
+                    <Campo
+                      id="cobro"
+                      etiqueta="¿Cuánto cobraste?"
+                      ayuda="Con números y sin puntos. Si no cobrás acá, dejalo vacío: el caso se entrega igual."
+                      ejemplo="120000"
+                      error={!cobroValido(cobro) ? "El monto va con números y sin puntos." : null}
+                      inputMode="numeric"
+                      value={cobro}
+                      onChange={(e) => setCobro(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  <Boton
+                    icono="listo"
+                    motivo={!cobroValido(cobro) ? "revisá el monto" : null}
+                    onClick={() => {
+                      const monto = montoCobrado(cobro);
+                      datos.cambiarEstado(
+                        caso.id,
+                        "completado",
+                        queFaltaPara(negocio?.rubro, "completado"),
+                        {
+                          titulo: "Entregaron el trabajo",
+                          detalle:
+                            monto === null
+                              ? "El caso queda cerrado."
+                              : `El caso queda cerrado. Cobraron ${pesos(monto)}.`,
+                          icono: "listo",
+                        },
+                        { cobrado: monto, cobrado_en: monto === null ? null : new Date().toISOString() }
+                      );
+                      datos.avisarExito(
+                        monto === null
+                          ? `Listo. El caso ${caso.numero} quedó entregado.`
+                          : `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
+                      );
+                      setEntregando(false);
+                    }}
+                  >
+                    Sí, entregar y cerrar
+                  </Boton>
+                  <Boton variante="plano" onClick={() => setEntregando(false)}>
+                    Mejor no
+                  </Boton>
+                </div>
+              </>
+            )}
+          </Tarjeta>
+        </>
+      ) : (
+        <>
+          <TituloSeccion className="mt-12">El caso está cerrado</TituloSeccion>
+          <Tarjeta>
+            <p className="max-w-[65ch] text-tinta-media">
+              Se entregó{caso.cobrado != null ? ` y se cobró ${pesos(Number(caso.cobrado))}` : ""}.
+              Mientras siga cerrado no se le cambian los pasos ni el diagnóstico.
+            </p>
+            {/* Nada es definitivo: se puede haber cerrado de más. Es la única
+                acción que queda en un caso cerrado, así que se ve como un
+                botón y no como un enlace perdido al final. */}
+            {puedeCargar && (
+              <div className="mt-4">
                 <Boton
-                  icono="listo"
-                  motivo={!cobroValido(cobro) ? "revisá el monto" : null}
-                  onClick={() => {
-                    const monto = montoCobrado(cobro);
+                  variante="neutro"
+                  icono="deshacer"
+                  onClick={() =>
                     datos.cambiarEstado(
                       caso.id,
-                      "completado",
-                      queFaltaPara(negocio?.rubro, "completado"),
+                      "en_proceso",
+                      queFaltaPara(negocio?.rubro, "en_proceso"),
                       {
-                        titulo: "Entregaron el trabajo",
-                        detalle:
-                          monto === null
-                            ? "El caso queda cerrado."
-                            : `El caso queda cerrado. Cobraron ${pesos(monto)}.`,
-                        icono: "listo",
-                      },
-                      { cobrado: monto, cobrado_en: monto === null ? null : new Date().toISOString() }
-                    );
-                    datos.avisarExito(
-                      monto === null
-                        ? `Listo. El caso ${caso.numero} quedó entregado.`
-                        : `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
-                    );
-                    setEntregando(false);
-                  }}
+                        titulo: "Volvieron a abrir el caso",
+                        detalle: "Se había cerrado antes de tiempo.",
+                        icono: "deshacer",
+                      }
+                    )
+                  }
                 >
-                  Entregar y cerrar
-                </Boton>
-                <Boton variante="plano" onClick={() => setEntregando(false)}>
-                  Mejor no
-                </Boton>
-              </div>
-            </Tarjeta>
-          )}
-        </div>
-      )}
-
-      {caso.estado === "completado" && (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="w-full max-w-[65ch] text-tinta-media">
-            Este caso ya se entregó y se cerró. Mientras siga cerrado no se le
-            cambian los pasos ni el diagnóstico.
-          </p>
-          {/* Nada es definitivo: se puede haber cerrado de más. */}
-          <Boton
-            variante="plano"
-            icono="deshacer"
-            onClick={() =>
-              datos.cambiarEstado(
-                caso.id,
-                "en_proceso",
-                queFaltaPara(negocio?.rubro, "en_proceso"),
-                {
-                  titulo: "Volvieron a abrir el caso",
-                  detalle: "Se había cerrado antes de tiempo.",
-                  icono: "deshacer",
-                }
-              )
-            }
-          >
-            Volver a abrirlo
-          </Boton>
-        </div>
-      )}
-
-      {/* El historial cuenta la historia: qué pasó, cuándo y quién lo hizo. */}
-      {/* Lo que pidió el cliente está arriba en "servicio". Acá va lo que
-          encontramos al revisar, que es otra cosa. */}
-      <TituloSeccion className="mt-12">El diagnóstico</TituloSeccion>
-      <Tarjeta>
-        {!abierto && puedeCargar && (
-          <p className="mb-4 max-w-[65ch] text-tinta-media">
-            El caso está cerrado, así que esto queda como quedó. Si hay algo que
-            corregir, volvé a abrirlo arriba y cerralo de nuevo después.
-          </p>
-        )}
-        <p className="font-bold text-cuerpo">Qué encontramos</p>
-        {editandoDiag && sePuedeEditar ? (
-          <div className="mt-2">
-            <label htmlFor="diagnostico" className="sr-only">
-              Qué encontramos
-            </label>
-            <p className="mt-1 mb-2 text-apoyo text-tinta-suave">
-              Con tus palabras, como se lo explicarías al cliente.
-            </p>
-            <textarea
-              id="diagnostico"
-              rows={4}
-              value={diagnostico}
-              onChange={(e) => setDiagnostico(e.target.value)}
-              placeholder={ejemplosDe(negocio?.rubro).diagnostico}
-              className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
-            />
-            <div className="mt-3 flex flex-wrap gap-3">
-              <Boton
-                icono="check"
-                motivo={!diagnostico.trim() ? "falta escribir qué encontraron" : null}
-                onClick={() => {
-                  datos.cargarDiagnostico(caso.id, diagnostico.trim());
-                  datos.avisarExito(`Listo. El diagnóstico del caso ${caso.numero} quedó anotado.`);
-                  setEditandoDiag(false);
-                }}
-              >
-                Guardar el diagnóstico
-              </Boton>
-              <Boton variante="plano" onClick={() => setEditandoDiag(false)}>
-                Dejarlo
-              </Boton>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-1">
-            <p className="max-w-[65ch] text-tinta-media">
-              {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
-            </p>
-            {sePuedeEditar && (
-              <div className="mt-2">
-                <Boton
-                  variante="plano"
-                  icono="diagnostico"
-                  onClick={() => {
-                    setDiagnostico(caso.diagnostico ?? "");
-                    setEditandoDiag(true);
-                  }}
-                >
-                  {caso.diagnostico ? "Corregir el diagnóstico" : "Cargar el diagnóstico"}
+                  Volver a abrirlo
                 </Boton>
               </div>
             )}
-          </div>
-        )}
-      </Tarjeta>
+          </Tarjeta>
+        </>
+      )}
+
+      {/* El diagnóstico se mudó a la pantalla de los pasos (flujo, 3.2).
+          Revisar y presupuestar son el mismo momento de trabajo, y estaban
+          partidos en dos pantallas: se escribía acá qué se encontró y había
+          que irse a otro lado a cargar lo que hay que hacer con eso. */}
 
       <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
         <TituloSeccion className="mb-0">Lo que pasó con este caso</TituloSeccion>
@@ -619,5 +823,135 @@ export default function VerCaso() {
         </div>
       )}
     </>
+  );
+}
+
+// "Ya está listo" — el aviso al cliente cuando el trabajo pasó el control
+// (flujo, punto 9).
+//
+// Es el hermano de "Mandarle los pasos al cliente" de la pantalla de pasos:
+// mismo patrón, mismo link, otro momento. Aquel se manda cuando hay que
+// decidir; este, cuando ya se hizo.
+//
+// Usa el link que ya existe y lo arma si todavía no hay ninguno, en el mismo
+// toque: si hubiera que ir a compartirlo primero, avisar dejaría de ser una
+// sola acción y nadie lo usaría con el mostrador lleno.
+function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
+  const [abierto, setAbierto] = useState(false);
+  const [armando, setArmando] = useState(false);
+  const [error, setError] = useState(null);
+  const [origen, setOrigen] = useState("");
+
+  useEffect(() => setOrigen(window.location.origin), []);
+
+  const entregado = caso.estado === "completado";
+  const codigo = caso.seguimiento_codigo ?? null;
+  const link = codigo && origen ? linkDeSeguimiento(origen, codigo) : "";
+
+  const mensaje = mensajeDeLoHecho({
+    negocioNombre: negocio?.nombre ?? "tu negocio",
+    clienteNombre: cliente?.nombre?.split(" ")[0] ?? null,
+    identificador: caso.identificador,
+    servicio: caso.servicio,
+    estadoEnPalabras: etiquetaEstado(negocio?.rubro, caso.estado),
+    entregado,
+    pasos: aprobados.map((p) => ({ nombre: p.nombre, hecho: Boolean(p.hecho_en) })),
+    link,
+  });
+
+  async function preparar() {
+    setError(null);
+    if (codigo) return setAbierto((v) => !v);
+
+    // Sin link todavía: se arma ahora. compartirCaso() devuelve el mismo
+    // código si ya hubiera uno, así que nunca se genera uno nuevo por error
+    // y el que el cliente ya tenga sigue andando.
+    setArmando(true);
+    const r = await datos.compartirCaso(caso.id);
+    setArmando(false);
+    if (!r.ok) return setError(r.error);
+    setAbierto(true);
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(mensaje);
+      datos.avisarExito("Listo. Copiamos el aviso: pegalo en la conversación con el cliente.");
+    } catch {
+      const pre = document.getElementById("aviso-listo");
+      if (pre) window.getSelection()?.selectAllChildren(pre);
+      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+    }
+  }
+
+  return (
+    <>
+      <TituloSeccion className="mt-12">
+        {entregado ? "Contarle qué se le hizo" : "Avisarle que ya está"}
+      </TituloSeccion>
+      <Tarjeta>
+        {error && <ErrorGeneral>{error}</ErrorGeneral>}
+
+        <p className="max-w-[65ch] text-tinta-media">
+          {entregado
+            ? "Un resumen de lo que se le hizo, con el link para que lo tenga a mano."
+            : `El trabajo está controlado. Avisale a ${cliente?.nombre?.split(" ")[0] ?? "tu cliente"} que puede venir a buscarlo.`}
+        </p>
+
+        <div className="mt-4">
+          <Boton
+            icono="chat"
+            motivo={armando ? "armando el link" : null}
+            onClick={preparar}
+          >
+            {abierto ? "Cerrar" : entregado ? "Armar el resumen" : "Armar el aviso"}
+          </Boton>
+        </div>
+
+        {abierto && (
+          <div className="mt-4 rounded-tarjeta border border-borde bg-superficie p-4">
+            <p className="font-bold">Esto es lo que le va a llegar</p>
+            <pre
+              id="aviso-listo"
+              className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-campo bg-tarjeta p-4 font-cuerpo text-etiqueta text-tinta-media"
+            >
+              {mensaje}
+            </pre>
+
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Boton icono="copiar" onClick={copiar}>
+                Copiar el aviso
+              </Boton>
+              <a
+                href={linkDeWhatsApp(mensaje)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
+              >
+                <Icono nombre="chat" />
+                Mandarlo por WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
+      </Tarjeta>
+    </>
+  );
+}
+
+// Un dato del caso: el nombre arriba, el valor abajo, el ícono al costado.
+//
+// El nombre va SIEMPRE, también cuando el valor se explica solo. Un ícono de
+// persona al lado de "Diego" no dice si Diego es el cliente o quien hace el
+// trabajo (auditoría, H2), y "hace 14 días" sin nombre no dice de qué.
+function Dato({ icono, que, children }) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icono nombre={icono} className="mt-1 size-5 shrink-0 text-tinta-suave" />
+      <div className="min-w-0">
+        <dt className="text-apoyo text-tinta-suave">{que}</dt>
+        <dd className="text-cuerpo text-tinta">{children}</dd>
+      </div>
+    </div>
   );
 }

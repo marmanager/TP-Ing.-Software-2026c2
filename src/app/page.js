@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { casosPorAprobar, estaAbierto } from "@/lib/estados";
+import { casosPorAprobar, casosQueContestoElCliente, estaAbierto } from "@/lib/estados";
 import { diasDesde } from "@/lib/fechas";
 import {
   ALTO_FILA,
@@ -62,7 +62,7 @@ const enAlgoQueSeToca = (destino) =>
   destino instanceof Element && destino.closest("button, select, input, a, label");
 
 export default function Inicio() {
-  const { cargando, casos, pasos, insumos, negocio, inicio, cambiarInicio, avisarExito } =
+  const { cargando, casos, pasos, insumos, eventos, negocio, inicio, cambiarInicio, avisarExito } =
     useDatos();
   useTitulo("Inicio");
 
@@ -132,7 +132,19 @@ export default function Inicio() {
     (i) => i.estado === "en_stock" && i.cantidad <= i.minimo
   ).length;
 
+  // El cliente contesta cuando puede, muchas veces fuera de hora. Del lado
+  // del negocio eso tiene que aparecer solo a la mañana siguiente y no
+  // cuando alguien se acuerde de entrar al caso (flujo, punto 5).
+  const contestados = casosQueContestoElCliente(casos, eventos);
+
   const hayQueMirar = [
+    contestados.length > 0 && {
+      href: contestados.length === 1 ? `/casos/${contestados[0].id}` : "/casos",
+      texto:
+        contestados.length === 1
+          ? `El cliente contestó el caso ${contestados[0].numero}`
+          : `${contestados.length} casos que contestó el cliente`,
+    },
     trabados > 0 && {
       href: "/aprobar",
       texto: `${trabados} ${trabados === 1 ? "caso espera" : "casos esperan"} respuesta hace más de 3 días`,

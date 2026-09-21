@@ -45,7 +45,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `020_telefono_del_negocio.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `022_el_cliente_destraba.sql` (el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a correr
    cuantas veces haga falta.
 
@@ -249,6 +249,21 @@ escribe y un dedazo dejaría a alguien afuera de su propia cuenta.
 La verificación de mail y la recuperación de contraseña necesitan el mail prendido
 en el panel de Supabase (ver el paso 2 de "Conectar la base").
 
+## Revisar y presupuestar son un solo momento
+
+El diagnóstico —qué se encontró al revisar— vive en la pantalla de los pasos y
+no en el detalle del caso. Es el mismo momento de trabajo: se mira el auto, se
+escribe qué tiene, y de eso salen los pasos del presupuesto. Estaba partido en
+dos pantallas y había que ir y venir con el auto delante.
+
+Va arriba de los pasos porque es el orden en que pasa, y porque así los pasos
+se escriben mirando el diagnóstico y no de memoria. Desde ahí, "Armar un paso
+con esto" abre el formulario sin salir ni perder lo escrito.
+
+Corregir un diagnóstico que ya estaba trae el texto anterior cargado en el
+campo y avisa que guardar lo reemplaza: ampliar es escribir abajo, no volver a
+empezar.
+
 ## El cliente mira su caso sin cuenta
 
 Es la historia que ataca el problema que dio origen al proyecto: que el teléfono
@@ -262,7 +277,18 @@ Va ahí y no en el detalle del caso porque lo que se manda es el presupuesto. En
 el detalle queda un renglón que dice si está compartido y si el cliente lo
 abrió, que es lo que responde si hace falta llamarlo.
 
-**Mandar el link deja el caso esperando al cliente.** La pelota pasó a su lado,
+**Y cuando el trabajo está listo hay otro mensaje**, desde el detalle del
+caso: dice qué se le hizo —con un tilde en lo terminado y un punto en lo que
+no—, en qué estado quedó y el mismo link. Si el caso todavía no tenía link, lo
+arma en ese mismo toque. Es el hermano del mensaje del presupuesto: mismo
+patrón, otro momento.
+
+**Mandar el link deja el caso esperando al cliente**, pero sólo cuando hay algo
+que el cliente tenga que contestar. Avisarle que el trabajo ya está también
+comparte el link, y ahí no se espera nada de él: el caso se queda en control
+final, que es donde tiene que estar hasta que lo vengan a buscar.
+
+Cuando sí hay algo para contestar, la pelota pasó a su lado,
 así que el estado se mueve solo a "esperando" y el "qué falta" pasa a ser "la
 respuesta del cliente". Si no, el tablero seguiría diciendo que el trabajo
 avanza mientras en realidad no se puede hacer nada hasta que conteste.
