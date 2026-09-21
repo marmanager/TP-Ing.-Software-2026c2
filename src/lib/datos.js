@@ -1439,6 +1439,8 @@ export function DatosProvider({ children }) {
       // sólo horarios ocupados para cualquiera, éste los turnos con nombre y
       // teléfono para el dueño.
       async compartirCalendario() {
+        if (!enSupabase())
+          return { ok: false, error: "Para generar un link que Google pueda leer, iniciá sesión con una cuenta conectada a Supabase." };
         if (datos.negocio?.ics_codigo)
           return { ok: true, codigo: datos.negocio.ics_codigo };
 

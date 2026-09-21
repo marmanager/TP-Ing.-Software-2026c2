@@ -78,9 +78,10 @@ export default function Horarios() {
   const problemas = problemasDeHorarios(actual);
   const linkAgenda =
     origen && negocio?.agenda_codigo ? origen + "/turnos/" + negocio.agenda_codigo : "";
+  const origenCalendario = process.env.NEXT_PUBLIC_APP_URL || origen;
   const linkIcs =
-    origen && negocio?.ics_codigo
-      ? origen + "/calendario/" + negocio.ics_codigo + ".ics"
+    origenCalendario && negocio?.ics_codigo
+      ? origenCalendario + "/calendario/" + negocio.ics_codigo + ".ics"
       : "";
   // Apple Calendar y Outlook abren la suscripción solos con "webcal://".
   // Google no lo entiende y pide la dirección pegada a mano, así que la de
