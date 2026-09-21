@@ -25,11 +25,20 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { montoValido } from "@/lib/validaciones";
 import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
+import { cuantoHace } from "@/lib/fechas";
 import { ejemplosDe } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { linkDeSeguimiento } from "@/lib/seguimiento";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { linkDeSeguimiento, linkDeWhatsApp } from "@/lib/seguimiento";
+import {
+  Boton,
+  Campo,
+  Cargando,
+  ErrorGeneral,
+  Tarjeta,
+  TituloSeccion,
+  Vacio,
+} from "@/componentes/ui";
 
 const DICHO = {
   aprobado: { icono: "listo", texto: "Lo aprobó el cliente", color: "text-completo" },
@@ -301,6 +310,20 @@ export default function AprobarPasos() {
                             Después no se puede volver atrás, ni cambiar el monto, ni
                             sacarlo del presupuesto.
                           </p>
+                          {/* Esto se carga desde el mostrador, en nombre del
+                              cliente: el que aprueba no es el que está
+                              tocando el botón. Queda escrito como que lo
+                              aprobó él, así que el aviso va antes y no
+                              después. */}
+                          <p className="mt-3 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
+                            <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                            <span>
+                              <span className="font-bold">Estás contestando por el cliente.</span>{" "}
+                              Asegurate de que {cliente?.nombre?.split(" ")[0] ?? "el cliente"} te
+                              haya dicho que sí: va a quedar registrado como que lo aprobó,
+                              y es un acuerdo por {pesos(paso.monto)}.
+                            </span>
+                          </p>
                           <div className="mt-4 flex flex-wrap gap-3">
                             <Boton
                               variante="principal"
@@ -448,56 +471,184 @@ export default function AprobarPasos() {
         </div>
       )}
 
-      {/* El único botón azul de la pantalla. */}
-      {mios.length > 0 && (
-        <>
-          <button
-            type="button"
-            onClick={() => setMostrandoMensaje((v) => !v)}
-            className="mt-6 flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado"
-          >
-            <Icono nombre="chat" />
-            Mandarle los pasos al cliente
-          </button>
+      {/* El único botón azul de la pantalla, y ahora manda de verdad: arma
+          el link del cliente —el mismo de la pantalla pública— y lo deja
+          listo para copiar o mandar por WhatsApp con el presupuesto entero
+          escrito. Antes sólo mostraba un texto para copiar a mano.
 
-          {mostrandoMensaje && (
-            <div className="mt-3 rounded-tarjeta border border-borde bg-tarjeta p-4">
-              <p className="font-bold">Esto es lo que le va a llegar</p>
-              <p className="mt-1 text-apoyo text-tinta-suave">
-                Se lee completo en el mensaje, sin abrir el sistema. Mandarlo de verdad es
-                del próximo sprint.
-              </p>
-              {/* El mensaje existe para pegarlo en WhatsApp, y seleccionar
-                  varias líneas a mano en un celular era la parte más difícil
-                  de toda la tarea (auditoría, H7). Si el navegador no deja
-                  copiar, queda seleccionado para copiarlo a mano. */}
-              <div className="mt-3">
-                <Boton
-                  icono="copiar"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(mensaje);
-                      datos.avisarExito("Listo. Copiamos el mensaje: pegalo en la conversación con el cliente.");
-                    } catch {
-                      const pre = document.getElementById("mensaje-cliente");
-                      window.getSelection()?.selectAllChildren(pre);
-                      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
-                    }
-                  }}
-                >
-                  Copiar el mensaje
-                </Boton>
-              </div>
-              <pre
-                id="mensaje-cliente"
-                className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media"
-              >
-                {mensaje}
-              </pre>
-            </div>
-          )}
-        </>
+          Vive acá y no en la pantalla del caso porque lo que se manda es
+          esto: el presupuesto. Allá quedó el renglón que dice si ya está
+          compartido y si el cliente lo abrió. */}
+      {mios.length > 0 && puedeResponder && (
+        <MandarleElLink
+          caso={caso}
+          cliente={cliente}
+          datos={datos}
+          mensaje={mensaje}
+          origen={origen}
+          abierto={mostrandoMensaje}
+          alAbrir={setMostrandoMensaje}
+        />
       )}
     </div>
+  );
+}
+
+// Mandarle el presupuesto al cliente, con el link para que lo conteste.
+//
+// Es el mismo link de seguimiento que ve el estado del caso (SCRUM-68), y el
+// mensaje es el detalle de los pasos con el link al final: el cliente lee
+// todo en WhatsApp y, si quiere, entra y contesta ahí mismo.
+//
+// El link se arma la primera vez que se toca el botón, sin pasos intermedios
+// ni configuración: nadie va a usar esto si primero hay que preparar algo,
+// con el cliente esperando del otro lado del teléfono.
+function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbrir }) {
+  const [generando, setGenerando] = useState(false);
+  const [error, setError] = useState(null);
+  const [cortando, setCortando] = useState(false);
+
+  const codigo = caso.seguimiento_codigo ?? null;
+  const link = codigo && origen ? linkDeSeguimiento(origen, codigo) : "";
+
+  async function mandar() {
+    setError(null);
+    if (codigo) return alAbrir((v) => !v);
+
+    setGenerando(true);
+    const r = await datos.compartirCaso(caso.id);
+    setGenerando(false);
+    if (!r.ok) return setError(r.error);
+
+    alAbrir(true);
+    datos.avisarExito(
+      r.quedaEsperando
+        ? "Listo. El link ya anda, y el caso quedó esperando la respuesta del cliente."
+        : "Listo. El link ya anda: copialo o mandalo por WhatsApp."
+    );
+  }
+
+  async function cortar() {
+    setError(null);
+    setCortando(false);
+    const r = await datos.dejarDeCompartirCaso(caso.id);
+    if (!r.ok) return setError(r.error);
+    alAbrir(false);
+    datos.avisarExito("Listo. Ese link dejó de funcionar.");
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(mensaje);
+      datos.avisarExito("Listo. Copiamos el mensaje: pegalo en la conversación con el cliente.");
+    } catch {
+      // Sin permiso para el portapapeles queda marcado, que es lo que hace
+      // falta para copiarlo a mano. Seleccionar varias líneas en un celular
+      // era la parte más difícil de toda la tarea (auditoría, H7).
+      const pre = document.getElementById("mensaje-cliente");
+      if (pre) window.getSelection()?.selectAllChildren(pre);
+      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={mandar}
+        className="mt-6 flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado"
+      >
+        <Icono nombre="chat" />
+        {generando
+          ? "Armando el link…"
+          : codigo
+            ? abierto
+              ? "Cerrar"
+              : "Mandarle los pasos al cliente"
+            : "Mandarle los pasos al cliente"}
+      </button>
+
+      {error && (
+        <div className="mt-3">
+          <ErrorGeneral>{error}</ErrorGeneral>
+        </div>
+      )}
+
+      {abierto && codigo && (
+        <div className="mt-3 rounded-tarjeta border border-borde bg-tarjeta p-4">
+          <Campo
+            id="link-seguimiento"
+            etiqueta="El link del cliente"
+            ayuda="Es el mismo siempre. Ve el estado del caso y puede aprobar o rechazar los pasos desde ahí."
+            value={link}
+            readOnly
+            onFocus={(ev) => ev.target.select()}
+          />
+
+          <div className="-mt-2 flex flex-wrap gap-3">
+            <Boton icono="copiar" onClick={copiar}>
+              Copiar el mensaje
+            </Boton>
+            {/* wa.me es un link común: abre WhatsApp con el mensaje ya
+                escrito, sin integración y sin servidor. Sin número, porque el
+                que lo toca es el negocio y elige el contacto en su agenda. */}
+            <a
+              href={linkDeWhatsApp(mensaje)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
+            >
+              <Icono nombre="chat" />
+              Mandarlo por WhatsApp
+            </a>
+          </div>
+
+          <p className="mt-4 flex items-start gap-2 text-tinta-media">
+            <Icono
+              nombre={caso.seguimiento_visto_en ? "listo" : "reloj"}
+              className="mt-0.5 size-5 shrink-0"
+            />
+            <span>
+              {caso.seguimiento_visto_en
+                ? `Lo abrió por última vez ${cuantoHace(caso.seguimiento_visto_en)}.`
+                : "Todavía no lo abrió."}
+            </span>
+          </p>
+
+          <p className="mt-4 font-bold">Esto es lo que le va a llegar</p>
+          <pre
+            id="mensaje-cliente"
+            className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media"
+          >
+            {mensaje}
+          </pre>
+
+          {cortando ? (
+            <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+              <p className="font-bold text-cuerpo">¿Dejar de compartirlo?</p>
+              <p className="mt-1 max-w-[65ch] text-tinta-media">
+                El link que ya mandaste deja de funcionar ahora mismo, y{" "}
+                {cliente?.nombre?.split(" ")[0] ?? "el cliente"} va a ver que no sirve.
+                Podés armar uno nuevo cuando quieras.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Boton variante="peligro" icono="tacho" onClick={cortar}>
+                  Sí, dejar de compartirlo
+                </Boton>
+                <Boton variante="plano" onClick={() => setCortando(false)}>
+                  Seguir compartiéndolo
+                </Boton>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)}>
+                Dejar de compartirlo
+              </Boton>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }

@@ -12,7 +12,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ESTADOS, accionDeFila, quienLoTiene } from "@/lib/estados";
+import { ESTADOS, accionDeFila, queFalta, quienLoTiene } from "@/lib/estados";
 import { useDatos } from "@/lib/datos";
 import ChipEstado from "./ChipEstado";
 import { Boton } from "./ui";
@@ -25,6 +25,14 @@ export default function FilaCaso({ caso }) {
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const accion = accionDeFila(caso, { pasos, insumos });
+  // El "qué falta" se deriva de los pasos y los insumos, igual que en la
+  // pantalla del caso: si no, la lista y el detalle dirían cosas distintas.
+  const falta = queFalta(caso, {
+    rubro: datos.negocio?.rubro,
+    pasos,
+    insumos,
+    cliente,
+  });
   const barra = ESTADOS[caso.estado]?.barra ?? "bg-borde";
 
   function tocarAccion() {
@@ -73,7 +81,7 @@ export default function FilaCaso({ caso }) {
           {quienLoTiene(caso, empleados)}
         </p>
 
-        <p className="text-tinta-media">{caso.que_falta}</p>
+        <p className="text-tinta-media">{falta}</p>
 
         <div className="relative z-10 justify-self-start md:justify-self-end">
           <Boton icono={accion.icono} onClick={tocarAccion}>

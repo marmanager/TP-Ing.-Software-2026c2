@@ -6,33 +6,20 @@
 // el celular. Identificador, estado y "qué falta" tienen que entrar en la
 // primera pantalla, sin scrollear.
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ESTADOS, estaAbierto, pesos, quienLoTieneEnPalabras } from "@/lib/estados";
+import { ESTADOS, estaAbierto, pesos, queFalta, quienLoTieneEnPalabras } from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { preset, queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
-import {
-  linkDeSeguimiento,
-  linkDeWhatsApp,
-  mensajeDeWhatsApp,
-} from "@/lib/seguimiento";
 import SelectorEstado from "@/componentes/SelectorEstado";
 import Icono from "@/componentes/Icono";
-import {
-  Boton,
-  Campo,
-  Cargando,
-  ErrorGeneral,
-  Tarjeta,
-  TituloSeccion,
-  Vacio,
-} from "@/componentes/ui";
+import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 const EVENTOS_A_LA_VISTA = 5;
 
@@ -77,8 +64,9 @@ export default function VerCaso() {
   const aprobado = mios.filter((p) => p.estado === "aprobado").reduce((s, p) => s + Number(p.monto), 0);
   const esperando = mios.filter((p) => p.estado === "esperando");
   const barra = ESTADOS[caso.estado].barra;
-  const explica = preset(negocio?.rubro).explica[caso.estado];
   const comoIdent = comoSeIdentifica(negocio?.rubro);
+  const falta = queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente });
+  const aprobados = mios.filter((p) => p.estado === "aprobado");
 
   // Un caso cerrado es el registro de lo que pasó, no un borrador: no se le
   // cambian el diagnóstico ni los pasos sin volver a abrirlo primero. No queda
@@ -139,13 +127,13 @@ export default function VerCaso() {
           </div>
 
           <p className="mt-4 text-cuerpo">
-            <span className="font-bold">Qué falta:</span> {caso.que_falta}
-            {/* La aclaración sólo suma cuando dice algo distinto: en control
-                final las dos salen del mismo texto del preset y quedaba
-                "Control antes de entregar (Control antes de entregar)". */}
-            {explica && explica !== caso.que_falta && (
-              <span className="text-tinta-media"> ({explica})</span>
-            )}
+            {/* Derivado de los pasos y los insumos, no de lo guardado: así
+                dice el próximo paso y no repite el chip de arriba. Se fue
+                también la aclaración entre paréntesis del rubro: con un texto
+                específico pasó a ser ruido, y en control final las dos salían
+                del mismo lugar y se leía "Control antes de entregar (Control
+                antes de entregar)". */}
+            <span className="font-bold">Qué falta:</span> {falta}
           </p>
 
           {/* Cada dato dice qué es con palabras, y el ícono acompaña. Antes
@@ -193,15 +181,37 @@ export default function VerCaso() {
               <Icono nombre="reloj" className="size-5" />
               <span>{haceCuanto(caso.abierto_en)}</span>
             </li>
-            {cliente?.telefono && (
+            {/* Compartido o no, sin botones: los controles viven en la
+                pantalla de los pasos, que es donde está lo que se manda.
+                Acá alcanza con saber si el cliente ya lo miró, que es lo
+                que dice si hace falta llamarlo. */}
+            {caso.seguimiento_codigo && (
               <li className="flex items-center gap-2">
-                <Icono nombre="telefono" className="size-5" />
+                <Icono nombre="sobre" className="size-5" />
                 <span>
-                  Teléfono{" "}
-                  <a href={`tel:${cliente.telefono.replace(/\s/g, "")}`} className="text-azul">
-                    {cliente.telefono}
-                  </a>
+                  Link compartido ·{" "}
+                  {caso.seguimiento_visto_en
+                    ? `lo abrió ${cuantoHace(caso.seguimiento_visto_en)}`
+                    : "todavía no lo abrió"}
                 </span>
+              </li>
+            )}
+            {/* El teléfono es lo único de esta lista que se toca, y llamar
+                al cliente es lo que se hace apurado y con una mano. Como
+                enlace suelto en medio del renglón medía 26 px de alto: la
+                cartilla pide 48, así que el área táctil es todo el renglón y
+                no sólo los dígitos. */}
+            {cliente?.telefono && (
+              <li>
+                <a
+                  href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                  className="-mx-2 inline-flex min-h-12 items-center gap-2 rounded-campo px-2 hover:bg-azul-claro"
+                >
+                  <Icono nombre="telefono" className="size-5 text-azul" />
+                  <span className="text-tinta-media">
+                    Teléfono <span className="font-bold text-azul">{cliente.telefono}</span>
+                  </span>
+                </a>
               </li>
             )}
           </ul>
@@ -271,7 +281,7 @@ export default function VerCaso() {
             <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
               <Icono nombre="nota" />
               {esperando.length > 0 && abierto
-                ? `Ver los ${esperando.length} pasos a aprobar`
+                ? `Ver ${esperando.length === 1 ? "el paso" : `los ${esperando.length} pasos`} a aprobar`
                 : mios.length > 0
                   ? "Ver los pasos del caso"
                   : sePuedeEditar
@@ -279,6 +289,38 @@ export default function VerCaso() {
                     : "Ver el presupuesto"}
             </span>
           </Link>
+
+          {/* Lo que el cliente ya aprobó, que es la lista de trabajo del
+              técnico. Estaba un toque más adentro, en la pantalla de los
+              pasos, y es lo primero que se viene a mirar. */}
+          {aprobados.length > 0 && (
+            <div className="mt-6">
+              <p className="font-bold text-cuerpo">
+                Lo que hay que hacer{" "}
+                <span className="font-normal text-apoyo text-tinta-suave">
+                  {aprobados.length} {aprobados.length === 1 ? "paso aprobado" : "pasos aprobados"}
+                </span>
+              </p>
+              <ul className="mt-2 divide-y divide-borde rounded-campo border border-borde">
+                {aprobados.map((p) => (
+                  <li key={p.id} className="flex items-start justify-between gap-4 px-4 py-3">
+                    <span className="flex min-w-0 items-start gap-2">
+                      <Icono nombre="listo" className="size-5 shrink-0 text-completo" />
+                      <span className="min-w-0">
+                        <span className="block font-bold">{p.nombre}</span>
+                        {p.descripcion && (
+                          <span className="block text-apoyo text-tinta-suave">
+                            {p.descripcion}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {mios.length > 0 && (
             <p className="mt-3 text-tinta-media">
@@ -433,19 +475,6 @@ export default function VerCaso() {
         </div>
       )}
 
-      {/* La respuesta a "¿cómo va lo mío?" sin que nadie atienda el
-          teléfono (SCRUM-68). Va acá, entre las acciones y los datos: es una
-          acción sobre el caso, no un dato del caso. */}
-      {puedeCargar && (
-        <CompartirConElCliente
-          caso={caso}
-          cliente={cliente}
-          negocio={negocio}
-          datos={datos}
-          porContestar={esperando.length}
-        />
-      )}
-
       {/* El historial cuenta la historia: qué pasó, cuándo y quién lo hizo. */}
       {/* Lo que pidió el cliente está arriba en "servicio". Acá va lo que
           encontramos al revisar, que es otra cosa. */}
@@ -589,187 +618,6 @@ export default function VerCaso() {
           </Boton>
         </div>
       )}
-    </>
-  );
-}
-
-// Compartir el estado con el cliente (SCRUM-68).
-//
-// Un link por caso. Se arma de una: nadie va a usar esto si primero hay que
-// configurar algo, con el cliente esperando del otro lado del teléfono.
-//
-// Tocar "Compartir" dos veces devuelve el mismo link. Uno nuevo cada vez
-// dejaría muerto el que el negocio ya mandó por WhatsApp, y el cliente se
-// quedaría mirando una pantalla que le dice que su link no sirve.
-function CompartirConElCliente({ caso, cliente, negocio, datos, porContestar = 0 }) {
-  const [generando, setGenerando] = useState(false);
-  const [error, setError] = useState(null);
-  const [cortando, setCortando] = useState(false);
-  // El origen sale del navegador y no de una constante: así el link anda
-  // igual en localhost, en la compu de al lado y el día que esto se publique.
-  // Se lee en un efecto porque en el servidor no hay window.
-  const [origen, setOrigen] = useState("");
-  const campo = useRef(null);
-
-  useEffect(() => setOrigen(window.location.origin), []);
-
-  const codigo = caso.seguimiento_codigo ?? null;
-  const link = codigo && origen ? linkDeSeguimiento(origen, codigo) : "";
-
-  async function compartir() {
-    setError(null);
-    setGenerando(true);
-    const r = await datos.compartirCaso(caso.id);
-    setGenerando(false);
-    if (!r.ok) return setError(r.error);
-    datos.avisarExito("Listo. El link ya anda: copialo o mandalo por WhatsApp.");
-  }
-
-  async function cortar() {
-    setError(null);
-    setCortando(false);
-    const r = await datos.dejarDeCompartirCaso(caso.id);
-    if (!r.ok) return setError(r.error);
-    datos.avisarExito("Listo. Ese link dejó de funcionar.");
-  }
-
-  async function copiar() {
-    try {
-      await navigator.clipboard.writeText(link);
-      datos.avisarExito("Copiamos el link. Pegalo donde lo quieras mandar.");
-    } catch {
-      // Sin permiso para el portapapeles queda seleccionado, que es lo que
-      // hace falta para copiarlo a mano. Decir "no se pudo" y nada más
-      // dejaría a la persona sin salida.
-      campo.current?.select();
-      datos.avisarExito("Quedó seleccionado. Copialo con Ctrl+C.");
-    }
-  }
-
-  return (
-    <>
-      <TituloSeccion className="mt-12">Contarle al cliente cómo va</TituloSeccion>
-      <Tarjeta>
-        {error && <ErrorGeneral>{error}</ErrorGeneral>}
-
-        {!codigo ? (
-          <>
-            <p className="max-w-[65ch] text-tinta-media">
-              Le mandás un link y mira solo en qué estado está lo suyo, sin llamar y sin
-              instalar nada. Ve el estado, por dónde va y lo que aprobó.
-            </p>
-            <p className="mt-2 max-w-[65ch] text-tinta-media">
-              <span className="font-bold text-tinta">
-                Y puede aprobar o rechazar desde ahí los pasos que esperan respuesta.
-              </span>{" "}
-              Lo que aprueba queda aprobado, igual que si lo cargaras vos, y el historial
-              dice que lo contestó él. No ve el diagnóstico, ni las notas internas, ni
-              quién lo está atendiendo.
-            </p>
-            <div className="mt-4">
-              <Boton
-                icono="sobre"
-                motivo={generando ? "armando el link" : null}
-                onClick={compartir}
-              >
-                Armar el link para {cliente?.nombre?.split(" ")[0] ?? "el cliente"}
-              </Boton>
-            </div>
-          </>
-        ) : (
-          <>
-            <Campo
-              id="link-seguimiento"
-              etiqueta="El link del cliente"
-              ayuda="Es el mismo siempre. Podés mandarlo las veces que quieras."
-              value={link}
-              readOnly
-              ref={campo}
-              onFocus={(ev) => ev.target.select()}
-            />
-
-            <div className="-mt-2 flex flex-wrap gap-3">
-              <Boton icono="copiar" onClick={copiar}>
-                Copiar el link
-              </Boton>
-              {/* wa.me es un link común: abre WhatsApp con el mensaje ya
-                  escrito, sin integración y sin servidor. Sin número, porque
-                  el que lo toca es el negocio y elige a quién mandárselo
-                  desde su propia agenda. */}
-              <a
-                href={linkDeWhatsApp(
-                  mensajeDeWhatsApp({
-                    negocioNombre: negocio?.nombre ?? "tu negocio",
-                    identificador: caso.identificador,
-                    servicio: caso.servicio,
-                    link,
-                  })
-                )}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
-              >
-                <Icono nombre="sobre" />
-                Mandarlo por WhatsApp
-              </a>
-            </div>
-
-            {/* Qué puede hacer con el link que tiene. Si hay pasos esperando,
-                los puede contestar desde ahí, y eso cambia si conviene
-                llamarlo o esperar. */}
-            {porContestar > 0 && (
-              <p className="mt-4 flex items-start gap-2 text-tinta-media">
-                <Icono nombre="nota" className="mt-0.5 size-5 shrink-0" />
-                <span>
-                  Desde el link puede contestar{" "}
-                  <span className="font-bold text-tinta">
-                    {porContestar === 1 ? "el paso" : `los ${porContestar} pasos`}
-                  </span>{" "}
-                  que {porContestar === 1 ? "espera" : "esperan"} su respuesta.
-                </span>
-              </p>
-            )}
-
-            {/* Si lo abrió alguna vez, cuándo fue la última. Es lo que dice
-                si hace falta llamarlo o si ya se enteró solo. */}
-            <p className="mt-4 flex items-start gap-2 text-tinta-media">
-              <Icono
-                nombre={caso.seguimiento_visto_en ? "listo" : "reloj"}
-                className="mt-0.5 size-5 shrink-0"
-              />
-              <span>
-                {caso.seguimiento_visto_en
-                  ? `Lo abrió por última vez ${cuantoHace(caso.seguimiento_visto_en)}.`
-                  : "Todavía no lo abrió."}
-              </span>
-            </p>
-
-            {cortando ? (
-              <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                <p className="font-bold text-cuerpo">¿Dejar de compartirlo?</p>
-                <p className="mt-1 max-w-[65ch] text-tinta-media">
-                  El link que ya mandaste deja de funcionar ahora mismo, y el cliente va a
-                  ver que no sirve. Podés armar uno nuevo cuando quieras.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Boton variante="peligro" icono="tacho" onClick={cortar}>
-                    Sí, dejar de compartirlo
-                  </Boton>
-                  <Boton variante="plano" onClick={() => setCortando(false)}>
-                    Seguir compartiéndolo
-                  </Boton>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-2">
-                <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)}>
-                  Dejar de compartirlo
-                </Boton>
-              </div>
-            )}
-          </>
-        )}
-      </Tarjeta>
     </>
   );
 }
