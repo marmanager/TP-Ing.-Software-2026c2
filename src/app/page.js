@@ -28,6 +28,7 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { casosPorAprobar, casosQueContestoElCliente, estaAbierto } from "@/lib/estados";
+import { turnosSinVer } from "@/lib/turnos";
 import { diasDesde } from "@/lib/fechas";
 import {
   ALTO_FILA,
@@ -62,8 +63,18 @@ const enAlgoQueSeToca = (destino) =>
   destino instanceof Element && destino.closest("button, select, input, a, label");
 
 export default function Inicio() {
-  const { cargando, casos, pasos, insumos, eventos, negocio, inicio, cambiarInicio, avisarExito } =
-    useDatos();
+  const {
+    cargando,
+    casos,
+    pasos,
+    insumos,
+    eventos,
+    turnos,
+    negocio,
+    inicio,
+    cambiarInicio,
+    avisarExito,
+  } = useDatos();
   useTitulo("Inicio");
 
   const [acomodando, setAcomodando] = useState(false);
@@ -137,7 +148,18 @@ export default function Inicio() {
   // cuando alguien se acuerde de entrar al caso (flujo, punto 5).
   const contestados = casosQueContestoElCliente(casos, eventos);
 
+  // Un turno que entró por el link puede haber caído un domingo a la noche:
+  // del lado del negocio nadie se enteró hasta que alguien mira la agenda.
+  const turnosNuevos = turnosSinVer(turnos ?? []);
+
   const hayQueMirar = [
+    turnosNuevos.length > 0 && {
+      href: "/agenda",
+      texto:
+        turnosNuevos.length === 1
+          ? "Alguien pidió un turno por el link"
+          : `${turnosNuevos.length} turnos nuevos pedidos por el link`,
+    },
     contestados.length > 0 && {
       href: contestados.length === 1 ? `/casos/${contestados[0].id}` : "/casos",
       texto:
