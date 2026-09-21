@@ -13,6 +13,8 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
+  enFranjas,
+  nombreCortoDelDia,
   DIAS,
   agendaPublica,
   HORARIOS_DE_FABRICA,
@@ -414,4 +416,49 @@ test("un código que no es el del negocio no abre nada", () => {
     agendaPublica({ codigo: "x", negocio: { ...negocio, agenda_codigo: null }, turnos: [] }),
     { sirve: false }
   );
+});
+
+// ------------------------------------------------------------
+// La pantalla pública: la tira de días y las franjas
+// ------------------------------------------------------------
+
+test("el día de hoy y el de mañana se llaman así, con el número abajo", () => {
+  const ahora = new Date(2026, 8, 21, 9, 0); // lunes 21 de septiembre
+  assert.deepEqual(nombreCortoDelDia(new Date(2026, 8, 21, 17, 30), ahora), {
+    arriba: "Hoy",
+    abajo: "21 sep",
+  });
+  assert.deepEqual(nombreCortoDelDia(new Date(2026, 8, 22, 9, 0), ahora), {
+    arriba: "Mañana",
+    abajo: "22 sep",
+  });
+});
+
+test("los demás días van con el día de la semana abreviado", () => {
+  const ahora = new Date(2026, 8, 21, 9, 0);
+  assert.deepEqual(nombreCortoDelDia(new Date(2026, 8, 23), ahora), { arriba: "mié", abajo: "23 sep" });
+  assert.deepEqual(nombreCortoDelDia(new Date(2026, 9, 3), ahora), { arriba: "sáb", abajo: "3 oct" });
+});
+
+test("tarde a la noche, mañana sigue siendo mañana", () => {
+  const ahora = new Date(2026, 8, 21, 23, 50);
+  assert.equal(nombreCortoDelDia(new Date(2026, 8, 22, 0, 10), ahora).arriba, "Mañana");
+});
+
+test("los huecos se parten en mañana y tarde a la una", () => {
+  const h = (hora, min = 0) => new Date(2026, 8, 22, hora, min);
+  const franjas = enFranjas([h(9), h(12, 30), h(13), h(17, 30)]);
+  assert.deepEqual(
+    franjas.map((f) => [f.nombre, f.huecos.length]),
+    [
+      ["A la mañana", 2],
+      ["A la tarde", 2],
+    ]
+  );
+});
+
+test("un día que sólo abre a la tarde no muestra una mañana vacía", () => {
+  const franjas = enFranjas([new Date(2026, 8, 22, 16, 0)]);
+  assert.deepEqual(franjas.map((f) => f.nombre), ["A la tarde"]);
+  assert.deepEqual(enFranjas([]), []);
 });

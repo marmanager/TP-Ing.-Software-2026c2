@@ -293,3 +293,43 @@ export function huecoSigueLibre({ cuando, horarios, turnos = [], ahora = new Dat
       )
     );
 }
+
+// ------------------------------------------------------------
+// Para mostrar los huecos en la pantalla pública
+// ------------------------------------------------------------
+
+// El nombre corto de un día, para el botón de la tira de días: "Hoy",
+// "Mañana" o el día de la semana abreviado ("mié"), y abajo el número y el
+// mes ("23 sep"). El número va siempre, también en "Hoy": es lo que la
+// persona cruza con su propio calendario.
+const DIA_CORTO = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+export function nombreCortoDelDia(fecha, ahora = new Date()) {
+  const d = new Date(fecha);
+  const hoy = new Date(ahora);
+  hoy.setHours(0, 0, 0, 0);
+  const esa = new Date(d);
+  esa.setHours(0, 0, 0, 0);
+  const diferencia = Math.round((esa - hoy) / 86400000);
+
+  return {
+    arriba: diferencia === 0 ? "Hoy" : diferencia === 1 ? "Mañana" : DIA_CORTO[d.getDay()],
+    abajo: `${d.getDate()} ${MES_CORTO[d.getMonth()]}`,
+  };
+}
+
+// Los huecos de un día partidos en mañana y tarde. Una lista de catorce
+// horarios seguidos no se lee: partida en dos, la persona va directo a la
+// mitad que le sirve. El corte es a la una, que es donde la gente lo corta.
+// Una franja sin huecos no aparece.
+export const CORTE_DE_LA_TARDE = 13;
+
+export function enFranjas(huecos = []) {
+  const manana = huecos.filter((h) => new Date(h).getHours() < CORTE_DE_LA_TARDE);
+  const tarde = huecos.filter((h) => new Date(h).getHours() >= CORTE_DE_LA_TARDE);
+  return [
+    { nombre: "A la mañana", huecos: manana },
+    { nombre: "A la tarde", huecos: tarde },
+  ].filter((f) => f.huecos.length > 0);
+}

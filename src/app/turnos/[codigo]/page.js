@@ -16,15 +16,21 @@
 // hacer y pedirle el nombre antes de mostrarle si hay lugar es pedirle que
 // trabaje antes de saber si sirve de algo.
 //
+// Los días van en una tira de botones chicos y los horarios se ven de a UN
+// día. Antes era una tarjeta por día con todos sus horarios, y con tres
+// semanas de agenda la pantalla se volvía una lista interminable donde no se
+// encontraba nada. Así entra entera en un celular: la tira, el día elegido y
+// sus horarios partidos en mañana y tarde.
+//
 // Los horarios que se ofrecen los calcula src/lib/horarios.js con lo que
 // manda la base: los horarios del negocio y los turnos ya tomados. La base
 // vuelve a hacer la cuenta al reservar, porque lo que llega del navegador no
 // se puede creer.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { buscarAgenda, reservarTurno } from "@/lib/datos";
-import { diaDe, huecosLibres, normalizarHorarios } from "@/lib/horarios";
+import { enFranjas, huecosLibres, nombreCortoDelDia, normalizarHorarios } from "@/lib/horarios";
 import { preset } from "@/lib/presets";
 import { diaPasado } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
@@ -38,7 +44,11 @@ export default function PedirTurno() {
   const [mirando, setMirando] = useState(true);
   const [agenda, setAgenda] = useState(null);
 
+  // El día que está mirando, como toDateString(). null = el primero que
+  // tenga lugar.
+  const [dia, setDia] = useState(null);
   const [elegido, setElegido] = useState(null);
+  const datosRef = useRef(null);
   const [motivo, setMotivo] = useState("");
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -71,6 +81,11 @@ export default function PedirTurno() {
       vivo = false;
     };
   }, [codigo]);
+
+  const hayElegido = Boolean(elegido);
+  useEffect(() => {
+    if (hayElegido) datosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [hayElegido]);
 
   async function pedir() {
     setProblema(null);
@@ -171,6 +186,9 @@ export default function PedirTurno() {
     dias: 21,
   });
 
+  const delDia = dias.find((d) => d.fecha.toDateString() === dia) ?? dias[0];
+  const franjas = delDia ? enFranjas(delDia.huecos) : [];
+
   const motivos = preset(agenda.rubro).motivos;
   const faltan = !elegido
     ? "elegí un horario"
@@ -207,52 +225,107 @@ export default function PedirTurno() {
         </div>
       ) : (
         <>
-          <h2 className="mt-8 mb-3 text-seccion">Cuándo te queda bien</h2>
-          <ul className="flex flex-col gap-4">
-            {dias.map(({ fecha, huecos }) => (
-              <li
-                key={fecha.toDateString()}
-                className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta p-4"
-              >
-                <p className="font-bold text-cuerpo first-letter:uppercase">
-                  {diaPasado(fecha)}
-                </p>
-                <ul className="mt-3 flex flex-wrap gap-2.5">
-                  {huecos.map((h) => {
+          <h2 className="mt-8 mb-3 text-seccion">Qué día</h2>
+          {/* Sólo los días con lugar: un día cerrado o lleno no es una
+              opción, y mostrarlo apagado obligaría a explicar por qué.
+
+              Una sola fila que se desliza de costado. En una grilla, tres
+              semanas de días eran seis filas en el celular y los horarios
+              quedaban fuera de la pantalla. El último botón queda cortado
+              contra el borde: es lo que avisa que hay más. */}
+          <ul className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2">
+            {dias.map(({ fecha }) => {
+              const clave = fecha.toDateString();
+              const puesto = clave === delDia.fecha.toDateString();
+              const { arriba, abajo } = nombreCortoDelDia(fecha);
+              return (
+                <li key={clave} className="w-[4.75rem] shrink-0 snap-start">
+                  <button
+                    type="button"
+                    aria-pressed={puesto}
+                    aria-label={diaPasado(fecha)}
+                    onClick={() => {
+                      setDia(clave);
+                      // La hora era de otro día: queda sin elegir.
+                      if (!puesto) setElegido(null);
+                    }}
+                    className={[
+                      "flex min-h-16 w-full cursor-pointer flex-col items-center justify-center rounded-campo border-2 px-1 py-1.5 leading-tight",
+                      puesto
+                        ? "border-azul bg-azul text-white"
+                        : "border-borde-fuerte bg-tarjeta text-tinta hover:bg-superficie",
+                    ].join(" ")}
+                  >
+                    <span className="font-bold text-cuerpo first-letter:uppercase">{arriba}</span>
+                    <span
+                      className={
+                        "text-apoyo tabular-nums " + (puesto ? "text-white" : "text-tinta-media")
+                      }
+                    >
+                      {abajo}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {dias.length > 1 && (
+            <p className="mt-1 text-tinta-media">
+              Hay lugar hasta el {diaPasado(dias[dias.length - 1].fecha).toLowerCase()}.
+            </p>
+          )}
+
+          <div className="mt-6 rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-5">
+            <h2 className="text-subtitulo font-bold first-letter:uppercase">
+              {diaPasado(delDia.fecha)}
+            </h2>
+            <p className="text-tinta-media">
+              {delDia.huecos.length === 1
+                ? "Queda 1 horario libre."
+                : `Quedan ${delDia.huecos.length} horarios libres.`}
+            </p>
+
+            {franjas.map((f) => (
+              <div key={f.nombre} className="mt-4">
+                <h3 className="mb-2 font-bold text-tinta-media">{f.nombre}</h3>
+                <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {f.huecos.map((h) => {
                     const puesto = elegido && h.getTime() === new Date(elegido).getTime();
                     return (
                       <li key={h.getTime()}>
                         <button
                           type="button"
                           aria-pressed={Boolean(puesto)}
-                          aria-label={`${diaPasado(fecha)} a las ${comoHora(h)}`}
+                          aria-label={`${diaPasado(delDia.fecha)} a las ${comoHora(h)}`}
                           onClick={() => {
                             setProblema(null);
                             setElegido(h.toISOString());
                           }}
                           className={[
-                            "flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 px-4 font-bold text-cuerpo tabular-nums",
+                            "flex min-h-12 w-full cursor-pointer items-center justify-center gap-1.5 rounded-campo border-2 font-bold text-cuerpo tabular-nums",
                             puesto
                               ? "border-azul bg-azul-claro text-azul"
                               : "border-borde-fuerte bg-tarjeta text-tinta hover:bg-superficie",
                           ].join(" ")}
                         >
-                          {puesto && <Icono nombre="listo" className="size-5" />}
+                          {puesto && <Icono nombre="listo" className="size-5 shrink-0" />}
                           {comoHora(h)}
                         </button>
                       </li>
                     );
                   })}
                 </ul>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
 
           {/* Los datos recién cuando ya eligió: pedirle el nombre antes de que
               sepa si hay lugar es pedirle que trabaje sin saber si sirve. */}
           {elegido && (
             <>
-              <h2 className="mt-10 mb-1 text-seccion">Tus datos</h2>
+              <h2 ref={datosRef} className="mt-10 mb-1 scroll-mt-4 text-seccion">
+                Tus datos
+              </h2>
               <p className="mb-4 max-w-[65ch] text-tinta-media">
                 Pediste el turno para{" "}
                 <span className="font-bold text-tinta">
