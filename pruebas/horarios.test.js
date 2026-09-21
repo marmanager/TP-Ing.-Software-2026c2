@@ -14,6 +14,7 @@ import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   DIAS,
+  agendaPublica,
   HORARIOS_DE_FABRICA,
   diaDe,
   huecoSigueLibre,
@@ -332,5 +333,85 @@ test("una fecha que no es una fecha no reserva nada", () => {
   assert.equal(
     huecoSigueLibre({ cuando: "cuando quieras", horarios: config(), turnos: [] }),
     false
+  );
+});
+
+// ------------------------------------------------------------
+// Lo que ve quien abre el link de la agenda
+// ------------------------------------------------------------
+
+const negocio = {
+  id: "n1",
+  nombre: "Taller Sur",
+  rubro: "taller",
+  telefono: "341 222 3333",
+  agenda_codigo: "a".repeat(32),
+  horarios: HORARIOS_DE_FABRICA,
+};
+
+test("publica los horarios y cuándo está ocupado", () => {
+  const manana = new Date(Date.now() + 86400000);
+  const a = agendaPublica({
+    codigo: negocio.agenda_codigo,
+    negocio,
+    turnos: [{ empieza_en: manana.toISOString(), estado: "agendado", minutos_reservados: 30 }],
+  });
+
+  assert.equal(a.sirve, true);
+  assert.equal(a.negocio_nombre, "Taller Sur");
+  assert.deepEqual(a.horarios, HORARIOS_DE_FABRICA);
+  assert.equal(a.ocupados.length, 1);
+});
+
+test("de los turnos tomados no viaja quién los tomó", () => {
+  const manana = new Date(Date.now() + 86400000).toISOString();
+  const a = agendaPublica({
+    codigo: negocio.agenda_codigo,
+    negocio,
+    turnos: [
+      {
+        empieza_en: manana,
+        estado: "agendado",
+        minutos_reservados: 30,
+        motivo: "Ruido raro en el motor",
+        cliente_id: "c1",
+        caso_id: "k1",
+      },
+    ],
+  });
+
+  const texto = JSON.stringify(a);
+  assert.ok(!texto.includes("Ruido raro"), "ni por qué vino");
+  assert.ok(!texto.includes("c1"), "ni quién es");
+  assert.ok(!texto.includes("k1"), "ni de qué caso");
+  assert.deepEqual(Object.keys(a.ocupados[0]).sort(), ["empieza_en", "minutos_reservados"]);
+});
+
+test("un turno cancelado no aparece como ocupado", () => {
+  const manana = new Date(Date.now() + 86400000).toISOString();
+  const a = agendaPublica({
+    codigo: negocio.agenda_codigo,
+    negocio,
+    turnos: [{ empieza_en: manana, estado: "cancelado" }],
+  });
+  assert.deepEqual(a.ocupados, []);
+});
+
+test("los turnos viejos no se mandan: nadie puede pedir para atrás", () => {
+  const hace3dias = new Date(Date.now() - 3 * 86400000).toISOString();
+  const a = agendaPublica({
+    codigo: negocio.agenda_codigo,
+    negocio,
+    turnos: [{ empieza_en: hace3dias, estado: "agendado" }],
+  });
+  assert.deepEqual(a.ocupados, []);
+});
+
+test("un código que no es el del negocio no abre nada", () => {
+  assert.deepEqual(agendaPublica({ codigo: "b".repeat(32), negocio, turnos: [] }), { sirve: false });
+  assert.deepEqual(agendaPublica({ codigo: null, negocio, turnos: [] }), { sirve: false });
+  assert.deepEqual(
+    agendaPublica({ codigo: "x", negocio: { ...negocio, agenda_codigo: null }, turnos: [] }),
+    { sirve: false }
   );
 });

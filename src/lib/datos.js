@@ -24,6 +24,7 @@ import { normalizarInicio } from "./inicio";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
+import { agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -62,6 +63,16 @@ const porQueNoSePudoMarcar = (error) => {
     return "Falta correr 021_paso_hecho.sql en Supabase. Hasta entonces no se puede marcar un paso como hecho.";
   }
   return texto || "No se pudo marcar el paso.";
+};
+
+// Lo mismo para la agenda: antes que un permiso, lo más probable es que
+// falte la migración.
+const porQueNoSePudoCompartirAgenda = (error) => {
+  const texto = error?.message ?? "";
+  if (error?.code === "PGRST202" || texto.includes("compartir_agenda")) {
+    return "Falta correr 024_pedir_turno.sql en Supabase. Hasta entonces no se puede compartir la agenda.";
+  }
+  return texto || "No se pudo compartir la agenda.";
 };
 
 const nuevoId = () =>
@@ -245,6 +256,97 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
     return { ok: true };
   } catch {
     return { ok: false, motivo: "No pudimos guardar tu respuesta. Probá de nuevo." };
+  }
+}
+
+// Los horarios de un negocio y sus turnos tomados, desde afuera del sistema.
+//
+// Suelta y no acción del proveedor, igual que buscarSeguimiento(): quien abre
+// el link de la agenda no tiene sesión ni negocio. Y busca en los dos lados
+// por lo mismo: un link armado en modo de ejemplo no está en la base.
+export async function buscarAgenda(codigo) {
+  if (haySupabase && supabase) {
+    const { data, error } = await supabase.rpc("ver_agenda_publica", { p_codigo: codigo });
+    if (!error && data?.sirve) return data;
+  }
+
+  try {
+    const guardado = window.localStorage.getItem(LLAVE);
+    if (!guardado) return { sirve: false };
+    const d = JSON.parse(guardado);
+    return agendaPublica({ codigo, negocio: d.negocio, turnos: d.turnos ?? [] });
+  } catch {
+    return { sirve: false };
+  }
+}
+
+// Pedir el turno. Devuelve { ok } o { ok: false, motivo }, con el motivo
+// escrito para que el cliente lo lea tal cual.
+export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }) {
+  if (haySupabase && supabase) {
+    const { data, error } = await supabase.rpc("reservar_turno", {
+      p_codigo: codigo,
+      p_cuando: new Date(cuando).toISOString(),
+      p_motivo: motivo,
+      p_nombre: nombre,
+      p_telefono: telefono ?? null,
+    });
+    // "existe: false" es la base diciendo "ese código no es mío": puede ser
+    // un link del modo de ejemplo. Cualquier otra respuesta manda.
+    if (!error && data && data.existe !== false) return data;
+  }
+
+  // Modo de ejemplo. Vuelve a hacer las mismas comprobaciones que la base,
+  // porque entre que vio la lista y tocó el botón pudo pasar cualquier cosa.
+  try {
+    const guardado = window.localStorage.getItem(LLAVE);
+    if (!guardado) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
+    const d = JSON.parse(guardado);
+
+    if (!d.negocio || d.negocio.agenda_codigo !== codigo) {
+      return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
+    }
+    if (!d.negocio.horarios) {
+      return { ok: false, motivo: "El negocio todavía no publicó sus horarios." };
+    }
+    if (!nombre?.trim()) return { ok: false, motivo: "Necesitamos tu nombre para anotarte." };
+    if (!motivo?.trim()) return { ok: false, motivo: "Contanos para qué venís." };
+
+    if (!huecoSigueLibre({ cuando, horarios: d.negocio.horarios, turnos: d.turnos ?? [] })) {
+      return { ok: false, motivo: "Justo te lo ganaron. Elegí otro horario." };
+    }
+
+    const minutos = normalizarHorarios(d.negocio.horarios).minutos;
+    const cliente = {
+      id: nuevoId(),
+      negocio_id: d.negocio.id,
+      nombre: nombre.trim(),
+      telefono: telefono?.trim() || null,
+      notas: "",
+      // Pidió turno, pero todavía no vino: se confirma cuando se le abre el
+      // primer caso. Es la misma marca que usa el mostrador.
+      confirmado: false,
+    };
+    d.clientes = [...(d.clientes ?? []), cliente];
+    d.turnos = [
+      ...(d.turnos ?? []),
+      {
+        id: nuevoId(),
+        negocio_id: d.negocio.id,
+        cliente_id: cliente.id,
+        caso_id: null,
+        motivo: motivo.trim(),
+        empieza_en: new Date(cuando).toISOString(),
+        estado: "agendado",
+        origen: "cliente",
+        minutos_reservados: minutos,
+      },
+    ];
+
+    window.localStorage.setItem(LLAVE, JSON.stringify(d));
+    return { ok: true, cuando: new Date(cuando).toISOString(), minutos };
+  } catch {
+    return { ok: false, motivo: "No pudimos anotarte. Probá de nuevo." };
   }
 }
 
@@ -1266,6 +1368,34 @@ export function DatosProvider({ children }) {
         escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, ...cambios }, [
           "telefono",
         ]);
+      },
+
+      // Compartir la agenda: el link con el que un cliente pide turno solo
+      // (024). Devuelve siempre el mismo código: uno nuevo dejaría muerto el
+      // que el negocio ya puso en su perfil de Instagram.
+      async compartirAgenda() {
+        if (datos.negocio?.agenda_codigo)
+          return { ok: true, codigo: datos.negocio.agenda_codigo };
+
+        if (enSupabase()) {
+          const { data, error } = await supabase.rpc("compartir_agenda");
+          if (error) return { ok: false, error: porQueNoSePudoCompartirAgenda(error) };
+          setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: data } }));
+          return { ok: true, codigo: data };
+        }
+
+        const codigo = codigoAlAzar();
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: codigo } }));
+        return { ok: true, codigo };
+      },
+
+      async dejarDeCompartirAgenda() {
+        if (enSupabase()) {
+          const { error } = await supabase.rpc("dejar_de_compartir_agenda");
+          if (error) return { ok: false, error: porQueNoSePudoCompartirAgenda(error) };
+        }
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: null } }));
+        return { ok: true };
       },
 
       // Los días y horas en los que el negocio da turnos (023). De acá sale

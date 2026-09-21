@@ -238,6 +238,33 @@ export function huecosLibres({
   return porDia;
 }
 
+// Lo que ve quien abre el link de la agenda.
+//
+// Es el mismo recorte que hace ver_agenda_publica() en
+// supabase/024_pedir_turno.sql, para el modo de ejemplo. Del lado del
+// negocio se publican los horarios; de los turnos tomados viajan el instante
+// y cuánto duran, y nada más: quien entre va a saber que el martes a las 10
+// no hay lugar —que es lo que necesita saber— y nada sobre quién lo tomó.
+export function agendaPublica({ codigo, negocio, turnos = [] }) {
+  if (!codigo || !negocio || negocio.agenda_codigo !== codigo) return { sirve: false };
+
+  const ayer = Date.now() - 86400000;
+
+  return {
+    sirve: true,
+    negocio_nombre: negocio.nombre ?? null,
+    negocio_telefono: (negocio.telefono ?? "").trim() || null,
+    rubro: negocio.rubro ?? null,
+    horarios: negocio.horarios ?? null,
+    ocupados: turnos
+      .filter((t) => t.estado !== "cancelado" && new Date(t.empieza_en).getTime() >= ayer)
+      .map((t) => ({
+        empieza_en: t.empieza_en,
+        minutos_reservados: t.minutos_reservados ?? null,
+      })),
+  };
+}
+
 // Si ese horario exacto sigue libre. Lo usa la reserva antes de escribir:
 // entre que el cliente vio la lista y tocó el botón pudo haber pasado
 // cualquier cosa, incluida otra persona reservando lo mismo.
