@@ -13,7 +13,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
-import { pesos, sePuedeMarcarHecho } from "./estados";
+import { FIRMA_DEL_CLIENTE, elClienteDestraba, pesos, sePuedeMarcarHecho } from "./estados";
 import { normalizarInicio } from "./inicio";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
@@ -131,11 +131,20 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
       p_paso_id: pasoId,
       p_respuesta: respuesta,
     });
-    if (!error && data) return data;
-    // Con la base conectada pero sin la migración corrida, la función no
-    // existe y hay que seguir buscando en el navegador, igual que la
-    // búsqueda. Si el paso tampoco está acá, el mensaje de abajo lo dice.
-    if (!error) return { ok: false, motivo: "No pudimos guardar tu respuesta. Probá de nuevo." };
+    // "existe: false" es la base diciendo "ese código no es mío". Puede ser
+    // un link del modo de ejemplo abierto en un navegador que además tiene
+    // credenciales: hay que seguir buscando abajo, igual que la búsqueda.
+    //
+    // Cualquier otra respuesta es de la base y manda: si dice que el paso ya
+    // estaba contestado, se muestra eso y no se busca en ningún otro lado.
+    //
+    // Se mira además el texto porque la versión anterior de la función no
+    // devolvía "existe", y entre que sale esto y que alguien corre la
+    // migración el link del modo de ejemplo tiene que seguir andando.
+    const noEsDeLaBase =
+      data?.existe === false ||
+      String(data?.motivo ?? "").startsWith("Este link ya no sirve");
+    if (!error && data && !noEsDeLaBase) return data;
   }
 
   // Modo de ejemplo. Acá sí se escribe en el navegador, a diferencia de la
@@ -177,7 +186,7 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
             ? "Lo aprobó el cliente desde el link"
             : "El cliente no lo hace, contestó desde el link",
         detalle: `${paso.nombre} · ${pesos(paso.monto)}`,
-        autor: "El cliente",
+        autor: FIRMA_DEL_CLIENTE,
         icono: respuesta === "aprobado" ? "listo" : "nota",
         monto: Number(paso.monto),
         estado: null,
@@ -185,6 +194,29 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
       },
       ...(d.eventos ?? []),
     ];
+
+    // Si ya no queda nada esperando su respuesta, el caso se suelta solo.
+    // La misma cuenta que hace la base en 022_el_cliente_destraba.sql.
+    if (elClienteDestraba(caso, { pasos: d.pasos, insumos: d.insumos ?? [] })) {
+      d.casos = d.casos.map((c) =>
+        c.id === caso.id ? { ...c, estado: "en_proceso", que_falta: "Hacer el trabajo" } : c
+      );
+      d.eventos = [
+        {
+          id: nuevoId(),
+          caso_id: caso.id,
+          tipo: "estado",
+          titulo: "El cliente terminó de contestar",
+          detalle: "Ya no queda nada esperando su respuesta.",
+          autor: FIRMA_DEL_CLIENTE,
+          icono: "llave",
+          monto: null,
+          estado: "en_proceso",
+          ocurrido_en: ahora,
+        },
+        ...d.eventos,
+      ];
+    }
 
     window.localStorage.setItem(LLAVE, JSON.stringify(d));
     return { ok: true };

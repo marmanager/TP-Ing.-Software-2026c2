@@ -259,6 +259,72 @@ export function casosPorAprobar(casos, pasos) {
 export const pesos = (n) =>
   "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
 
+// Con qué firma el historial lo que contestó el cliente desde su link.
+//
+// Es una constante y no un texto suelto porque la usan tres lugares que
+// tienen que coincidir: lo que escribe la base al recibir la respuesta
+// (022_el_cliente_destraba.sql), lo que escribe el modo de ejemplo, y lo que
+// el Inicio busca para avisar que hay novedades. Si dejaran de coincidir, el
+// aviso no aparecería nunca y nadie se enteraría de por qué.
+export const FIRMA_DEL_CLIENTE = "El cliente";
+
+// Si contestar ese paso suelta el caso.
+//
+// Pasa cuando ya no queda nada esperando su respuesta Y lo único que lo
+// trababa era él. Dos cosas, y las dos importan:
+//
+//   Con tres pasos en la mesa, el cliente puede aprobar uno hoy y pensar los
+//   otros dos. El caso sigue esperando, porque sigue esperando.
+//
+//   Un caso puede estar frenado por un repuesto que no llegó, y ahí la
+//   respuesta del cliente no destraba nada: el auto sigue sin poder salir.
+//
+// Rechazar destraba igual que aprobar: un "no" es una respuesta. El taller
+// sigue con lo aprobado y, si hace falta, propone otra cosa. Un paso
+// rechazado no puede dejar un caso trabado para siempre.
+//
+// La base hace exactamente esta cuenta en SQL. Si se cambia una, se cambia
+// la otra.
+export function elClienteDestraba(caso, { pasos = [], insumos = [] } = {}) {
+  if (!caso || caso.estado !== "esperando") return false;
+
+  const sinContestar = pasos.some(
+    (p) => p.caso_id === caso.id && p.estado === "esperando"
+  );
+  if (sinContestar) return false;
+
+  const trabado = insumos.some(
+    (i) => i.caso_id === caso.id && i.estado !== "en_stock"
+  );
+  return !trabado;
+}
+
+// Los casos donde el cliente contestó algo hace poco.
+//
+// Sirve para avisar en el Inicio: el cliente contesta cuando puede —un
+// domingo a la noche, desde el celular— y del lado del negocio eso tiene que
+// aparecer solo a la mañana siguiente, no cuando alguien se acuerde de
+// entrar al caso.
+//
+// La ventana es de dos días y no de uno: un presupuesto contestado el viernes
+// a la tarde tiene que seguir avisando el lunes.
+export function casosQueContestoElCliente(
+  casos = [],
+  eventos = [],
+  { horas = 48, ahora = Date.now() } = {}
+) {
+  const desde = ahora - horas * 3600000;
+
+  const contestados = new Set(
+    eventos
+      .filter((e) => e.autor === FIRMA_DEL_CLIENTE && new Date(e.ocurrido_en) >= desde)
+      .map((e) => e.caso_id)
+  );
+
+  // Un caso entregado no necesita que nadie mire: ya se cerró.
+  return casos.filter((c) => contestados.has(c.id) && estaAbierto(c));
+}
+
 // El avance del trabajo: cuántos de los pasos aprobados ya se hicieron.
 //
 // Es otra cuenta que otra: totalesDeCaso() dice qué contestó el cliente y
