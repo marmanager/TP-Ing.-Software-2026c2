@@ -45,7 +45,8 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `027_agenda_ics.sql` (el `002`
+   de `supabase/`, del `001_schema.sql` al `027_agenda_ics.sql` (el `028`
+   es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó; el `025` y el `026` todavía no
    están en esta rama, son los cobros). Todos se pueden volver a correr
    cuantas veces haga falta.
@@ -290,16 +291,40 @@ arma en "Mi negocio" → "Cuándo atendés".
 **Es un archivo iCalendar, no la API de Google.** Los tres clientes se suscriben
 de fábrica a una dirección que devuelva ese formato: cero OAuth, cero
 credenciales guardadas y ningún servidor nuestro hablándole a Google. Las tres
-piezas son `supabase/027_agenda_ics.sql`, el único route handler del proyecto
+piezas son `supabase/027_agenda_ics.sql`, el route handler del archivo
 (`src/app/calendario/[codigo]/route.js`) y el armador `src/lib/ics.js`.
 
-**El techo, dicho antes de que sorprenda.** Es de sólo lectura, y Google relee
-los calendarios suscritos cuando quiere —suele tardar horas, y no respeta ningún
-encabezado que le pidamos—. Apple sí deja elegir cada cuánto. Un turno recién
-anotado puede no aparecer al toque. Si algún día hace falta que aparezca en el
-minuto, o poder escribir desde Google, el camino es la API con OAuth por
-negocio, y ahí recién entran las columnas `google_evento_id` y `sincronizado_en`
-que la 023 dejó puestas. Es otra historia, no un parámetro de ésta.
+**La suscripción por URL** es de sólo lectura. Google relee el archivo cuando
+quiere —puede tardar horas—. Apple deja elegir cada cuánto.
+
+**Vincular con Google Calendar** está junto al calendario de la app. Cada
+integrante autoriza su propia cuenta una vez y la app copia los turnos a su
+calendario principal. Al vincular, copia los existentes; mientras la app esté
+abierta revisa cambios cada minuto. También hay una sincronización diaria en
+Vercel, compatible con el plan Hobby, para los turnos que entran cuando no hay
+nadie conectado. Google nunca escribe de vuelta en la agenda de la app.
+
+Para activar esta opción:
+
+1. Ejecutar `supabase/028_google_calendar.sql` en el proyecto Supabase de la app.
+2. En Google Cloud, habilitar Calendar API, configurar el consentimiento OAuth
+   y crear un cliente de tipo aplicación web con la URI de redirección exacta
+   `https://TU-DOMINIO/api/google-calendar/callback`. El alcance solicitado es
+   `https://www.googleapis.com/auth/calendar.events.owned`. Para probar en local,
+   registrar también `http://localhost:3000/api/google-calendar/callback` y
+   usar esa URI en el `.env.local`; la autorización debe volver al mismo origen
+   que inició la vinculación.
+3. Configurar en Vercel `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`,
+   `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_TOKEN_KEY` y
+   `CRON_SECRET`, siguiendo `.env.example`, y volver a desplegar. La clave de
+   servicio y el secreto de Google van sólo en Vercel, nunca en `NEXT_PUBLIC_`.
+   Se puede generar `GOOGLE_TOKEN_KEY` con
+   `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+4. Entrar a la app, abrir **Agenda → Calendario** y tocar **Vincular con Google Calendar**.
+
+Si una cuenta ya tenía la suscripción `.ics`, conviene quitarla de Google antes
+de vincular para no ver cada turno dos veces. Al desvincular, los eventos ya
+copiados permanecen en Google, pero dejan de actualizarse.
 
 **Dos links, dos códigos, dos interruptores.** `agenda_codigo` (024) es el que
 el negocio reparte por Instagram y muestra sólo qué horarios están ocupados, sin
@@ -494,7 +519,7 @@ respuesta del cliente". Si no, el tablero seguiría diciendo que el trabajo
 avanza mientras en realidad no se puede hacer nada hasta que conteste.
 
 **Un link por caso, con un código secreto adentro.** El código lo genera la base
-con `gen_random_bytes`: no sale del id del caso ni de su número, así que no se
+con `gen_random_uuid()`: no sale del id del caso ni de su número, así que no se
 puede adivinar ni recorrer probando valores cercanos. Compartir dos veces el
 mismo caso devuelve el mismo link, porque uno nuevo dejaría muerto el que el
 negocio ya mandó. Dejar de compartirlo corta el acceso en el mismo instante.

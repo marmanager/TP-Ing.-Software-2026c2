@@ -165,6 +165,27 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!sesion?.access_token || !usuario?.negocio_id || esDemo) return;
+    let activo = true;
+    let timer;
+    const headers = { authorization: `Bearer ${sesion.access_token}` };
+    (async () => {
+      try {
+        const response = await fetch("/api/google-calendar", { headers });
+        const status = await response.json();
+        if (!activo || !status.conectado) return;
+        const sincronizar = () => fetch("/api/google-calendar", {
+          method: "POST", headers: { ...headers, "content-type": "application/json" },
+          body: JSON.stringify({ action: "sync" }),
+        }).catch(() => {});
+        await sincronizar();
+        if (activo) timer = setInterval(sincronizar, 60_000);
+      } catch { /* La agenda funciona aunque Google esté desconectado. */ }
+    })();
+    return () => { activo = false; clearInterval(timer); };
+  }, [sesion?.access_token, usuario?.negocio_id, esDemo]);
+
   const acciones = useMemo(
     () => ({
       // Devuelven { ok: true, ... } o { ok: false, error: "texto ya listo" }.

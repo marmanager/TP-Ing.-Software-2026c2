@@ -45,6 +45,7 @@ import {
 } from "@/lib/calendario";
 import Icono from "@/componentes/Icono";
 import PestanasDeAgenda from "@/componentes/PestanasDeAgenda";
+import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import SemanaDeTurnos from "@/componentes/SemanaDeTurnos";
 import { Boton, Cargando, Vacio } from "@/componentes/ui";
 
@@ -112,6 +113,7 @@ export default function Calendario() {
       <div className="mb-6">
         <h1 className="text-pantalla">Calendario</h1>
         <p className="mt-1 text-tinta-media">El mes entero, día por día.</p>
+        <VincularGoogleCalendar />
       </div>
 
       {/* ---------- El mes o la semana ---------- */}

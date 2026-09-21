@@ -77,7 +77,7 @@ begin
   end if;
 
   loop
-    actual := encode(gen_random_bytes(16), 'hex');
+    actual := replace(gen_random_uuid()::text, '-', '');
     exit when not exists (select 1 from negocio where ics_codigo = actual);
   end loop;
 

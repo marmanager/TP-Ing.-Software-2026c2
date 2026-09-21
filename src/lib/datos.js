@@ -77,6 +77,8 @@ const porQueNoSePudoCompartirAgenda = (error) => {
 
 const porQueNoSePudoCompartirCalendario = (error) => {
   const texto = error?.message ?? "";
+  if (texto.includes("gen_random_bytes"))
+    return "Volvé a correr 027_agenda_ics.sql en Supabase: la versión anterior usa una función que no está disponible en este proyecto.";
   if (error?.code === "PGRST202" || texto.includes("compartir_ics")) {
     return "Falta correr 027_agenda_ics.sql en Supabase. Hasta entonces no se puede poner la agenda en el calendario.";
   }
