@@ -60,8 +60,11 @@ export default function VerCaso() {
   const [anotando, setAnotando] = useState(false);
   const [historialEntero, setHistorialEntero] = useState(false);
   const [nota, setNota] = useState("");
-  // Entregar abre el cobro en vez de cerrar de una (SCRUM-74).
+  // Entregar abre el cobro en vez de cerrar de una (SCRUM-74). El monto no
+  // arranca editable: confirmar lo aprobado es lo que pasa casi siempre, y
+  // cambiarlo pide un toque más y su propio aviso.
   const [entregando, setEntregando] = useState(false);
+  const [cambiandoCobro, setCambiandoCobro] = useState(false);
   // Lo que la base contestó cuando no se pudo marcar un paso.
   const [errorPaso, setErrorPaso] = useState(null);
   const [cobro, setCobro] = useState("");
@@ -518,119 +521,6 @@ export default function VerCaso() {
         </div>
       )}
 
-      {abierto && (
-        <div className="mt-8 border-t border-borde pt-6">
-          <h3 className="text-subtitulo font-bold">Terminar el caso</h3>
-
-          {/* Cerrar se puede desde cualquier estado abierto, no sólo después
-              del control final: un trabajo puede terminarse antes de lo
-              previsto —el cliente lo pasa a buscar, no tenía nada— y obligar
-              a caminar toda la cadena para reflejarlo sería mentirle al
-              estado. El botón dice lo que hace: entrega Y cierra (cartilla,
-              sección 06). Va destacado sólo cuando es lo que sigue. */}
-          {!entregando && (
-            <div className="mt-3">
-              <Boton
-                variante={caso.estado === "revision_final" ? "borde" : "plano"}
-                icono="listo"
-                onClick={() => {
-                  // Viene precargado con lo que el cliente aprobó, que es lo
-                  // que casi siempre se cobra. Si cobró otra cosa, lo pisa y
-                  // listo: escribir el número de nuevo es más trabajo que
-                  // corregirlo.
-                  setCobro(aprobado > 0 ? String(aprobado) : "");
-                  setEntregando(true);
-                }}
-              >
-                Entregar y cerrar
-              </Boton>
-            </div>
-          )}
-
-          {/* El cobro se registra acá y no en una pantalla aparte: entregar y
-              cobrar son un solo momento en el mostrador, y es el único en que
-              alguien tiene el número delante. Se puede entregar sin
-              registrarlo —una garantía, algo que se cobró por afuera—, y por
-              eso el campo vacío también cierra el caso. */}
-          {entregando && (
-            <Tarjeta className="mt-3 w-full">
-              <Campo
-                id="cobro"
-                etiqueta="¿Cuánto cobraste?"
-                ayuda="Con números y sin puntos. Si no cobrás acá, dejalo vacío: el caso se entrega igual."
-                ejemplo="120000"
-                error={!cobroValido(cobro) ? "El monto va con números y sin puntos." : null}
-                inputMode="numeric"
-                value={cobro}
-                onChange={(e) => setCobro(e.target.value)}
-              />
-              <div className="flex flex-wrap gap-3">
-                <Boton
-                  icono="listo"
-                  motivo={!cobroValido(cobro) ? "revisá el monto" : null}
-                  onClick={() => {
-                    const monto = montoCobrado(cobro);
-                    datos.cambiarEstado(
-                      caso.id,
-                      "completado",
-                      queFaltaPara(negocio?.rubro, "completado"),
-                      {
-                        titulo: "Entregaron el trabajo",
-                        detalle:
-                          monto === null
-                            ? "El caso queda cerrado."
-                            : `El caso queda cerrado. Cobraron ${pesos(monto)}.`,
-                        icono: "listo",
-                      },
-                      { cobrado: monto, cobrado_en: monto === null ? null : new Date().toISOString() }
-                    );
-                    datos.avisarExito(
-                      monto === null
-                        ? `Listo. El caso ${caso.numero} quedó entregado.`
-                        : `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
-                    );
-                    setEntregando(false);
-                  }}
-                >
-                  Entregar y cerrar
-                </Boton>
-                <Boton variante="plano" onClick={() => setEntregando(false)}>
-                  Mejor no
-                </Boton>
-              </div>
-            </Tarjeta>
-          )}
-        </div>
-      )}
-
-      {caso.estado === "completado" && (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="w-full max-w-[65ch] text-tinta-media">
-            Este caso ya se entregó y se cerró. Mientras siga cerrado no se le
-            cambian los pasos ni el diagnóstico.
-          </p>
-          {/* Nada es definitivo: se puede haber cerrado de más. */}
-          <Boton
-            variante="plano"
-            icono="deshacer"
-            onClick={() =>
-              datos.cambiarEstado(
-                caso.id,
-                "en_proceso",
-                queFaltaPara(negocio?.rubro, "en_proceso"),
-                {
-                  titulo: "Volvieron a abrir el caso",
-                  detalle: "Se había cerrado antes de tiempo.",
-                  icono: "deshacer",
-                }
-              )
-            }
-          >
-            Volver a abrirlo
-          </Boton>
-        </div>
-      )}
-
       {/* Contarle al cliente que ya está (flujo, punto 9). Va antes de
           "Terminar el caso" porque es lo que se hace justo antes: primero se
           le avisa, después viene a buscarlo y recién ahí se entrega. */}
@@ -642,6 +532,189 @@ export default function VerCaso() {
           datos={datos}
           aprobados={aprobados}
         />
+      )}
+
+      {/* Cerrar el caso y volver a abrirlo: las dos puntas de lo mismo, en
+          el mismo lugar de la pantalla y con el mismo peso.
+
+          Van después de "avisarle que ya está" porque ese es el orden en que
+          pasa: primero se le avisa, después viene a buscarlo, y recién ahí se
+          entrega. Antes estaban antes, y encima con una pinta distinta de la
+          de todas las demás secciones: un título suelto con una línea arriba
+          en vez de la tarjeta con título que usa el resto. */}
+      {abierto ? (
+        <>
+          <TituloSeccion className="mt-12">Terminar el caso</TituloSeccion>
+          <Tarjeta>
+            {/* Cerrar se puede desde cualquier estado abierto, no sólo después
+                del control final: un trabajo puede terminarse antes de lo
+                previsto —el cliente lo pasa a buscar, no tenía nada— y obligar
+                a caminar toda la cadena para reflejarlo sería mentirle al
+                estado. El botón dice lo que hace: entrega Y cierra (cartilla,
+                sección 06). Va destacado sólo cuando es lo que sigue. */}
+            {!entregando ? (
+              <>
+                <p className="max-w-[65ch] text-tinta-media">
+                  Se lo entregás {cliente?.nombre ? `a ${cliente.nombre.split(" ")[0]}` : "al cliente"},
+                  anotás cuánto cobraste y el caso queda cerrado. Mientras esté
+                  cerrado no se le tocan los pasos ni el diagnóstico.
+                </p>
+                <div className="mt-4">
+                  <Boton
+                    variante={caso.estado === "revision_final" ? "borde" : "neutro"}
+                    icono="listo"
+                    onClick={() => {
+                      // Viene precargado con lo que el cliente aprobó, que es
+                      // lo que casi siempre se cobra.
+                      setCobro(aprobado > 0 ? String(aprobado) : "");
+                      setCambiandoCobro(aprobado === 0);
+                      setEntregando(true);
+                    }}
+                  >
+                    Entregar y cerrar
+                  </Boton>
+                </div>
+              </>
+            ) : (
+              /* El cobro se registra acá y no en una pantalla aparte:
+                 entregar y cobrar son un solo momento en el mostrador, y es
+                 el único en que alguien tiene el número delante. Se puede
+                 entregar sin registrarlo —una garantía, algo que se cobró por
+                 afuera—, y por eso el campo vacío también cierra el caso. */
+              <>
+                <p className="flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
+                  <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                  <span>
+                    <span className="font-bold">Vas a cerrar el caso.</span> Lo que
+                    anotes acá queda registrado como lo que cobraste, y lo va a ver
+                    el cliente en su ficha. Después, para cambiarlo, hay que volver
+                    a abrir el caso.
+                  </span>
+                </p>
+
+                {/* El monto no arranca editable: en la enorme mayoría de los
+                    casos se cobra lo aprobado, y lo que hay que hacer es
+                    confirmar, no escribir. Cambiarlo es la excepción y pide un
+                    toque más, con su propio aviso. */}
+                {!cambiandoCobro ? (
+                  <div className="mt-4">
+                    <p className="text-tinta-media">Vas a anotar que cobraste</p>
+                    <p className="font-titulo font-extrabold text-dato tabular-nums">
+                      {pesos(aprobado)}
+                    </p>
+                    <p className="mt-1 max-w-[65ch] text-tinta-media">
+                      Es lo que {cliente?.nombre?.split(" ")[0] ?? "el cliente"} aprobó.
+                    </p>
+                    <div className="mt-3">
+                      <Boton
+                        variante="plano"
+                        icono="nota"
+                        onClick={() => setCambiandoCobro(true)}
+                      >
+                        Cobré otra cosa
+                      </Boton>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    {aprobado > 0 && (
+                      <p className="mb-3 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
+                        <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                        <span>
+                          Estás cambiando el monto. El cliente aprobó{" "}
+                          <span className="font-bold">{pesos(aprobado)}</span>
+                          {montoCobrado(cobro) != null && montoCobrado(cobro) !== aprobado
+                            ? `, y estás anotando ${pesos(montoCobrado(cobro))}.`
+                            : "."}
+                        </span>
+                      </p>
+                    )}
+                    <Campo
+                      id="cobro"
+                      etiqueta="¿Cuánto cobraste?"
+                      ayuda="Con números y sin puntos. Si no cobrás acá, dejalo vacío: el caso se entrega igual."
+                      ejemplo="120000"
+                      error={!cobroValido(cobro) ? "El monto va con números y sin puntos." : null}
+                      inputMode="numeric"
+                      value={cobro}
+                      onChange={(e) => setCobro(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  <Boton
+                    icono="listo"
+                    motivo={!cobroValido(cobro) ? "revisá el monto" : null}
+                    onClick={() => {
+                      const monto = montoCobrado(cobro);
+                      datos.cambiarEstado(
+                        caso.id,
+                        "completado",
+                        queFaltaPara(negocio?.rubro, "completado"),
+                        {
+                          titulo: "Entregaron el trabajo",
+                          detalle:
+                            monto === null
+                              ? "El caso queda cerrado."
+                              : `El caso queda cerrado. Cobraron ${pesos(monto)}.`,
+                          icono: "listo",
+                        },
+                        { cobrado: monto, cobrado_en: monto === null ? null : new Date().toISOString() }
+                      );
+                      datos.avisarExito(
+                        monto === null
+                          ? `Listo. El caso ${caso.numero} quedó entregado.`
+                          : `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
+                      );
+                      setEntregando(false);
+                    }}
+                  >
+                    Sí, entregar y cerrar
+                  </Boton>
+                  <Boton variante="plano" onClick={() => setEntregando(false)}>
+                    Mejor no
+                  </Boton>
+                </div>
+              </>
+            )}
+          </Tarjeta>
+        </>
+      ) : (
+        <>
+          <TituloSeccion className="mt-12">El caso está cerrado</TituloSeccion>
+          <Tarjeta>
+            <p className="max-w-[65ch] text-tinta-media">
+              Se entregó{caso.cobrado != null ? ` y se cobró ${pesos(Number(caso.cobrado))}` : ""}.
+              Mientras siga cerrado no se le cambian los pasos ni el diagnóstico.
+            </p>
+            {/* Nada es definitivo: se puede haber cerrado de más. Es la única
+                acción que queda en un caso cerrado, así que se ve como un
+                botón y no como un enlace perdido al final. */}
+            {puedeCargar && (
+              <div className="mt-4">
+                <Boton
+                  variante="neutro"
+                  icono="deshacer"
+                  onClick={() =>
+                    datos.cambiarEstado(
+                      caso.id,
+                      "en_proceso",
+                      queFaltaPara(negocio?.rubro, "en_proceso"),
+                      {
+                        titulo: "Volvieron a abrir el caso",
+                        detalle: "Se había cerrado antes de tiempo.",
+                        icono: "deshacer",
+                      }
+                    )
+                  }
+                >
+                  Volver a abrirlo
+                </Boton>
+              </div>
+            )}
+          </Tarjeta>
+        </>
       )}
 
       {/* El diagnóstico se mudó a la pantalla de los pasos (flujo, 3.2).
