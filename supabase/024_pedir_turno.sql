@@ -249,6 +249,8 @@ declare
   n          negocio%rowtype;
   minutos    integer;
   anticipa   numeric;
+  horizonte  integer;
+  tope       timestamptz;
   id_cliente uuid;
 begin
   if p_codigo is null or length(p_codigo) < 8 then
@@ -276,6 +278,16 @@ begin
 
   if p_cuando < now() + (anticipa * interval '1 hour') then
     return jsonb_build_object('ok', false, 'motivo', 'Ese horario ya no se puede pedir. Elegí otro de la lista.');
+  end if;
+
+  -- Hasta cuándo se puede pedir: hoy cuenta como el día 1, y el tope es la
+  -- medianoche (hora de acá) del día siguiente al último. Mismo corte que
+  -- huecoSigueLibre() en src/lib/horarios.js.
+  horizonte := coalesce((n.horarios ->> 'horizonteDias')::int, 60);
+  tope := (date_trunc('day', now() at time zone 'America/Argentina/Buenos_Aires')
+           + horizonte * interval '1 day') at time zone 'America/Argentina/Buenos_Aires';
+  if p_cuando >= tope then
+    return jsonb_build_object('ok', false, 'motivo', 'Para ese día todavía no se dan turnos. Elegí uno de la lista.');
   end if;
 
   if not hueco_ofrecido(n.horarios, p_cuando) then

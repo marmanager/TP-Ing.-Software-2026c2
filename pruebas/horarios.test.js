@@ -13,9 +13,14 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
+  enFranjas,
+  mesesConLugar,
+  semanasDelMes,
   DIAS,
   agendaPublica,
   HORARIOS_DE_FABRICA,
+  HORIZONTE_DE_FABRICA,
+  HORIZONTES,
   diaDe,
   huecoSigueLibre,
   huecosDelDia,
@@ -414,4 +419,103 @@ test("un código que no es el del negocio no abre nada", () => {
     agendaPublica({ codigo: "x", negocio: { ...negocio, agenda_codigo: null }, turnos: [] }),
     { sirve: false }
   );
+});
+
+// ------------------------------------------------------------
+// La pantalla pública: el calendario y las franjas
+// ------------------------------------------------------------
+
+test("el calendario arranca el lunes y deja vacío lo que no es del mes", () => {
+  // Octubre de 2026 empieza un jueves.
+  const semanas = semanasDelMes(2026, 9);
+  assert.equal(semanas.length, 5);
+  assert.deepEqual(semanas[0].slice(0, 3), [null, null, null]);
+  assert.equal(semanas[0][3].getDate(), 1);
+  assert.equal(semanas[4][5].getDate(), 31); // sábado 31
+  assert.equal(semanas[4][6], null);
+});
+
+test("todas las semanas tienen siete lugares", () => {
+  for (let mes = 0; mes < 12; mes++) {
+    for (const semana of semanasDelMes(2026, mes)) assert.equal(semana.length, 7);
+  }
+});
+
+test("un febrero que empieza en lunes entra justo en cuatro semanas", () => {
+  const semanas = semanasDelMes(2027, 1);
+  assert.equal(semanas.length, 4);
+  assert.equal(semanas[0][0].getDate(), 1);
+  assert.equal(semanas[3][6].getDate(), 28);
+});
+
+test("los meses entre los que se puede ir y venir son los que tienen lugar", () => {
+  const dias = [
+    { fecha: new Date(2026, 8, 29) },
+    { fecha: new Date(2026, 8, 30) },
+    { fecha: new Date(2026, 9, 2) },
+  ];
+  assert.deepEqual(mesesConLugar(dias), [
+    { anio: 2026, mes: 8 },
+    { anio: 2026, mes: 9 },
+  ]);
+  assert.deepEqual(mesesConLugar([]), []);
+});
+
+test("diciembre y enero quedan en orden aunque cambie el año", () => {
+  const dias = [{ fecha: new Date(2027, 0, 4) }, { fecha: new Date(2026, 11, 30) }];
+  assert.deepEqual(mesesConLugar(dias), [
+    { anio: 2026, mes: 11 },
+    { anio: 2027, mes: 0 },
+  ]);
+});
+
+test("los huecos se parten en mañana y tarde a la una", () => {
+  const h = (hora, min = 0) => new Date(2026, 8, 22, hora, min);
+  const franjas = enFranjas([h(9), h(12, 30), h(13), h(17, 30)]);
+  assert.deepEqual(
+    franjas.map((f) => [f.nombre, f.huecos.length]),
+    [
+      ["A la mañana", 2],
+      ["A la tarde", 2],
+    ]
+  );
+});
+
+test("un día que sólo abre a la tarde no muestra una mañana vacía", () => {
+  const franjas = enFranjas([new Date(2026, 8, 22, 16, 0)]);
+  assert.deepEqual(franjas.map((f) => f.nombre), ["A la tarde"]);
+  assert.deepEqual(enFranjas([]), []);
+});
+
+// ------------------------------------------------------------
+// Hasta cuándo se puede pedir
+// ------------------------------------------------------------
+
+test("sin decir nada, se ofrecen los días que eligió el negocio", () => {
+  const desde = new Date(2026, 8, 21, 0, 0);
+  const ahora = new Date(2026, 8, 21, 0, 0);
+  const todos = { ...HORARIOS_DE_FABRICA, dias: ["lun", "mar", "mie", "jue", "vie", "sab", "dom"] };
+
+  const unMes = huecosLibres({ horarios: { ...todos, horizonteDias: 30 }, desde, ahora });
+  assert.equal(unMes.length, 30);
+  assert.equal(unMes.at(-1).fecha.getDate(), 20); // 20 de octubre
+
+  const tresMeses = huecosLibres({ horarios: { ...todos, horizonteDias: 90 }, desde, ahora });
+  assert.equal(tresMeses.length, 90);
+});
+
+test("un negocio que guardó sus horarios antes del tope recibe el de fábrica", () => {
+  const { horizonteDias, ...viejo } = HORARIOS_DE_FABRICA;
+  assert.equal(normalizarHorarios(viejo).horizonteDias, HORIZONTE_DE_FABRICA);
+  assert.equal(normalizarHorarios({ ...viejo, horizonteDias: 7 }).horizonteDias, HORIZONTE_DE_FABRICA);
+  assert.ok(HORIZONTES.some((x) => x.dias === HORIZONTE_DE_FABRICA));
+});
+
+test("un horario más allá del tope no se puede reservar aunque esté libre", () => {
+  const ahora = new Date(2026, 8, 21, 8, 0); // lunes
+  const horarios = { ...HORARIOS_DE_FABRICA, horizonteDias: 14 };
+  // Viernes 2 de octubre: día 12, adentro.
+  assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 2, 10, 0), horarios, ahora }), true);
+  // Lunes 5 de octubre: día 15, afuera.
+  assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 5, 10, 0), horarios, ahora }), false);
 });

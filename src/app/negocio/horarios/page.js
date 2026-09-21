@@ -21,6 +21,8 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import {
   ANTICIPACIONES,
+  HORIZONTE_DE_FABRICA,
+  HORIZONTES,
   DIAS,
   DURACIONES,
   HORARIOS_DE_FABRICA,
@@ -257,6 +259,20 @@ export default function Horarios() {
                   opciones={ANTICIPACIONES.map((a) => ({ valor: a.horas, palabra: a.palabra }))}
                   valor={actual?.anticipacionHoras ?? 2}
                   alElegir={(v) => cambiar({ anticipacionHoras: v })}
+                />
+              </Tarjeta>
+
+              <TituloSeccion>Hasta cuándo te pueden pedir</TituloSeccion>
+              <Tarjeta className="mb-8">
+                <p className="mb-3 max-w-[65ch] text-tinta-media">
+                  Cuánto para adelante se ve en el calendario. Más allá de eso los
+                  días aparecen tachados, para que nadie se anote para una fecha en
+                  la que todavía no sabés si vas a abrir.
+                </p>
+                <Elegir
+                  opciones={HORIZONTES.map((x) => ({ valor: x.dias, palabra: x.palabra }))}
+                  valor={actual?.horizonteDias ?? HORIZONTE_DE_FABRICA}
+                  alElegir={(v) => cambiar({ horizonteDias: v })}
                 />
               </Tarjeta>
 
