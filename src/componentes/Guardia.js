@@ -17,7 +17,7 @@ import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 import Link from "next/link";
-import { LISTA_MODULOS } from "@/lib/modulos";
+import { LISTA_MODULOS, LISTA_SUBMODULOS, hijosActivos } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
 
 // Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
@@ -67,9 +67,26 @@ const esAgendaPublica = (ruta) => ruta.startsWith("/turnos");
 const moduloApagado = (ruta, negocio) => {
   if (!negocio) return null;
   const activos = negocio.modulos_activos ?? [];
+
+  // El módulo entero apagado se lleva también sus pantallas de adentro:
+  // "/agenda" y "/agenda/calendario" caen las dos por "/agenda".
+  const padre = LISTA_MODULOS.find(
+    (m) => (ruta === m.ruta || ruta.startsWith(m.ruta + "/")) && !activos.includes(m.clave)
+  );
+  if (padre) return padre;
+
+  // Y una pantalla apagada con su módulo prendido: la Agenda está, pero este
+  // negocio no usa el Calendario. Mismo cartel, mismo camino para prenderlo.
+  //
+  // Acá la ruta se compara exacta. Con startsWith, "/agenda" —que es la ruta
+  // de Turnos— sería el principio de "/agenda/calendario" y apagar Turnos
+  // apagaría de rebote el Calendario.
   return (
-    LISTA_MODULOS.find(
-      (m) => (ruta === m.ruta || ruta.startsWith(m.ruta + "/")) && !activos.includes(m.clave)
+    LISTA_SUBMODULOS.find(
+      (s) =>
+        ruta === s.ruta &&
+        activos.includes(s.padre) &&
+        !hijosActivos(s.padre, activos).some((h) => h.clave === s.clave)
     ) ?? null
   );
 };

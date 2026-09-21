@@ -32,11 +32,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icono from "./Icono";
 import { useDatos } from "@/lib/datos";
+import { hijosActivos } from "@/lib/modulos";
 
 const DESTINOS = [
   { href: "/", icono: "sol", palabra: "Inicio", celular: true },
   { href: "/casos", icono: "carpeta", palabra: "Casos", celular: true },
-  { href: "/agenda", icono: "calendario", palabra: "Agenda", celular: true, modulo: "agenda" },
+  {
+    href: "/agenda",
+    icono: "calendario",
+    palabra: "Agenda",
+    celular: true,
+    modulo: "agenda",
+    // La Agenda es la única sección con pantallas adentro: la lista de turnos
+    // y el calendario del mes. Cada una se prende por su cuenta desde "Mi
+    // negocio", así que las dos pueden no estar.
+    hijos: [
+      { href: "/agenda", icono: "reloj", palabra: "Turnos", modulo: "turnos" },
+      { href: "/agenda/calendario", icono: "calendario", palabra: "Calendario", modulo: "calendario" },
+    ],
+  },
   { href: "/clientes", icono: "persona", palabra: "Clientes" },
   { href: "/inventario", icono: "cajas", palabra: "Inventario", modulo: "inventario" },
   { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
@@ -49,9 +63,25 @@ const DESTINOS = [
 const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(href));
 
 // Deja pasar el núcleo y sólo los módulos prendidos.
+//
+// LAS PANTALLAS DE ADENTRO NO SE LISTAN ACÁ. Turnos y Calendario se cambian
+// con las pestañas de arriba de la Agenda (componentes/PestanasDeAgenda.js).
+// La barra dice a qué sección vas, y una vez adentro elegir la vista es parte
+// de la sección.
+//
+// Lo que sí sigue acá es a dónde lleva "Agenda": al primer hijo prendido. Si
+// el negocio apagó Turnos y dejó el Calendario, tocar "Agenda" tiene que
+// llevar al calendario y no a una pantalla que ese negocio no tiene.
 const conModulo = (destinos, negocio) => {
   const activos = negocio?.modulos_activos ?? [];
-  return destinos.filter((d) => !d.modulo || activos.includes(d.modulo));
+  return destinos
+    .filter((d) => !d.modulo || activos.includes(d.modulo))
+    .map((d) => {
+      if (!d.hijos) return d;
+      const prendidos = hijosActivos(d.modulo, activos).map((h) => h.clave);
+      const primero = d.hijos.find((h) => prendidos.includes(h.modulo));
+      return { ...d, href: primero?.href ?? d.href };
+    });
 };
 
 // Los tres de abajo en celular: primero los marcados para la barra, y si
@@ -68,9 +98,13 @@ const paraCelular = (destinos, negocio) => {
     if (!elegidos.includes(d)) elegidos.push(d);
   }
 
+  // Ordenados como están escritos arriba. Se mide contra "disponibles" y no
+  // contra DESTINOS porque conModulo() devuelve una copia de los destinos que
+  // tienen hijos —les recalcula el href— y esa copia no está en la lista
+  // original: indexOf daría -1 y los tres de abajo saldrían en cualquier orden.
   return elegidos
     .slice(0, DIRECTOS_EN_CELULAR)
-    .sort((a, b) => destinos.indexOf(a) - destinos.indexOf(b));
+    .sort((a, b) => disponibles.indexOf(a) - disponibles.indexOf(b));
 };
 
 // La lista de secciones con ícono y palabra. La usan la barra lateral y el
@@ -79,6 +113,8 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
   return (
     <ul className="flex flex-col gap-1">
       {destinos.map((d) => {
+        // "/agenda" marca la sección también estando en "/agenda/calendario":
+        // las dos son la Agenda, y cuál de las dos lo dicen las pestañas.
         const acá = activo(ruta, d.href);
         return (
           <li key={d.href}>

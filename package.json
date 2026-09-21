@@ -13,6 +13,8 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js --verbose",
     "test:watch": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js --verbose --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:e2e": "start-server-and-test dev http://localhost:3000 \"wdio run ./wdio.conf.js\"",
     "test:e2e": "start-server-and-test dev http://localhost:3000 \"wdio run ./wdio.conf.js\""
   },
   "dependencies": {
@@ -22,6 +24,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@next/swc-linux-x64-gnu": "^16.3.5",
     "@tailwindcss/postcss": "^4.3.3",
     "@wdio/cli": "^9.0.0",
     "@wdio/globals": "^9.0.0",

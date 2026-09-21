@@ -109,7 +109,7 @@ begin
   -- El choque es virtualmente imposible con 16 bytes, pero el índice único
   -- lo haría fallar y el negocio vería un error sin culpa suya.
   loop
-    actual := encode(gen_random_bytes(16), 'hex');
+    actual := replace(gen_random_uuid()::text, '-', '');
     exit when not exists (select 1 from caso where seguimiento_codigo = actual);
   end loop;
 

@@ -96,6 +96,16 @@ const porQueNoSePudoCobrar = (error) => {
   return texto || "No se pudo guardar el cobro.";
 };
 
+const porQueNoSePudoCompartirCalendario = (error) => {
+  const texto = error?.message ?? "";
+  if (texto.includes("gen_random_bytes"))
+    return "Volvé a correr 027_agenda_ics.sql en Supabase: la versión anterior usa una función que no está disponible en este proyecto.";
+  if (error?.code === "PGRST202" || texto.includes("compartir_ics")) {
+    return "Falta correr 027_agenda_ics.sql en Supabase. Hasta entonces no se puede poner la agenda en el calendario.";
+  }
+  return texto || "No se pudo armar el link del calendario.";
+};
+
 const nuevoId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
@@ -439,6 +449,10 @@ export function DatosProvider({ children }) {
   const [datos, setDatos] = useState(VACIO);
   const [cargando, setCargando] = useState(true);
   const [fuente, setFuente] = useState("local");
+  // Sube de a uno para pedir que se vuelva a leer todo. No guarda datos: es
+  // la manera de volver a correr el efecto de carga sin escribir la lectura
+  // dos veces, una para entrar y otra para refrescar.
+  const [refresco, setRefresco] = useState(0);
   const [aviso, setAviso] = useState(null);
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
@@ -523,7 +537,31 @@ export function DatosProvider({ children }) {
     return () => {
       vivo = false;
     };
-  }, [authCargando, esDemo, usuario]);
+  }, [authCargando, esDemo, usuario, refresco]);
+
+  // Volver a leer cuando la pestaña vuelve al frente.
+  //
+  // Los datos se leían una sola vez, al entrar. Con los turnos que pide el
+  // cliente por el link (024) eso dejó de alcanzar: el turno lo crea otra
+  // persona, en otro navegador, y del lado del negocio la pantalla seguía
+  // mostrando lo de hace dos horas sin ninguna señal de estar vieja.
+  //
+  // "visibilitychange" y no un reloj que pregunta cada tanto: el momento en
+  // que a alguien le importa que esté al día es cuando vuelve a mirar. Un
+  // intervalo gastaría pedidos toda la tarde con la pestaña de fondo, y
+  // seguiría llegando tarde justo cuando la persona vuelve.
+  //
+  // ponytail: refresco al volver el foco, no en vivo. Si hiciera falta que un
+  // turno aparezca sin tocar nada, el camino es Supabase Realtime sobre la
+  // tabla "turno" —que no anda en el modo de ejemplo, donde no hay servidor—.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const alVolver = () => {
+      if (document.visibilityState === "visible") setRefresco((n) => n + 1);
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => document.removeEventListener("visibilitychange", alVolver);
+  }, []);
 
   // En modo local, todo lo que se toca queda guardado en el navegador.
   useEffect(() => {
@@ -1675,6 +1713,37 @@ export function DatosProvider({ children }) {
           if (error) return { ok: false, error: porQueNoSePudoCompartirAgenda(error) };
         }
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: null } }));
+        return { ok: true };
+      },
+
+      // El link del calendario (027). Es otro código y otro interruptor que el
+      // de pedir turno, porque muestran cosas distintas a gente distinta: aquél
+      // sólo horarios ocupados para cualquiera, éste los turnos con nombre y
+      // teléfono para el dueño.
+      async compartirCalendario() {
+        if (!enSupabase())
+          return { ok: false, error: "Para generar un link que Google pueda leer, iniciá sesión con una cuenta conectada a Supabase." };
+        if (datos.negocio?.ics_codigo)
+          return { ok: true, codigo: datos.negocio.ics_codigo };
+
+        if (enSupabase()) {
+          const { data, error } = await supabase.rpc("compartir_ics");
+          if (error) return { ok: false, error: porQueNoSePudoCompartirCalendario(error) };
+          setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: data } }));
+          return { ok: true, codigo: data };
+        }
+
+        const codigo = codigoAlAzar();
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: codigo } }));
+        return { ok: true, codigo };
+      },
+
+      async dejarDeCompartirCalendario() {
+        if (enSupabase()) {
+          const { error } = await supabase.rpc("dejar_de_compartir_ics");
+          if (error) return { ok: false, error: porQueNoSePudoCompartirCalendario(error) };
+        }
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: null } }));
         return { ok: true };
       },
 
