@@ -172,92 +172,134 @@ export default function VerCaso() {
             <span className="font-bold">Qué falta:</span> {falta}
           </p>
 
-          {/* Cada dato dice qué es con palabras, y el ícono acompaña. Antes
-              la palabra estaba sólo para el lector de pantalla: un ícono de
-              persona al lado de "Diego" no decía si Diego era el cliente o
-              quien hace el trabajo (auditoría, H2; cartilla: ícono y palabra
-              juntos). */}
-          <ul className="mt-4 grid gap-2 text-tinta-media @3xl:grid-cols-3">
-            {/* Asignar no es un cambio de estado, así que no va en el
-                desplegable: va acá, al lado de a quién reemplaza. */}
-            <li className="flex flex-wrap items-center gap-2">
-              <Icono nombre="persona" className="size-5" />
-              <span>{quienLoTieneEnPalabras(caso, empleados)}</span>
+          {/* Los datos del caso, cada uno con su nombre arriba y su valor
+              abajo. Antes eran frases sueltas con un ícono adelante, en tres
+              columnas, y lo que se abría —elegir a quién asignarle— crecía
+              adentro de su celda: la grilla se deformaba, los nombres del
+              equipo quedaban flotando en el medio de la nada y los otros dos
+              datos se iban al costado.
+
+              Ahora la lista no se mueve: lo que se abre va abajo, a lo ancho
+              de la tarjeta. Y el identificador dejó de ser un enlace suelto
+              perdido al final para ser un dato más, en el lugar donde alguien
+              lo va a buscar. */}
+          <dl className="mt-5 grid gap-x-6 gap-y-4 @2xl:grid-cols-2">
+            <Dato icono="persona" que="Quién lo tiene">
+              {quienLoTieneEnPalabras(caso, empleados)}
               {sePuedeEditar && (
-                <div className="relative">
+                <div className="mt-1 -ml-3">
                   <Boton
                     variante="plano"
                     icono="persona-mas"
                     onClick={() => setEligiendo((v) => !v)}
                   >
-                    {caso.responsable_id ? "Cambiar" : "Asignar"}
+                    {caso.responsable_id ? "Cambiar quién lo atiende" : "Asignar a alguien"}
                   </Boton>
-                  {eligiendo && (
-                    <ul className="mt-2 flex flex-wrap gap-2">
-                      {empleados.map((e) => (
-                        <li key={e.id}>
-                          <Boton
-                            variante="plano"
-                            icono="persona"
-                            onClick={() => {
-                              datos.asignarResponsable(caso.id, e.id);
-                              setEligiendo(false);
-                            }}
-                          >
-                            {e.nombre}
-                          </Boton>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
               )}
-            </li>
-            <li className="flex items-center gap-2">
-              <Icono nombre="reloj" className="size-5" />
-              <span>{haceCuanto(caso.abierto_en)}</span>
-            </li>
-            {/* Compartido o no, sin botones: los controles viven en la
-                pantalla de los pasos, que es donde está lo que se manda.
-                Acá alcanza con saber si el cliente ya lo miró, que es lo
-                que dice si hace falta llamarlo. */}
-            {caso.seguimiento_codigo && (
-              <li className="flex items-center gap-2">
-                <Icono nombre="sobre" className="size-5" />
-                <span>
-                  Link compartido ·{" "}
-                  {caso.seguimiento_visto_en
-                    ? `lo abrió ${cuantoHace(caso.seguimiento_visto_en)}`
-                    : "todavía no lo abrió"}
-                </span>
-              </li>
-            )}
-            {/* El teléfono es lo único de esta lista que se toca, y llamar
-                al cliente es lo que se hace apurado y con una mano. Como
-                enlace suelto en medio del renglón medía 26 px de alto: la
-                cartilla pide 48, así que el área táctil es todo el renglón y
-                no sólo los dígitos. */}
+            </Dato>
+
+            <Dato icono="nota" que={comoIdent.nombre}>
+              {caso.identificador || (
+                <span className="text-tinta-suave">Sin cargar</span>
+              )}
+              {sePuedeEditar && !editandoIdent && (
+                <div className="mt-1 -ml-3">
+                  <Boton
+                    variante="plano"
+                    icono="nota"
+                    onClick={() => {
+                      setIdentificador(caso.identificador ?? "");
+                      setEditandoIdent(true);
+                    }}
+                  >
+                    {caso.identificador ? "Corregir" : `Cargar ${comoIdent.enFrase}`}
+                  </Boton>
+                </div>
+              )}
+            </Dato>
+
+            <Dato icono="reloj" que="Cuándo entró">
+              {haceCuanto(caso.abierto_en)}
+            </Dato>
+
+            {/* El teléfono es lo único de esta lista que se toca, y llamar al
+                cliente es lo que se hace apurado y con una mano: el área
+                táctil es todo el renglón y no sólo los dígitos. */}
             {cliente?.telefono && (
-              <li>
+              <Dato icono="telefono" que="Teléfono">
                 <a
                   href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
-                  className="-mx-2 inline-flex min-h-12 items-center gap-2 rounded-campo px-2 hover:bg-azul-claro"
+                  className="-mx-2 inline-flex min-h-12 items-center rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
                 >
-                  <Icono nombre="telefono" className="size-5 text-azul" />
-                  <span className="text-tinta-media">
-                    Teléfono <span className="font-bold text-azul">{cliente.telefono}</span>
-                  </span>
+                  {cliente.telefono}
                 </a>
-              </li>
+              </Dato>
             )}
-          </ul>
+
+            {/* Compartido o no, sin botones: los controles viven en la
+                pantalla de los pasos, que es donde está lo que se manda. Acá
+                alcanza con saber si el cliente ya lo miró, que es lo que dice
+                si hace falta llamarlo. */}
+            {caso.seguimiento_codigo && (
+              <Dato icono="sobre" que="El link del cliente">
+                {caso.seguimiento_visto_en
+                  ? `Lo abrió ${cuantoHace(caso.seguimiento_visto_en)}`
+                  : "Compartido, todavía no lo abrió"}
+              </Dato>
+            )}
+          </dl>
+
+          {/* Lo que se abre, abajo y a lo ancho. Adentro de la grilla
+              deformaba la fila entera. */}
+          {eligiendo && sePuedeEditar && (
+            <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+              <p className="font-bold text-cuerpo">¿Quién lo va a atender?</p>
+              {empleados.length === 0 ? (
+                <p className="mt-1 max-w-[65ch] text-tinta-media">
+                  Todavía no hay nadie cargado en el equipo. Se agrega desde{" "}
+                  <Link href="/equipo" className="font-bold text-azul">
+                    Equipo
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 max-w-[65ch] text-tinta-media">
+                    Al elegir a alguien, el caso pasa a{" "}
+                    {etiquetaEstado(negocio?.rubro, "en_proceso").toLowerCase()}.
+                  </p>
+                  <ul className="mt-3 flex flex-wrap gap-2.5">
+                    {empleados.map((e) => (
+                      <li key={e.id}>
+                        <Boton
+                          variante={e.id === caso.responsable_id ? "borde" : "neutro"}
+                          icono="persona"
+                          onClick={() => {
+                            datos.asignarResponsable(caso.id, e.id);
+                            datos.avisarExito(`Listo. El caso ${caso.numero} lo atiende ${e.nombre}.`);
+                            setEligiendo(false);
+                          }}
+                        >
+                          {e.nombre}
+                        </Boton>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <div className="mt-3">
+                <Boton variante="plano" onClick={() => setEligiendo(false)}>
+                  Dejarlo como está
+                </Boton>
+              </div>
+            </div>
+          )}
 
           {/* El identificador —la patente, el DNI, el número de serie— es
               cómo se reconoce el caso, no un diagnóstico: vive acá arriba, al
-              lado del número, y se carga y se corrige acá. Antes estaba bajo
-              un título que habla de lo que se encontró al revisar, y había
-              que acordarse de dónde estaba (auditoría, H2). */}
-          {editandoIdent && sePuedeEditar ? (
+              lado del número, y se carga y se corrige acá (auditoría, H2). */}
+          {editandoIdent && sePuedeEditar && (
             <div className="mt-4 max-w-[320px]">
               <Campo
                 id="identificador"
@@ -291,23 +333,6 @@ export default function VerCaso() {
                 </Boton>
               </div>
             </div>
-          ) : (
-            sePuedeEditar && (
-              <div className="mt-2">
-                <Boton
-                  variante="plano"
-                  icono="nota"
-                  onClick={() => {
-                    setIdentificador(caso.identificador ?? "");
-                    setEditandoIdent(true);
-                  }}
-                >
-                  {caso.identificador
-                    ? `Corregir ${comoIdent.enFrase}`
-                    : `Cargar ${comoIdent.enFrase}`}
-                </Boton>
-              </div>
-            )
           )}
 
           {/* Un único botón azul: el que casi siempre se va a tocar.
@@ -911,5 +936,22 @@ function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
         )}
       </Tarjeta>
     </>
+  );
+}
+
+// Un dato del caso: el nombre arriba, el valor abajo, el ícono al costado.
+//
+// El nombre va SIEMPRE, también cuando el valor se explica solo. Un ícono de
+// persona al lado de "Diego" no dice si Diego es el cliente o quien hace el
+// trabajo (auditoría, H2), y "hace 14 días" sin nombre no dice de qué.
+function Dato({ icono, que, children }) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icono nombre={icono} className="mt-1 size-5 shrink-0 text-tinta-suave" />
+      <div className="min-w-0">
+        <dt className="text-apoyo text-tinta-suave">{que}</dt>
+        <dd className="text-cuerpo text-tinta">{children}</dd>
+      </div>
+    </div>
   );
 }

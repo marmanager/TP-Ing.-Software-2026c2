@@ -622,6 +622,11 @@ export function DatosProvider({ children }) {
         anotar({
           casoId,
           tipo: "estado",
+          // Asignar mueve el caso a "en proceso", así que el evento lleva el
+          // estado: es lo que la línea de tiempo del cliente usa para poner
+          // la fecha de esa etapa (021/018). Sin esto, un caso que arrancó
+          // por acá se veía sin fecha en "está en el taller".
+          estado: "en_proceso",
           titulo: "Asignaron el caso",
           detalle: `Lo va a atender ${persona?.nombre ?? "alguien del equipo"}.`,
           icono: "persona-mas",
