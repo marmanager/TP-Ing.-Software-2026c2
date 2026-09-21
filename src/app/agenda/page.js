@@ -205,6 +205,17 @@ export default function Agenda() {
                       </p>
                       <p className="text-tinta-media">
                         {cliente?.nombre ?? "Sin cliente todavía"}
+                        {/* Un turno que pidió el cliente desde el link no lo
+                            vio nadie del negocio todavía: no hubo llamada, no
+                            hubo mostrador. Se nota hasta que alguien lo
+                            confirma, que es el momento en que deja de ser
+                            nuevo (024). */}
+                        {t.origen === "cliente" && t.estado === "agendado" && (
+                          <>
+                            {" · "}
+                            <span className="font-bold text-azul">lo pidió por el link</span>
+                          </>
+                        )}
                         {caso && (
                           <>
                             {" · "}

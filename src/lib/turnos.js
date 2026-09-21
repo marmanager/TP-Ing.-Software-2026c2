@@ -53,6 +53,24 @@ export const ESTADOS_TURNO = {
 
 export const estadoDeTurno = (estado) => ESTADOS_TURNO[estado] ?? ESTADOS_TURNO.agendado;
 
+// Los turnos que pidió un cliente por el link y todavía no miró nadie.
+//
+// Un turno que entró por el mostrador ya lo vio alguien: hubo una llamada o
+// una persona enfrente. Uno que entró por el link puede haber caído un
+// domingo a la noche, y del lado del negocio nadie se enteró. Mientras siga
+// "agendado" es un turno que nadie confirmó.
+//
+// Sólo los que todavía no pasaron: por uno de la semana pasada ya no hay
+// nada que hacer, y avisar por él sería ruido que nunca se apaga.
+export function turnosSinVer(turnos = [], { ahora = Date.now() } = {}) {
+  return turnos.filter(
+    (t) =>
+      t.origen === "cliente" &&
+      t.estado === "agendado" &&
+      new Date(t.empieza_en).getTime() >= ahora
+  );
+}
+
 // Un turno está en pie mientras no se canceló ni se atendió: son los que
 // todavía esperan algo de alguien.
 export const turnoEnPie = (turno) =>

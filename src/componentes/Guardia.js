@@ -52,6 +52,11 @@ const esInvitacion = (ruta) => ruta.startsWith("/unirme");
 // quien viene de afuera es hacerlo esperar por algo que no le importa.
 const esSeguimiento = (ruta) => ruta.startsWith("/seguimiento");
 
+// "/turnos/<código>" es la otra pantalla pública: la agenda del negocio, para
+// que un cliente pida turno solo (024). Mismas reglas que la de seguimiento,
+// y por el mismo motivo: quien la abre no tiene cuenta y no la va a tener.
+const esAgendaPublica = (ruta) => ruta.startsWith("/turnos");
+
 // La pantalla de un módulo apagado se sigue pudiendo escribir en la barra de
 // direcciones: un favorito viejo, un link que alguien pasó, el módulo apagado
 // hace un rato. No alcanza con sacarlo de la navegación.
@@ -76,7 +81,7 @@ export default function Guardia({ children }) {
   const ruta = usePathname();
   const router = useRouter();
 
-  const publica = esSeguimiento(ruta);
+  const publica = esSeguimiento(ruta) || esAgendaPublica(ruta);
   const hayEntrada = esDemo || Boolean(sesion);
   const tieneNegocio = esDemo ? Boolean(negocio) : Boolean(usuario?.negocio_id);
 
