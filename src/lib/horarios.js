@@ -298,25 +298,37 @@ export function huecoSigueLibre({ cuando, horarios, turnos = [], ahora = new Dat
 // Para mostrar los huecos en la pantalla pública
 // ------------------------------------------------------------
 
-// El nombre corto de un día, para el botón de la tira de días: "Hoy",
-// "Mañana" o el día de la semana abreviado ("mié"), y abajo el número y el
-// mes ("23 sep"). El número va siempre, también en "Hoy": es lo que la
-// persona cruza con su propio calendario.
-const DIA_CORTO = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
-const MES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+// Un mes armado como calendario: semanas de lunes a domingo, con null en
+// los lugares que quedan antes del 1 y después del último día. Lunes
+// primero porque así es la semana acá, y es como la persona la tiene en la
+// cabeza cuando piensa "el martes que viene".
+export function semanasDelMes(anio, mes) {
+  const primero = new Date(anio, mes, 1);
+  const antes = (primero.getDay() + 6) % 7;
+  const cuantos = new Date(anio, mes + 1, 0).getDate();
 
-export function nombreCortoDelDia(fecha, ahora = new Date()) {
-  const d = new Date(fecha);
-  const hoy = new Date(ahora);
-  hoy.setHours(0, 0, 0, 0);
-  const esa = new Date(d);
-  esa.setHours(0, 0, 0, 0);
-  const diferencia = Math.round((esa - hoy) / 86400000);
+  const celdas = [
+    ...Array(antes).fill(null),
+    ...Array.from({ length: cuantos }, (_, i) => new Date(anio, mes, i + 1)),
+  ];
+  while (celdas.length % 7 !== 0) celdas.push(null);
 
-  return {
-    arriba: diferencia === 0 ? "Hoy" : diferencia === 1 ? "Mañana" : DIA_CORTO[d.getDay()],
-    abajo: `${d.getDate()} ${MES_CORTO[d.getMonth()]}`,
-  };
+  const semanas = [];
+  for (let i = 0; i < celdas.length; i += 7) semanas.push(celdas.slice(i, i + 7));
+  return semanas;
+}
+
+// Los meses que tienen al menos un día con lugar, en orden. Son los únicos
+// entre los que se puede ir y venir: pasar a un mes todo tachado no sirve
+// para nada.
+export function mesesConLugar(dias = []) {
+  const vistos = new Map();
+  for (const { fecha } of dias) {
+    const d = new Date(fecha);
+    const clave = d.getFullYear() * 12 + d.getMonth();
+    if (!vistos.has(clave)) vistos.set(clave, { anio: d.getFullYear(), mes: d.getMonth() });
+  }
+  return [...vistos.entries()].sort((a, b) => a[0] - b[0]).map(([, m]) => m);
 }
 
 // Los huecos de un día partidos en mañana y tarde. Una lista de catorce
