@@ -4,6 +4,10 @@
 -- Correr entero en el SQL Editor de Supabase, después de 001..006.
 -- Es idempotente.
 --
+-- NO ES OPCIONAL, ni en una base nueva: además de las invitaciones, acá
+-- nacen usuario.rol, empleado.usuario_id y la función mi_rol(), de las que
+-- depende entero el 008.
+--
 -- QUÉ RESUELVE:
 -- Hasta acá cada cuenta tenía su propio negocio y no había forma de que dos
 -- personas trabajaran sobre el mismo. El RLS ya lo soportaba —todas las
@@ -70,7 +74,7 @@ grant execute on function mi_rol() to authenticated;
 create table if not exists invitacion (
   id            uuid primary key default gen_random_uuid(),
   negocio_id    uuid        not null references negocio (id) on delete cascade,
-  codigo        text        not null unique default encode(gen_random_bytes(16), 'hex'),
+  codigo        text        not null unique default replace(gen_random_uuid()::text, '-', ''),
   rol           text        not null default 'tecnico'
                 check (rol in ('duenio', 'encargado', 'tecnico')),
   usos_maximos  integer     not null default 1 check (usos_maximos > 0),
@@ -82,6 +86,7 @@ create table if not exists invitacion (
 );
 
 create index if not exists invitacion_negocio_idx on invitacion (negocio_id);
+alter table invitacion alter column codigo set default replace(gen_random_uuid()::text, '-', '');
 create index if not exists invitacion_codigo_idx on invitacion (codigo);
 
 -- ------------------------------------------------------------

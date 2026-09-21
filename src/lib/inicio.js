@@ -138,17 +138,41 @@ export const CATALOGO = {
       { clave: "con_abiertos", palabra: "Con casos sin cerrar" },
     ],
   },
+  // SCRUM-75. Es además el camino al Historial desde el celular, donde la
+  // barra de abajo no tiene lugar para una quinta sección. Por eso viene
+  // puesto en el Inicio por defecto.
+  historial: {
+    clave: "historial",
+    nombre: "Historial",
+    icono: "historial",
+    ruta: "/historial",
+    modulo: null,
+    queMuestra: "Lo que fue pasando en los casos, con quién lo hizo.",
+    ancho: 3,
+    alto: 2,
+    filtros: [
+      { clave: "todo", palabra: "Todo" },
+      { clave: "entro", palabra: "Lo que entró" },
+      { clave: "entrega", palabra: "Lo que se entregó" },
+      { clave: "plata", palabra: "La plata" },
+    ],
+  },
 };
 
 export const LISTA_CATALOGO = Object.values(CATALOGO);
 
 // Cómo arranca la pantalla si nadie la tocó: lo urgente arriba y ancho, los
-// casos grandes a la izquierda, y a la derecha, en columna, lo del día.
+// casos grandes a la izquierda, a la derecha, en columna, lo del día, y abajo
+// de todo, a todo el ancho, el historial.
+//
+// El historial está desde el principio porque en el celular es la única
+// forma de llegar a esa sección: la barra de abajo tiene cuatro lugares.
 export const INICIO_POR_DEFECTO = [
   { clave: "pendientes", x: 0, y: 0, ancho: 6, alto: 2, filtro: null },
   { clave: "casos", x: 0, y: 2, ancho: 4, alto: 3, filtro: "abiertos" },
   { clave: "agenda", x: 4, y: 2, ancho: 2, alto: 2, filtro: "hoy" },
   { clave: "inventario", x: 4, y: 4, ancho: 2, alto: 1, filtro: "bajo" },
+  { clave: "historial", x: 0, y: 5, ancho: 6, alto: 2, filtro: "todo" },
 ];
 
 const entre = (n, minimo, maximo) => Math.min(maximo, Math.max(minimo, n));

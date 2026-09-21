@@ -12,6 +12,8 @@ import {
   queFaltaPara,
   ORDEN_ROLES,
   etiquetaRol,
+  comoSeIdentifica,
+  ejemplosDe,
 } from "../src/lib/presets.js";
 import { MODULOS } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
@@ -70,9 +72,28 @@ test("un caso sin responsable dice lo mismo en todos los rubros", () => {
   }
 });
 
-test("los estados que dependen de algo de afuera los escribe quien los produce", () => {
-  assert.equal(queFaltaPara("taller", "esperando"), "");
-  assert.equal(queFaltaPara("taller", "completado"), "");
+// CAMBIO DE CRITERIO. Antes esto devolvía "" a propósito: qué se está
+// esperando depende del caso —un repuesto, el sí del cliente— y lo escribía
+// quien lo producía. Ese razonamiento valía cuando cada botón de "Cómo sigue"
+// traía su texto a mano.
+//
+// Con el estado en un desplegable, pasar a esperando ya no pasa por ningún
+// botón que sepa qué se espera, y el "" dejaba la tarjeta del caso con un
+// "Qué falta:" vacío colgando. Ahora hay un texto genérico del rubro, y quien
+// sabe más lo sigue pisando: el flujo del insumo escribe "El repuesto llega
+// mañana", que es más preciso y le gana a esto.
+test("esperando cae en lo genérico del rubro, que es mejor que un hueco", () => {
+  assert.equal(queFaltaPara("taller", "esperando"), "El repuesto o el sí del cliente");
+
+  for (const r of RUBROS) {
+    assert.ok(queFaltaPara(r.clave, "esperando").trim(), `${r.clave} lo deja vacío`);
+  }
+});
+
+test("un caso cerrado no tiene nada pendiente, en ningún rubro", () => {
+  for (const r of RUBROS) {
+    assert.equal(queFaltaPara(r.clave, "completado"), "Nada, el caso está cerrado.");
+  }
 });
 
 // Mismo criterio que los estados: los tres roles son fijos porque la base no
@@ -95,5 +116,54 @@ test("el que hace el trabajo se llama distinto en cada rubro", () => {
   for (const r of RUBROS) {
     assert.equal(etiquetaRol(r.clave, "duenio"), "Dueño");
     assert.equal(etiquetaRol(r.clave, "encargado"), "Encargado");
+  }
+});
+
+// El identificador es lo más certero para reconocer un caso, y se pide al
+// abrirlo. Si a un rubro le faltara, el alta quedaría pidiendo "falta
+// undefined undefined".
+test("cada rubro dice cómo identifica un caso, con su artículo", () => {
+  for (const r of RUBROS) {
+    const id = comoSeIdentifica(r.clave);
+    for (const campo of ["nombre", "enFrase", "ejemplo"]) {
+      assert.equal(typeof id[campo], "string", `${r.clave}.identificador sin ${campo}`);
+      assert.ok(id[campo].trim().length > 0, `${r.clave}.identificador.${campo} vacío`);
+    }
+    assert.ok(/^(el|la) /.test(id.enFrase), `${r.clave}: "${id.enFrase}" tendría que empezar con el o la`);
+  }
+});
+
+test("cada rubro identifica por lo suyo", () => {
+  assert.equal(comoSeIdentifica("taller").nombre, "Patente");
+  assert.equal(comoSeIdentifica("medicina").nombre, "DNI");
+  assert.equal(comoSeIdentifica("service").nombre, "Número de serie");
+  // Para meterlo en una oración. Pasar el nombre a minúsculas rompería la
+  // sigla: "falta el dni" en vez de "falta el DNI".
+  assert.equal(comoSeIdentifica("taller").enFrase, "la patente");
+  assert.equal(comoSeIdentifica("medicina").enFrase, "el DNI");
+});
+
+// ---------------------------------------------------------------
+// SCRUM-90: los ejemplos de los formularios son de cada rubro
+// ---------------------------------------------------------------
+
+test("cada rubro trae sus ejemplos para todos los formularios", () => {
+  const claves = ["negocio", "descripcion", "servicio", "diagnostico", "paso", "turno", "insumo"];
+  for (const r of RUBROS) {
+    for (const clave of claves) {
+      assert.ok(
+        ejemplosDe(r.clave)[clave]?.trim(),
+        `${r.clave} no tiene ejemplo de ${clave}`
+      );
+    }
+  }
+});
+
+test("un ejemplo de un rubro no aparece en otro: cada oficio tiene los suyos", () => {
+  const taller = ejemplosDe("taller");
+  for (const otro of ["medicina", "service"]) {
+    for (const [clave, texto] of Object.entries(ejemplosDe(otro))) {
+      assert.notEqual(texto, taller[clave], `${otro}.${clave} repite el de taller`);
+    }
   }
 });

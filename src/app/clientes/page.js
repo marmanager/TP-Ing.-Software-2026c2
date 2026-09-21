@@ -29,6 +29,12 @@ export default function Clientes() {
     .filter((c) => !texto || c.nombre.toLowerCase().includes(texto) || (c.telefono ?? "").includes(texto))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
+  // Quien pidió un turno y todavía no vino va aparte: la lista de clientes
+  // sirve para encontrar a alguien que ya estuvo, y mezclarlos la ensucia.
+  // Pasan a la lista de arriba solos, cuando se les abre el primer caso.
+  const vinieron = visibles.filter((c) => c.confirmado !== false);
+  const porVenir = visibles.filter((c) => c.confirmado === false);
+
   const errorTelefono =
     tocado && telefono.trim() && !telefonoValido(telefono)
       ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
@@ -109,19 +115,47 @@ export default function Clientes() {
         className="mt-2 mb-6 block min-h-12 w-full max-w-[560px] rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo placeholder:text-tinta-suave"
       />
 
-      {visibles.length === 0 ? (
+      {/* Con las tarjetas en varias columnas no se percibe si el resultado
+          son tres o treinta (auditoría, H1). */}
+      {texto && clientes.length > 0 && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-tinta-media">
+          <span>
+            <span className="font-bold text-tinta">{visibles.length}</span>{" "}
+            {visibles.length === 1 ? "cliente" : "clientes"} con «{busqueda.trim()}», de{" "}
+            {clientes.length}
+          </span>
+          <Boton variante="plano" icono="cruz" onClick={() => setBusqueda("")}>
+            Ver todos
+          </Boton>
+        </p>
+      )}
+
+      {vinieron.length === 0 && porVenir.length === 0 ? (
         <Vacio icono="persona" titulo="Todavía no hay clientes cargados">
           Cuando abras un caso, el cliente se da de alta solo.
         </Vacio>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {visibles.map((cliente) => {
+        <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
+          {vinieron.map((cliente) => {
             const suyos = casos.filter((c) => c.cliente_id === cliente.id);
             const abiertos = suyos.filter(estaAbierto).length;
+            // El más reciente de verdad: la lista de casos no viene ordenada,
+            // y el enlace decía "último" pero abría el primero que hubiera,
+            // sin forma de darse cuenta de que era uno viejo (auditoría, H2).
+            const ultimo = suyos.reduce(
+              (mas, c) => (!mas || new Date(c.abierto_en) > new Date(mas.abierto_en) ? c : mas),
+              null
+            );
             return (
               <li key={cliente.id}>
                 <Tarjeta className="h-full">
-                  <p className="font-bold text-subtitulo">{cliente.nombre}</p>
+                  <Link
+                    href={`/clientes/${cliente.id}`}
+                    className="inline-flex min-h-12 items-center gap-2 font-bold text-subtitulo text-azul"
+                  >
+                    {cliente.nombre}
+                    <Icono nombre="volver" className="size-5 rotate-180" />
+                  </Link>
                   {cliente.telefono && (
                     <a
                       href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
@@ -138,9 +172,9 @@ export default function Clientes() {
                   {cliente.notas && (
                     <p className="mt-2 text-apoyo text-tinta-suave">{cliente.notas}</p>
                   )}
-                  {suyos.length > 0 && (
+                  {ultimo && (
                     <Link
-                      href={`/casos/${suyos[0].id}`}
+                      href={`/casos/${ultimo.id}`}
                       className="mt-3 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
                     >
                       <Icono nombre="carpeta" className="size-5" />
@@ -152,6 +186,44 @@ export default function Clientes() {
             );
           })}
         </ul>
+      )}
+
+      {porVenir.length > 0 && (
+        <>
+          <TituloSeccion className="mt-12">Todavía no vinieron</TituloSeccion>
+          <p className="-mt-2 mb-4 max-w-[65ch] text-tinta-media">
+            Pidieron un turno pero todavía no aparecieron. Pasan a la lista de arriba
+            solos cuando les abras el primer caso.
+          </p>
+          <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
+            {porVenir.map((cliente) => (
+              <li key={cliente.id}>
+                <Tarjeta className="h-full border-dashed">
+                  <Link
+                    href={`/clientes/${cliente.id}`}
+                    className="inline-flex min-h-12 items-center gap-2 font-bold text-subtitulo text-azul"
+                  >
+                    {cliente.nombre}
+                    <Icono nombre="volver" className="size-5 rotate-180" />
+                  </Link>
+                  {cliente.telefono && (
+                    <a
+                      href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                      className="mt-1 inline-flex min-h-12 items-center gap-2 text-azul"
+                    >
+                      <Icono nombre="telefono" className="size-5" />
+                      {cliente.telefono}
+                    </a>
+                  )}
+                  <p className="mt-1 flex items-center gap-1.5 text-etiqueta text-tinta-suave">
+                    <Icono nombre="reloj" className="size-5" />
+                    Tiene turno, todavía no vino
+                  </p>
+                </Tarjeta>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );

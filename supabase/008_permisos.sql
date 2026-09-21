@@ -1,8 +1,12 @@
 -- ============================================================
 -- 008_permisos.sql — qué puede hacer cada rol (SCRUM-18)
 --
--- Correr entero en el SQL Editor de Supabase, después de 001..006.
+-- Correr entero en el SQL Editor de Supabase, después de 001..007.
 -- Es idempotente.
+--
+-- El 007 no se puede saltear: acá se usa mi_rol() en casi todas las
+-- políticas, y esa función —y la columna usuario.rol de la que lee— nacen
+-- ahí. Correr este archivo antes del 007 falla.
 --
 -- Hasta acá cualquiera que estuviera en el negocio podía hacer todo. Este
 -- archivo reemplaza esas políticas por otras que miran el rol.

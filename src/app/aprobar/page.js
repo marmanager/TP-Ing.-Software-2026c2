@@ -7,8 +7,8 @@
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { pesos } from "@/lib/estados";
-import { haceCuanto } from "@/lib/fechas";
+import { casosPorAprobar, pesos } from "@/lib/estados";
+import { cuantoHace, diasDesde } from "@/lib/fechas";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Cargando, Tarjeta, Vacio } from "@/componentes/ui";
@@ -19,13 +19,7 @@ export default function AAprobar() {
 
   if (cargando) return <Cargando />;
 
-  const conPendientes = casos
-    .map((caso) => {
-      const pendientes = pasos.filter((p) => p.caso_id === caso.id && p.estado === "esperando");
-      return { caso, pendientes, plata: pendientes.reduce((s, p) => s + Number(p.monto), 0) };
-    })
-    .filter((x) => x.pendientes.length > 0)
-    .sort((a, b) => b.plata - a.plata);
+  const conPendientes = casosPorAprobar(casos, pasos);
 
   const total = conPendientes.reduce((s, x) => s + x.plata, 0);
 
@@ -51,8 +45,10 @@ export default function AAprobar() {
           </div>
 
           <ul className="flex flex-col gap-3">
-            {conPendientes.map(({ caso, pendientes, plata }) => {
+            {conPendientes.map(({ caso, cuantos, plata, esperandoDesde }) => {
               const cliente = clientes.find((c) => c.id === caso.cliente_id);
+              // Una semana sin respuesta es el momento de levantar el teléfono.
+              const hayQueInsistir = diasDesde(esperandoDesde) >= 7;
               return (
                 <li key={caso.id}>
                   <Tarjeta>
@@ -69,19 +65,39 @@ export default function AAprobar() {
 
                     <p className="mt-3">
                       <span className="font-bold">
-                        {pendientes.length} {pendientes.length === 1 ? "paso" : "pasos"}
+                        {cuantos} {cuantos === 1 ? "paso" : "pasos"}
                       </span>{" "}
                       por <span className="font-bold tabular-nums">{pesos(plata)}</span>
                     </p>
-                    <p className="text-apoyo text-tinta-suave">{haceCuanto(caso.abierto_en)}</p>
-
-                    <Link
-                      href={`/casos/${caso.id}/pasos`}
-                      className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-azul hover:bg-azul-claro"
+                    <p
+                      className={`flex items-center gap-1.5 ${hayQueInsistir ? "font-bold text-espera" : "text-tinta-media"}`}
                     >
-                      <Icono nombre="nota" />
-                      Ver los pasos
-                    </Link>
+                      {hayQueInsistir && <Icono nombre="alerta" className="size-5" />}
+                      Se lo mandaste {cuantoHace(esperandoDesde)}
+                      {hayQueInsistir && ". Conviene llamarlo"}
+                    </p>
+
+                    {/* Esta pantalla existe para decidir a quién insistirle:
+                        el teléfono va acá y no a dos pantallas de distancia
+                        (auditoría, H7). */}
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <Link
+                        href={`/casos/${caso.id}/pasos`}
+                        className="inline-flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-azul hover:bg-azul-claro"
+                      >
+                        <Icono nombre="nota" />
+                        Ver los pasos
+                      </Link>
+                      {cliente?.telefono && (
+                        <a
+                          href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                          className="inline-flex min-h-12 items-center gap-2 px-3 font-bold text-azul hover:bg-azul-claro"
+                        >
+                          <Icono nombre="telefono" />
+                          Llamar al {cliente.telefono}
+                        </a>
+                      )}
+                    </div>
                   </Tarjeta>
                 </li>
               );

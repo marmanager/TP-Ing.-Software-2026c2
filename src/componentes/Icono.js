@@ -67,6 +67,25 @@ const TRAZOS = {
   llave: (
     <path d="M17.5 3.5a5 5 0 0 0-6.3 6.3L4 17l3 3 7.2-7.2a5 5 0 0 0 6.3-6.3l-3 3-2.5-.5-.5-2.5z" />
   ),
+  // Cuatro cuadrados: "todas las secciones", el lugar "Más" de la barra del
+  // celular. No es el "+", que en el sistema quiere decir "agregar".
+  secciones: (
+    <>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    </>
+  ),
+  // Un reloj con la flecha para atrás: lo que ya pasó. Distinto de "reloj",
+  // que es un reloj de arena y quiere decir "esperando".
+  historial: (
+    <>
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" />
+      <path d="M3 3.5v4h4" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
   reloj: (
     <>
       <path d="M7 3h10M7 21h10" />
@@ -87,6 +106,8 @@ const TRAZOS = {
     </>
   ),
   mas: <path d="M12 5v14M5 12h14" />,
+  "flecha-izq": <path d="M14.5 6l-6 6 6 6" />,
+  "flecha-der": <path d="M9.5 6l6 6-6 6" />,
   diagnostico: (
     <>
       <path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z" />
@@ -106,12 +127,6 @@ const TRAZOS = {
   telefono: (
     <path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2 2A15 15 0 0 1 4 5a2 2 0 0 1 2-2z" />
   ),
-  camara: (
-    <>
-      <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-      <circle cx="12" cy="13" r="3.5" />
-    </>
-  ),
   buscar: (
     <>
       <circle cx="11" cy="11" r="6" />
@@ -126,7 +141,12 @@ const TRAZOS = {
     </>
   ),
   volver: <path d="M15 19l-7-7 7-7" />,
+  "flecha-abajo": <path d="M6 9l6 6 6-6" />,
+  "flecha-arriba": <path d="M6 15l6-6 6 6" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  // Un círculo vacío: el par del tilde. Juntos dicen hecho y todavía no
+  // sin que haga falta el color.
+  circulo: <circle cx="12" cy="12" r="8.5" />,
   cruz: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -157,12 +177,6 @@ const TRAZOS = {
       <path d="M15 5H5a2 2 0 0 0-2 2v10" />
     </>
   ),
-  candado: (
-    <>
-      <rect x="4" y="10" width="16" height="11" rx="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-    </>
-  ),
   salir: (
     <>
       <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
@@ -177,6 +191,16 @@ const TRAZOS = {
     <>
       <circle cx="12" cy="12" r="3.2" />
       <path d="M19.4 13.9a7.9 7.9 0 0 0 0-3.8l2-1.5-2-3.4-2.3 1a7.9 7.9 0 0 0-3.3-1.9L13.5 2h-3l-.3 2.3a7.9 7.9 0 0 0-3.3 1.9l-2.3-1-2 3.4 2 1.5a7.9 7.9 0 0 0 0 3.8l-2 1.5 2 3.4 2.3-1a7.9 7.9 0 0 0 3.3 1.9l.3 2.3h3l.3-2.3a7.9 7.9 0 0 0 3.3-1.9l2.3 1 2-3.4z" />
+    </>
+  ),
+  // El mango en diagonal y las cerdas en la punta de abajo. Va sobre la foto
+  // del negocio mientras se la edita, y es la única vez en todo el sistema
+  // que un botón queda sin palabra al lado: encima de la foto no entra. Por
+  // eso ese botón lleva aria-label, que es lo que lee un lector de pantalla.
+  pincel: (
+    <>
+      <path d="M20.3 3.7a2.3 2.3 0 0 0-3.3 0l-7.6 7.6 3.3 3.3 7.6-7.6a2.3 2.3 0 0 0 0-3.3z" />
+      <path d="M9.4 11.3 5.9 14.8a4.2 4.2 0 0 0-1.2 2.4c-.1.9-.7 1.5-1.6 1.9 1.2 1 2.7 1.6 4.3 1.6a4.6 4.6 0 0 0 4.6-4.6c0-.5.2-1 .5-1.4z" />
     </>
   ),
 };

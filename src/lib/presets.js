@@ -5,8 +5,12 @@
 // oficio. No puede agregar un sexto estado, ni cambiar un ícono, ni tocar los
 // datos de un caso.
 //
-// En el Sprint 1 ningún preset esconde estados: si escondiera uno, los casos
-// sembrados en ese estado desaparecerían de la lista en vivo.
+// Ningún preset esconde estados todavía: la cartilla lo permite, pero un caso
+// que ya está en el estado escondido desaparecería de la lista sin aviso.
+//
+// "ejemplos" son los textos de muestra de los formularios. Van acá y no en
+// cada pantalla porque un ejemplo de otro oficio confunde más que no tener
+// ninguno: a un consultorio no le sirve leer "cambio de pastillas de freno".
 
 export const PRESETS = {
   taller: {
@@ -24,6 +28,11 @@ export const PRESETS = {
       esperando: "El repuesto o el sí del cliente",
       revision_final: "Control antes de entregar",
     },
+    // Las dos esperas, separadas. "explica.esperando" las mezcla —"el
+    // repuesto O el sí del cliente"— y para adentro alcanza, pero al cliente
+    // que abre el link hay que decirle cuál de las dos es: si la pelota es
+    // suya y la pantalla no se lo dice, no contesta nunca.
+    espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
     motivos: [
       "Ruido raro",
       "Service de rutina",
@@ -34,7 +43,17 @@ export const PRESETS = {
       "Alineación y balanceo",
     ],
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
+    identificador: { nombre: "Patente", enFrase: "la patente", ejemplo: "AB 123 CD" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
+    ejemplos: {
+      negocio: "Taller Sur",
+      descripcion: "Mecánica general y chapa, zona sur",
+      servicio: "Un ruido raro cuando frena",
+      diagnostico: "La correa está floja y las pastillas, al límite.",
+      paso: "Cambio de pastillas de freno",
+      turno: "cambio de aceite",
+      insumo: "filtro de aceite",
+    },
   },
 
   medicina: {
@@ -52,6 +71,7 @@ export const PRESETS = {
       esperando: "El estudio o el turno con el especialista",
       revision_final: "Control antes del alta",
     },
+    espera: { cliente: "tu respuesta", negocio: "un estudio o un turno con el especialista" },
     motivos: [
       "Primera consulta",
       "Control",
@@ -61,7 +81,17 @@ export const PRESETS = {
       "Seguimiento de tratamiento",
     ],
     modulos: ["agenda", "presupuesto"],
+    identificador: { nombre: "DNI", enFrase: "el DNI", ejemplo: "30123456" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
+    ejemplos: {
+      negocio: "Consultorio Belgrano",
+      descripcion: "Clínica médica, con obras sociales",
+      servicio: "Dolor de cabeza que no se le va hace una semana",
+      diagnostico: "Contractura cervical. No hay signos de alarma.",
+      paso: "Resonancia de columna cervical",
+      turno: "control anual",
+      insumo: "guantes descartables",
+    },
   },
 
   service: {
@@ -79,6 +109,7 @@ export const PRESETS = {
       esperando: "El repuesto o el presupuesto aprobado",
       revision_final: "Prueba antes de entregar",
     },
+    espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
     motivos: [
       "No enciende",
       "Pantalla rota",
@@ -88,7 +119,17 @@ export const PRESETS = {
       "Limpieza y mantenimiento",
     ],
     modulos: ["inventario", "equipo", "presupuesto"],
+    identificador: { nombre: "Número de serie", enFrase: "el número de serie", ejemplo: "SN-48219" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
+    ejemplos: {
+      negocio: "Service Centro",
+      descripcion: "Notebooks y celulares, reparación en el día",
+      servicio: "La notebook se apaga sola a los diez minutos",
+      diagnostico: "El cooler está trabado y el procesador recalienta.",
+      paso: "Cambio de cooler y pasta térmica",
+      turno: "retirar la notebook",
+      insumo: "pasta térmica",
+    },
   },
 };
 
@@ -108,6 +149,26 @@ export const etiquetaEstado = (rubro, estado) =>
 // un taller y "Profesional" en un consultorio.
 export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
 
+// Cómo llama cada rubro a lo que identifica el caso: la patente del auto, el
+// DNI del paciente, el número de serie del equipo.
+//
+// No es un dato más: es lo más certero que tenemos para reconocer un caso, y
+// por eso se pide al abrirlo. El nombre de un cliente se escribe de diez
+// formas distintas; una patente, no.
+//
+// "nombre" es para la etiqueta del campo y "enFrase" para meterlo en medio de
+// una oración: van separados porque no alcanza con pasar el nombre a
+// minúsculas — "el DNI" no es "el dni".
+export const comoSeIdentifica = (rubro) => preset(rubro).identificador;
+
+// Los textos de muestra de los formularios, en el oficio del negocio.
+export const ejemplosDe = (rubro) => preset(rubro).ejemplos;
+
+// Cómo llama cada rubro a las dos cosas por las que un caso puede estar
+// frenado: la respuesta del cliente, o algo que tiene que conseguir el
+// negocio. Un taller espera un repuesto y un consultorio, un estudio.
+export const comoSeEspera = (rubro) => preset(rubro).espera;
+
 // El "qué falta" de un caso, en el idioma de su rubro.
 //
 // A diferencia de las etiquetas, este texto NO se recalcula al mostrarlo:
@@ -115,8 +176,8 @@ export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
 // mano en cada pantalla, o un negocio de medicina termina con casos que
 // dicen "Está en el taller".
 //
-// Los estados que dependen de algo de afuera ("esperando") o de una nota
-// puntual los escribe quien los produce, porque no hay un texto único.
+// "esperando" es el único que no sale de acá: depende de qué se está
+// esperando —un repuesto, el sí del cliente— y lo escribe quien lo produce.
 export function queFaltaPara(rubro, estado) {
   const p = preset(rubro);
   switch (estado) {
@@ -126,6 +187,13 @@ export function queFaltaPara(rubro, estado) {
       return p.etiquetas.en_proceso;
     case "revision_final":
       return p.explica.revision_final;
+    case "esperando":
+      // Quien sabe qué se está esperando lo escribe más preciso —el flujo del
+      // insumo pone "El repuesto llega mañana"—, pero desde el desplegable no
+      // hay quién, así que vale lo genérico del rubro antes que un hueco.
+      return p.explica.esperando;
+    case "completado":
+      return "Nada, el caso está cerrado.";
     default:
       return "";
   }

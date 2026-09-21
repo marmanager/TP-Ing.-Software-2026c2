@@ -27,7 +27,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { estaAbierto } from "@/lib/estados";
+import { casosPorAprobar, casosQueContestoElCliente, estaAbierto } from "@/lib/estados";
+import { turnosSinVer } from "@/lib/turnos";
+import { diasDesde } from "@/lib/fechas";
 import {
   ALTO_FILA,
   COLUMNAS,
@@ -61,7 +63,18 @@ const enAlgoQueSeToca = (destino) =>
   destino instanceof Element && destino.closest("button, select, input, a, label");
 
 export default function Inicio() {
-  const { cargando, casos, negocio, inicio, cambiarInicio, avisarExito } = useDatos();
+  const {
+    cargando,
+    casos,
+    pasos,
+    insumos,
+    eventos,
+    turnos,
+    negocio,
+    inicio,
+    cambiarInicio,
+    avisarExito,
+  } = useDatos();
   useTitulo("Inicio");
 
   const [acomodando, setAcomodando] = useState(false);
@@ -120,6 +133,49 @@ export default function Inicio() {
   const sePuedenAgregar = agregables([...(borrador ?? []), ...ocultos], modulosActivos);
 
   const abiertos = casos.filter(estaAbierto).length;
+
+  // Casos que esperan respuesta del cliente hace más de tres días, e insumos
+  // por debajo del mínimo: lo que hay que destrabar hoy.
+  const trabados = casosPorAprobar(casos, pasos).filter(
+    (c) => diasDesde(c.esperandoDesde) > 3
+  ).length;
+  const bajoMinimo = insumos.filter(
+    (i) => i.estado === "en_stock" && i.cantidad <= i.minimo
+  ).length;
+
+  // El cliente contesta cuando puede, muchas veces fuera de hora. Del lado
+  // del negocio eso tiene que aparecer solo a la mañana siguiente y no
+  // cuando alguien se acuerde de entrar al caso (flujo, punto 5).
+  const contestados = casosQueContestoElCliente(casos, eventos);
+
+  // Un turno que entró por el link puede haber caído un domingo a la noche:
+  // del lado del negocio nadie se enteró hasta que alguien mira la agenda.
+  const turnosNuevos = turnosSinVer(turnos ?? []);
+
+  const hayQueMirar = [
+    turnosNuevos.length > 0 && {
+      href: "/agenda",
+      texto:
+        turnosNuevos.length === 1
+          ? "Alguien pidió un turno por el link"
+          : `${turnosNuevos.length} turnos nuevos pedidos por el link`,
+    },
+    contestados.length > 0 && {
+      href: contestados.length === 1 ? `/casos/${contestados[0].id}` : "/casos",
+      texto:
+        contestados.length === 1
+          ? `El cliente contestó el caso ${contestados[0].numero}`
+          : `${contestados.length} casos que contestó el cliente`,
+    },
+    trabados > 0 && {
+      href: "/aprobar",
+      texto: `${trabados} ${trabados === 1 ? "caso espera" : "casos esperan"} respuesta hace más de 3 días`,
+    },
+    bajoMinimo > 0 && {
+      href: "/inventario",
+      texto: `${bajoMinimo} ${bajoMinimo === 1 ? "insumo" : "insumos"} por debajo del mínimo`,
+    },
+  ].filter(Boolean);
   const fecha = new Intl.DateTimeFormat("es-AR", {
     weekday: "long",
     day: "numeric",
@@ -204,12 +260,19 @@ export default function Inicio() {
       (m) => m.y !== borrador.find((b) => b.clave === m.clave)?.y
     );
 
+    // Cómo estaba antes de guardar, para poder deshacerlo desde el aviso.
+    // "Volver al orden de fábrica" pierde también lo que la persona había
+    // acomodado bien antes; deshacer el último guardado es lo que se necesita
+    // (auditoría, H3).
+    const comoEstaba = inicio;
+
     cambiarInicio([...acomodado, ...ocultos]);
     salirDeAcomodar();
     avisarExito(
       subioAlgo
         ? "Listo. Juntamos los módulos para arriba así no te quedan espacios en blanco."
-        : "Listo. Tu pantalla de inicio quedó como la dejaste."
+        : "Listo. Tu pantalla de inicio quedó como la dejaste.",
+      { deshacer: () => cambiarInicio(comoEstaba) }
     );
   }
 
@@ -234,9 +297,23 @@ export default function Inicio() {
         <div>
           <h1 className="text-pantalla">Inicio</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media first-letter:uppercase">
-            {acomodando
-              ? "Agarrá un módulo del medio y llevalo donde quieras. Para el tamaño, tirá de la esquina punteada; para lo demás, tocalo y abrí sus ajustes."
-              : `${fecha} · ${abiertos} ${abiertos === 1 ? "caso abierto" : "casos abiertos"}`}
+            {acomodando ? (
+              <>
+                {/* Por debajo de 48rem arrastrar está apagado (ver agarrar()):
+                    la instrucción sólo menciona lo que se puede hacer en esa
+                    pantalla. Si dijera "agarrá", alguien lo intenta, no pasa
+                    nada y concluye que el sistema está roto (auditoría, H2). */}
+                <span className="md:hidden">
+                  Tocá un módulo y usá sus ajustes para moverlo o cambiarle el tamaño.
+                </span>
+                <span className="hidden md:inline">
+                  Agarrá un módulo del medio y llevalo donde quieras. Para el tamaño, tirá
+                  de la esquina punteada; para lo demás, tocalo y abrí sus ajustes.
+                </span>
+              </>
+            ) : (
+              `${fecha} · ${abiertos} ${abiertos === 1 ? "caso abierto" : "casos abiertos"}`
+            )}
           </p>
         </div>
 
@@ -251,10 +328,11 @@ export default function Inicio() {
           </div>
         ) : (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Boton icono="cajas" onClick={empezarAAcomodar}>
-              Acomodar la pantalla
-            </Boton>
-            {/* El único botón azul cuando no se está acomodando. */}
+            {/* El único botón azul cuando no se está acomodando, y lo único
+                arriba: abrir un caso se hace varias veces por día. "Acomodar
+                la pantalla" se hace una vez cada varios meses y va al pie de
+                la grilla; con los dos del mismo tamaño al lado había que leer
+                los dos todas las veces (auditoría, H8). */}
             <Link href="/casos/nuevo" className="flex-1 sm:flex-none">
               <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
                 <Icono nombre="mas" />
@@ -264,6 +342,26 @@ export default function Inicio() {
           </div>
         )}
       </div>
+
+      {/* Lo que está trabado, arriba de todo. La cabecera dice la fecha y
+          cuántos casos hay abiertos, y ninguno de esos dos números cambia lo
+          que la persona va a hacer en los próximos diez minutos (auditoría,
+          H1). Esto sí: son las dos cosas que hay que destrabar. */}
+      {!acomodando && hayQueMirar.length > 0 && (
+        <ul className="mb-6 flex flex-wrap gap-2">
+          {hayQueMirar.map(({ href, texto }) => (
+            <li key={href}>
+              <Link
+                href={href}
+                className="flex min-h-12 items-center gap-2 rounded-campo border-2 border-espera bg-espera-fondo px-4 font-bold text-espera"
+              >
+                <Icono nombre="alerta" className="size-5" />
+                {texto}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {enPantalla.length === 0 ? (
         <Vacio icono="cajas" titulo="Tu inicio está vacío">
@@ -308,7 +406,7 @@ export default function Inicio() {
               .
             </p>
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
               {sePuedenAgregar.map((def) => (
                 <li key={def.clave}>
                   <button
@@ -348,6 +446,15 @@ export default function Inicio() {
           </div>
         </>
       )}
+
+      {!acomodando && (
+        <div className="mt-6">
+          <Boton variante="plano" icono="cajas" onClick={empezarAAcomodar}>
+            Acomodar la pantalla
+          </Boton>
+        </div>
+      )}
+
     </>
   );
 }

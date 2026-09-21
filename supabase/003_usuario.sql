@@ -1,14 +1,15 @@
 -- ============================================================
 -- 003_usuario.sql — cuentas y su negocio (SCRUM-5)
 --
--- Correr entero en el SQL Editor de Supabase, después de 001 y 002.
+-- Correr entero en el SQL Editor de Supabase, después del 001.
 -- Es idempotente: se puede volver a correr sin romper nada.
 --
--- NOTA SOBRE SEGURIDAD (sigue siendo decisión consciente, no olvido):
--- la tabla queda SIN Row Level Security, igual que el resto. La clave
--- anónima puede leer y escribir. El aislamiento por negocio con políticas
--- RLS va en el Sprint 2; por ahora el negocio del usuario se resuelve del
--- lado del cliente con esta tabla.
+-- NO ES OPCIONAL: el 001 no crea esta tabla. Sin ella no hay forma de saber
+-- de qué negocio es una cuenta, y todo el aislamiento del 005 cuelga de acá:
+-- mi_negocio() lee justamente esta tabla.
+--
+-- La protege el 005, que le prende Row Level Security: cada cuenta ve su
+-- propia fila y ninguna otra.
 -- ============================================================
 
 -- ---------- usuario ----------

@@ -66,7 +66,7 @@ test("el orden por defecto es una grilla sana", () => {
   const config = normalizarInicio(INICIO_POR_DEFECTO);
   grillaSana(config, "por defecto:");
   sinHuecosVerticales(config, "por defecto:");
-  assert.deepEqual(claves(config), ["pendientes", "casos", "agenda", "inventario"]);
+  assert.deepEqual(claves(config), ["pendientes", "casos", "agenda", "inventario", "historial"]);
 });
 
 test("el orden por defecto reproduce el boceto", () => {
@@ -83,6 +83,10 @@ test("el orden por defecto reproduce el boceto", () => {
   assert.equal(de(c, "inventario").x, 4);
   assert.equal(de(c, "casos").y, de(c, "agenda").y, "casos y agenda arrancan en la misma fila");
   assert.ok(de(c, "inventario").y > de(c, "agenda").y, "inventario va debajo de agenda");
+  // Abajo de todo, a todo el ancho: el historial.
+  assert.equal(de(c, "historial").x, 0);
+  assert.equal(de(c, "historial").ancho, 6);
+  assert.ok(de(c, "historial").y >= de(c, "casos").y + de(c, "casos").alto, "va debajo de casos");
 });
 
 test("dos módulos pueden ir uno al lado del otro, no sólo apilados", () => {
@@ -127,8 +131,14 @@ test("acomodando, el hueco se ve; al guardar, se recorta", () => {
   grillaSana(guardado, "guardado:");
   sinHuecosVerticales(guardado, "guardado:");
 
+  // Lo que tiene encima en sus columnas. Sólo lo de arriba: lo que quedó
+  // debajo (el historial, a todo el ancho) no es donde se apoya.
   const arriba = guardado.filter(
-    (m) => m.clave !== "inventario" && m.x < 6 && m.x + m.ancho > 4
+    (m) =>
+      m.clave !== "inventario" &&
+      m.x < 6 &&
+      m.x + m.ancho > 4 &&
+      m.y < de(guardado, "inventario").y
   );
   const tope = arriba.reduce((max, m) => Math.max(max, m.y + m.alto), 0);
   assert.equal(de(guardado, "inventario").y, tope, "queda apoyado, sin vacío en el medio");
@@ -240,7 +250,7 @@ test("los módulos se leen de arriba abajo y de izquierda a derecha", () => {
 
 test("subir y bajar intercambian el lugar con el vecino", () => {
   const antes = normalizarInicio(INICIO_POR_DEFECTO);
-  assert.deepEqual(claves(antes), ["pendientes", "casos", "agenda", "inventario"]);
+  assert.deepEqual(claves(antes), ["pendientes", "casos", "agenda", "inventario", "historial"]);
 
   const subido = intercambiar(antes, "agenda", -1);
   grillaSana(subido, "tras subir:");
@@ -248,7 +258,7 @@ test("subir y bajar intercambian el lugar con el vecino", () => {
 
   // Contra los bordes no hace nada.
   assert.deepEqual(claves(intercambiar(antes, "pendientes", -1)), claves(antes));
-  assert.deepEqual(claves(intercambiar(antes, "inventario", 1)), claves(antes));
+  assert.deepEqual(claves(intercambiar(antes, "historial", 1)), claves(antes));
 });
 
 test("un módulo nuevo entra abajo de todo, sin tapar nada", () => {
@@ -272,7 +282,7 @@ test("un módulo nuevo entra abajo de todo, sin tapar nada", () => {
 test("un módulo apagado en Mi negocio no se muestra, pero no se pierde", () => {
   const config = normalizarInicio(INICIO_POR_DEFECTO);
 
-  assert.deepEqual(claves(visibles(config, ["agenda"])), ["pendientes", "casos", "agenda"]);
+  assert.deepEqual(claves(visibles(config, ["agenda"])), ["pendientes", "casos", "agenda", "historial"]);
   assert.deepEqual(claves(visibles(config, TODOS_LOS_MODULOS)), claves(config));
 });
 

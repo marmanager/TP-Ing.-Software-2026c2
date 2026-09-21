@@ -8,10 +8,19 @@
 
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
-import { estaAbierto, ORDEN_ESTADOS, pesos, quienLoTiene } from "@/lib/estados";
+import {
+  casosPorAprobar,
+  estaAbierto,
+  ORDEN_ESTADOS,
+  queFalta,
+  pesos,
+  quienLoTiene,
+} from "@/lib/estados";
 import { ESTADOS } from "@/lib/estados";
 import { etiquetaEstado } from "@/lib/presets";
-import { horaYMinutos, diaLargo } from "@/lib/fechas";
+import { horaYMinutos, diaLargo, cuando } from "@/lib/fechas";
+import { filtrarHistorial } from "@/lib/historial";
+import { estadoDeTurno } from "@/lib/turnos";
 import Icono from "@/componentes/Icono";
 
 // ---------- piezas compartidas ----------
@@ -122,7 +131,7 @@ function CuerpoPendientes() {
 // ---------- casos ----------
 
 function CuerpoCasos({ filtro, filas }) {
-  const { casos, clientes, empleados, negocio } = useDatos();
+  const { casos, clientes, empleados, negocio, pasos, insumos } = useDatos();
 
   const elegidos = casos
     .filter((c) => {
@@ -154,7 +163,7 @@ function CuerpoCasos({ filtro, filas }) {
                 Caso {caso.numero} · {caso.servicio}
               </span>
               <span className="block truncate text-apoyo text-tinta-suave">
-                {cliente?.nombre ?? "Sin cliente"} · {caso.que_falta}
+                {cliente?.nombre ?? "Sin cliente"} · {queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente })}
               </span>
             </span>
             <span className="hidden shrink-0 text-apoyo text-tinta-suave sm:block">
@@ -220,7 +229,9 @@ function CuerpoAgenda({ filtro, filas }) {
               </span>
             </span>
             {t.estado === "agendado" && (
-              <span className="shrink-0 text-apoyo text-espera">Sin confirmar</span>
+              <span className="shrink-0 text-apoyo text-espera">
+                {estadoDeTurno("agendado").palabra}
+              </span>
             )}
           </Fila>
         );
@@ -295,13 +306,7 @@ function CuerpoInventario({ filtro, filas }) {
 function CuerpoAprobar({ filas }) {
   const { casos, clientes, pasos } = useDatos();
 
-  const conPendientes = casos
-    .map((caso) => {
-      const pendientes = pasos.filter((p) => p.caso_id === caso.id && p.estado === "esperando");
-      return { caso, cuantos: pendientes.length, plata: pendientes.reduce((s, p) => s + Number(p.monto), 0) };
-    })
-    .filter((x) => x.cuantos > 0)
-    .sort((a, b) => b.plata - a.plata);
+  const conPendientes = casosPorAprobar(casos, pasos);
 
   if (conPendientes.length === 0) {
     return <SinNada>No hay nada esperando respuesta del cliente.</SinNada>;
@@ -419,6 +424,49 @@ function CuerpoClientes({ filtro, filas }) {
   );
 }
 
+// ---------- historial ----------
+
+function CuerpoHistorial({ filtro, filas }) {
+  const { eventos, casos } = useDatos();
+  const elegidos = filtrarHistorial(eventos, { tipo: filtro });
+
+  if (elegidos.length === 0) {
+    return (
+      <SinNada>
+        {eventos.length === 0
+          ? "Todavía no pasó nada. Cuando abras el primer caso, aparece acá."
+          : "No pasó nada de esto todavía."}
+      </SinNada>
+    );
+  }
+
+  return (
+    <ul>
+      {elegidos.slice(0, filas).map((e) => {
+        const caso = casos.find((c) => c.id === e.caso_id);
+        return (
+          <Fila key={e.id} href={caso ? `/casos/${caso.id}` : "/historial"}>
+            <Icono nombre={e.icono} className="size-5 text-tinta-media" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-bold">
+                {e.titulo}
+                {caso && ` · Caso ${caso.numero}`}
+              </span>
+              <span className="block truncate text-apoyo text-tinta-suave">
+                {cuando(e.ocurrido_en)} · {e.autor}
+              </span>
+            </span>
+            {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
+              <span className="shrink-0 font-bold tabular-nums">{pesos(e.monto)}</span>
+            )}
+          </Fila>
+        );
+      })}
+      <YMas cuantos={elegidos.length - filas} href="/historial" que="eventos" />
+    </ul>
+  );
+}
+
 // Qué componente le toca a cada módulo del catálogo.
 export const CUERPOS = {
   pendientes: CuerpoPendientes,
@@ -428,4 +476,5 @@ export const CUERPOS = {
   aprobar: CuerpoAprobar,
   equipo: CuerpoEquipo,
   clientes: CuerpoClientes,
+  historial: CuerpoHistorial,
 };

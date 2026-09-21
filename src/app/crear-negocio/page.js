@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, invitacionPendiente, mailAConfirmar, olvidarMail } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { RUBROS, preset } from "@/lib/presets";
+import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
 import { modulosDe } from "@/lib/modulos";
 import { Boton, Campo, Tarjeta, TituloPantalla } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
@@ -43,10 +43,9 @@ export default function CrearNegocio() {
     }
   }, []);
 
-  if (esDemo) {
-    return <YaHayNegocio texto="Estás en el modo de ejemplo, que ya trae un negocio armado." />;
-  }
-  if (usuario?.negocio_id) {
+  // El modo de ejemplo también crea su negocio: es el mismo paso, sólo que se
+  // guarda en el navegador.
+  if (!esDemo && usuario?.negocio_id) {
     return <YaHayNegocio texto="Ya tenés un negocio creado." />;
   }
 
@@ -74,7 +73,7 @@ export default function CrearNegocio() {
 
   return (
     <>
-      <TituloPantalla apoyo="Un paso y entrás. Todo esto lo cambiás después desde Mi negocio.">
+      <TituloPantalla apoyo="Un paso y entrás.">
         Crear tu negocio
       </TituloPantalla>
 
@@ -115,7 +114,7 @@ export default function CrearNegocio() {
         <Campo
           id="nombre"
           etiqueta="¿Cómo se llama tu negocio?"
-          ayuda="Como lo van a ver vos y tu equipo. Ejemplo: Taller Sur."
+          ayuda={`Como lo van a ver vos y tu equipo. Ejemplo: ${ejemplosDe(rubro).negocio}.`}
           autoComplete="off"
           value={nombre}
           onChange={(e) => {
@@ -127,7 +126,8 @@ export default function CrearNegocio() {
         <p className="font-bold text-cuerpo">¿A qué se dedica?</p>
         <p className="mt-1 mb-3 text-apoyo text-tinta-suave">
           Elegí el más parecido. Cambia cómo se llaman los estados y qué te ofrece el
-          sistema; después lo ajustás.
+          sistema. Si te equivocás, se corrige desde Mi negocio hasta que abras el
+          primer caso; después queda fijo.
         </p>
         <ul className="grid gap-3">
           {RUBROS.map((r) => {

@@ -1,0 +1,31 @@
+-- ============================================================
+-- 016_foto_negocio.sql — la foto del negocio (SCRUM-30)
+--
+-- Correr entero en el SQL Editor de Supabase, después de 001..015.
+-- Es idempotente.
+--
+-- POR QUÉ:
+-- La barra lateral y la tarjeta de Mi negocio mostraban un cuadrado azul con
+-- un ícono de local, igual para todos. El negocio se reconoce por su logo
+-- antes que por su nombre, y el hueco ya estaba hecho: sólo faltaba dónde
+-- guardar la foto.
+--
+-- QUÉ GUARDA:
+-- El data URL de la foto ya achicada, como texto. No es la ruta a un archivo:
+-- es la foto entera. Se achica en el navegador a 256 píxeles de lado antes de
+-- llegar acá, así que son unos 20 KB.
+--
+-- POR QUÉ ACÁ Y NO EN UN BUCKET:
+-- Supabase Storage es lo correcto para archivos, pero no existe en el modo de
+-- ejemplo, donde no hay servidor que reciba nada. Una columna anda en los dos
+-- lados con el mismo código. El techo es real y está escrito en
+-- src/lib/imagen.js: para logos grandes o fotos de verdad, esto no alcanza y
+-- la respuesta es un bucket con sus políticas, no agrandar la columna.
+--
+-- null es que el negocio no cargó ninguna, y ahí se sigue viendo el ícono.
+--
+-- Las políticas de negocio (005_rls.sql) son por fila y no nombran columnas,
+-- así que ésta queda cubierta sola: no hay nada que tocar ahí.
+-- ============================================================
+
+alter table negocio add column if not exists foto text;

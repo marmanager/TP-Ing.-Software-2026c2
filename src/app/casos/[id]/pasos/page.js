@@ -11,19 +11,34 @@
 //   equivocarse de dedo.
 // - El estado de cada paso va escrito con ícono y palabra, no sólo con color.
 // - El total siempre visible, separado en aprobado y esperando respuesta.
-// - Aprobar o rechazar se puede deshacer.
+// - Rechazar se puede deshacer. Aprobar NO: lo que el cliente aceptó es un
+//   acuerdo y queda fijo. La cartilla dice que las dos cosas se deshacen;
+//   esto la contradice por decisión del equipo (ver 015_paso_aprobado_fijo.sql).
+//   Como no tiene vuelta, aprobar pide confirmación.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { pesos, totalesDeCaso } from "@/lib/estados";
+import { montoValido } from "@/lib/validaciones";
+import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
+import { cuantoHace } from "@/lib/fechas";
+import { ejemplosDe } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { linkDeSeguimiento, linkDeWhatsApp } from "@/lib/seguimiento";
+import {
+  Boton,
+  Campo,
+  Cargando,
+  ErrorGeneral,
+  Tarjeta,
+  TituloSeccion,
+  Vacio,
+} from "@/componentes/ui";
 
 const DICHO = {
   aprobado: { icono: "listo", texto: "Lo aprobó el cliente", color: "text-completo" },
@@ -33,9 +48,33 @@ const DICHO = {
 
 export default function AprobarPasos() {
   const { id } = useParams();
-  const { cargando, casos, clientes, pasos, negocio, responderPaso } = useDatos();
+  const datos = useDatos();
+  const { cargando, casos, clientes, pasos, negocio, responderPaso } = datos;
   const { usuario } = useAuth();
   const [mostrandoMensaje, setMostrandoMensaje] = useState(false);
+  // De dónde sale el link que se le manda al cliente. Se lee en un efecto
+  // porque en el servidor no hay window.
+  const [origen, setOrigen] = useState("");
+  useEffect(() => setOrigen(window.location.origin), []);
+
+  // Armar el presupuesto: se suman pasos de a uno (SCRUM-59).
+  const [armando, setArmando] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [monto, setMonto] = useState("");
+  const [tocado, setTocado] = useState(false);
+  const [sacando, setSacando] = useState(null);
+  // "Corregir el presupuesto": mientras está prendido aparece, en cada paso
+  // que todavía espera respuesta, la opción de sacarlo. Antes estaba en cada
+  // tarjeta: con seis pasos eran dieciocho botones en la pantalla donde hay
+  // que decidir sobre plata, y sacar un paso es raro (auditoría, H8).
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  const [aprobando, setAprobando] = useState(null);
+  // El diagnóstico, que hasta acá vivía en el detalle del caso (flujo, 3.2).
+  // Revisar y presupuestar son el mismo momento: se mira el auto, se escribe
+  // qué tiene, y de eso salen los pasos. Estaban en dos pantallas.
+  const [editandoDiag, setEditandoDiag] = useState(false);
+  const [diagnostico, setDiagnostico] = useState("");
 
   // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
   // técnico ve los pasos, porque son la lista de lo que tiene que hacer.
@@ -57,6 +96,12 @@ export default function AprobarPasos() {
   const mios = pasos.filter((p) => p.caso_id === caso.id).sort((a, b) => a.orden - b.orden);
   const { aprobado, esperando, todo, cuantosEsperan } = totalesDeCaso(mios);
 
+  // Con el caso cerrado el presupuesto se lee, no se toca: sumar o aprobar un
+  // paso después de entregado cambiaría lo que ya se cobró. Para eso está
+  // volver a abrir el caso, que es una sola acción y queda en el historial.
+  const abierto = estaAbierto(caso);
+  const sePuedeTocar = puedeResponder && abierto;
+
   const mensaje = [
     `Hola ${cliente?.nombre ?? ""}, te paso el detalle del caso ${caso.numero} (${caso.servicio}).`,
     "",
@@ -70,7 +115,45 @@ export default function AprobarPasos() {
     `Todo el caso: ${pesos(todo)}`,
     "",
     "Se puede aprobar de a uno. Lo que no apruebes queda anotado para más adelante.",
+    // Si el caso está compartido, el mensaje lleva el link: ahí mismo puede
+    // contestar, en vez de tener que escribir la respuesta a mano y que
+    // alguien del mostrador la cargue después (SCRUM-68).
+    ...(caso.seguimiento_codigo && origen
+      ? ["", `Podés contestar acá: ${linkDeSeguimiento(origen, caso.seguimiento_codigo)}`]
+      : []),
   ].join("\n");
+
+  const errorMonto =
+    tocado && monto.trim() && !montoValido(monto)
+      ? "Escribí el monto con números, sin puntos."
+      : null;
+
+  const motivoPaso = !nombre.trim()
+    ? "falta qué hay que hacer"
+    : !monto.trim()
+      ? "falta cuánto sale"
+      : !montoValido(monto)
+        ? "el monto va sin puntos"
+        : null;
+
+  function sumarPaso() {
+    const que = nombre.trim();
+    datos.agregarPaso({
+      casoId: caso.id,
+      nombre: que,
+      descripcion: descripcion.trim(),
+      monto,
+    });
+    datos.avisarExito(`Listo. "${que}" ya está en el presupuesto, esperando respuesta.`);
+    setNombre("");
+    setDescripcion("");
+    setMonto("");
+    setTocado(false);
+    // El formulario queda abierto y vacío: un presupuesto son varios pasos y
+    // se cargan de corrido. Cada uno aparece en la lista de arriba apenas se
+    // guarda, así se ve crecer sin tener que volver a abrir nada.
+    document.getElementById("paso-nombre")?.focus();
+  }
 
   return (
     <div className="mx-auto max-w-[560px]">
@@ -79,7 +162,7 @@ export default function AprobarPasos() {
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />
-        Volver a los casos
+        Volver al caso
       </Link>
 
       <h1 className="text-ident">Caso {caso.numero}</h1>
@@ -90,23 +173,212 @@ export default function AprobarPasos() {
       <div className="mt-3">
         <ChipEstado estado={caso.estado} />
       </div>
-      {cuantosEsperan > 0 && (
+      {cuantosEsperan > 0 && abierto && (
         <p className="mt-3 text-cuerpo">
           Falta que {cliente?.nombre ?? "el cliente"} apruebe {cuantosEsperan}{" "}
           {cuantosEsperan === 1 ? "paso" : "pasos"}.
         </p>
       )}
 
-      <TituloSeccion className="mt-10">Pasos a aprobar</TituloSeccion>
-      <p className="-mt-2 mb-4 text-tinta-media">
-        {puedeResponder
-          ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
-          : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.cargarDatos}`}
+      {/* Primero qué se encontró, después qué hay que hacer con eso: es el
+          orden en que pasa, y el que hace que los pasos se escriban mirando
+          el diagnóstico y no de memoria. */}
+      <TituloSeccion className="mt-10">El diagnóstico</TituloSeccion>
+      <Tarjeta className="mb-6">
+        {!abierto && puedeResponder && (
+          <p className="mb-4 max-w-[65ch] text-tinta-media">
+            El caso está cerrado, así que esto queda como quedó. Si hay algo que
+            corregir, volvé a abrirlo desde el caso y cerralo de nuevo después.
+          </p>
+        )}
+        <p className="font-bold text-cuerpo">Qué encontramos</p>
+
+        {editandoDiag && sePuedeTocar ? (
+          <div className="mt-2">
+            <label htmlFor="diagnostico" className="sr-only">
+              Qué encontramos
+            </label>
+            <p className="mt-1 mb-2 text-etiqueta text-tinta-media">
+              Con tus palabras, como se lo explicarías al cliente.
+            </p>
+            {/* Lo que ya estaba viene cargado en el campo, no en blanco: así
+                ampliar es escribir abajo y no se pisa nada sin querer. El
+                aviso está igual, porque guardar reemplaza. */}
+            {caso.diagnostico && (
+              <p className="mb-2 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
+                <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                <span>
+                  Estás cambiando lo que ya estaba escrito. Lo de antes está
+                  abajo: agregale lo nuevo en vez de borrarlo.
+                </span>
+              </p>
+            )}
+            <textarea
+              id="diagnostico"
+              rows={4}
+              value={diagnostico}
+              onChange={(e) => setDiagnostico(e.target.value)}
+              placeholder={ejemplosDe(negocio?.rubro).diagnostico}
+              className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
+            />
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Boton
+                icono="check"
+                motivo={!diagnostico.trim() ? "falta escribir qué encontraron" : null}
+                onClick={() => {
+                  datos.cargarDiagnostico(caso.id, diagnostico.trim());
+                  datos.avisarExito(`Listo. El diagnóstico del caso ${caso.numero} quedó anotado.`);
+                  setEditandoDiag(false);
+                }}
+              >
+                Guardar el diagnóstico
+              </Boton>
+              <Boton variante="plano" onClick={() => setEditandoDiag(false)}>
+                Dejarlo
+              </Boton>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1">
+            <p className="max-w-[65ch] text-tinta-media">
+              {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
+            </p>
+            {/* Una sola acción acá, y con forma de botón: dos enlaces azules
+                uno abajo del otro no se distinguían entre sí. Lo que había al
+                lado —"armar un paso con esto"— se fue: ahora el diagnóstico
+                aparece al lado del formulario del paso, que es donde sirve. */}
+            {sePuedeTocar && (
+              <div className="mt-3">
+                <Boton
+                  variante="neutro"
+                  icono="diagnostico"
+                  onClick={() => {
+                    setDiagnostico(caso.diagnostico ?? "");
+                    setEditandoDiag(true);
+                  }}
+                >
+                  {caso.diagnostico ? "Corregir el diagnóstico" : "Cargar el diagnóstico"}
+                </Boton>
+              </div>
+            )}
+          </div>
+        )}
+      </Tarjeta>
+
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
+        <TituloSeccion className="mb-0">
+          {abierto ? "Pasos a aprobar" : "Los pasos del caso"}
+        </TituloSeccion>
+        {sePuedeTocar && (
+          <div className="flex flex-wrap gap-2">
+            <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
+              {armando ? "Cerrar" : "Sumar un paso"}
+            </Boton>
+            {mios.some((p) => p.estado === "esperando") && (
+              <Boton
+                variante="plano"
+                icono={corrigiendo ? "check" : "tacho"}
+                onClick={() => {
+                  setCorrigiendo((v) => !v);
+                  setSacando(null);
+                }}
+              >
+                {corrigiendo ? "Listo, terminé" : "Corregir el presupuesto"}
+              </Boton>
+            )}
+          </div>
+        )}
+      </div>
+      <p className="mt-2 mb-4 text-tinta-media">
+        {corrigiendo
+          ? "Sacá los pasos que sobren. Sólo se pueden sacar los que el cliente todavía no contestó."
+          : !abierto
+          ? "El caso ya se entregó y se cerró. Los pasos quedan como quedaron."
+          : puedeResponder
+            ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
+            : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.cargarDatos}`}
       </p>
+
+      {!abierto && puedeResponder && (
+        <Tarjeta className="mb-6">
+          <p className="font-bold text-cuerpo">Este caso está cerrado</p>
+          <p className="mt-1 max-w-[65ch] text-tinta-media">
+            Por eso no se suman ni se aprueban pasos: cambiarían un presupuesto que
+            el cliente ya cerró. Si falta algo, volvé a abrir el caso, corregilo y
+            cerralo de nuevo.
+          </p>
+          <Link
+            href={`/casos/${caso.id}`}
+            className="mt-3 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+          >
+            <Icono nombre="deshacer" />
+            Ir al caso para volver a abrirlo
+          </Link>
+        </Tarjeta>
+      )}
+
+      {armando && sePuedeTocar && (
+        <Tarjeta className="mb-6">
+          <TituloSeccion>Sumar pasos</TituloSeccion>
+          <p className="-mt-2 mb-4 text-apoyo text-tinta-suave">
+            Cargá uno por cada cosa que haya que hacer. El formulario queda abierto
+            para el siguiente.
+          </p>
+
+          {/* Lo que se encontró, acá al lado mientras se escribe. De un
+              diagnóstico salen varios pasos —"está todo roto" son cuatro
+              cosas— y tenerlo a la vista es lo que hace que se acuerden todas
+              sin volver a subir a leerlo.
+
+              Es una referencia, no una acción: qué pasos salen de esto lo
+              decide quien lo escribe. */}
+          {caso.diagnostico && (
+            <div className="mb-6 rounded-campo border-l-4 border-borde-fuerte bg-superficie p-4">
+              <p className="flex items-center gap-2 font-bold text-etiqueta text-tinta-media">
+                <Icono nombre="diagnostico" className="size-5" />
+                Lo que encontraste
+              </p>
+              <p className="mt-1 max-w-[65ch] text-tinta-media">{caso.diagnostico}</p>
+            </div>
+          )}
+          <Campo
+            id="paso-nombre"
+            etiqueta="Qué hay que hacer"
+            ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).paso}.`}
+            autoComplete="off"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+          />
+          <Campo
+            id="paso-descripcion"
+            etiqueta="Por qué conviene"
+            ayuda="Opcional. Lo que le explicarías al cliente si preguntara."
+            autoComplete="off"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+          />
+          <Campo
+            id="paso-monto"
+            etiqueta="Cuánto sale"
+            ayuda="Sólo números, sin puntos."
+            error={errorMonto}
+            ejemplo="120000"
+            inputMode="numeric"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            onBlur={() => setTocado(true)}
+          />
+          <Boton variante="principal" icono="check" motivo={motivoPaso} onClick={sumarPaso}>
+            Sumar el paso
+          </Boton>
+        </Tarjeta>
+      )}
 
       {mios.length === 0 ? (
         <Vacio icono="nota" titulo="Todavía no hay pasos">
-          Cuando se cargue el diagnóstico y se arme el presupuesto, los pasos aparecen acá.
+          {sePuedeTocar
+            ? "Armá el presupuesto sumando un paso por cada cosa que haya que hacer. El cliente los aprueba de a uno."
+            : "Cuando se arme el presupuesto, los pasos aparecen acá."}
         </Vacio>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -130,32 +402,129 @@ export default function AprobarPasos() {
                     {dicho.texto}
                   </p>
 
-                  {!puedeResponder ? null : paso.estado === "esperando" ? (
-                    // 52 px de alto, 10 px en medio: para no equivocarse de dedo.
-                    <div className="mt-3 flex gap-2.5">
-                      <Boton
-                        variante="principal"
-                        className="min-h-13 flex-1"
-                        onClick={() => responderPaso(paso.id, "aprobado")}
-                      >
-                        Lo aprueba
-                      </Boton>
-                      <Boton
-                        variante="peligro"
-                        className="min-h-13 flex-1"
-                        onClick={() => responderPaso(paso.id, "rechazado")}
-                      >
-                        No lo hace
-                      </Boton>
-                    </div>
+                  {paso.estado === "aprobado" ? (
+                    <p className="mt-1 text-apoyo text-tinta-suave">
+                      Es un acuerdo con el cliente: ya no se cambia ni se saca.
+                    </p>
+                  ) : !sePuedeTocar ? null : paso.estado === "esperando" ? (
+                    <>
+                      {aprobando === paso.id ? (
+                        <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+                          <p className="font-bold text-cuerpo">
+                            ¿El cliente aprueba «{paso.nombre}» por {pesos(paso.monto)}?
+                          </p>
+                          <p className="mt-1 text-tinta-media">
+                            Después no se puede volver atrás, ni cambiar el monto, ni
+                            sacarlo del presupuesto.
+                          </p>
+                          {/* Esto se carga desde el mostrador, en nombre del
+                              cliente: el que aprueba no es el que está
+                              tocando el botón. Queda escrito como que lo
+                              aprobó él, así que el aviso va antes y no
+                              después. */}
+                          <p className="mt-3 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
+                            <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                            <span>
+                              <span className="font-bold">Estás contestando por el cliente.</span>{" "}
+                              Asegurate de que {cliente?.nombre?.split(" ")[0] ?? "el cliente"} te
+                              haya dicho que sí: va a quedar registrado como que lo aprobó,
+                              y es un acuerdo por {pesos(paso.monto)}.
+                            </span>
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <Boton
+                              variante="principal"
+                              icono="listo"
+                              onClick={() => {
+                                responderPaso(paso.id, "aprobado");
+                                datos.avisarExito(
+                                  `Listo. «${paso.nombre}» quedó aprobado por ${pesos(paso.monto)}.`
+                                );
+                                setAprobando(null);
+                              }}
+                            >
+                              Sí, lo aprueba
+                            </Boton>
+                            <Boton variante="plano" onClick={() => setAprobando(null)}>
+                              Todavía no
+                            </Boton>
+                          </div>
+                        </div>
+                      ) : (
+                        /* 52 px de alto, 10 px en medio: para no equivocarse de dedo. */
+                        <div className="mt-3 flex gap-2.5">
+                          <Boton
+                            variante="principal"
+                            className="min-h-13 flex-1"
+                            onClick={() => {
+                              setSacando(null);
+                              setAprobando(paso.id);
+                            }}
+                          >
+                            Lo aprueba
+                          </Boton>
+                          {/* Neutro y no rojo: rechazar se puede deshacer. El
+                              rojo queda para sacar un paso, que borra. */}
+                          <Boton
+                            variante="neutro"
+                            className="min-h-13 flex-1"
+                            onClick={() => responderPaso(paso.id, "rechazado")}
+                          >
+                            No lo hace
+                          </Boton>
+                        </div>
+                      )}
+
+                      {/* Sacar un paso sólo se puede mientras espera respuesta:
+                          después sería borrar algo que el cliente ya contestó. */}
+                      {aprobando === paso.id || !corrigiendo ? null : sacando === paso.id ? (
+                        <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+                          <p className="font-bold text-cuerpo">
+                            ¿Sacar «{paso.nombre}» del presupuesto?
+                          </p>
+                          <p className="mt-1 text-tinta-media">
+                            El total baja {pesos(paso.monto)}. El caso y los demás pasos
+                            quedan como están.
+                          </p>
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <Boton
+                              variante="peligro"
+                              icono="tacho"
+                              onClick={() => {
+                                datos.eliminarPaso(paso.id);
+                                datos.avisarExito(`Listo. "${paso.nombre}" salió del presupuesto.`);
+                                setSacando(null);
+                              }}
+                            >
+                              Sacarlo
+                            </Boton>
+                            <Boton variante="plano" onClick={() => setSacando(null)}>
+                              Dejarlo
+                            </Boton>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 border-t border-borde pt-1">
+                          <Boton
+                            variante="plano"
+                            icono="tacho"
+                            onClick={() => setSacando(paso.id)}
+                          >
+                            Sacar del presupuesto
+                          </Boton>
+                        </div>
+                      )}
+                    </>
                   ) : (
+                    /* Sólo llega acá un paso rechazado: el cliente puede
+                       cambiar de idea sobre algo que no había aceptado. */
                     <div className="mt-3">
                       <Boton
                         variante="plano"
                         icono="deshacer"
                         onClick={() => responderPaso(paso.id, "esperando")}
                       >
-                        Volver atrás
+                        Volver a esperar respuesta
                       </Boton>
                     </div>
                   )}
@@ -164,6 +533,27 @@ export default function AprobarPasos() {
             );
           })}
         </ul>
+      )}
+
+      {/* En celular el total se queda a la vista mientras se recorre la lista:
+          la conversación sobre plata pasa entera mirando los pasos, y el
+          número que se discute estaba recién al final (auditoría, H1). Va
+          clavado encima de la barra de secciones; el detalle completo sigue
+          abajo. En escritorio la lista entra y no hace falta. */}
+      {mios.length > 0 && (
+        <div
+          aria-hidden="true"
+          className="sticky bottom-[calc(var(--alto-barra,4rem)+0.5rem)] z-10 mt-4 flex justify-between gap-4 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 shadow-lg md:hidden"
+        >
+          <p>
+            <span className="block text-apoyo text-tinta-media">Aprobado</span>
+            <span className="font-bold tabular-nums">{pesos(aprobado)}</span>
+          </p>
+          <p className="text-right text-espera">
+            <span className="block text-apoyo">Esperando respuesta</span>
+            <span className="font-bold tabular-nums">{pesos(esperando)}</span>
+          </p>
+        </div>
       )}
 
       {/* La plata siempre a la vista, separada en aprobado y esperando. */}
@@ -188,32 +578,184 @@ export default function AprobarPasos() {
         </div>
       )}
 
-      {/* El único botón azul de la pantalla. */}
-      {mios.length > 0 && (
-        <>
-          <button
-            type="button"
-            onClick={() => setMostrandoMensaje((v) => !v)}
-            className="mt-6 flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado"
-          >
-            <Icono nombre="chat" />
-            Mandarle los pasos al cliente
-          </button>
+      {/* El único botón azul de la pantalla, y ahora manda de verdad: arma
+          el link del cliente —el mismo de la pantalla pública— y lo deja
+          listo para copiar o mandar por WhatsApp con el presupuesto entero
+          escrito. Antes sólo mostraba un texto para copiar a mano.
 
-          {mostrandoMensaje && (
-            <div className="mt-3 rounded-tarjeta border border-borde bg-tarjeta p-4">
-              <p className="font-bold">Esto es lo que le va a llegar</p>
-              <p className="mt-1 text-apoyo text-tinta-suave">
-                Se lee completo en el mensaje, sin abrir el sistema. Mandarlo de verdad es
-                del próximo sprint.
-              </p>
-              <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media">
-                {mensaje}
-              </pre>
-            </div>
-          )}
-        </>
+          Vive acá y no en la pantalla del caso porque lo que se manda es
+          esto: el presupuesto. Allá quedó el renglón que dice si ya está
+          compartido y si el cliente lo abrió. */}
+      {mios.length > 0 && puedeResponder && (
+        <MandarleElLink
+          caso={caso}
+          cliente={cliente}
+          datos={datos}
+          mensaje={mensaje}
+          origen={origen}
+          abierto={mostrandoMensaje}
+          alAbrir={setMostrandoMensaje}
+        />
       )}
     </div>
+  );
+}
+
+// Mandarle el presupuesto al cliente, con el link para que lo conteste.
+//
+// Es el mismo link de seguimiento que ve el estado del caso (SCRUM-68), y el
+// mensaje es el detalle de los pasos con el link al final: el cliente lee
+// todo en WhatsApp y, si quiere, entra y contesta ahí mismo.
+//
+// El link se arma la primera vez que se toca el botón, sin pasos intermedios
+// ni configuración: nadie va a usar esto si primero hay que preparar algo,
+// con el cliente esperando del otro lado del teléfono.
+function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbrir }) {
+  const [generando, setGenerando] = useState(false);
+  const [error, setError] = useState(null);
+  const [cortando, setCortando] = useState(false);
+
+  const codigo = caso.seguimiento_codigo ?? null;
+  const link = codigo && origen ? linkDeSeguimiento(origen, codigo) : "";
+
+  async function mandar() {
+    setError(null);
+    if (codigo) return alAbrir((v) => !v);
+
+    setGenerando(true);
+    const r = await datos.compartirCaso(caso.id);
+    setGenerando(false);
+    if (!r.ok) return setError(r.error);
+
+    alAbrir(true);
+    datos.avisarExito(
+      r.quedaEsperando
+        ? "Listo. El link ya anda, y el caso quedó esperando la respuesta del cliente."
+        : "Listo. El link ya anda: copialo o mandalo por WhatsApp."
+    );
+  }
+
+  async function cortar() {
+    setError(null);
+    setCortando(false);
+    const r = await datos.dejarDeCompartirCaso(caso.id);
+    if (!r.ok) return setError(r.error);
+    alAbrir(false);
+    datos.avisarExito("Listo. Ese link dejó de funcionar.");
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(mensaje);
+      datos.avisarExito("Listo. Copiamos el mensaje: pegalo en la conversación con el cliente.");
+    } catch {
+      // Sin permiso para el portapapeles queda marcado, que es lo que hace
+      // falta para copiarlo a mano. Seleccionar varias líneas en un celular
+      // era la parte más difícil de toda la tarea (auditoría, H7).
+      const pre = document.getElementById("mensaje-cliente");
+      if (pre) window.getSelection()?.selectAllChildren(pre);
+      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={mandar}
+        className="mt-6 flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado"
+      >
+        <Icono nombre="chat" />
+        {generando
+          ? "Armando el link…"
+          : codigo
+            ? abierto
+              ? "Cerrar"
+              : "Mandarle los pasos al cliente"
+            : "Mandarle los pasos al cliente"}
+      </button>
+
+      {error && (
+        <div className="mt-3">
+          <ErrorGeneral>{error}</ErrorGeneral>
+        </div>
+      )}
+
+      {abierto && codigo && (
+        <div className="mt-3 rounded-tarjeta border border-borde bg-tarjeta p-4">
+          <Campo
+            id="link-seguimiento"
+            etiqueta="El link del cliente"
+            ayuda="Es el mismo siempre. Ve el estado del caso y puede aprobar o rechazar los pasos desde ahí."
+            value={link}
+            readOnly
+            onFocus={(ev) => ev.target.select()}
+          />
+
+          <div className="-mt-2 flex flex-wrap gap-3">
+            <Boton icono="copiar" onClick={copiar}>
+              Copiar el mensaje
+            </Boton>
+            {/* wa.me es un link común: abre WhatsApp con el mensaje ya
+                escrito, sin integración y sin servidor. Sin número, porque el
+                que lo toca es el negocio y elige el contacto en su agenda. */}
+            <a
+              href={linkDeWhatsApp(mensaje)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
+            >
+              <Icono nombre="chat" />
+              Mandarlo por WhatsApp
+            </a>
+          </div>
+
+          <p className="mt-4 flex items-start gap-2 text-tinta-media">
+            <Icono
+              nombre={caso.seguimiento_visto_en ? "listo" : "reloj"}
+              className="mt-0.5 size-5 shrink-0"
+            />
+            <span>
+              {caso.seguimiento_visto_en
+                ? `Lo abrió por última vez ${cuantoHace(caso.seguimiento_visto_en)}.`
+                : "Todavía no lo abrió."}
+            </span>
+          </p>
+
+          <p className="mt-4 font-bold">Esto es lo que le va a llegar</p>
+          <pre
+            id="mensaje-cliente"
+            className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media"
+          >
+            {mensaje}
+          </pre>
+
+          {cortando ? (
+            <div className="mt-4 rounded-tarjeta bg-superficie p-4">
+              <p className="font-bold text-cuerpo">¿Dejar de compartirlo?</p>
+              <p className="mt-1 max-w-[65ch] text-tinta-media">
+                El link que ya mandaste deja de funcionar ahora mismo, y{" "}
+                {cliente?.nombre?.split(" ")[0] ?? "el cliente"} va a ver que no sirve.
+                Podés armar uno nuevo cuando quieras.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Boton variante="peligro" icono="tacho" onClick={cortar}>
+                  Sí, dejar de compartirlo
+                </Boton>
+                <Boton variante="plano" onClick={() => setCortando(false)}>
+                  Seguir compartiéndolo
+                </Boton>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)}>
+                Dejar de compartirlo
+              </Boton>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }

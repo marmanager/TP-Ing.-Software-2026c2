@@ -10,4 +10,5 @@ export default {
     "!src/lib/datos.js",
   ],
   coverageDirectory: "coverage",
+  reporters: ["default", "<rootDir>/pruebas/reporters/pruebas-omitidas.cjs"],
 };

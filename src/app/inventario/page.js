@@ -6,6 +6,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
+import { ejemplosDe } from "@/lib/presets";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
@@ -13,10 +14,13 @@ export default function Inventario() {
   const datos = useDatos();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
-  const { cargando, insumos, casos } = datos;
+  const { cargando, insumos, casos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({ nombre: "", descripcion: "", cantidad: "", minimo: "", unidad: "unidad" });
   const [porBorrar, setPorBorrar] = useState(null);
+  // El insumo cuya cantidad se está escribiendo a mano, y lo escrito.
+  const [contando, setContando] = useState(null);
+  const [cuantos, setCuantos] = useState("");
   useTitulo("Inventario");
 
   if (cargando) return <Cargando />;
@@ -58,11 +62,11 @@ export default function Inventario() {
           <Campo
             id="ins-nombre"
             etiqueta="Qué es"
-            ayuda="Con el nombre que usan en el mostrador. Ejemplo: filtro de aceite."
+            ayuda={`Con el nombre que usan en el mostrador. Ejemplo: ${ejemplosDe(negocio?.rubro).insumo}.`}
             value={form.nombre}
             onChange={(e) => setForm({ ...form, nombre: e.target.value })}
           />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 @md:grid-cols-2">
             <Campo
               id="ins-cantidad"
               etiqueta="Cuántos tenés"
@@ -116,8 +120,12 @@ export default function Inventario() {
                           )}
                         </p>
                       </div>
-                      <Boton icono="camion" onClick={() => datos.marcarInsumoLlegado(i.id)}>
-                        Marcar que llegó
+                      {/* En esta lista el insumo YA llegó: lo que falta es
+                          guardarlo. Antes las dos listas decían "Marcar que
+                          llegó" y no se sabía en cuál se estaba sin leer el
+                          título de arriba (auditoría, H4). */}
+                      <Boton icono="cajas" onClick={() => datos.marcarInsumoLlegado(i.id)}>
+                        Guardarlo en stock
                       </Boton>
                     </div>
                   </Tarjeta>
@@ -184,18 +192,61 @@ export default function Inventario() {
                   )}
                 </div>
 
+                {/* Los botones se ven como un signo, pero el lector de
+                    pantalla tiene que oír qué hacen y sobre qué: "menos",
+                    solo, no dice menos de qué (auditoría, accesibilidad). El
+                    número se anuncia al cambiar, así se sabe cómo quedó. */}
                 <div className="flex items-center gap-2">
                   <Boton
                     className="min-w-12 px-0"
+                    aria-label={`Quitar uno de ${i.nombre.toLowerCase()}`}
                     onClick={() => datos.ajustarCantidad(i.id, -1)}
                     disabled={i.cantidad === 0}
                   >
                     −
                   </Boton>
-                  <span className="w-20 text-center font-titulo font-extrabold text-subtitulo tabular-nums">
-                    {i.cantidad}
-                  </span>
-                  <Boton className="min-w-12 px-0" onClick={() => datos.ajustarCantidad(i.id, 1)}>
+                  {contando === i.id ? (
+                    <input
+                      autoFocus
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      aria-label={`La cantidad de ${i.nombre.toLowerCase()}`}
+                      value={cuantos}
+                      onChange={(e) => setCuantos(e.target.value)}
+                      onBlur={() => {
+                        datos.fijarCantidad(i.id, cuantos);
+                        setContando(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") setContando(null);
+                      }}
+                      className="w-20 rounded-campo border-2 border-azul bg-tarjeta px-2 py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums"
+                    />
+                  ) : (
+                    /* Tocar el número lo vuelve escribible: después de un
+                       inventario físico se pasa de 3 a 40 de una (auditoría,
+                       H7). Los botones de a uno siguen para los ajustes
+                       chicos de todos los días. */
+                    <button
+                      type="button"
+                      aria-live="polite"
+                      aria-label={`Escribir la cantidad de ${i.nombre.toLowerCase()}. Ahora hay ${i.cantidad}`}
+                      onClick={() => {
+                        setCuantos(String(i.cantidad));
+                        setContando(i.id);
+                      }}
+                      className="w-20 cursor-pointer rounded-campo py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums hover:bg-superficie"
+                    >
+                      {i.cantidad}
+                    </button>
+                  )}
+                  <Boton
+                    className="min-w-12 px-0"
+                    aria-label={`Sumar uno de ${i.nombre.toLowerCase()}`}
+                    onClick={() => datos.ajustarCantidad(i.id, 1)}
+                  >
                     +
                   </Boton>
                   <span className="w-16 text-apoyo text-tinta-suave">{i.unidad}</span>

@@ -13,34 +13,40 @@
 
   /* ---- escala tipográfica (sección 03) ----
      El cuerpo arranca en 18 px, no en 14 ni 16.
-     Nada por debajo de 15 px, y 15 px sólo para datos de apoyo. */
-  --text-dato: 40px;
-  --text-dato--line-height: 44px;
+     Nada por debajo de 15 px, y 15 px sólo para datos de apoyo.
+
+     Van en rem y no en px para que respeten el tamaño de letra que la
+     persona eligió en el navegador (auditoría de diseño, criterio "el texto
+     tiene que poder agrandarse"). Con la configuración de fábrica 1rem son
+     16 px, así que los valores son exactamente los de la cartilla: al lado
+     de cada uno está su equivalente. */
+  --text-dato: 2.5rem; /* 40px */
+  --text-dato--line-height: 2.75rem; /* 44px */
   --text-dato--font-weight: 800;
 
-  --text-pantalla: 32px;
-  --text-pantalla--line-height: 36px;
+  --text-pantalla: 2rem; /* 32px */
+  --text-pantalla--line-height: 2.25rem; /* 36px */
   --text-pantalla--font-weight: 800;
 
-  --text-ident: 26px;
-  --text-ident--line-height: 30px;
+  --text-ident: 1.625rem; /* 26px */
+  --text-ident--line-height: 1.875rem; /* 30px */
   --text-ident--font-weight: 800;
 
-  --text-seccion: 24px;
-  --text-seccion--line-height: 30px;
+  --text-seccion: 1.5rem; /* 24px */
+  --text-seccion--line-height: 1.875rem; /* 30px */
   --text-seccion--font-weight: 700;
 
-  --text-subtitulo: 20px;
-  --text-subtitulo--line-height: 28px;
+  --text-subtitulo: 1.25rem; /* 20px */
+  --text-subtitulo--line-height: 1.75rem; /* 28px */
 
-  --text-cuerpo: 18px;
-  --text-cuerpo--line-height: 28px;
+  --text-cuerpo: 1.125rem; /* 18px */
+  --text-cuerpo--line-height: 1.75rem; /* 28px */
 
-  --text-etiqueta: 16px;
-  --text-etiqueta--line-height: 20px;
+  --text-etiqueta: 1rem; /* 16px */
+  --text-etiqueta--line-height: 1.25rem; /* 20px */
 
-  --text-apoyo: 15px;
-  --text-apoyo--line-height: 22px;
+  --text-apoyo: 0.9375rem; /* 15px */
+  --text-apoyo--line-height: 1.375rem; /* 22px */
 
   /* ---- neutros cálidos (sección 02) ---- */
   --color-fondo: #fbf8f4;
@@ -91,10 +97,15 @@
   }
 
   html {
-    /* Se queda en 16 px para que la escala de espaciado de Tailwind
-       (4 · 8 · 12 · 16 · 24 · 32 · 48 · 64) coincida exactamente con
-       la escala de 4 px de la sección 04. El cuerpo va en 18 px abajo. */
-    font-size: 16px;
+    /* 100 % y no 16 px: un valor fijo acá pisa el tamaño de letra que la
+       persona eligió en el navegador, y todo lo que está en rem —el texto,
+       pero también los espacios y las áreas que se tocan— dejaba de
+       agrandarse. Con la configuración de fábrica 100 % son 16 px, así que la
+       escala de espaciado de Tailwind (4 · 8 · 12 · 16 · 24 · 32 · 48 · 64)
+       sigue coincidiendo con la de 4 px de la sección 04. Y si alguien
+       agrandó la letra, crecen también los botones: 48 px de área tocable
+       es un mínimo, no un tope. */
+    font-size: 100%;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -137,7 +148,24 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* La landing usa una animación manejada por el scroll, y ahí acortar la
+     duración no apaga nada: en un timeline de scroll el avance lo da el
+     scroll y el reloj no participa. Hay que apagar la animación entera.
+     Va acotado a .landing y no a todo el documento porque `transform: none`
+     global rompería cualquier transformación legítima del sistema. */
+  .landing,
+  .landing *,
+  .landing *::before,
+  .landing *::after {
+    animation: none !important;
+    animation-timeline: none !important;
+    transition: none !important;
+    transform: none !important;
   }
 }
 
@@ -181,4 +209,352 @@
 .modulo-agarrado {
   z-index: 10;
   cursor: grabbing;
+}
+
+/* ============================================================
+   El movimiento de la landing (/bienvenida).
+
+   CONTRATO, y no es una preferencia: el estado en reposo de cada
+   elemento es su estado final. Ninguna regla de acá afuera pone
+   opacity ni transform. Lo que esconde vive dentro de @keyframes o
+   detrás de `.mov`, y `.mov` la pone y la saca un único script del
+   <head> (src/app/layout.js). Sin JS, con el bundle caído, con un
+   error de hidratación o con un buscador que no ejecuta, la clase
+   nunca se pone y la página se ve entera.
+
+   La comprobación, en la consola de la página publicada:
+     document.documentElement.classList.remove("mov")
+   Tiene que quedar idéntica. Si algo desaparece, ese elemento tiene
+   su estado final en la clase en vez de en la base, y está mal.
+
+   La opacidad arranca en .001 y nunca en 0 porque Chromium excluye
+   de la medición de LCP todo lo que tenga opacity 0. Se ve igual.
+   ============================================================ */
+
+.landing {
+  --e-salida: cubic-bezier(0.22, 1, 0.36, 1);
+  --e-titular: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- 1 · el hilo del margen: el único gesto atado al scroll ----
+   Es el único elemento cuyo trabajo es informar en qué parte del
+   argumento está el lector, así que es el único que merece ir
+   fotograma a fotograma con el scroll. Va en CSS puro, sin JS.
+   Donde no hay soporte (Firefox estable) no se entra a la regla y el
+   hilo se ve dibujado entero, que es la página sin movimiento. */
+@keyframes hilo-baja {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .landing .hilo:not(.hilo--fija) {
+      transform-origin: top;
+      animation: hilo-baja linear both;
+      /* Siempre DESPUÉS del atajo `animation`, que lo resetea a auto. */
+      animation-timeline: view();
+      animation-range: cover 0% cover 70%;
+    }
+  }
+}
+
+/* ---- 2 · los cinco verbos ---- */
+@keyframes mm-subir {
+  from {
+    opacity: 0.001;
+    transform: translateY(var(--y, 12px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes mm-bajar {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes mm-salir {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* ---- 3 · arriba del pliegue: corre al cargar, sin observador ----
+   Nada de lo que se ve sin scrollear espera a que arranque el JS. */
+.mov .landing .hero .m-sube {
+  animation: mm-subir 0.4s var(--e-salida) var(--r, 0s) both;
+}
+.mov .landing .hero .m-baja {
+  transform-origin: top;
+  animation: mm-bajar 0.32s var(--e-salida) var(--r, 0s) both;
+}
+.landing .hero .mov-eyebrow {
+  --r: 0.18s;
+}
+.landing .hero .mov-parrafo {
+  --r: 0.54s;
+}
+.landing .hero .mov-accion {
+  --r: 0.62s;
+}
+.landing .hero .mov-sesion {
+  --r: 0.7s;
+}
+.landing .hero .fila:nth-of-type(2) .m-baja {
+  --r: 0.07s;
+}
+.landing .hero .fila:nth-of-type(3) .m-baja {
+  --r: 0.14s;
+}
+.landing .hero .fila:nth-of-type(4) .m-baja {
+  --r: 0.21s;
+}
+.landing .hero .fila:nth-of-type(5) .m-baja {
+  --r: 0.28s;
+}
+
+/* ---- 4 · los dos titulares grandes ----
+   Revelado con máscara: cada línea vive en una caja con overflow
+   hidden y el texto sube desde abajo. El padding compensado NO es
+   opcional: con interlineado 84 sobre cuerpo 94 la tinta de Figtree
+   900 ya se sale de la caja en reposo, y sin esto la máscara le come
+   la cola de la Q de QUE TE ENTRA para siempre.
+   El del hero va sin opacity a propósito: que no salga de la
+   medición de LCP. */
+.landing .titular > span {
+  display: block;
+  overflow: hidden;
+  padding: 12px 0;
+  margin: -12px 0;
+}
+.landing .titular > span > span {
+  display: block;
+}
+
+.mov .landing .hero .titular > span > span {
+  animation: mm-salir 0.62s var(--e-titular) var(--r, 0s) both;
+}
+.landing .hero .titular > span:nth-child(1) > span {
+  --r: 0.26s;
+}
+.landing .hero .titular > span:nth-child(2) > span {
+  --r: 0.35s;
+}
+.landing .hero .titular > span:nth-child(3) > span {
+  --r: 0.44s;
+}
+
+/* El del cierre es el MISMO componente con los tokens dados vuelta;
+   lo único que cambia es que lo dispara la entrada en pantalla. */
+.mov .landing .cierre .titular > span > span {
+  transform: translateY(100%);
+}
+.mov .landing .cierre .titular.vi > span > span {
+  transform: none;
+  transition: transform 0.62s var(--e-titular) var(--r, 0s);
+}
+.landing .cierre .titular > span:nth-child(2) > span {
+  --r: 0.09s;
+}
+.landing .cierre .titular > span:nth-child(3) > span {
+  --r: 0.18s;
+}
+
+/* ---- 5 · abajo del pliegue: escondido sólo bajo .mov ---- */
+.mov .landing .m-sube {
+  opacity: 0.001;
+  transform: translateY(12px);
+}
+.mov .landing .m-item {
+  opacity: 0.001;
+  transform: translateY(10px);
+}
+.mov .landing .m-fade {
+  opacity: 0.001;
+}
+.mov .landing .m-baja {
+  transform: scaleY(0);
+  transform-origin: top;
+}
+.mov .landing .m-cruza {
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.mov .landing .vi .m-sube,
+.mov .landing .vi .m-item,
+.mov .landing .vi .m-fade,
+.mov .landing .vi .m-baja,
+.mov .landing .vi .m-cruza,
+.mov .landing .vi.m-item {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--d, 0.4s) var(--e-salida) var(--r, 0s),
+    transform var(--d, 0.4s) var(--e-salida) var(--r, 0s);
+}
+
+/* El tramo de color de cada sección. ESTO es la transición entre
+   secciones: no hay crossfade, ni pin, ni snap. */
+.landing .tramo .m-baja {
+  --d: 0.44s;
+}
+.landing .tramo .m-baja:nth-child(2) {
+  --r: 0.06s;
+}
+.landing .tramo .m-baja:nth-child(3) {
+  --r: 0.12s;
+}
+.landing .tramo .m-baja:nth-child(4) {
+  --r: 0.18s;
+}
+.landing .tramo .m-baja:nth-child(5) {
+  --r: 0.24s;
+}
+.landing .tramo .m-item {
+  --d: 0.26s;
+  --r: 0.18s;
+}
+
+/* 01 · las tres entradas: el escalonado es la cronología. */
+.landing .entradas > div:nth-child(2) .m-item {
+  --r: 0.09s;
+}
+.landing .entradas > div:nth-child(3) .m-item {
+  --r: 0.18s;
+}
+
+/* 01 · el remate. Un borde no se transforma: pasa a ::before. */
+.landing .remate::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-terracota);
+  transform-origin: top;
+}
+.mov .landing .remate::before {
+  transform: scaleY(0);
+}
+.mov .landing .remate.vi::before {
+  transform: none;
+  transition: transform 0.34s var(--e-salida);
+}
+.landing .remate .m-item {
+  --r: 0.08s;
+}
+
+/* 02 · las cinco cabeceras, de izquierda a derecha: recorrer la
+   cabecera ES el recorrido que la sección se llama. Cero translate
+   dentro de celdas con borde, que se lee como maqueta rota. */
+.landing .matriz .m-cruza {
+  --d: 0.3s;
+}
+.landing .matriz .m-fade {
+  --d: 0.24s;
+}
+
+/* 03 · las tres reglas: dibujarlas ejecuta «entra, cambia, sale». */
+.landing .regla::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--c);
+  transform-origin: left;
+}
+.mov .landing .regla::before {
+  transform: scaleX(0);
+}
+.mov .landing .vi .regla::before {
+  transform: none;
+  transition: transform 0.34s var(--e-salida) var(--r, 0s);
+}
+.landing .regla:nth-child(2) {
+  --r: 0.1s;
+}
+.landing .regla:nth-child(3) {
+  --r: 0.2s;
+}
+
+/* 03 · los cinco toques. El retardo base de 220 ms es lo que evita
+   que las dos columnas entren como un bloque. */
+.landing .historial > li {
+  --d: 0.38s;
+  --r: 0.22s;
+}
+.landing .historial > li:nth-child(2) {
+  --r: 0.29s;
+}
+.landing .historial > li:nth-child(3) {
+  --r: 0.36s;
+}
+.landing .historial > li:nth-child(4) {
+  --r: 0.43s;
+}
+.landing .historial > li:nth-child(5) {
+  --r: 0.5s;
+}
+
+/* ---- 7 · la 02 clavada: el recorrido se hace, no se dibuja ----
+   La sección se queda quieta mientras el lector sigue bajando y los cinco
+   estados van llegando de a uno. Los que llegaron se quedan: al final la
+   matriz está entera, porque el argumento —los mismos cinco estados, tres
+   vocabularios— necesita verlos juntos.
+
+   Las dos reglas que hacen el efecto viven detrás de .mov Y de la consulta
+   de escritorio, y ninguna de las dos toca la maqueta base. Sin JS la
+   sección mide lo que mide su contenido y la matriz está completa desde el
+   primer momento; en celular, lo mismo, porque clavar pantallas enteras en
+   un teléfono es pelearse con el pulgar del que está leyendo.
+
+   Con prefers-reduced-motion no hace falta apagar nada acá: la clase .mov
+   nunca llega a ponerse. */
+@media (min-width: 48rem) {
+  .mov .landing .recorrido {
+    /* 300vh son tres pantallas: una la ocupa la sección clavada y quedan dos
+       de scroll para que lleguen los cinco estados. Eran cuatro, y cuatro
+       pantallas bajando sin que la vista se mueva se sienten como que la
+       página se trabó: quien no está acostumbrado a este recurso cierra
+       antes de llegar al argumento (auditoría de diseño, H3). */
+    height: 300vh;
+  }
+
+  .mov .landing .escenario {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100vh;
+  }
+
+  /* Lo único que se esconde es la tableta que todavía no llegó. A la que ya
+     llegó no se le baja el tono: perdería contraste, y la cartilla no
+     negocia eso ni por un estado de transición. */
+  .mov .landing .col-oculta {
+    opacity: 0.001;
+  }
+
+  .mov .landing .tableta {
+    transition:
+      opacity 0.35s var(--e-salida),
+      background-color 0.35s var(--e-salida);
+  }
 }

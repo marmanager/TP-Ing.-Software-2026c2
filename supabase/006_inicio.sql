@@ -11,6 +11,10 @@
 -- ya existen. El día que se pueda invitar compañeros al mismo negocio, esta
 -- columna se muda a "usuario" para que cada uno tenga la suya.
 --
+-- Ese día ya llegó: el 007 trajo las invitaciones, así que dos personas del
+-- mismo negocio comparten esta configuración y se pisan la pantalla entre
+-- ellas. La mudanza a "usuario" quedó pendiente.
+--
 -- La forma de cada elemento es:
 --   { "clave": "casos", "x": 0, "y": 2, "ancho": 4, "alto": 3, "filtro": "abiertos" }
 --
