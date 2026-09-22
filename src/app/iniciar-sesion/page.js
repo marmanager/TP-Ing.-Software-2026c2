@@ -2,7 +2,8 @@
 
 // "Iniciar sesión" (SCRUM-9).
 //
-// Mail y contraseña para entrar a una cuenta ya creada. Aparte queda la vía
+// Mail y contraseña para entrar a una cuenta ya creada, o la cuenta de
+// Google (BotonGoogle). Es también adonde vuelve Google después de entrar. Aparte queda la vía
 // de escape: probar el sistema sin cuenta, guardando todo en el navegador.
 
 import { useState } from "react";
@@ -12,10 +13,11 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
+import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
 
 export default function IniciarSesion() {
   const router = useRouter();
-  const { iniciarSesion, entrarComoDemo, haySupabase } = useAuth();
+  const { iniciarSesion, entrarComoDemo, haySupabase, hayGoogle } = useAuth();
   useTitulo("Iniciar sesión");
 
   const [email, setEmail] = useState("");
@@ -61,6 +63,13 @@ export default function IniciarSesion() {
       </TituloPantalla>
 
       <Tarjeta>
+        {hayGoogle && (
+          <>
+            <BotonGoogle>Entrar con Google</BotonGoogle>
+            <SeparadorO />
+          </>
+        )}
+
         <Campo
           id="email"
           etiqueta="Tu mail"
