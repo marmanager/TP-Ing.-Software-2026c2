@@ -13,7 +13,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase, haySupabase, formasDeEntrar } from "./supabase";
-import { errorAlSalirHaciaGoogle, googleActivado, nombreDeLaCuenta } from "./ingreso-google.js";
+import { errorAlSalirHaciaGoogle, googleActivado, nombreDeLaCuenta, origenDeIngreso } from "./ingreso-google.js";
 
 const LLAVE_DEMO = "marmanager.demo.v1";
 const LLAVE_MAIL = "marmanager.mail-a-confirmar";
@@ -295,7 +295,7 @@ export function AuthProvider({ children }) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: window.location.origin + "/iniciar-sesion",
+            redirectTo: origenDeIngreso(window.location.origin) + "/iniciar-sesion",
             // Que siempre pregunte con qué cuenta: en la compu del local puede
             // haber una cuenta de Google abierta que no es la de esta persona.
             queryParams: { prompt: "select_account" },
@@ -331,7 +331,7 @@ export function AuthProvider({ children }) {
         if (!haySupabase)
           return { ok: false, error: "Para recuperar la contraseña hace falta conectar la base de Supabase." };
         await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: window.location.origin + "/nueva-contrasena",
+          redirectTo: origenDeIngreso(window.location.origin) + "/nueva-contrasena",
         });
         // No decimos si el mail existe o no.
         return { ok: true };

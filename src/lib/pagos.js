@@ -23,9 +23,25 @@
 // igual que la URL de Supabase.
 export const API_PAGOS = (process.env.NEXT_PUBLIC_API_URL ?? "").trim().replace(/\/+$/, "") || null;
 
+export function apiPagosApuntaAlFrontend(api) {
+  if (!api) return false;
+  try {
+    const host = new URL(api).hostname;
+    return host === "tp-ing-software-2026c2.vercel.app" ||
+      host.startsWith("tp-ing-software-2026c2-") && host.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+}
+
 // Si se puede pedir un pago en línea, y si es de verdad o simulado.
 export function pagosEnLinea({ esDemo = false, api = API_PAGOS } = {}) {
   if (esDemo) return { disponible: true, simulado: true, motivo: null };
+  if (apiPagosApuntaAlFrontend(api)) return {
+    disponible: false,
+    simulado: false,
+    motivo: "la dirección de pagos apunta a la app; corregí NEXT_PUBLIC_API_URL en Vercel",
+  };
   if (api) return { disponible: true, simulado: false, motivo: null };
   return {
     disponible: false,

@@ -38,7 +38,7 @@ import { linkDeWhatsApp, linkDeWhatsAppA } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import { useAuth } from "@/lib/auth";
-import { API_PAGOS } from "@/lib/pagos";
+import { API_PAGOS, apiPagosApuntaAlFrontend } from "@/lib/pagos";
 
 // La cuenta en una frase, según cómo esté. Es lo primero que se lee: el
 // número suelto no dice si está bien o si falta algo.
@@ -181,7 +181,7 @@ export default function SeccionCobros({
   const frase = fraseDeLaCuenta(cuenta);
   const enLinea = datos.pagosEnLinea ?? { disponible: false, simulado: false, motivo: null };
   useEffect(() => {
-    if (!API_PAGOS || !sesion?.access_token || enLinea.simulado) return;
+    if (!API_PAGOS || apiPagosApuntaAlFrontend(API_PAGOS) || !sesion?.access_token || enLinea.simulado) return;
     let vivo = true;
     fetch(`${API_PAGOS}/mercadopago/status`, {
       headers: { Authorization: `Bearer ${sesion.access_token}` },
@@ -193,11 +193,17 @@ export default function SeccionCobros({
 
   async function conectarMercadoPago() {
     setError(null);
+    if (apiPagosApuntaAlFrontend(API_PAGOS)) {
+      setError("La dirección de pagos apunta a la app. En Vercel configurá NEXT_PUBLIC_API_URL=https://tp-ingesoft-api.onrender.com/payments y volvé a desplegar.");
+      return;
+    }
     try {
       const response = await fetch(`${API_PAGOS}/mercadopago/connect`, {
         method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => {
+        throw new Error("La API de pagos devolvió una página en lugar de datos. Revisá NEXT_PUBLIC_API_URL en Vercel.");
+      });
       if (!response.ok || !data.url) throw new Error(data.motivo || "No se pudo vincular Mercado Pago.");
       window.sessionStorage.setItem("marmanager.mp-caso", caso.id);
       window.location.assign(data.url);

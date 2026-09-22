@@ -8,6 +8,7 @@ import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   anularPagoEnLinea,
+  apiPagosApuntaAlFrontend,
   pagarDesdeSeguimiento,
   pagosEnLinea,
   pedirPagoEnLinea,
@@ -49,6 +50,13 @@ test("con la API configurada, es de verdad", () => {
     simulado: false,
     motivo: null,
   });
+});
+
+test("una URL de Vercel de la app no se toma por la API de pagos", () => {
+  const equivocada = "https://tp-ing-software-2026c2.vercel.app";
+  assert.equal(apiPagosApuntaAlFrontend(equivocada), true);
+  assert.equal(pagosEnLinea({ api: equivocada }).disponible, false);
+  assert.equal(apiPagosApuntaAlFrontend("https://tp-ingesoft-api.onrender.com/payments"), false);
 });
 
 test("en el modo de ejemplo se simula, aunque haya API", () => {

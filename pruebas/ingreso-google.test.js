@@ -10,7 +10,17 @@ import {
   errorDelIngreso,
   googleActivado,
   nombreDeLaCuenta,
+  origenDeIngreso,
 } from "../src/lib/ingreso-google.js";
+
+test("Google vuelve al dominio público desde una preview de Vercel", () => {
+  assert.equal(origenDeIngreso("https://tp-ing-software-2026c2-marcelo-dev2.vercel.app", "https://tp-ing-software-2026c2.vercel.app/"),
+    "https://tp-ing-software-2026c2.vercel.app");
+  assert.equal(origenDeIngreso("https://tp-ing-software-2026c2-marcelo-dev2.vercel.app", ""),
+    "https://tp-ing-software-2026c2.vercel.app");
+  assert.equal(origenDeIngreso("http://localhost:3000", "https://tp-ing-software-2026c2.vercel.app"),
+    "http://localhost:3000");
+});
 
 test("con mail y contraseña, el nombre es el que escribió en el formulario", () => {
   assert.equal(nombreDeLaCuenta({ nombre: "Marcela Suárez", full_name: "Otro" }), "Marcela Suárez");
