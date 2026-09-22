@@ -1,6 +1,17 @@
 # API de pagos: lo que el front espera
 
-El front ya está preparado para cobrar por **link** (se le manda al cliente) y por **QR** (se muestra en el mostrador). Lo único que falta es la API que habla con el medio de pago. Este documento es el contrato: si la API cumple con esto, no hace falta tocar ninguna pantalla.
+La integración de Mercado Pago vive en `TP-IngeSoft-API`. Desplegar ese repo
+en Render, ejecutar `supabase/030_cobro_qr.sql` en el mismo proyecto Supabase
+que usan Render y Vercel, y configurar en Vercel:
+
+```text
+NEXT_PUBLIC_API_URL=https://tp-ingesoft-api.onrender.com/payments
+```
+
+La API tiene que tener configurados OAuth y el Webhook `payment` con su clave
+secreta; ver su README. El QR muestra el mismo Checkout Pro del link.
+
+El front cobra por **link** (se le manda al cliente) y por **QR** (se muestra en el mostrador) mediante la API de Mercado Pago.
 
 Todo lo que habla con la API está en un solo archivo: [`src/lib/pagos.js`](../src/lib/pagos.js). Los tests de ese contrato están en [`pruebas/pagos.test.js`](../pruebas/pagos.test.js).
 
@@ -79,7 +90,7 @@ El cuerpo va vacío (`{}`): **el cliente no elige cuánto paga**. La API:
 
 Conviene limitar cuántas veces se puede llamar por código (por ejemplo, una vez por minuto), porque no hay sesión.
 
-El botón "Pagar $X ahora" sólo aparece si `NEXT_PUBLIC_API_URL` está configurada y el negocio no le mandó ya un link. Pagar desde ahí es opcional: la página también dice que puede pagar en el local.
+El pago iniciado desde el link público de seguimiento queda fuera de esta integración y no aparece en la pantalla hasta que exista el endpoint sin sesión.
 
 ## Webhook del medio de pago
 

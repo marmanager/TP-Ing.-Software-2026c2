@@ -13,7 +13,7 @@
 //     como pagado algo que no pagó.
 //   · No decide el monto final: la API lo vuelve a validar contra el caso.
 //
-// Mientras la API no exista:
+// Si la API no está configurada:
 //   · En el modo de ejemplo se SIMULA: el cobro queda "esperando el pago" y
 //     la pantalla ofrece simular que se pagó o que venció. Sirve para armar
 //     y probar las pantallas; no es un pago.

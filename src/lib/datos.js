@@ -991,7 +991,7 @@ export function DatosProvider({ children }) {
         }
 
         setDatos((d) => ponerCobro(d, nuevo, { nuevoId }));
-        anotar({
+        if (!datos.cobros.some((c) => c.id === nuevo.id)) anotar({
           casoId,
           tipo: "plata",
           titulo: medio === "qr" ? "Pidieron un pago con QR" : "Pidieron un pago por link",

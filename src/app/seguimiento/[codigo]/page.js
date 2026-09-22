@@ -40,7 +40,6 @@ import {
   totalAprobado,
 } from "@/lib/seguimiento";
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
-import { API_PAGOS, pagarDesdeSeguimiento } from "@/lib/pagos";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando } from "@/componentes/ui";
@@ -523,7 +522,6 @@ export default function Seguimiento() {
       {caso.pago && (
         <SeccionPago
           pago={caso.pago}
-          codigo={codigo}
           completado={caso.estado === "completado"}
           // Un solo botón azul por pantalla (cartilla): si hay pasos para
           // contestar, el azul es de esa decisión.
@@ -648,9 +646,7 @@ export default function Seguimiento() {
 // El pago, visto por el cliente. Lo que llega ya viene recortado por la base
 // (026_pago_en_el_seguimiento.sql): cuánto pagó, cuánto falta y los links
 // que le mandaron. Nada de cómo pagó cada cosa ni de descuentos.
-function SeccionPago({ pago, codigo, completado, principal }) {
-  const [armando, setArmando] = useState(false);
-  const [problema, setProblema] = useState(null);
+function SeccionPago({ pago, completado, principal }) {
   const pendientes = pago.pendientes ?? [];
   const todoPago = pago.falta === 0 && pendientes.length === 0;
   const claseBoton = principal
@@ -712,37 +708,6 @@ function SeccionPago({ pago, codigo, completado, principal }) {
                 )}
               </div>
             ))}
-
-            {/* Pagar lo que falta, sin esperar a que le manden un link. Sólo
-                si el negocio tiene conectado el sistema de pagos y no hay ya
-                un link esperando (no se le ofrecen dos caminos para lo mismo). */}
-            {pago.falta > 0 && pendientes.length === 0 && API_PAGOS && (
-              <div className="mt-4">
-                <Boton
-                  variante={principal ? "principal" : "borde"}
-                  icono="listo"
-                  className="min-h-14 w-full sm:min-h-12 sm:w-auto"
-                  motivo={armando ? "armando el pago" : null}
-                  onClick={async () => {
-                    setProblema(null);
-                    setArmando(true);
-                    const r = await pagarDesdeSeguimiento({ codigo });
-                    setArmando(false);
-                    if (!r.ok) return setProblema(r.error);
-                    window.location.href = r.link;
-                  }}
-                >
-                  Pagar {pesos(pago.falta)} ahora
-                </Boton>
-              </div>
-            )}
-
-            {problema && (
-              <p role="alert" className="mt-3 flex items-start gap-2 font-bold text-espera">
-                <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                <span>{problema}</span>
-              </p>
-            )}
 
             {pago.falta > 0 && (
               <p className="mt-4 max-w-[65ch] text-tinta-media">

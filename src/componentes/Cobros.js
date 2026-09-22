@@ -37,6 +37,8 @@ import { cuando } from "@/lib/fechas";
 import { linkDeWhatsApp, linkDeWhatsAppA } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import { useAuth } from "@/lib/auth";
+import { API_PAGOS } from "@/lib/pagos";
 
 // La cuenta en una frase, según cómo esté. Es lo primero que se lee: el
 // número suelto no dice si está bien o si falta algo.
@@ -164,10 +166,34 @@ export default function SeccionCobros({
   const [pidiendo, setPidiendo] = useState(false);
   const [montoPedido, setMontoPedido] = useState("");
   const [medioPedido, setMedioPedido] = useState("link");
+  const { sesion } = useAuth();
+  const [mercadoPagoConectado, setMercadoPagoConectado] = useState(null);
 
   const cuenta = cuentaDelCaso({ aprobado, cobros, descuento });
   const frase = fraseDeLaCuenta(cuenta);
   const enLinea = datos.pagosEnLinea ?? { disponible: false, simulado: false, motivo: null };
+  useEffect(() => {
+    if (!API_PAGOS || !sesion?.access_token || enLinea.simulado) return;
+    let vivo = true;
+    fetch(`${API_PAGOS}/mercadopago/status`, {
+      headers: { Authorization: `Bearer ${sesion.access_token}` },
+    }).then(r => r.json()).then(r => {
+      if (vivo) setMercadoPagoConectado(Boolean(r.ok && r.conectado));
+    }).catch(() => { if (vivo) setMercadoPagoConectado(false); });
+    return () => { vivo = false; };
+  }, [sesion?.access_token, enLinea.simulado]);
+
+  async function conectarMercadoPago() {
+    setError(null);
+    try {
+      const response = await fetch(`${API_PAGOS}/mercadopago/connect`, {
+        method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.url) throw new Error(data.motivo || "No se pudo vincular Mercado Pago.");
+      window.location.assign(data.url);
+    } catch (e) { setError(e.message); }
+  }
 
   // Un pago por link entra del otro lado: el medio de pago le avisa a la API
   // y la API escribe la base. Acá no llega solo, así que mientras haya uno
@@ -491,13 +517,19 @@ export default function SeccionCobros({
               <Boton icono="mas" onClick={abrir}>
                 Anotar un cobro
               </Boton>
+              {enLinea.disponible && !enLinea.simulado && mercadoPagoConectado === false && (
+                <Boton variante="plano" onClick={conectarMercadoPago}>
+                  Vincular Mercado Pago
+                </Boton>
+              )}
               {/* Con todo cobrado o pedido no hay nada que pedir. Sin
                   presupuesto aprobado sí: no hay contra qué comparar. */}
               {!pidiendo && (cuenta.falta > 0 || cuenta.total === 0) && (
                 <Boton
                   variante="neutro"
                   icono="sobre"
-                  motivo={enLinea.disponible ? null : enLinea.motivo}
+                  motivo={!enLinea.disponible ? enLinea.motivo :
+                    !enLinea.simulado && !mercadoPagoConectado ? "primero vinculá Mercado Pago" : null}
                   onClick={abrirPedido}
                 >
                   Pedir un pago por link o QR

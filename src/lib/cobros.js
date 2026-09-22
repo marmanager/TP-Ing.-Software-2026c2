@@ -22,9 +22,7 @@ import { pesos } from "./estados.js";
 // Cómo se pagó
 // ------------------------------------------------------------
 // "enElLocal" son los que el negocio anota a mano porque la plata ya la
-// tiene en la mano. Los otros los crea la API de pagos, que todavía no
-// existe: la lista crece el día que se definan los medios, sin tocar las
-// pantallas.
+// tiene en la mano. Los otros los crea la API de pagos.
 export const MEDIOS = {
   efectivo: { clave: "efectivo", palabra: "Efectivo", enElLocal: true },
   transferencia: { clave: "transferencia", palabra: "Transferencia", enElLocal: true },
