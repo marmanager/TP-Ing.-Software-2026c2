@@ -166,12 +166,28 @@ export function AuthProvider({ children }) {
       setCargando(false);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (evento, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, s) => {
       if (!vivo) return;
       if (evento === "PASSWORD_RECOVERY") setRecuperando(true);
       setSesion(s ?? null);
-      setUsuario(s ? await traerUsuario(s.user) : null);
-      setCargando(false);
+      if (!s) {
+        setUsuario(null);
+        setCargando(false);
+        return;
+      }
+      // Supabase puede bloquear las llamadas hechas dentro de este callback.
+      // Esperamos al siguiente ciclo antes de consultar la tabla usuario.
+      setCargando(true);
+      setTimeout(async () => {
+        try {
+          const perfil = await traerUsuario(s.user);
+          if (vivo) setUsuario(perfil);
+        } catch (error) {
+          console.error("No se pudo cargar el usuario:", error);
+        } finally {
+          if (vivo) setCargando(false);
+        }
+      }, 0);
     });
 
     return () => {
@@ -275,6 +291,7 @@ export function AuthProvider({ children }) {
             error:
               "Para entrar con Google hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
+        window.localStorage.removeItem(LLAVE_DEMO);
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {

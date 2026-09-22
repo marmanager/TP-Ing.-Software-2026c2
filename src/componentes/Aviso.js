@@ -9,10 +9,8 @@
 // el botón creyendo que no había pasado nada.
 //
 // - En celular van fijos abajo, encima de la barra de secciones (64 px).
-// - En escritorio van arriba del contenido, como antes, y si quedaron fuera
-//   de la vista se lleva la vista hasta ellos.
+// - En escritorio quedan fijos abajo para conservar la posición al cobrar.
 
-import { useEffect, useRef } from "react";
 import { useDatos } from "@/lib/datos";
 import Icono from "./Icono";
 import { Boton } from "./ui";
@@ -45,33 +43,14 @@ function Banda({ tono, icono, texto, alDescartar, deshacer, rol }) {
   );
 }
 
-// Lleva la vista al aviso cuando aparece fuera de ella. Sólo en escritorio:
-// en celular el aviso ya está fijo a la vista.
-function usarTraerALaVista(ref, contenido) {
-  useEffect(() => {
-    const el = ref.current;
-    if (!contenido || !el) return;
-    if (!window.matchMedia("(min-width: 768px)").matches) return;
-
-    const { top, bottom } = el.getBoundingClientRect();
-    if (top >= 0 && bottom <= window.innerHeight) return;
-
-    const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ block: "start", behavior: sinMovimiento ? "auto" : "smooth" });
-  }, [ref, contenido]);
-}
-
 export default function Aviso() {
   const { aviso, exito, deshacerExito, descartarAviso, descartarExito } = useDatos();
-  const ref = useRef(null);
-  usarTraerALaVista(ref, exito || aviso ? `${exito ?? ""}${aviso ?? ""}` : null);
 
   if (!exito && !aviso) return null;
 
   return (
     <div
-      ref={ref}
-      className="fixed inset-x-3 bottom-[calc(var(--alto-barra,4rem)+0.75rem)] z-30 flex flex-col gap-2 md:static md:inset-auto md:z-auto md:mb-6 md:scroll-mt-6"
+      className="fixed inset-x-3 bottom-[calc(var(--alto-barra,4rem)+0.75rem)] z-30 flex flex-col gap-2 md:inset-x-auto md:right-6 md:bottom-6 md:w-[min(32rem,calc(100vw-3rem))]"
     >
       {exito && (
         <Banda

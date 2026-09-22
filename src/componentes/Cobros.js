@@ -168,6 +168,14 @@ export default function SeccionCobros({
   const [medioPedido, setMedioPedido] = useState("link");
   const { sesion } = useAuth();
   const [mercadoPagoConectado, setMercadoPagoConectado] = useState(null);
+  const [vinculadoAhora, setVinculadoAhora] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
+    setVinculadoAhora(true);
+    document.getElementById("cobros")?.scrollIntoView({ block: "start" });
+    window.history.replaceState(null, "", window.location.pathname + "#cobros");
+  }, []);
 
   const cuenta = cuentaDelCaso({ aprobado, cobros, descuento });
   const frase = fraseDeLaCuenta(cuenta);
@@ -191,6 +199,7 @@ export default function SeccionCobros({
       });
       const data = await response.json();
       if (!response.ok || !data.url) throw new Error(data.motivo || "No se pudo vincular Mercado Pago.");
+      window.sessionStorage.setItem("marmanager.mp-caso", caso.id);
       window.location.assign(data.url);
     } catch (e) { setError(e.message); }
   }
@@ -203,6 +212,13 @@ export default function SeccionCobros({
     if (!esperandoAlgo) return;
     let vivo = true;
     const mirar = async () => {
+      if (API_PAGOS && sesion?.access_token) {
+        try {
+          await fetch(`${API_PAGOS}/casos/${caso.id}/conciliar-cobros`, {
+            method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
+          });
+        } catch { /* El webhook sigue funcionando aunque falle esta consulta. */ }
+      }
       const r = await datos.refrescarCobros(caso.id);
       if (vivo && r?.pagados?.length) {
         const total = r.pagados.reduce((s, c) => s + Number(c.monto), 0);
@@ -211,6 +227,7 @@ export default function SeccionCobros({
     };
     const reloj = setInterval(mirar, CADA_CUANTO);
     window.addEventListener("focus", mirar);
+    mirar();
     return () => {
       vivo = false;
       clearInterval(reloj);
@@ -280,6 +297,9 @@ export default function SeccionCobros({
         : "Listo. Mandale el link para que pague."
     );
     setPidiendo(false);
+    if (r.cobro?.id) {
+      setTimeout(() => document.getElementById(`cobro-${r.cobro.id}`)?.scrollIntoView({ block: "center" }), 0);
+    }
   }
 
   async function anular(cobro) {
@@ -292,8 +312,13 @@ export default function SeccionCobros({
 
   return (
     <>
-      <TituloSeccion className="mt-12">Cobros</TituloSeccion>
+      <div id="cobros" className="scroll-mt-6"><TituloSeccion className="mt-12">Cobros</TituloSeccion></div>
       <Tarjeta>
+        {vinculadoAhora && (
+          <p role="status" className="mb-4 rounded-campo bg-completo-fondo p-3 font-bold text-completo">
+            Mercado Pago quedó vinculado. Ya podés pedir pagos por link o QR.
+          </p>
+        )}
         {soloElNumeroViejo ? (
           <p className="text-tinta-media">
             {Number(caso.cobrado) === 0 ? (
@@ -329,7 +354,7 @@ export default function SeccionCobros({
             {cobros.map((c) => {
               const e = estadoDeCobro(c.estado);
               return (
-                <li key={c.id} className="py-4">
+                <li key={c.id} id={`cobro-${c.id}`} className="py-4 scroll-mt-6">
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                     <div className="min-w-0">
                       <p className={`font-bold text-cuerpo tabular-nums ${c.estado === "anulado" ? "text-tinta-suave line-through" : ""}`}>

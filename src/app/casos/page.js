@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
@@ -11,12 +12,24 @@ import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Vacio } from "@/componentes/ui";
 
 export default function Casos() {
+  const router = useRouter();
   const { cargando, casos, clientes, negocio } = useDatos();
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
   const [orden, setOrden] = useState("estado");
+  const [mercadoPagoVinculado, setMercadoPagoVinculado] = useState(false);
   const campoBusqueda = useRef(null);
   useTitulo("Casos");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
+    const casoId = window.sessionStorage.getItem("marmanager.mp-caso");
+    window.sessionStorage.removeItem("marmanager.mp-caso");
+    if (casoId && /^[0-9a-f-]{36}$/i.test(casoId)) router.replace(`/casos/${casoId}?mp=conectado#cobros`);
+    else {
+      setMercadoPagoVinculado(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [router]);
 
   if (cargando) return <Cargando />;
 
@@ -48,6 +61,11 @@ export default function Casos() {
 
   return (
     <>
+      {mercadoPagoVinculado && (
+        <p role="status" className="mb-4 rounded-campo bg-completo-fondo p-3 font-bold text-completo">
+          Mercado Pago quedó vinculado. Abrí un caso para pedir un pago por link o QR.
+        </p>
+      )}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-pantalla">Casos</h1>
