@@ -19,6 +19,7 @@ import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import {
   LISTA_MODULOS,
   alternarModulo,
+  estaPrendido,
   hijosActivos,
   hijosDe,
   motivoParaNoApagar,
@@ -58,13 +59,13 @@ export default function Modulos() {
 
       <p className="mb-8 max-w-[65ch] text-tinta-media">
         {puedeConfigurar
-          ? "Inicio, Casos, Clientes y Mi negocio están siempre. El resto los prendés y apagás según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste."
-          : `Inicio, Casos, Clientes y Mi negocio están siempre. El resto los tiene o no tu negocio. ${QUIEN_PUEDE.configurarNegocio}`}
+          ? "Inicio, Casos y Mi negocio están siempre. El resto los prendés y apagás según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste."
+          : `Inicio, Casos y Mi negocio están siempre. El resto los tiene o no tu negocio. ${QUIEN_PUEDE.configurarNegocio}`}
       </p>
 
       <ul className="grid gap-4">
         {LISTA_MODULOS.map((m) => {
-          const prendido = activos.includes(m.clave);
+          const prendido = estaPrendido(m.clave, activos);
           const recomendado = recomendados.includes(m.clave);
           // Las pantallas de adentro que están prendidas. Para un negocio de
           // antes de los submódulos son las dos, aunque no estén escritas.

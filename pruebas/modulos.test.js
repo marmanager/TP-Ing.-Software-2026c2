@@ -14,6 +14,7 @@ import {
   MODULOS,
   SUBMODULOS,
   alternarModulo,
+  estaPrendido,
   hijosActivos,
   hijosDe,
   motivoParaNoApagar,
@@ -26,7 +27,33 @@ const claves = (lista) => lista.map((m) => m.clave).sort();
 test("los submódulos no ensucian la lista de módulos", () => {
   // De LISTA_MODULOS salen el contador de "Mi negocio" y lo que recomienda
   // cada preset. Si los hijos entraran ahí, esos números cambiarían solos.
-  assert.deepEqual(claves(LISTA_MODULOS), ["agenda", "equipo", "inventario", "presupuesto"]);
+  assert.deepEqual(claves(LISTA_MODULOS), [
+    "agenda",
+    "clientes",
+    "equipo",
+    "historial",
+    "inventario",
+    "presupuesto",
+  ]);
+  for (const s of LISTA_SUBMODULOS) {
+    assert.ok(!LISTA_MODULOS.includes(s), `${s.clave} se coló entre los módulos`);
+  }
+});
+
+test("los módulos van en el orden de la barra lateral", () => {
+  // Quien busca en "Módulos" lo que ve en el menú lo encuentra en el mismo
+  // lugar.
+  assert.deepEqual(
+    LISTA_MODULOS.map((m) => m.clave),
+    ["agenda", "clientes", "inventario", "presupuesto", "equipo", "historial"]
+  );
+});
+
+test("el módulo de /aprobar se llama como en el menú", () => {
+  // SCRUM-121. Se llamaba "Presupuesto" y apagarlo no apagaba ningún
+  // presupuesto: sólo la pantalla "A aprobar".
+  assert.equal(MODULOS.presupuesto.nombre, "A aprobar");
+  assert.equal(MODULOS.presupuesto.ruta, "/aprobar");
 });
 
 test("cada submódulo cuelga de un módulo que existe", () => {
@@ -148,4 +175,86 @@ test("nunca queda la Agenda prendida sin ninguna pantalla adentro", () => {
       );
     }
   }
+});
+
+// ---------- los módulos de fábrica: Clientes e Historial ----------
+//
+// SCRUM-120 y SCRUM-122. Eran núcleo y pasaron a módulo. Lo que más importa
+// probar es que NINGÚN negocio que ya existe los pierda: ninguno los tiene
+// escritos en su lista, porque hasta ahora no hacía falta.
+
+// Las listas de negocios reales de hoy: los cuatro presets, uno vacío a mano,
+// y el de las pruebas de navegador.
+const NEGOCIOS_DE_HOY = [
+  ["agenda", "inventario", "equipo", "presupuesto"],
+  ["agenda", "equipo", "presupuesto"],
+  ["agenda"],
+  [],
+  ["equipo", "presupuesto", "clientes", "historial"],
+];
+
+test("Clientes e Historial son de fábrica, los demás no", () => {
+  const deFabrica = LISTA_MODULOS.filter((m) => m.deFabrica).map((m) => m.clave).sort();
+  assert.deepEqual(deFabrica, ["clientes", "historial"]);
+});
+
+test("ningún negocio que ya existe pierde Clientes ni Historial", () => {
+  for (const activos of NEGOCIOS_DE_HOY) {
+    assert.ok(estaPrendido("clientes", activos), `perdió Clientes: [${activos}]`);
+    assert.ok(estaPrendido("historial", activos), `perdió Historial: [${activos}]`);
+  }
+});
+
+test("los opcionales de siempre siguen necesitando estar escritos", () => {
+  // Que la regla nueva no cambie la vieja: la Agenda que no está en la lista
+  // sigue apagada.
+  assert.equal(estaPrendido("agenda", []), false);
+  assert.equal(estaPrendido("agenda", ["agenda"]), true);
+  assert.equal(estaPrendido("presupuesto", ["agenda"]), false);
+});
+
+test("apagar Clientes lo apaga, y prenderlo de nuevo lo vuelve a prender", () => {
+  const sin = alternarModulo("clientes", ["agenda"]);
+  assert.equal(estaPrendido("clientes", sin), false);
+  const con = alternarModulo("clientes", sin);
+  assert.equal(estaPrendido("clientes", con), true);
+});
+
+test("prender de nuevo un módulo de fábrica no deja basura en la lista", () => {
+  // Ida y vuelta tiene que dejar la lista como estaba, no con marcas sueltas.
+  const antes = ["agenda", "equipo"];
+  const idaYVuelta = alternarModulo("historial", alternarModulo("historial", antes));
+  assert.deepEqual(idaYVuelta, antes);
+});
+
+test("apagar Historial no toca Clientes, ni al revés", () => {
+  const sinHistorial = alternarModulo("historial", ["agenda"]);
+  assert.equal(estaPrendido("clientes", sinHistorial), true);
+  assert.equal(estaPrendido("agenda", sinHistorial), true);
+
+  const sinClientes = alternarModulo("clientes", ["agenda"]);
+  assert.equal(estaPrendido("historial", sinClientes), true);
+});
+
+test("apagar un módulo de fábrica no lo confunde con uno escrito", () => {
+  // La lista de las pruebas de navegador ya traía "clientes" escrito. Eso no
+  // puede impedir apagarlo.
+  const activos = ["equipo", "clientes"];
+  assert.equal(estaPrendido("clientes", alternarModulo("clientes", activos)), false);
+});
+
+test("los módulos de fábrica no tienen pantallas adentro", () => {
+  // alternarModulo() no cruza la regla de fábrica con la de los submódulos.
+  // Si algún día un módulo de fábrica tuviera hijos, esto tiene que fallar
+  // antes de que alguien lo descubra en producción.
+  for (const m of LISTA_MODULOS.filter((x) => x.deFabrica)) {
+    assert.deepEqual(hijosDe(m.clave), [], `${m.clave} es de fábrica y tiene hijos`);
+  }
+});
+
+test("una clave que no está en el catálogo se trata como opcional", () => {
+  // No se inventa que está prendida: vale sólo si está escrita, como
+  // cualquier módulo que no es de fábrica.
+  assert.equal(estaPrendido("loquesea", ["loquesea"]), true);
+  assert.equal(estaPrendido("loquesea", []), false);
 });

@@ -238,6 +238,69 @@ estaba.
 Agregar un módulo nuevo es sumar una entrada en `src/lib/inicio.js` y su cuerpo
 en `src/componentes/inicio/cuerpos.js`.
 
+## Qué se prende y qué está siempre
+
+**Inicio, Casos y Mi negocio están siempre.** Sin casos no hay sistema, y sin Mi
+negocio no habría desde dónde volver a prender lo que se apagó. Todo lo demás que
+aparece en la barra lateral es un módulo y se prende y apaga desde "Mi negocio" →
+"Módulos": Agenda, Clientes, Inventario, A aprobar, Equipo e Historial. La
+pantalla de módulos los lista en ese mismo orden, el de la barra, para que quien
+busca ahí lo que ve en el menú lo encuentre en el mismo lugar.
+
+Apagar un módulo saca la sección del menú y del Inicio, y su dirección muestra
+"Tu negocio no tiene…" con el camino para prenderlo. No borra nada.
+
+### Clientes e Historial vienen prendidos de fábrica (SCRUM-122 y 120)
+
+Eran núcleo y pasaron a ser módulos. El problema es que la lista
+`modulos_activos` de cada negocio dice lo que está **prendido**, y ningún negocio
+que existe hoy tiene `clientes` ni `historial` escritos: hasta ahora no hacía
+falta. Preguntar "¿está en la lista?" habría hecho que, el día que esto se
+publique, todos los negocios perdieran las dos secciones de un saque y sin aviso.
+
+Agregarlos con una migración parece lo directo, pero las migraciones de este repo
+se pueden volver a correr, y volver a correr ésa prendería de nuevo lo que un
+dueño apagó. Taparlo pedía una columna de versión, repetir lo mismo para el modo
+de ejemplo, y dejaba un caso donde la elección de alguien se deshace sola.
+
+Así que esos dos llevan `deFabrica: true` en `src/lib/modulos.js`: están
+prendidos salvo que alguien los haya apagado, y apagarlos se anota explícito en
+la lista como `-clientes` o `-historial`. Nada que migrar, igual en Supabase y en
+el modo de ejemplo. `pruebas/modulos.test.js` recorre las listas de los negocios
+de hoy y comprueba que ninguno pierda nada.
+
+**Nadie pregunta `activos.includes(...)` a mano.** Se pregunta `estaPrendido()`,
+que es el único que sabe cuáles son de fábrica. Lo usan la barra, la Guardia, el
+Inicio y las dos pantallas de Mi negocio.
+
+Apagar Clientes no deja de anotar clientes: se siguen dando de alta al abrir un
+caso o un turno. Apagar Historial no deja de anotar lo que pasa: cada caso sigue
+mostrando el suyo. Lo que se va es la sección.
+
+### "A aprobar" se llamaba "Presupuesto" (SCRUM-121)
+
+El módulo se llamaba "Presupuesto" y prometía algo que no hacía: apagarlo **no
+apagaba ningún presupuesto**. Los pasos se siguen armando y aprobando adentro de
+cada caso. Lo único que prende y apaga es la pantalla `/aprobar` —todos los casos
+esperando que el cliente conteste— y su tarjeta del Inicio. Ahora se llama "A
+aprobar", como en el menú, y la pantalla de módulos dice exactamente eso.
+
+La clave sigue siendo `presupuesto`: está escrita en la lista de cada negocio que
+existe y en cada preset, y cambiarla obligaba a migrar todo eso para decir lo
+mismo.
+
+### El Inicio no manda a secciones apagadas
+
+El aviso de "lo que hay que mirar" del Inicio y la tarjeta de pendientes
+linkeaban a la Agenda, a "A aprobar" y al Inventario sin mirar si estaban
+prendidos: con el Inventario apagado, el Inicio seguía insistiendo con "insumos
+por debajo del mínimo" y un link a una pantalla que el negocio había decidido no
+tener. Ahora cada aviso sale sólo si su sección está prendida.
+
+Los turnos nuevos pedidos por el link se miran contra la pantalla **Turnos** y no
+contra la Agenda entera, porque se confirman ahí: el Calendario no tiene
+acciones.
+
 ## La Agenda tiene dos pantallas
 
 La Agenda dejó de ser una sola pantalla: adentro están **Turnos** —la lista, día

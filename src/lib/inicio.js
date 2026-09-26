@@ -24,6 +24,12 @@
 // cartilla— y los módulos se leen en el orden en que quedaron: de arriba
 // hacia abajo y de izquierda a derecha.
 
+// Si el módulo de una tarjeta está prendido lo decide lib/modulos.js, que es
+// el único que sabe cuáles vienen prendidos de fábrica. Preguntar
+// "modulosActivos.includes(...)" acá escondía las tarjetas de Clientes e
+// Historial en todos los negocios que no los tienen escritos, que son todos.
+import { estaPrendido } from "./modulos";
+
 export const COLUMNAS = 6;
 export const MAX_ALTO = 6;
 
@@ -129,7 +135,7 @@ export const CATALOGO = {
     nombre: "Clientes",
     icono: "persona",
     ruta: "/clientes",
-    modulo: null,
+    modulo: "clientes",
     queMuestra: "Los últimos que trajeron un trabajo, con el teléfono a mano.",
     ancho: 3,
     alto: 1,
@@ -146,7 +152,7 @@ export const CATALOGO = {
     nombre: "Historial",
     icono: "historial",
     ruta: "/historial",
-    modulo: null,
+    modulo: "historial",
     queMuestra: "Lo que fue pasando en los casos, con quién lo hizo.",
     ancho: 3,
     alto: 2,
@@ -285,7 +291,7 @@ export function normalizarInicio(guardado) {
 export const visibles = (config, modulosActivos = []) =>
   config.filter((m) => {
     const necesita = CATALOGO[m.clave]?.modulo;
-    return !necesita || modulosActivos.includes(necesita);
+    return !necesita || estaPrendido(necesita, modulosActivos);
   });
 
 // Los que se pueden agregar: están en el catálogo, su módulo está prendido,
@@ -294,7 +300,7 @@ export const agregables = (config, modulosActivos = []) =>
   LISTA_CATALOGO.filter(
     (def) =>
       !config.some((m) => m.clave === def.clave) &&
-      (!def.modulo || modulosActivos.includes(def.modulo))
+      (!def.modulo || estaPrendido(def.modulo, modulosActivos))
   );
 
 // Poner un módulo en un lugar. Lo que estaba ahí baja.

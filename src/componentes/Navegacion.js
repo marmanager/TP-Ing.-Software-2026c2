@@ -25,14 +25,15 @@
 // sabe dónde se está.
 //
 // Los destinos con "modulo" sólo aparecen si ese módulo está prendido en
-// "Mi negocio" (SCRUM-38). El resto es núcleo y está siempre.
+// "Mi negocio" (SCRUM-38). El resto —Inicio, Casos y Mi negocio— es núcleo y
+// está siempre.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icono from "./Icono";
 import { useDatos } from "@/lib/datos";
-import { hijosActivos } from "@/lib/modulos";
+import { estaPrendido, hijosActivos } from "@/lib/modulos";
 
 const DESTINOS = [
   { href: "/", icono: "sol", palabra: "Inicio", celular: true },
@@ -51,12 +52,13 @@ const DESTINOS = [
       { href: "/agenda/calendario", icono: "calendario", palabra: "Calendario", modulo: "calendario" },
     ],
   },
-  { href: "/clientes", icono: "persona", palabra: "Clientes" },
+  // Clientes e Historial eran núcleo y pasaron a módulo (SCRUM-122 y 120).
+  // Vienen prendidos de fábrica: ver estaPrendido() en lib/modulos.js.
+  { href: "/clientes", icono: "persona", palabra: "Clientes", modulo: "clientes" },
   { href: "/inventario", icono: "cajas", palabra: "Inventario", modulo: "inventario" },
   { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
-  // Núcleo, no módulo: lo que pasó en el negocio le sirve a cualquier rubro.
-  { href: "/historial", icono: "historial", palabra: "Historial" },
+  { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
   { href: "/negocio", icono: "tienda", palabra: "Mi negocio" },
 ];
 
@@ -75,7 +77,7 @@ const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(hr
 const conModulo = (destinos, negocio) => {
   const activos = negocio?.modulos_activos ?? [];
   return destinos
-    .filter((d) => !d.modulo || activos.includes(d.modulo))
+    .filter((d) => !d.modulo || estaPrendido(d.modulo, activos))
     .map((d) => {
       if (!d.hijos) return d;
       const prendidos = hijosActivos(d.modulo, activos).map((h) => h.clave);

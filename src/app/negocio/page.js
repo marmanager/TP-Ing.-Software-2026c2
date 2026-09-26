@@ -17,7 +17,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
-import { LISTA_MODULOS } from "@/lib/modulos";
+import { LISTA_MODULOS, estaPrendido } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
 import { contrasenaValida, telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
@@ -172,7 +172,7 @@ export default function MiNegocio() {
   const modulosActivos = negocio?.modulos_activos ?? [];
   // Configurar el negocio es del dueño, y la base también lo rechaza.
   const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
-  const prendidos = LISTA_MODULOS.filter((m) => modulosActivos.includes(m.clave));
+  const prendidos = LISTA_MODULOS.filter((m) => estaPrendido(m.clave, modulosActivos));
   const nuevo = rubroElegido ? preset(rubroElegido) : null;
   const horarios = normalizarHorarios(negocio?.horarios);
 
@@ -209,7 +209,7 @@ export default function MiNegocio() {
           {[
             ["#estados", "Los estados"],
             ["#modulos", "Los módulos"],
-            ...(modulosActivos.includes("agenda") ? [["#horarios", "Cuándo atendés"]] : []),
+            ...(estaPrendido("agenda", modulosActivos) ? [["#horarios", "Cuándo atendés"]] : []),
             ["#rubro", "El rubro"],
             ["#cuenta", "Mi cuenta"],
           ].map(([href, texto]) => (
@@ -439,7 +439,7 @@ export default function MiNegocio() {
       {/* Cuándo atiende. Sólo si la agenda está prendida: sin agenda no hay
           turnos que dar, y configurar horarios sería configurar algo que no
           se usa. */}
-      {modulosActivos.includes("agenda") && (
+      {estaPrendido("agenda", modulosActivos) && (
         <>
           <TituloSeccion id="horarios">Cuándo atendés</TituloSeccion>
           <Tarjeta className="mb-12">

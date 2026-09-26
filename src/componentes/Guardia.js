@@ -17,7 +17,7 @@ import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 import Link from "next/link";
-import { LISTA_MODULOS, LISTA_SUBMODULOS, hijosActivos } from "@/lib/modulos";
+import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
 
 // Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
@@ -71,7 +71,7 @@ const moduloApagado = (ruta, negocio) => {
   // El módulo entero apagado se lleva también sus pantallas de adentro:
   // "/agenda" y "/agenda/calendario" caen las dos por "/agenda".
   const padre = LISTA_MODULOS.find(
-    (m) => (ruta === m.ruta || ruta.startsWith(m.ruta + "/")) && !activos.includes(m.clave)
+    (m) => (ruta === m.ruta || ruta.startsWith(m.ruta + "/")) && !estaPrendido(m.clave, activos)
   );
   if (padre) return padre;
 
@@ -85,7 +85,7 @@ const moduloApagado = (ruta, negocio) => {
     LISTA_SUBMODULOS.find(
       (s) =>
         ruta === s.ruta &&
-        activos.includes(s.padre) &&
+        estaPrendido(s.padre, activos) &&
         !hijosActivos(s.padre, activos).some((h) => h.clave === s.clave)
     ) ?? null
   );

@@ -21,6 +21,7 @@ import { etiquetaEstado } from "@/lib/presets";
 import { horaYMinutos, diaLargo, cuando } from "@/lib/fechas";
 import { filtrarHistorial } from "@/lib/historial";
 import { estadoDeTurno } from "@/lib/turnos";
+import { estaPrendido } from "@/lib/modulos";
 import Icono from "@/componentes/Icono";
 
 // ---------- piezas compartidas ----------
@@ -86,7 +87,13 @@ function Numerito({ href, icono, color, titulo, cuanto, detalle }) {
 }
 
 function CuerpoPendientes() {
-  const { casos, insumos } = useDatos();
+  const { casos, insumos, negocio } = useDatos();
+  // Esta tarjeta es del núcleo y está en cualquier negocio, pero uno de sus
+  // tres números es del Inventario. Con el Inventario apagado ese número
+  // llevaba a una pantalla que el negocio decidió no tener. Es la única
+  // tarjeta que cruza a otra sección: las demás sólo linkean a la suya, y
+  // ésas ya se esconden solas con su módulo.
+  const conInventario = estaPrendido("inventario", negocio?.modulos_activos ?? []);
 
   const abiertos = casos.filter(estaAbierto);
   const esperando = abiertos.filter((c) => c.estado === "esperando");
@@ -104,18 +111,20 @@ function CuerpoPendientes() {
         cuanto={`${esperando.length} ${esperando.length === 1 ? "caso" : "casos"}`}
         detalle={esperando.length ? "Falta que conteste el cliente." : "No hay ninguno."}
       />
-      <Numerito
-        href="/inventario"
-        icono="camion"
-        color="text-terracota"
-        titulo="Insumos que llegaron"
-        cuanto={`${llegados.length} ${llegados.length === 1 ? "pedido" : "pedidos"}`}
-        detalle={
-          casoDelInsumo
-            ? `${llegados[0].nombre} del caso ${casoDelInsumo.numero}.`
-            : "No llegó nada nuevo."
-        }
-      />
+      {conInventario && (
+        <Numerito
+          href="/inventario"
+          icono="camion"
+          color="text-terracota"
+          titulo="Insumos que llegaron"
+          cuanto={`${llegados.length} ${llegados.length === 1 ? "pedido" : "pedidos"}`}
+          detalle={
+            casoDelInsumo
+              ? `${llegados[0].nombre} del caso ${casoDelInsumo.numero}.`
+              : "No llegó nada nuevo."
+          }
+        />
+      )}
       <Numerito
         href="/casos"
         icono="listo"

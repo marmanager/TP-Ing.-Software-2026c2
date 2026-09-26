@@ -31,6 +31,7 @@ import { casosPorAprobar, casosQueContestoElCliente, estaAbierto, pesos } from "
 import { turnosSinVer } from "@/lib/turnos";
 import { casosConSaldo } from "@/lib/cobros";
 import { diasDesde } from "@/lib/fechas";
+import { estaPrendido, hijosActivos } from "@/lib/modulos";
 import {
   ALTO_FILA,
   COLUMNAS,
@@ -159,8 +160,20 @@ export default function Inicio() {
   const conSaldo = casosConSaldo({ casos, pasos, cobros: cobros ?? [] });
   const saldoTotal = conSaldo.reduce((s, x) => s + x.cuenta.falta, 0);
 
+  // Cada aviso lleva a una sección, y sólo aparece si esa sección está
+  // prendida. Antes aparecían siempre: con el Inventario apagado, el Inicio
+  // seguía insistiendo con "insumos por debajo del mínimo" y un link a una
+  // pantalla que el negocio había decidido no tener.
+  //
+  // Los turnos nuevos se confirman en Turnos, no en el Calendario, que no
+  // tiene acciones. Por eso lo que se mira es esa pantalla y no la Agenda
+  // entera: hijosActivos() da vacío si la Agenda está apagada, así que una
+  // sola pregunta cubre los dos casos.
+  const conTurnos = hijosActivos("agenda", modulosActivos).some((h) => h.clave === "turnos");
+  const prendido = (clave) => estaPrendido(clave, modulosActivos);
+
   const hayQueMirar = [
-    turnosNuevos.length > 0 && {
+    conTurnos && turnosNuevos.length > 0 && {
       href: "/agenda",
       texto:
         turnosNuevos.length === 1
@@ -181,11 +194,11 @@ export default function Inicio() {
           ? `Falta cobrar ${pesos(saldoTotal)} del caso ${conSaldo[0].caso.numero}`
           : `Falta cobrar ${pesos(saldoTotal)} de ${conSaldo.length} casos entregados`,
     },
-    trabados > 0 && {
+    prendido("presupuesto") && trabados > 0 && {
       href: "/aprobar",
       texto: `${trabados} ${trabados === 1 ? "caso espera" : "casos esperan"} respuesta hace más de 3 días`,
     },
-    bajoMinimo > 0 && {
+    prendido("inventario") && bajoMinimo > 0 && {
       href: "/inventario",
       texto: `${bajoMinimo} ${bajoMinimo === 1 ? "insumo" : "insumos"} por debajo del mínimo`,
     },

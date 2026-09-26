@@ -22,7 +22,9 @@ describe("Historia parcial: Sistema de presets", () => {
     await expect(botonRubro("Medicina")).toHaveAttribute("aria-pressed", "true");
     await verTexto("Con «Medicina» vas a arrancar con:");
     await verTexto("Agenda");
-    await verTexto("Presupuesto");
+    // El módulo de la clave "presupuesto" se llama "A aprobar" (SCRUM-121):
+    // es lo único que prende y apaga, y así se llama en el menú.
+    await verTexto("A aprobar");
   });
 
   it("AC4 y AC6: aplica el preset elegido y lo conserva al recargar", async () => {
