@@ -9,8 +9,8 @@
 // un taller, "insumo" en un consultorio— a través de vocabulario(), en
 // presets.js. Ninguna palabra del oficio se escribe a mano en esta pantalla.
 //
-// Lo que no es de pantalla —cuándo dos productos son el mismo, cómo se lee
-// una caja— está en lib/inventario.js, con sus pruebas.
+// Lo que no es de pantalla —cuándo dos productos son el mismo, qué categorías
+// hay, cómo se lee una caja— está en lib/inventario.js, con sus pruebas.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -22,6 +22,8 @@ import { ejemplosDe, vocabulario } from "@/lib/presets";
 import { hijosActivos } from "@/lib/modulos";
 import {
   buscarIgual,
+  categoriaExistente,
+  categoriasDisponibles,
   enTotal,
   limpiarProducto,
   presentacion,
@@ -115,6 +117,7 @@ const VACIO = {
   nombre: "",
   marca: "",
   modelo: "",
+  categoria: "",
   cantidad: "",
   minimo: "",
   unidad: "unidad",
@@ -125,10 +128,17 @@ function AltaDeProducto({ alCerrar }) {
   const datos = useDatos();
   const { insumos, negocio } = datos;
   const [form, setForm] = useState(VACIO);
+  // Las categorías recién creadas con "+ Nueva" que todavía no usa ningún
+  // producto. Se guardan de verdad cuando se guarda el producto que las usa.
+  const [agregadas, setAgregadas] = useState([]);
+  const [creando, setCreando] = useState(false);
+  const [nueva, setNueva] = useState("");
+  const [avisoCategoria, setAvisoCategoria] = useState(null);
 
   const { articulo } = vocabulario(negocio?.rubro);
   const cambiar = (que) => setForm((f) => ({ ...f, ...que }));
   const enCaja = form.unidad === "caja";
+  const categorias = categoriasDisponibles(negocio?.rubro, insumos, agregadas);
 
   // Si lo que se está escribiendo ya está en el stock, se avisa ANTES de
   // guardar: se va a sumar ahí. Es lo que pasa con "Ya es cliente" en el alta
@@ -144,6 +154,23 @@ function AltaDeProducto({ alCerrar }) {
       : igual && producto.cantidad < 1
         ? "falta cuántos agregás"
         : null;
+
+  function crearCategoria() {
+    const texto = nueva.trim().replace(/\s+/g, " ");
+    if (!texto) return;
+    // "tornillos" al lado de "Tornillos" es la misma: se elige la que hay.
+    const existente = categoriaExistente(texto, categorias);
+    if (existente) {
+      cambiar({ categoria: existente });
+      setAvisoCategoria(`«${existente}» ya estaba. La dejamos elegida.`);
+    } else {
+      setAgregadas((a) => [...a, texto]);
+      cambiar({ categoria: texto });
+      setAvisoCategoria(`Listo. «${texto}» queda guardada con ${articulo.el()}.`);
+    }
+    setNueva("");
+    setCreando(false);
+  }
 
   function guardar() {
     const r = datos.agregarInsumo(form);
@@ -196,6 +223,81 @@ function AltaDeProducto({ alCerrar }) {
           onChange={(e) => cambiar({ modelo: e.target.value })}
           autoComplete="off"
         />
+      </div>
+
+      {/* La categoría: las del rubro, las que ya usa el negocio, y "+ Nueva"
+          al lado para la que no se nos ocurrió. Se crea ahí mismo, sin salir
+          del alta. */}
+      <div className="mb-6">
+        <label htmlFor={creando ? "prod-categoria-nueva" : "prod-categoria"} className="block font-bold text-cuerpo">
+          Categoría
+        </label>
+        <p id="prod-categoria-ayuda" className="mt-1 text-etiqueta text-tinta-media">
+          Opcional. Sirve para ordenar el stock.
+        </p>
+
+        {creando ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <input
+              id="prod-categoria-nueva"
+              autoFocus
+              value={nueva}
+              onChange={(e) => setNueva(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") crearCategoria();
+                if (e.key === "Escape") setCreando(false);
+              }}
+              placeholder="Juntas, correas, cables…"
+              className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-azul bg-tarjeta px-4 text-cuerpo"
+            />
+            <Boton
+              icono="check"
+              motivo={!nueva.trim() ? "falta el nombre" : null}
+              onClick={crearCategoria}
+            >
+              Agregar
+            </Boton>
+            <Boton variante="plano" icono="cruz" onClick={() => setCreando(false)}>
+              No
+            </Boton>
+          </div>
+        ) : (
+          <div className="mt-2 flex gap-2">
+            <select
+              id="prod-categoria"
+              aria-describedby="prod-categoria-ayuda"
+              value={form.categoria}
+              onChange={(e) => {
+                cambiar({ categoria: e.target.value });
+                setAvisoCategoria(null);
+              }}
+              className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
+            >
+              <option value="">Sin categoría</option>
+              {categorias.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <Boton
+              icono="mas"
+              className="shrink-0 px-4"
+              onClick={() => {
+                setAvisoCategoria(null);
+                setCreando(true);
+              }}
+            >
+              Nueva
+            </Boton>
+          </div>
+        )}
+        {avisoCategoria && (
+          <p className="mt-2 flex items-start gap-2 font-bold text-completo text-etiqueta">
+            <Icono nombre="listo" className="mt-px size-5" />
+            <span>{avisoCategoria}</span>
+          </p>
+        )}
       </div>
 
       {/* Cómo viene. Una caja de cien tornillos se cuenta en cajas, que es
@@ -317,7 +419,13 @@ function FilaDeStock({ insumo: i, puedeCargar, conEnCamino }) {
     <li className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0">
       <div className="min-w-0 flex-1">
         <p className="font-bold">{i.nombre}</p>
-        {detalle && <p className="text-apoyo text-tinta-suave">{detalle}</p>}
+        {(detalle || i.categoria) && (
+          <p className="text-apoyo text-tinta-suave">
+            {detalle}
+            {detalle && i.categoria && " · "}
+            {i.categoria}
+          </p>
+        )}
         {i.descripcion && <p className="text-apoyo text-tinta-suave">{i.descripcion}</p>}
         {bajo && (
           <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-bold text-espera text-etiqueta">

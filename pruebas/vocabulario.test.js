@@ -9,7 +9,7 @@
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
-import { RUBROS, formas, mayuscula, vocabulario } from "../src/lib/presets.js";
+import { RUBROS, categoriasDe, formas, mayuscula, vocabulario } from "../src/lib/presets.js";
 
 // ---------- cada rubro tiene sus palabras ----------
 
@@ -109,4 +109,29 @@ test("la mayúscula respeta la tilde", () => {
 test("la mayúscula de algo vacío no rompe", () => {
   assert.equal(mayuscula(""), "");
   assert.equal(mayuscula(undefined), undefined);
+});
+
+// ---------- las categorías de cada rubro ----------
+
+
+test("cada rubro trae categorías para arrancar", () => {
+  for (const r of RUBROS) {
+    assert.ok(categoriasDe(r.clave).length > 0, `${r.clave} no trae categorías`);
+  }
+});
+
+test("las categorías de un rubro no se repiten", () => {
+  for (const r of RUBROS) {
+    const cs = categoriasDe(r.clave).map((c) => c.toLowerCase());
+    assert.equal(new Set(cs).size, cs.length, `${r.clave} repite una categoría`);
+  }
+});
+
+test("un taller tiene pernos, tornillos y herramientas", () => {
+  const cs = categoriasDe("taller");
+  for (const c of ["Pernos", "Tornillos", "Herramientas"]) assert.ok(cs.includes(c), `falta ${c}`);
+});
+
+test("un consultorio no tiene las categorías del taller", () => {
+  assert.ok(!categoriasDe("medicina").includes("Pernos"));
 });

@@ -1,8 +1,11 @@
-// El inventario: cuándo dos productos son el mismo, y cómo se lee una caja.
+// El inventario: cuándo dos productos son el mismo, qué categorías hay, y
+// cómo se lee una caja.
 //
 // No tiene React ni Supabase adentro, igual que calendario.js y horarios.js:
 // lo corre `npm run test:unit` y lo usan tanto el alta de un producto como la
 // llegada de un pedido.
+
+import { categoriasDe } from "./presets.js";
 
 // ------------------------------------------------------------
 // Cuándo dos productos son el mismo
@@ -36,6 +39,9 @@ export function normalizar(texto) {
 // "Cómo vienen" entra en la cuenta a propósito: una caja de 100 tornillos y una
 // de 50 del mismo tornillo no se pueden sumar en cajas —3 cajas más 2 cajas no
 // son 5 cajas de nada—, así que son dos líneas del inventario.
+//
+// La categoría NO entra: es cómo se ordena, no qué es. El mismo filtro puesto
+// en "Filtros" por uno y en "Repuestos" por otro sigue siendo un solo filtro.
 export function mismoProducto(a, b) {
   if (!a || !b) return false;
   return (
@@ -62,6 +68,7 @@ export function limpiarProducto({
   nombre,
   marca,
   modelo,
+  categoria,
   cantidad,
   minimo,
   unidad,
@@ -74,12 +81,46 @@ export function limpiarProducto({
     nombre: texto(nombre) ?? "",
     marca: texto(marca),
     modelo: texto(modelo),
+    categoria: texto(categoria),
     cantidad: entero(cantidad),
     minimo: entero(minimo),
     unidad: enCaja ? "caja" : "unidad",
     por_caja: enCaja ? Math.max(1, entero(porCaja)) : null,
   };
 }
+
+// ------------------------------------------------------------
+// Las categorías
+// ------------------------------------------------------------
+// Las que ofrece el alta: las de fábrica del rubro, más las que ya usan los
+// productos del negocio, más las recién agregadas con el "+" que todavía no
+// usa nadie.
+//
+// Sin repetir aunque estén escritas distinto ("Tornillos" y "tornillos"): se
+// queda la primera forma que aparece, que es la del rubro si es una de ésas.
+// Las de fábrica van primero y en su orden; las del negocio, después y en
+// orden alfabético.
+export function categoriasDisponibles(rubro, insumos = [], agregadas = []) {
+  const vistas = new Set();
+  const quedarse = (lista) =>
+    lista.filter((c) => {
+      const k = normalizar(c);
+      if (!k || vistas.has(k)) return false;
+      vistas.add(k);
+      return true;
+    });
+
+  const deFabrica = quedarse(categoriasDe(rubro));
+  const propias = quedarse([...insumos.map((i) => i.categoria), ...agregadas]).sort((a, b) =>
+    a.localeCompare(b, "es")
+  );
+  return [...deFabrica, ...propias];
+}
+
+// Si una categoría nueva ya existe, escrita de otra manera. Para que el "+" no
+// deje crear "tornillos" al lado de "Tornillos".
+export const categoriaExistente = (nueva, disponibles = []) =>
+  disponibles.find((c) => normalizar(c) === normalizar(nueva)) ?? null;
 
 // ------------------------------------------------------------
 // Cómo se lee una cantidad

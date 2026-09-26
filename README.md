@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `031_productos.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `032_categorias.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
@@ -125,7 +125,7 @@ src/
     ├── turnos.js           los cuatro estados de un turno de la agenda
     ├── horarios.js         cuándo atiende el negocio y qué huecos quedan
     ├── calendario.js       turnos por día, meses, semanas y carriles
-    ├── inventario.js       cuándo dos productos son el mismo, y cajas
+    ├── inventario.js       cuándo dos productos son el mismo, categorías y cajas
     ├── ics.js              el archivo iCalendar de la agenda
     ├── presets.js          los diccionarios de rubro, y su vocabulario
     ├── modulos.js          el catálogo de módulos, y las pantallas de adentro
@@ -341,10 +341,11 @@ guarda: ese catálogo es uno solo para todos los rubros.
 
 ## Qué hay en el estante
 
-Cada producto tiene, además del nombre, **marca** y **modelo**, y puede venir
-**suelto o en caja**. Las tres son opcionales y nacen en
-`supabase/031_productos.sql`; sin esa migración la app sigue guardando
-productos, sin esos datos, en vez de perderlos.
+Cada producto tiene, además del nombre, **marca**, **modelo** y **categoría**, y
+puede venir **suelto o en caja**. Las cuatro son opcionales y nacen en
+`supabase/031_productos.sql` (marca, modelo y caja) y `032_categorias.sql`
+(categoría); sin esas migraciones la app sigue guardando productos, sin esos
+datos, en vez de perderlos.
 
 **En caja, se cuenta en cajas.** Una caja de 100 tornillos se carga diciendo
 cuántos trae cada una, y la cantidad y el mínimo van en cajas, que es como se
@@ -367,10 +368,28 @@ está reponiendo, no configurando.
 - y la misma presentación: suelto con suelto, y cajas del mismo tamaño. Una caja
   de 100 y una de 50 del mismo tornillo son dos líneas, porque 3 cajas más 2
   cajas no son 5 cajas de nada.
+- la categoría **no** cuenta: es cómo se ordena, no qué es.
 
 La regla se aplica en las dos puertas por donde entra stock: el alta, y un
 pedido para reponer que llega desde "En camino". Con una sola, la otra seguía
 dejando duplicados.
+
+### Las categorías
+
+Cada rubro trae las suyas en su preset (el taller: repuestos, filtros,
+lubricantes, pernos, tornillos, herramientas, eléctrico). La que falte se crea
+con **"+ Nueva"**, al lado del campo, sin salir del alta. Si ya existe escrita
+de otra manera ("tornillos" con "Tornillos" en la lista) no se duplica: se elige
+la que hay, y se dice.
+
+Las que crea un negocio **no tienen tabla**: viven en el producto que las usa, y
+la lista completa la arma `categoriasDisponibles()` con las de fábrica más las
+que ya usan sus productos. Una categoría sin ningún producto adentro no sirve
+para nada.
+
+El botón dice "+ Nueva" y no sólo "+": la cartilla pide ícono y palabra en todo
+botón, y la única excepción anotada es el pincel de la foto del negocio, que
+encima de la foto no tiene lugar. Al lado del campo, sí.
 
 ### El alta, como la de un turno
 

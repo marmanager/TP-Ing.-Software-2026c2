@@ -39,10 +39,10 @@ import {
 } from "./cobros.js";
 
 // Las columnas que el insumo gana en 031_productos.sql (marca, modelo,
-// por_caja). Van aparte para que una base donde todavía no se corrió esa
-// migración siga guardando productos —sin esos datos— en vez de perderlos:
-// ver escribirConColumnasNuevas.
-const COLUMNAS_NUEVAS_DE_INSUMO = ["marca", "modelo", "por_caja"];
+// por_caja) y 032_categorias.sql (categoria). Van aparte para que una base
+// donde todavía no se corrieron esas migraciones siga guardando productos
+// —sin esos datos— en vez de perderlos: ver escribirConColumnasNuevas.
+const COLUMNAS_NUEVAS_DE_INSUMO = ["marca", "modelo", "por_caja", "categoria"];
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -1505,8 +1505,8 @@ export function DatosProvider({ children }) {
           caso_id: null,
         };
         setDatos((d) => ({ ...d, insumos: [...d.insumos, insumo] }));
-        // Si la base todavía no tiene las columnas nuevas (031), el producto
-        // se guarda igual, sin ellas.
+        // Si la base todavía no tiene las columnas nuevas (031 y 032), el
+        // producto se guarda igual, sin ellas.
         escribirConColumnasNuevas("insumo", insumo, COLUMNAS_NUEVAS_DE_INSUMO, { insertar: true });
         return { sumado: false, insumo, antes: null };
       },

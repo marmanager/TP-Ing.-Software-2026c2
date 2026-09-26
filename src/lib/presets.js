@@ -62,6 +62,17 @@ export const PRESETS = {
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
     },
+    // Las categorías con las que arranca el inventario. Un negocio agrega las
+    // suyas con el "+" del alta, y ésas quedan guardadas en el producto.
+    categorias: [
+      "Repuestos",
+      "Filtros",
+      "Lubricantes",
+      "Pernos",
+      "Tornillos",
+      "Herramientas",
+      "Eléctrico",
+    ],
     ejemplos: {
       negocio: "Taller Sur",
       descripcion: "Mecánica general y chapa, zona sur",
@@ -105,6 +116,7 @@ export const PRESETS = {
     palabras: {
       articulo: { uno: "insumo", varios: "insumos", genero: "m" },
     },
+    categorias: ["Descartables", "Medicamentos", "Curaciones", "Instrumental", "Limpieza"],
     ejemplos: {
       negocio: "Consultorio Belgrano",
       descripcion: "Clínica médica, con obras sociales",
@@ -147,6 +159,14 @@ export const PRESETS = {
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
     },
+    categorias: [
+      "Repuestos",
+      "Pantallas",
+      "Baterías",
+      "Cables y conectores",
+      "Tornillos",
+      "Herramientas",
+    ],
     ejemplos: {
       negocio: "Service Centro",
       descripcion: "Notebooks y celulares, reparación en el día",
@@ -235,6 +255,12 @@ export function vocabulario(rubro) {
     Object.entries(palabras).map(([clave, palabra]) => [clave, formas(palabra)])
   );
 }
+
+// Las categorías de fábrica del inventario de un rubro. Son un punto de
+// partida: el negocio agrega las suyas, y la lista completa —éstas más las
+// que ya usan sus productos— la arma categoriasDisponibles(), en
+// lib/inventario.js.
+export const categoriasDe = (rubro) => preset(rubro).categorias ?? [];
 
 // La primera letra en mayúscula, para cuando la palabra arranca un título o
 // un botón: "Repuestos en camino". Con toUpperCase y no a mano, así las

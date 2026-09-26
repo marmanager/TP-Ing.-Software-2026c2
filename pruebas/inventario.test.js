@@ -1,7 +1,7 @@
 // Correr con: npm run test:unit
 //
 // El inventario: cuándo dos productos son el mismo (y se suman en vez de
-// quedar dos filas), y cómo se lee una caja.
+// quedar dos filas), las categorías, y cómo se lee una caja.
 //
 // Lo que más se cuida es "mismo producto". Si es demasiado estricto, lo que
 // alguien escribió con una mayúscula distinta queda duplicado, que es el
@@ -12,6 +12,8 @@ import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   buscarIgual,
+  categoriaExistente,
+  categoriasDisponibles,
   enTotal,
   limpiarProducto,
   mismoProducto,
@@ -88,6 +90,11 @@ test("dos cajas del mismo tamaño sí son el mismo", () => {
   assert.ok(mismoProducto(p({ unidad: "caja", por_caja: 100 }), p({ unidad: "caja", por_caja: "100" })));
 });
 
+test("la categoría no cambia qué producto es", () => {
+  // Es cómo se ordena, no qué es.
+  assert.ok(mismoProducto(p({ categoria: "Filtros" }), p({ categoria: "Repuestos" })));
+});
+
 test("un dato viejo sin unidad cuenta como suelto", () => {
   assert.ok(mismoProducto(p({ unidad: undefined }), p({ unidad: "unidad" })));
 });
@@ -120,10 +127,11 @@ test("sin nada en stock no hay igual", () => {
 // ---------- limpiar lo del formulario ----------
 
 test("lo vacío queda nulo, y los espacios de más se van", () => {
-  const l = limpiarProducto({ nombre: "  Tornillo   Parker ", marca: "  ", modelo: "" });
+  const l = limpiarProducto({ nombre: "  Tornillo   Parker ", marca: "  ", modelo: "", categoria: " " });
   assert.equal(l.nombre, "Tornillo Parker");
   assert.equal(l.marca, null);
   assert.equal(l.modelo, null);
+  assert.equal(l.categoria, null);
 });
 
 test("las cantidades quedan enteras y nunca negativas", () => {
@@ -145,6 +153,45 @@ test("en caja guarda cuántos vienen, y nunca menos de uno", () => {
 
 test("una unidad que no conocemos se guarda como suelto", () => {
   assert.equal(limpiarProducto({ nombre: "x", unidad: "loquesea" }).unidad, "unidad");
+});
+
+// ---------- categorías ----------
+
+test("arranca con las de fábrica del rubro, en su orden", () => {
+  const cs = categoriasDisponibles("taller", []);
+  assert.equal(cs[0], "Repuestos");
+  assert.ok(cs.includes("Tornillos"));
+});
+
+test("suma las que ya usan los productos del negocio", () => {
+  const cs = categoriasDisponibles("taller", [{ categoria: "Juntas" }]);
+  assert.ok(cs.includes("Juntas"));
+});
+
+test("suma las recién agregadas con el más", () => {
+  assert.ok(categoriasDisponibles("taller", [], ["Correas"]).includes("Correas"));
+});
+
+test("no repite una categoría escrita distinto, y se queda con la del rubro", () => {
+  const cs = categoriasDisponibles("taller", [{ categoria: "tornillos" }], ["TORNILLOS"]);
+  assert.equal(cs.filter((c) => normalizar(c) === "tornillos").length, 1);
+  assert.ok(cs.includes("Tornillos"));
+});
+
+test("las del negocio van después de las de fábrica, en orden alfabético", () => {
+  const cs = categoriasDisponibles("taller", [{ categoria: "Juntas" }, { categoria: "Correas" }]);
+  const propias = cs.slice(cs.indexOf("Correas"));
+  assert.deepEqual(propias, ["Correas", "Juntas"]);
+});
+
+test("un producto sin categoría no agrega una categoría vacía", () => {
+  const cs = categoriasDisponibles("taller", [{ categoria: null }, { categoria: "  " }]);
+  assert.ok(!cs.some((c) => !c.trim()));
+});
+
+test("el más reconoce una categoría que ya existe escrita de otra manera", () => {
+  assert.equal(categoriaExistente("tornillos", ["Repuestos", "Tornillos"]), "Tornillos");
+  assert.equal(categoriaExistente("Juntas", ["Repuestos", "Tornillos"]), null);
 });
 
 // ---------- cómo se lee una cantidad ----------
