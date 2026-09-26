@@ -12,9 +12,11 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
-import { comoSeIdentifica, preset, queFaltaPara } from "./presets";
+import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
 import {
   FIRMA_DEL_CLIENTE,
+  alLlegarInsumo,
+  alPedirInsumo,
   elClienteDestraba,
   elClienteVolvioADarTrabajo,
   pesos,
@@ -1357,9 +1359,16 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- inventario ----------
+      // Llegó lo que se había pedido. El caso se destraba SÓLO si ya no le
+      // falta nada: la regla vive en alLlegarInsumo() (estados.js), que tiene
+      // prueba. Antes se pasaba a "en proceso" siempre, aunque faltara otra
+      // pieza o el caso estuviera cerrado.
       marcarInsumoLlegado(insumoId) {
         const insumo = datos.insumos.find((i) => i.id === insumoId);
-        if (!insumo) return;
+        if (!insumo) return null;
+        const rubro = datos.negocio?.rubro;
+        const { articulo } = vocabulario(rubro);
+
         setDatos((d) => ({
           ...d,
           insumos: d.insumos.map((i) =>
@@ -1368,19 +1377,86 @@ export function DatosProvider({ children }) {
         }));
         escribir("insumo", { id: insumoId, estado: "en_stock", caso_id: null });
 
-        if (insumo.caso_id) {
-          parchearCaso(insumo.caso_id, {
-            estado: "en_proceso",
-            que_falta: queFaltaPara(datos.negocio?.rubro, "en_proceso"),
-          });
-          anotar({
-            casoId: insumo.caso_id,
-            tipo: "estado",
-            titulo: "Llegó el insumo",
-            detalle: `${insumo.nombre}. Ya se puede seguir.`,
-            icono: "camion",
-          });
+        if (!insumo.caso_id) return null;
+        const caso = datos.casos.find((c) => c.id === insumo.caso_id);
+        const despues = alLlegarInsumo(caso, {
+          rubro,
+          pasos: datos.pasos,
+          // Como queda la lista con éste ya llegado.
+          insumos: datos.insumos.map((i) =>
+            i.id === insumoId ? { ...i, estado: "en_stock", caso_id: null } : i
+          ),
+          cliente: datos.clientes.find((c) => c.id === caso?.cliente_id),
+        });
+
+        // Igual se anota que llegó, aunque el caso no se mueva: es lo que
+        // pasó, y el historial es de lo que pasó.
+        anotar({
+          casoId: insumo.caso_id,
+          tipo: "estado",
+          titulo: `Llegó ${articulo.el()}`,
+          detalle: despues?.cambiaEstado
+            ? `${insumo.nombre}. Ya se puede seguir.`
+            : `${insumo.nombre}.`,
+          icono: "camion",
+          // El estado va sólo si cambió: es lo que dibuja la línea de tiempo
+          // que ve el cliente, y un punto sin cambio la ensuciaría.
+          estado: despues?.cambiaEstado ? despues.estado : null,
+        });
+        if (despues) {
+          parchearCaso(insumo.caso_id, { estado: despues.estado, que_falta: despues.que_falta });
         }
+        // Devuelve qué pasó con el caso, para que la pantalla pueda decir si
+        // ya puede seguir o si sigue esperando otra cosa. null si no se tocó.
+        return despues;
+      },
+
+      // Pedir algo para un caso, o para reponer el stock (SCRUM-113).
+      //
+      // Es la mitad que faltaba: todo lo de después —que el caso diga qué le
+      // falta, "Marcar que llegó" en la lista, que el cliente no lo pueda
+      // destrabar— ya estaba hecho y esperaba pedidos que nadie podía crear.
+      //
+      // Un pedido es un insumo en estado "pedido". Con caso, el caso queda
+      // esperándolo (alPedirInsumo, en estados.js, decide cómo). Sin caso es
+      // reponer el stock: al llegar pasa a "Lo que tenés".
+      pedirInsumo({ nombre, cantidad, casoId }) {
+        const rubro = datos.negocio?.rubro;
+        const { articulo } = vocabulario(rubro);
+        const insumo = {
+          id: nuevoId(),
+          negocio_id: datos.negocio.id,
+          nombre: nombre.trim(),
+          descripcion: null,
+          cantidad: Math.max(1, Math.floor(Number(cantidad) || 1)),
+          minimo: 0,
+          unidad: "unidad",
+          estado: "pedido",
+          caso_id: casoId || null,
+        };
+        setDatos((d) => ({ ...d, insumos: [...d.insumos, insumo] }));
+        escribir("insumo", insumo, { insertar: true });
+
+        if (!casoId) return insumo;
+        const caso = datos.casos.find((c) => c.id === casoId);
+        const despues = alPedirInsumo(caso, {
+          rubro,
+          pasos: datos.pasos,
+          insumos: [...datos.insumos, insumo],
+          cliente: datos.clientes.find((c) => c.id === caso?.cliente_id),
+        });
+        if (!despues) return insumo;
+
+        parchearCaso(casoId, { estado: despues.estado, que_falta: despues.que_falta });
+        anotar({
+          casoId,
+          tipo: "estado",
+          titulo: `Se pidió ${articulo.el()}`,
+          detalle: `${insumo.nombre}. El caso queda esperándolo.`,
+          icono: "camion",
+          estado: despues.cambiaEstado ? despues.estado : null,
+        });
+        return insumo;
       },
 
       agregarInsumo({ nombre, descripcion, cantidad, minimo, unidad }) {

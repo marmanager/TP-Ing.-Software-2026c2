@@ -11,6 +11,16 @@
 // "ejemplos" son los textos de muestra de los formularios. Van acá y no en
 // cada pantalla porque un ejemplo de otro oficio confunde más que no tener
 // ninguno: a un consultorio no le sirve leer "cambio de pastillas de freno".
+//
+// "palabras" son los sustantivos que cambian de un oficio a otro y aparecen
+// en botones, títulos y menús de toda la app. Se usan con vocabulario(), más
+// abajo, que los devuelve ya declinados: "un repuesto", "los insumos",
+// "3 repuestos". Cada palabra lleva su plural y su género escritos a mano, y
+// no calculados, por lo mismo que "identificador" lleva "enFrase": el
+// castellano no se deduce ("un DNI", "una pieza", "el análisis/los análisis").
+//
+// Sumar una palabra nueva —"cliente" que en un consultorio sea "paciente"—
+// es agregarla acá en los tres rubros y usarla con vocabulario(rubro).cliente.
 
 export const PRESETS = {
   taller: {
@@ -45,6 +55,12 @@ export const PRESETS = {
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Patente", enFrase: "la patente", ejemplo: "AB 123 CD" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
+    // Lo que el taller tiene en stock y pide para un auto. "Repuesto" y no
+    // "pieza" porque es la palabra que este mismo preset ya usa para lo que
+    // un caso espera ("espera.negocio", arriba).
+    palabras: {
+      articulo: { uno: "repuesto", varios: "repuestos", genero: "m" },
+    },
     ejemplos: {
       negocio: "Taller Sur",
       descripcion: "Mecánica general y chapa, zona sur",
@@ -83,6 +99,10 @@ export const PRESETS = {
     modulos: ["agenda", "presupuesto"],
     identificador: { nombre: "DNI", enFrase: "el DNI", ejemplo: "30123456" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
+    // Guantes, jeringas, gasas: en un consultorio no hay "repuestos".
+    palabras: {
+      articulo: { uno: "insumo", varios: "insumos", genero: "m" },
+    },
     ejemplos: {
       negocio: "Consultorio Belgrano",
       descripcion: "Clínica médica, con obras sociales",
@@ -121,6 +141,9 @@ export const PRESETS = {
     modulos: ["inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Número de serie", enFrase: "el número de serie", ejemplo: "SN-48219" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
+    palabras: {
+      articulo: { uno: "repuesto", varios: "repuestos", genero: "m" },
+    },
     ejemplos: {
       negocio: "Service Centro",
       descripcion: "Notebooks y celulares, reparación en el día",
@@ -168,6 +191,53 @@ export const ejemplosDe = (rubro) => preset(rubro).ejemplos;
 // frenado: la respuesta del cliente, o algo que tiene que conseguir el
 // negocio. Un taller espera un repuesto y un consultorio, un estudio.
 export const comoSeEspera = (rubro) => preset(rubro).espera;
+
+// ------------------------------------------------------------
+// El vocabulario del rubro
+// ------------------------------------------------------------
+// Las formas de una palabra, ya armadas para meter en un texto:
+//
+//   palabra(n)      "repuesto" · "repuestos"   (plural si n no es 1)
+//   un()            "un repuesto" · "una pieza"
+//   el(n)           "el repuesto" · "los repuestos" · "la pieza"
+//   cuantos(n)      "1 repuesto" · "3 repuestos"
+//   segun(m, f)     elige entre las dos formas de un adjetivo o participio
+//                   que tiene que concordar: segun("Nuevo", "Nueva")
+//
+// segun() recibe las dos formas escritas por quien la llama, en vez de
+// sacarle la "o" y ponerle una "a": "Nuevo/Nueva" sale así, pero no toda
+// palabra se deja, y un error de concordancia en un botón se ve.
+//
+// Va separada de vocabulario() para poder probarla con cualquier palabra, en
+// particular una femenina, que hoy ningún preset usa.
+export function formas({ uno, varios, genero }) {
+  const f = genero === "f";
+  return {
+    palabra: (n = 1) => (n === 1 ? uno : varios),
+    un: () => `${f ? "una" : "un"} ${uno}`,
+    el: (n = 1) => (n === 1 ? `${f ? "la" : "el"} ${uno}` : `${f ? "las" : "los"} ${varios}`),
+    cuantos: (n) => `${n} ${n === 1 ? uno : varios}`,
+    segun: (masculino, femenino) => (f ? femenino : masculino),
+  };
+}
+
+// Todas las palabras del rubro, declinadas. Se usa así:
+//
+//   const { articulo } = vocabulario(negocio?.rubro);
+//   `Agregar ${articulo.un()}`              → "Agregar un repuesto"
+//   `${articulo.cuantos(3)} en camino`      → "3 repuestos en camino"
+export function vocabulario(rubro) {
+  const palabras = preset(rubro).palabras ?? {};
+  return Object.fromEntries(
+    Object.entries(palabras).map(([clave, palabra]) => [clave, formas(palabra)])
+  );
+}
+
+// La primera letra en mayúscula, para cuando la palabra arranca un título o
+// un botón: "Repuestos en camino". Con toUpperCase y no a mano, así las
+// palabras con tilde en la primera letra ("Órdenes") salen bien.
+export const mayuscula = (texto) =>
+  texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : texto;
 
 // El "qué falta" de un caso, en el idioma de su rubro.
 //

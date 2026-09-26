@@ -11,7 +11,7 @@ import { estadoDeTurno } from "@/lib/turnos";
 import { diaLargo, horaYMinutos } from "@/lib/fechas";
 import Icono from "@/componentes/Icono";
 import AltaDeTurno from "@/componentes/AltaDeTurno";
-import PestanasDeAgenda from "@/componentes/PestanasDeAgenda";
+import Pestanas from "@/componentes/Pestanas";
 import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Agenda() {
@@ -52,7 +52,7 @@ export default function Agenda() {
 
   return (
     <>
-      <PestanasDeAgenda />
+      <Pestanas padre="agenda" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

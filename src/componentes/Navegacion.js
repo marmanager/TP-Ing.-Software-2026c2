@@ -44,9 +44,9 @@ const DESTINOS = [
     palabra: "Agenda",
     celular: true,
     modulo: "agenda",
-    // La Agenda es la única sección con pantallas adentro: la lista de turnos
-    // y el calendario del mes. Cada una se prende por su cuenta desde "Mi
-    // negocio", así que las dos pueden no estar.
+    // La Agenda tiene pantallas adentro: la lista de turnos y el calendario
+    // del mes. Cada una se prende por su cuenta desde "Mi negocio", así que
+    // las dos pueden no estar. El Inventario, más abajo, igual.
     hijos: [
       { href: "/agenda", icono: "reloj", palabra: "Turnos", modulo: "turnos" },
       { href: "/agenda/calendario", icono: "calendario", palabra: "Calendario", modulo: "calendario" },
@@ -55,7 +55,18 @@ const DESTINOS = [
   // Clientes e Historial eran núcleo y pasaron a módulo (SCRUM-122 y 120).
   // Vienen prendidos de fábrica: ver estaPrendido() en lib/modulos.js.
   { href: "/clientes", icono: "persona", palabra: "Clientes", modulo: "clientes" },
-  { href: "/inventario", icono: "cajas", palabra: "Inventario", modulo: "inventario" },
+  {
+    href: "/inventario",
+    icono: "cajas",
+    palabra: "Inventario",
+    modulo: "inventario",
+    // Igual que la Agenda: lo que hay y lo que viene (SCRUM-113). Si el
+    // negocio apagó "En stock", tocar Inventario lleva a "En camino".
+    hijos: [
+      { href: "/inventario", icono: "cajas", palabra: "En stock", modulo: "stock" },
+      { href: "/inventario/en-camino", icono: "camion", palabra: "En camino", modulo: "en_camino" },
+    ],
+  },
   { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
@@ -67,7 +78,7 @@ const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(hr
 // Deja pasar el núcleo y sólo los módulos prendidos.
 //
 // LAS PANTALLAS DE ADENTRO NO SE LISTAN ACÁ. Turnos y Calendario se cambian
-// con las pestañas de arriba de la Agenda (componentes/PestanasDeAgenda.js).
+// con las pestañas de arriba de la Agenda (componentes/Pestanas.js).
 // La barra dice a qué sección vas, y una vez adentro elegir la vista es parte
 // de la sección.
 //

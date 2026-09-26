@@ -25,7 +25,8 @@ import {
   sePuedeMarcarHecho,
 } from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { queFaltaPara, comoSeIdentifica, etiquetaEstado } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica, etiquetaEstado, vocabulario } from "@/lib/presets";
+import { hijosActivos } from "@/lib/modulos";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } from "@/lib/cobros";
 import SelectorEstado from "@/componentes/SelectorEstado";
@@ -124,6 +125,12 @@ export default function VerCaso() {
   // nada trabado, porque volver a abrirlo está a un toque acá abajo.
   const abierto = estaAbierto(caso);
   const sePuedeEditar = puedeCargar && abierto;
+  // Para "Pedir un repuesto para este caso": la palabra del rubro, y si el
+  // negocio tiene la pantalla "En camino" adonde lleva.
+  const { articulo } = vocabulario(negocio?.rubro);
+  const conEnCamino = hijosActivos("inventario", negocio?.modulos_activos ?? []).some(
+    (h) => h.clave === "en_camino"
+  );
 
   return (
     <>
@@ -549,7 +556,11 @@ export default function VerCaso() {
           estado, no el del caso— y por eso sobrevive a la desaparición de
           "Cómo sigue". Antes estaba mezclada con los pasajes y parecía una
           más del montón. */}
-      {abierto && insumosDelCaso.some((i) => i.estado !== "en_stock") && (
+      {/* Pedir algo para este caso (SCRUM-113) va al lado de marcar que
+          llegó: son las dos puntas de lo mismo. Lleva a "En camino" con el
+          caso ya elegido, y sólo si el negocio tiene esa pantalla. */}
+      {abierto &&
+        (insumosDelCaso.some((i) => i.estado !== "en_stock") || (conEnCamino && puedeCargar)) && (
         <div className="mt-12 flex flex-wrap items-start gap-3">
           {insumosDelCaso
             .filter((i) => i.estado !== "en_stock")
@@ -558,6 +569,15 @@ export default function VerCaso() {
                 Marcar que llegó {i.nombre.toLowerCase()}
               </Boton>
             ))}
+          {conEnCamino && puedeCargar && (
+            <Link
+              href={`/inventario/en-camino?caso=${caso.id}`}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
+            >
+              <Icono nombre="mas" className="size-6" />
+              Pedir {articulo.un()} para este caso
+            </Link>
+          )}
         </div>
       )}
 

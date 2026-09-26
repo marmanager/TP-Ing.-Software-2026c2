@@ -17,11 +17,11 @@ import {
   quienLoTiene,
 } from "@/lib/estados";
 import { ESTADOS } from "@/lib/estados";
-import { etiquetaEstado } from "@/lib/presets";
+import { etiquetaEstado, mayuscula, vocabulario } from "@/lib/presets";
 import { horaYMinutos, diaLargo, cuando } from "@/lib/fechas";
 import { filtrarHistorial } from "@/lib/historial";
 import { estadoDeTurno } from "@/lib/turnos";
-import { estaPrendido } from "@/lib/modulos";
+import { hijosActivos } from "@/lib/modulos";
 import Icono from "@/componentes/Icono";
 
 // ---------- piezas compartidas ----------
@@ -89,17 +89,24 @@ function Numerito({ href, icono, color, titulo, cuanto, detalle }) {
 function CuerpoPendientes() {
   const { casos, insumos, negocio } = useDatos();
   // Esta tarjeta es del núcleo y está en cualquier negocio, pero uno de sus
-  // tres números es del Inventario. Con el Inventario apagado ese número
-  // llevaba a una pantalla que el negocio decidió no tener. Es la única
-  // tarjeta que cruza a otra sección: las demás sólo linkean a la suya, y
-  // ésas ya se esconden solas con su módulo.
-  const conInventario = estaPrendido("inventario", negocio?.modulos_activos ?? []);
+  // tres números es del Inventario. Con esa pantalla apagada el número
+  // llevaba a algo que el negocio decidió no tener. Es la única tarjeta que
+  // cruza a otra sección: las demás sólo linkean a la suya, y ésas ya se
+  // esconden solas con su módulo.
+  const conEnCamino = hijosActivos("inventario", negocio?.modulos_activos ?? []).some(
+    (h) => h.clave === "en_camino"
+  );
+  const { articulo } = vocabulario(negocio?.rubro);
 
   const abiertos = casos.filter(estaAbierto);
   const esperando = abiertos.filter((c) => c.estado === "esperando");
   const listos = abiertos.filter((c) => c.estado === "revision_final");
-  const llegados = insumos.filter((i) => i.estado === "llegado");
-  const casoDelInsumo = casos.find((c) => c.id === llegados[0]?.caso_id);
+  // Este número contaba "lo que llegó", un estado que nada produce: marcar
+  // que llegó pasa el insumo directo al stock. Daba siempre cero. Ahora
+  // cuenta lo que está en camino (SCRUM-113), que es lo que se mira a la
+  // mañana: qué falta que llegue, y para qué caso.
+  const enCamino = insumos.filter((i) => i.estado === "pedido");
+  const casoDelPrimero = casos.find((c) => c.id === enCamino[0]?.caso_id);
 
   return (
     <div className="flex flex-wrap gap-2 p-2 sm:p-4">
@@ -111,17 +118,19 @@ function CuerpoPendientes() {
         cuanto={`${esperando.length} ${esperando.length === 1 ? "caso" : "casos"}`}
         detalle={esperando.length ? "Falta que conteste el cliente." : "No hay ninguno."}
       />
-      {conInventario && (
+      {conEnCamino && (
         <Numerito
-          href="/inventario"
+          href="/inventario/en-camino"
           icono="camion"
           color="text-terracota"
-          titulo="Insumos que llegaron"
-          cuanto={`${llegados.length} ${llegados.length === 1 ? "pedido" : "pedidos"}`}
+          titulo={`${mayuscula(articulo.palabra(2))} en camino`}
+          cuanto={articulo.cuantos(enCamino.length)}
           detalle={
-            casoDelInsumo
-              ? `${llegados[0].nombre} del caso ${casoDelInsumo.numero}.`
-              : "No llegó nada nuevo."
+            enCamino.length === 0
+              ? "No falta que llegue nada."
+              : casoDelPrimero
+                ? `${enCamino[0].nombre}, para el caso ${casoDelPrimero.numero}.`
+                : `${enCamino[0].nombre}, para el stock.`
           }
         />
       )}
@@ -253,7 +262,12 @@ function CuerpoAgenda({ filtro, filas }) {
 // ---------- inventario ----------
 
 function CuerpoInventario({ filtro, filas }) {
-  const { insumos, casos } = useDatos();
+  const { insumos, casos, negocio } = useDatos();
+  const { articulo } = vocabulario(negocio?.rubro);
+  // Lo pedido se mudó a "En camino" (SCRUM-113): una fila de algo pedido que
+  // siguiera llevando a "En stock" llevaría a una pantalla donde no está.
+  const adonde = (i) =>
+    i.estado === "pedido" || i.estado === "llegado" ? "/inventario/en-camino" : "/inventario";
 
   const elegidos = insumos.filter((i) => {
     if (filtro === "llegaron") return i.estado === "llegado";
@@ -267,7 +281,7 @@ function CuerpoInventario({ filtro, filas }) {
         {filtro === "llegaron"
           ? "No llegó ningún pedido."
           : filtro === "todo"
-            ? "Todavía no hay insumos cargados."
+            ? `Todavía no hay ${articulo.palabra(2)} ${articulo.segun("cargados", "cargadas")}.`
             : "No hay nada por debajo del mínimo."}
       </SinNada>
     );
@@ -279,7 +293,7 @@ function CuerpoInventario({ filtro, filas }) {
         const caso = casos.find((c) => c.id === i.caso_id);
         const bajo = i.estado === "en_stock" && i.cantidad <= i.minimo;
         return (
-          <Fila key={i.id} href="/inventario">
+          <Fila key={i.id} href={adonde(i)}>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">{i.nombre}</span>
               <span className="block truncate text-apoyo text-tinta-suave">
@@ -305,7 +319,7 @@ function CuerpoInventario({ filtro, filas }) {
           </Fila>
         );
       })}
-      <YMas cuantos={elegidos.length - filas} href="/inventario" que="insumos" />
+      <YMas cuantos={elegidos.length - filas} href="/inventario" que={articulo.palabra(2)} />
     </ul>
   );
 }

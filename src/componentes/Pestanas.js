@@ -1,6 +1,7 @@
 "use client";
 
-// Las dos pantallas de la Agenda, una al lado de la otra.
+// Las pantallas de adentro de un módulo, una al lado de la otra: Turnos y
+// Calendario en la Agenda, En stock y En camino en el Inventario.
 //
 // Estaban como submenú en la barra lateral y se mudaron acá adentro. La barra
 // dice a qué sección vas; una vez adentro, cambiar de vista es parte de la
@@ -15,28 +16,25 @@
 // Sólo aparecen las que el negocio tiene prendidas, y si queda una sola no
 // aparece ninguna: un par de pestañas donde no hay nada para elegir es una
 // decoración que ocupa 48 px de alto.
+//
+// El orden es el del catálogo de submódulos (lib/modulos.js), que es el
+// mismo que se ve en "Mi negocio" → "Módulos".
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icono from "./Icono";
 import { useDatos } from "@/lib/datos";
-import { SUBMODULOS, hijosActivos } from "@/lib/modulos";
+import { MODULOS, hijosActivos } from "@/lib/modulos";
 
-const ORDEN = ["turnos", "calendario"];
-
-export default function PestanasDeAgenda() {
+export default function Pestanas({ padre }) {
   const ruta = usePathname();
   const { negocio } = useDatos();
 
-  const prendidas = hijosActivos("agenda", negocio?.modulos_activos ?? []);
-  if (prendidas.length < 2) return null;
-
-  const vistas = ORDEN.map((c) => SUBMODULOS[c]).filter((s) =>
-    prendidas.some((h) => h.clave === s.clave)
-  );
+  const vistas = hijosActivos(padre, negocio?.modulos_activos ?? []);
+  if (vistas.length < 2) return null;
 
   return (
-    <nav aria-label="Las pantallas de la Agenda" className="mb-6">
+    <nav aria-label={`Las pantallas de ${MODULOS[padre]?.nombre ?? padre}`} className="mb-6">
       <ul className="flex flex-wrap gap-2">
         {vistas.map((v) => {
           // Exacta y no startsWith: "/agenda" es el principio de

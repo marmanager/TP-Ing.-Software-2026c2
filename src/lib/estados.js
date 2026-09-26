@@ -8,7 +8,7 @@
 
 // La extensión va escrita: Next la perdona, pero `node --test` corre con el
 // ESM de Node, que la pide. Sin ella los tests no encuentran el módulo.
-import { preset } from "./presets.js";
+import { preset, queFaltaPara } from "./presets.js";
 
 export const ORDEN_ESTADOS = [
   "nuevo",
@@ -407,5 +407,74 @@ export function totalesDeCaso(pasosDelCaso) {
     esperando,
     todo: aprobado + esperando,
     cuantosEsperan: pasosDelCaso.filter((p) => p.estado === "esperando").length,
+  };
+}
+
+// ------------------------------------------------------------
+// Los repuestos en camino (SCRUM-113)
+// ------------------------------------------------------------
+// Qué le pasa a un caso cuando se pide algo para él, y cuando ese algo llega.
+//
+// Todo lo que viene DESPUÉS de pedir ya estaba construido: queFalta() dice
+// "Que llegue «…»", accionDeFila() ofrece "Marcar que llegó", y
+// elClienteDestraba() no deja que el cliente destrabe un caso al que le falta
+// una pieza. Lo que nunca existió es la manera de pedir. Estas dos funciones
+// son esa mitad, y viven acá y no en datos.js porque tienen ramas —¿ya espera
+// al cliente? ¿falta otra pieza? ¿está cerrado?— y esas ramas tienen prueba.
+//
+// Las dos devuelven qué hacer con el caso, o null si no hay que tocarlo.
+// "insumos" es la lista como queda DESPUÉS del cambio: con el pedido nuevo
+// adentro, o con el que llegó ya fuera de "pedido".
+
+// Pedir algo para un caso lo deja esperándolo.
+//
+// Si el caso ya esperaba otra cosa —la respuesta del cliente, otra pieza—
+// sigue esperando, y qué le falta lo decide queFalta(), que ya sabe el orden:
+// primero lo que tiene que contestar el cliente, después lo que tiene que
+// llegar. Así un pedido nuevo no tapa que el cliente todavía no contestó.
+export function alPedirInsumo(caso, { rubro, pasos = [], insumos = [], cliente } = {}) {
+  // Un caso cerrado no espera nada: pedirle algo no lo reabre.
+  if (!caso || !estaAbierto(caso)) return null;
+
+  const esperando = { ...caso, estado: "esperando" };
+  return {
+    estado: "esperando",
+    que_falta: queFalta(esperando, { rubro, pasos, insumos, cliente }),
+    cambiaEstado: caso.estado !== "esperando",
+  };
+}
+
+// Cuando llega lo que se pidió, el caso vuelve a moverse SÓLO si ya no le
+// falta nada.
+//
+// Antes de esto, que llegara un insumo pasaba el caso a "en proceso" siempre:
+// aunque faltara otra pieza, aunque el cliente no hubiera contestado, y aunque
+// el caso estuviera cerrado. Con un solo pedido que nadie podía hacer no se
+// notaba; con pedidos de verdad, la primera pieza de dos destrababa un caso
+// que seguía sin poder avanzar.
+//
+// "Ya no le falta nada" es exactamente lo que responde elClienteDestraba():
+// está esperando, no tiene pasos sin contestar y no le falta ninguna pieza.
+// Se llama así porque nació para la respuesta del cliente, pero la pregunta
+// es la misma.
+export function alLlegarInsumo(caso, { rubro, pasos = [], insumos = [], cliente } = {}) {
+  // Sólo se destraba lo que estaba trabado. Un caso cerrado o en control
+  // final no se mueve porque llegó una pieza.
+  if (!caso || caso.estado !== "esperando") return null;
+
+  if (elClienteDestraba(caso, { pasos, insumos })) {
+    return {
+      estado: "en_proceso",
+      que_falta: queFaltaPara(rubro, "en_proceso"),
+      cambiaEstado: true,
+    };
+  }
+
+  // Sigue esperando otra cosa: se reescribe qué le falta, que ya no es lo
+  // que acaba de llegar.
+  return {
+    estado: "esperando",
+    que_falta: queFalta(caso, { rubro, pasos, insumos, cliente }),
+    cambiaEstado: false,
   };
 }

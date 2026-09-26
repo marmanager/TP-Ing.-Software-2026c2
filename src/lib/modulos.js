@@ -38,12 +38,15 @@ export const MODULOS = {
     queHace:
       "La lista de tus clientes y la ficha de cada uno, con su teléfono y todos los trabajos que te trajo. Apagarlo saca la sección del menú: los clientes se siguen anotando igual cuando abrís un caso o un turno.",
   },
+  // Las descripciones no nombran lo que se guarda —"repuestos", "insumos"—
+  // porque eso depende del rubro y este catálogo es uno solo para todos. Las
+  // pantallas sí lo nombran, con vocabulario() de presets.js.
   inventario: {
     clave: "inventario",
     nombre: "Inventario",
     icono: "cajas",
     ruta: "/inventario",
-    descripcion: "Insumos, stock y lo que hay que pedir.",
+    descripcion: "Lo que tenés en stock y lo que pediste.",
     queHace:
       "Qué tenés, qué se está por acabar y qué pediste que todavía no llegó. Cuando marcás que llegó algo que un caso estaba esperando, ese caso se destraba solo.",
   },
@@ -150,6 +153,33 @@ export const SUBMODULOS = {
     descripcion: "El mes entero, para ver cómo viene.",
     queHace:
       "El mes en una grilla, con los días que tienen turno marcados. Sirve para ver de un vistazo cómo viene la semana que viene y para anotar un turno parado en el día.",
+  },
+
+  // El Inventario, partido igual que la Agenda: lo que hay y lo que viene.
+  //
+  // "En camino" es un submódulo y no un módulo suelto por lo mismo que el
+  // Calendario: un pedido es una fila del inventario, y al llegar pasa a "Lo
+  // que tenés". Sin Inventario no hay dónde pedir ni adónde llegar.
+  stock: {
+    clave: "stock",
+    padre: "inventario",
+    nombre: "En stock",
+    icono: "cajas",
+    ruta: "/inventario",
+    descripcion: "Lo que tenés y lo que se está por acabar.",
+    queHace:
+      "Lo que tenés, cuánto te queda de cada cosa, y aviso cuando algo baja del mínimo que elegiste.",
+  },
+  // SCRUM-113.
+  en_camino: {
+    clave: "en_camino",
+    padre: "inventario",
+    nombre: "En camino",
+    icono: "camion",
+    ruta: "/inventario/en-camino",
+    descripcion: "Lo que pediste y todavía no llegó.",
+    queHace:
+      "Lo que pediste y todavía no llegó, con el caso que lo está esperando. Pedís desde acá o desde el caso, el caso queda esperando, y cuando marcás que llegó se destraba solo.",
   },
 };
 

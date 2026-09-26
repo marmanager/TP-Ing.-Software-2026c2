@@ -1,20 +1,31 @@
 "use client";
 
+// "En stock", la primera pantalla del Inventario: lo que hay y cuánto queda.
+//
+// Lo pedido que todavía no llegó se mudó a "En camino"
+// (inventario/en-camino), que es su propio submódulo desde SCRUM-113.
+//
+// Los textos nombran lo que se guarda con la palabra del rubro —"repuesto" en
+// un taller, "insumo" en un consultorio— a través de vocabulario(), en
+// presets.js. Ninguna palabra del oficio se escribe a mano en esta pantalla.
+
 import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
-import { ejemplosDe } from "@/lib/presets";
+import { ejemplosDe, vocabulario } from "@/lib/presets";
+import { hijosActivos } from "@/lib/modulos";
 import Icono from "@/componentes/Icono";
+import Pestanas from "@/componentes/Pestanas";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Inventario() {
   const datos = useDatos();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
-  const { cargando, insumos, casos, negocio } = datos;
+  const { cargando, insumos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState({ nombre: "", descripcion: "", cantidad: "", minimo: "", unidad: "unidad" });
   const [porBorrar, setPorBorrar] = useState(null);
@@ -25,12 +36,14 @@ export default function Inventario() {
 
   if (cargando) return <Cargando />;
 
-  const llegados = insumos.filter((i) => i.estado === "llegado");
-  const pedidos = insumos.filter((i) => i.estado === "pedido");
+  const { articulo } = vocabulario(negocio?.rubro);
   const enStock = insumos.filter((i) => i.estado === "en_stock");
   const bajos = enStock.filter((i) => i.cantidad <= i.minimo);
+  // "Conviene pedir más" lleva a pedirlo, si el negocio tiene dónde.
+  const conEnCamino = hijosActivos("inventario", negocio?.modulos_activos ?? []).some(
+    (h) => h.clave === "en_camino"
+  );
 
-  const casoDe = (id) => casos.find((c) => c.id === id);
   const motivo = !form.nombre.trim() ? "falta el nombre" : null;
 
   function guardar() {
@@ -42,23 +55,27 @@ export default function Inventario() {
 
   return (
     <>
+      <Pestanas padre="inventario" />
+
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-pantalla">Inventario</h1>
           <p className="mt-1 text-tinta-media">
-            Lo que tenés, lo que pediste y lo que está por debajo del mínimo.
+            Lo que tenés y lo que está por debajo del mínimo.
           </p>
         </div>
         {puedeCargar && (
         <Boton icono="mas" onClick={() => setAbierto((v) => !v)}>
-          {abierto ? "Cerrar el alta" : "Agregar un insumo"}
+          {abierto ? "Cerrar el alta" : `Agregar ${articulo.un()}`}
         </Boton>
         )}
       </div>
 
       {abierto && puedeCargar && (
         <Tarjeta className="mb-8 max-w-[560px]">
-          <TituloSeccion>Nuevo insumo</TituloSeccion>
+          <TituloSeccion>
+            {articulo.segun("Nuevo", "Nueva")} {articulo.palabra()}
+          </TituloSeccion>
           <Campo
             id="ins-nombre"
             etiqueta="Qué es"
@@ -89,79 +106,9 @@ export default function Inventario() {
             />
           </div>
           <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar}>
-            Guardar el insumo
+            Guardar {articulo.el()}
           </Boton>
         </Tarjeta>
-      )}
-
-      {llegados.length > 0 && (
-        <>
-          <TituloSeccion>Llegaron y hay que usarlos</TituloSeccion>
-          <ul className="mb-10 flex flex-col gap-3">
-            {llegados.map((i) => {
-              const caso = casoDe(i.caso_id);
-              return (
-                <li key={i.id}>
-                  <Tarjeta className="border-l-4 border-l-terracota">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-subtitulo">{i.nombre}</p>
-                        <p className="text-tinta-media">
-                          {caso ? (
-                            <>
-                              Es del{" "}
-                              <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
-                                caso {caso.numero}
-                              </Link>
-                              . Marcarlo destraba el trabajo.
-                            </>
-                          ) : (
-                            "Llegó y todavía nadie lo usó."
-                          )}
-                        </p>
-                      </div>
-                      {/* En esta lista el insumo YA llegó: lo que falta es
-                          guardarlo. Antes las dos listas decían "Marcar que
-                          llegó" y no se sabía en cuál se estaba sin leer el
-                          título de arriba (auditoría, H4). */}
-                      <Boton icono="cajas" onClick={() => datos.marcarInsumoLlegado(i.id)}>
-                        Guardarlo en stock
-                      </Boton>
-                    </div>
-                  </Tarjeta>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-
-      {pedidos.length > 0 && (
-        <>
-          <TituloSeccion>Pedidos que todavía no llegaron</TituloSeccion>
-          <ul className="mb-10 flex flex-col gap-3">
-            {pedidos.map((i) => {
-              const caso = casoDe(i.caso_id);
-              return (
-                <li key={i.id}>
-                  <Tarjeta className="border-l-4 border-l-espera">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-subtitulo">{i.nombre}</p>
-                        <p className="text-tinta-media">
-                          {caso ? `Pedido para el caso ${caso.numero}.` : "Pedido al proveedor."}
-                        </p>
-                      </div>
-                      <Boton icono="check" onClick={() => datos.marcarInsumoLlegado(i.id)}>
-                        Marcar que llegó
-                      </Boton>
-                    </div>
-                  </Tarjeta>
-                </li>
-              );
-            })}
-          </ul>
-        </>
       )}
 
       <TituloSeccion>
@@ -185,9 +132,20 @@ export default function Inventario() {
                   <p className="font-bold">{i.nombre}</p>
                   {i.descripcion && <p className="text-apoyo text-tinta-suave">{i.descripcion}</p>}
                   {bajo && (
-                    <p className="mt-1 flex items-center gap-1.5 font-bold text-espera text-etiqueta">
+                    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-bold text-espera text-etiqueta">
                       <Icono nombre="alerta" className="size-5" />
                       Quedan {i.cantidad}. Conviene pedir más.
+                      {/* Antes el aviso no llevaba a ningún lado: decía
+                          "pedí más" y no había dónde. Llega a "En camino"
+                          con el nombre ya puesto. */}
+                      {conEnCamino && puedeCargar && (
+                        <Link
+                          href={`/inventario/en-camino?pedir=${encodeURIComponent(i.nombre)}`}
+                          className="text-azul underline underline-offset-2"
+                        >
+                          Pedirlo
+                        </Link>
+                      )}
                     </p>
                   )}
                 </div>

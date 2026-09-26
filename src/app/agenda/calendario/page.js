@@ -44,7 +44,7 @@ import {
   turnosPorDia,
 } from "@/lib/calendario";
 import Icono from "@/componentes/Icono";
-import PestanasDeAgenda from "@/componentes/PestanasDeAgenda";
+import Pestanas from "@/componentes/Pestanas";
 import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import SemanaDeTurnos from "@/componentes/SemanaDeTurnos";
 import { Boton, Cargando, Vacio } from "@/componentes/ui";
@@ -108,7 +108,7 @@ export default function Calendario() {
 
   return (
     <>
-      <PestanasDeAgenda />
+      <Pestanas padre="agenda" />
 
       <div className="mb-6">
         <h1 className="text-pantalla">Calendario</h1>

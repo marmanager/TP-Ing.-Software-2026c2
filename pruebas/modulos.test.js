@@ -66,8 +66,21 @@ test("la Agenda tiene Turnos y Calendario", () => {
   assert.deepEqual(claves(hijosDe("agenda")), ["calendario", "turnos"]);
 });
 
+test("el Inventario tiene En stock y En camino", () => {
+  // SCRUM-113.
+  assert.deepEqual(claves(hijosDe("inventario")), ["en_camino", "stock"]);
+});
+
+test("un negocio de antes con el Inventario prendido tiene las dos pantallas", () => {
+  // Nadie tiene "stock" ni "en_camino" escritos: hasta hoy no existían.
+  assert.deepEqual(claves(hijosActivos("inventario", ["inventario", "agenda"])), [
+    "en_camino",
+    "stock",
+  ]);
+});
+
 test("los otros módulos no tienen hijos", () => {
-  for (const clave of ["inventario", "equipo", "presupuesto"]) {
+  for (const clave of ["equipo", "presupuesto", "clientes", "historial"]) {
     assert.deepEqual(hijosDe(clave), []);
   }
 });
@@ -126,8 +139,16 @@ test("volver a prender el hijo apagado deja los dos", () => {
 });
 
 test("prender y apagar un módulo sin hijos no toca a los demás", () => {
-  assert.deepEqual(alternarModulo("inventario", ["agenda"]).sort(), ["agenda", "inventario"]);
-  assert.deepEqual(alternarModulo("inventario", ["agenda", "inventario"]), ["agenda"]);
+  // Con Equipo y no con Inventario: el Inventario tiene pantallas adentro
+  // desde SCRUM-113.
+  assert.deepEqual(alternarModulo("equipo", ["agenda"]).sort(), ["agenda", "equipo"]);
+  assert.deepEqual(alternarModulo("equipo", ["agenda", "equipo"]), ["agenda"]);
+});
+
+test("prender el Inventario prende sus dos pantallas, y apagarlo se las lleva", () => {
+  const con = alternarModulo("inventario", ["agenda"]);
+  assert.deepEqual(claves(hijosActivos("inventario", con)), ["en_camino", "stock"]);
+  assert.deepEqual(alternarModulo("inventario", con), ["agenda"]);
 });
 
 // ---------- la última pantalla no se apaga ----------
@@ -155,26 +176,37 @@ test("un módulo que no es hijo nunca tiene motivo", () => {
 
 // ---------- la invariante que sostiene todo ----------
 
-test("nunca queda la Agenda prendida sin ninguna pantalla adentro", () => {
+test("nunca queda un módulo prendido sin ninguna pantalla adentro", () => {
   // Se recorre todo lo que se puede tocar desde la pantalla de módulos, y en
-  // ningún estado alcanzable la Agenda queda prendida y vacía.
+  // ningún estado alcanzable la Agenda ni el Inventario quedan prendidos y
+  // vacíos.
   const partidas = [
-    ["agenda"],
-    ["agenda", "turnos", "calendario"],
-    ["agenda", "turnos"],
-    ["agenda", "calendario"],
+    ["agenda", "inventario"],
+    ["agenda", "turnos", "calendario", "inventario", "stock", "en_camino"],
+    ["agenda", "turnos", "inventario", "stock"],
+    ["agenda", "calendario", "inventario", "en_camino"],
   ];
+  const padres = [...new Set(LISTA_SUBMODULOS.map((s) => s.padre))];
   for (const activos of partidas) {
     for (const clave of Object.keys(SUBMODULOS)) {
       if (motivoParaNoApagar(clave, activos)) continue;
       const despues = alternarModulo(clave, activos);
-      if (!despues.includes("agenda")) continue;
-      assert.ok(
-        hijosActivos("agenda", despues).length > 0,
-        `apagar ${clave} desde [${activos}] dejó la Agenda vacía`
-      );
+      for (const padre of padres) {
+        if (!despues.includes(padre)) continue;
+        assert.ok(
+          hijosActivos(padre, despues).length > 0,
+          `apagar ${clave} desde [${activos}] dejó ${padre} vacío`
+        );
+      }
     }
   }
+});
+
+test("apagar una pantalla del Inventario no toca las de la Agenda", () => {
+  const todo = ["agenda", "turnos", "calendario", "inventario", "stock", "en_camino"];
+  const sinStock = alternarModulo("stock", todo);
+  assert.deepEqual(claves(hijosActivos("agenda", sinStock)), ["calendario", "turnos"]);
+  assert.deepEqual(claves(hijosActivos("inventario", sinStock)), ["en_camino"]);
 });
 
 // ---------- los módulos de fábrica: Clientes e Historial ----------

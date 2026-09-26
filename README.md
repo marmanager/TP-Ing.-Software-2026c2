@@ -127,7 +127,7 @@ src/
     ├── horarios.js         cuándo atiende el negocio y qué huecos quedan
     ├── calendario.js       turnos por día, meses, semanas y carriles
     ├── ics.js              el archivo iCalendar de la agenda
-    ├── presets.js          los diccionarios de rubro
+    ├── presets.js          los diccionarios de rubro, y su vocabulario
     ├── modulos.js          el catálogo de módulos, y las pantallas de adentro
     ├── historial.js        el historial del negocio: tipos de evento, filtros y resumen
     ├── imagen.js           achica la foto del negocio antes de guardarla
@@ -301,6 +301,87 @@ Los turnos nuevos pedidos por el link se miran contra la pantalla **Turnos** y n
 contra la Agenda entera, porque se confirman ahí: el Calendario no tiene
 acciones.
 
+## Cada rubro habla como su mostrador
+
+Lo que un negocio tiene en stock y pide no se llama igual en todos lados: un
+taller tiene **repuestos**, un consultorio **insumos**. Esas palabras viven en
+el preset de cada rubro (`src/lib/presets.js`, campo `palabras`) y las pantallas
+las piden con `vocabulario()`. Ninguna palabra del oficio se escribe a mano en
+una pantalla.
+
+```js
+const { articulo } = vocabulario(negocio?.rubro);
+`Agregar ${articulo.un()}`             // "Agregar un repuesto" · "Agregar un insumo"
+`Guardar ${articulo.el()}`             // "Guardar el repuesto"
+`${articulo.cuantos(3)} en camino`     // "3 repuestos en camino"
+`${articulo.segun("Nuevo", "Nueva")}`  // concuerda con el género de la palabra
+```
+
+Cada palabra lleva su plural y su género **escritos**, no calculados, por lo
+mismo que el identificador lleva `enFrase` aparte: el castellano no se deduce.
+"Análisis" no cambia en plural, y "pieza" pide "una" y "nueva". Por eso
+`pruebas/vocabulario.test.js` prueba también una palabra femenina, aunque hoy
+ningún rubro use una: el día que un taller prefiera "pieza" a "repuesto" es un
+cambio de una línea, y no puede salir "un pieza".
+
+Hoy el vocabulario tiene una palabra, `articulo`, y la usan el Inventario, "En
+camino", el caso, el Inicio y el historial. **"Caso" y "cliente" no están**:
+aparecen en cientos de textos, cambiarlos pide concordancia en cada uno ("el
+caso nuevo" → "la consulta nueva"), y además el núcleo común dice que las
+pantallas son las mismas para todos. Si algún día se quiere "paciente" en un
+consultorio, se agrega en `palabras` de los tres rubros y se reemplaza texto por
+texto con `vocabulario(rubro).cliente`.
+
+Las descripciones de los módulos (`src/lib/modulos.js`) no nombran lo que se
+guarda: ese catálogo es uno solo para todos los rubros.
+
+## Lo que está en camino (SCRUM-113)
+
+El Inventario tiene dos pantallas, como la Agenda: **En stock** —lo que hay y
+cuánto queda— y **En camino** —lo que se pidió y todavía no llegó—. Se cambia
+con las pestañas de arriba (`src/componentes/Pestanas.js`, el mismo componente
+que usa la Agenda) y cada una se prende por su cuenta desde "Mi negocio".
+
+**Lo que había y lo que faltaba.** Todo lo de después de pedir ya estaba
+construido: el caso decía "Que llegue «…»", la lista de casos ofrecía "Marcar
+que llegó", y el cliente no podía destrabar un caso al que le faltaba una pieza.
+Lo que no existía era la manera de pedir: **ninguna parte del sistema creaba un
+pedido**, y la sección que los listaba estaba siempre vacía. Ésa es la mitad
+que se agregó.
+
+Se pide desde "En camino", desde el caso ("Pedir un repuesto para este caso",
+con el caso ya elegido) o desde "En stock" cuando algo baja del mínimo
+("Pedirlo", con el nombre ya puesto). Un pedido para un caso lo deja esperando;
+uno sin caso es para reponer el stock.
+
+**Qué le pasa al caso** lo deciden dos funciones puras de `src/lib/estados.js`,
+con prueba en `pruebas/en-camino.test.js`:
+
+- `alPedirInsumo()`: el caso pasa a esperar. Si ya esperaba otra cosa, qué le
+  falta lo decide `queFalta()`, que pone primero lo que tiene que contestar el
+  cliente: un pedido nuevo no tapa que la pelota es suya.
+- `alLlegarInsumo()`: el caso vuelve a moverse **sólo si ya no le falta nada**.
+
+Esto último arregló un error que estaba escondido. Que llegara una pieza pasaba
+el caso a "en proceso" siempre: aunque faltara otra, aunque el cliente no
+hubiera contestado, y aunque el caso estuviera cerrado. Como nadie podía pedir,
+nunca se notó; con pedidos de verdad, la primera pieza de dos destrababa un caso
+que seguía sin poder avanzar.
+
+En el historial, "Se pidió el repuesto" y "Llegó el repuesto" se anotan siempre,
+pero **llevan el estado sólo cuando el caso cambió**: es lo que dibuja la línea
+de tiempo que ve el cliente, y un punto sin cambio la ensuciaría.
+
+**Pedir y marcar que llegó lo hacen el dueño y el encargado**, como el resto del
+inventario: la base (`008_permisos.sql`) no deja que un técnico escriba un
+insumo.
+
+**"Llegado" no se usa.** La base tiene tres estados para un insumo —`pedido`,
+`llegado`, `en_stock`— pensados para "llegó y todavía no se usó". Pero marcar
+que llegó lo pasa directo al stock, así que nada produce `llegado`. "En camino"
+lo sigue mostrando por si quedó alguno de antes. El filtro "Los que llegaron" de
+la tarjeta de Inventario del Inicio, por lo mismo, da siempre vacío.
+
 ## La Agenda tiene dos pantallas
 
 La Agenda dejó de ser una sola pantalla: adentro están **Turnos** —la lista, día
@@ -308,7 +389,7 @@ por día, que es donde se anota, se confirma, se cancela y se marca que alguien
 vino— y **Calendario**, el mes en una grilla (SCRUM-20, fase 1).
 
 **Se cambia de una a otra con dos pestañas arriba de la pantalla**
-(`src/componentes/PestanasDeAgenda.js`), no desde la barra lateral. La barra
+(`src/componentes/Pestanas.js`), no desde la barra lateral. La barra
 dice a qué sección vas; una vez adentro, elegir la vista es parte de la sección,
 igual que "Los que vienen / Los que ya pasaron" de la lista de turnos. Entrar a
 Agenda cae siempre en Turnos.
@@ -692,11 +773,12 @@ por eso `negocio` no tiene política de alta: no se pueden crear negocios suelto
 
 ## Lo que todavía no está
 
-Google Auth. Y la que más pidieron en las entrevistas: **generar solo el pedido
-de repuestos** al aprobar un paso —el dolor más grande del taller, que hoy
-resuelven a mano en Excel—. La mitad de esa ya está construida: el inventario
-lista lo pedido y "marcar que llegó" destraba el caso; lo que falta es que
-aprobar un paso cree el pedido.
+La que más pidieron en las entrevistas, a medias: **generar solo el pedido de
+repuestos** al aprobar un paso —el dolor más grande del taller, que hoy
+resuelven a mano en Excel—. Desde SCRUM-113 el pedido se hace a mano, desde el
+caso o desde "En camino" (ver "Lo que está en camino", más arriba), y el caso lo
+espera y se destraba solo cuando llega. Lo que falta es que aprobar un paso lo
+cree sin que nadie lo pida.
 
 ## El cobro
 

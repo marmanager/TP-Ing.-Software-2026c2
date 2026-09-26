@@ -32,6 +32,7 @@ import { turnosSinVer } from "@/lib/turnos";
 import { casosConSaldo } from "@/lib/cobros";
 import { diasDesde } from "@/lib/fechas";
 import { estaPrendido, hijosActivos } from "@/lib/modulos";
+import { vocabulario } from "@/lib/presets";
 import {
   ALTO_FILA,
   COLUMNAS,
@@ -170,7 +171,11 @@ export default function Inicio() {
   // entera: hijosActivos() da vacío si la Agenda está apagada, así que una
   // sola pregunta cubre los dos casos.
   const conTurnos = hijosActivos("agenda", modulosActivos).some((h) => h.clave === "turnos");
+  // Lo mismo con el stock: lo que baja del mínimo se ve y se repone en "En
+  // stock", que desde SCRUM-113 es una de las dos pantallas del Inventario.
+  const conStock = hijosActivos("inventario", modulosActivos).some((h) => h.clave === "stock");
   const prendido = (clave) => estaPrendido(clave, modulosActivos);
+  const { articulo } = vocabulario(negocio?.rubro);
 
   const hayQueMirar = [
     conTurnos && turnosNuevos.length > 0 && {
@@ -198,9 +203,9 @@ export default function Inicio() {
       href: "/aprobar",
       texto: `${trabados} ${trabados === 1 ? "caso espera" : "casos esperan"} respuesta hace más de 3 días`,
     },
-    prendido("inventario") && bajoMinimo > 0 && {
+    conStock && bajoMinimo > 0 && {
       href: "/inventario",
-      texto: `${bajoMinimo} ${bajoMinimo === 1 ? "insumo" : "insumos"} por debajo del mínimo`,
+      texto: `${articulo.cuantos(bajoMinimo)} por debajo del mínimo`,
     },
   ].filter(Boolean);
   const fecha = new Intl.DateTimeFormat("es-AR", {
