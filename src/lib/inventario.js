@@ -7,6 +7,9 @@
 
 import { categoriasDe } from "./presets.js";
 
+// La categoría de un producto que no tiene ninguna, para agrupar y mostrar.
+export const SIN_CATEGORIA = "Sin categoría";
+
 // ------------------------------------------------------------
 // Cuándo dos productos son el mismo
 // ------------------------------------------------------------
@@ -121,6 +124,30 @@ export function categoriasDisponibles(rubro, insumos = [], agregadas = []) {
 // deje crear "tornillos" al lado de "Tornillos".
 export const categoriaExistente = (nueva, disponibles = []) =>
   disponibles.find((c) => normalizar(c) === normalizar(nueva)) ?? null;
+
+// Los productos agrupados por categoría, para la vista "Categorías".
+//
+// Las categorías en orden alfabético, y "Sin categoría" siempre al final: es
+// lo que falta ordenar, no una categoría más. Adentro de cada una, los
+// productos también por nombre.
+export function porCategoria(insumos = []) {
+  const grupos = new Map();
+  for (const i of insumos) {
+    const nombre = i.categoria?.trim() || SIN_CATEGORIA;
+    const clave = nombre === SIN_CATEGORIA ? SIN_CATEGORIA : normalizar(nombre);
+    if (!grupos.has(clave)) grupos.set(clave, { categoria: nombre, productos: [] });
+    grupos.get(clave).productos.push(i);
+  }
+
+  const porNombre = (a, b) => a.nombre.localeCompare(b.nombre, "es");
+  return [...grupos.values()]
+    .map((g) => ({ ...g, productos: g.productos.sort(porNombre) }))
+    .sort((a, b) => {
+      if (a.categoria === SIN_CATEGORIA) return 1;
+      if (b.categoria === SIN_CATEGORIA) return -1;
+      return a.categoria.localeCompare(b.categoria, "es");
+    });
+}
 
 // ------------------------------------------------------------
 // Cómo se lee una cantidad

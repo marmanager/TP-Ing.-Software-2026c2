@@ -11,6 +11,7 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
+  SIN_CATEGORIA,
   buscarIgual,
   categoriaExistente,
   categoriasDisponibles,
@@ -18,6 +19,7 @@ import {
   limpiarProducto,
   mismoProducto,
   normalizar,
+  porCategoria,
   presentacion,
 } from "../src/lib/inventario.js";
 
@@ -192,6 +194,38 @@ test("un producto sin categoría no agrega una categoría vacía", () => {
 test("el más reconoce una categoría que ya existe escrita de otra manera", () => {
   assert.equal(categoriaExistente("tornillos", ["Repuestos", "Tornillos"]), "Tornillos");
   assert.equal(categoriaExistente("Juntas", ["Repuestos", "Tornillos"]), null);
+});
+
+// ---------- agrupar por categoría ----------
+
+const prod = (nombre, categoria) => ({ id: nombre, nombre, categoria });
+
+test("agrupa por categoría, en orden alfabético", () => {
+  const g = porCategoria([prod("llave", "Herramientas"), prod("aceite", "Lubricantes"), prod("martillo", "Herramientas")]);
+  assert.deepEqual(g.map((x) => x.categoria), ["Herramientas", "Lubricantes"]);
+  assert.equal(g[0].productos.length, 2);
+});
+
+test("adentro de cada categoría, por nombre", () => {
+  const g = porCategoria([prod("martillo", "Herramientas"), prod("llave", "Herramientas")]);
+  assert.deepEqual(g[0].productos.map((x) => x.nombre), ["llave", "martillo"]);
+});
+
+test("lo que no tiene categoría va al final", () => {
+  const g = porCategoria([prod("x", null), prod("a", "Aceites"), prod("z", "Zapatas")]);
+  assert.equal(g.at(-1).categoria, SIN_CATEGORIA);
+});
+
+test("la misma categoría escrita distinto es un solo grupo", () => {
+  const g = porCategoria([prod("a", "Tornillos"), prod("b", "tornillos ")]);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].productos.length, 2);
+});
+
+test("ningún producto se pierde al agrupar", () => {
+  const todos = [prod("a", "X"), prod("b", null), prod("c", "Y"), prod("d", "x")];
+  const g = porCategoria(todos);
+  assert.equal(g.reduce((n, x) => n + x.productos.length, 0), todos.length);
 });
 
 // ---------- cómo se lee una cantidad ----------

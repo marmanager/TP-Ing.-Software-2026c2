@@ -18,7 +18,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
-import { ejemplosDe, vocabulario } from "@/lib/presets";
+import { ejemplosDe, mayuscula, vocabulario } from "@/lib/presets";
 import { hijosActivos } from "@/lib/modulos";
 import {
   buscarIgual,
@@ -26,6 +26,7 @@ import {
   categoriasDisponibles,
   enTotal,
   limpiarProducto,
+  porCategoria,
   presentacion,
 } from "@/lib/inventario";
 import Icono from "@/componentes/Icono";
@@ -43,6 +44,11 @@ export default function Inventario() {
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const { cargando, insumos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
+  // Cómo se mira el stock: todos juntos, o agrupados por categoría.
+  //
+  // ponytail: no se guarda; volver a entrar arranca en la lista. Igual que
+  // "Mensual / Semanal" del Calendario.
+  const [vista, setVista] = useState("productos");
   useTitulo("Inventario");
 
   if (cargando) return <Cargando />;
@@ -53,6 +59,16 @@ export default function Inventario() {
   // "Conviene pedir más" lleva a pedirlo, si el negocio tiene dónde.
   const conEnCamino = hijosActivos("inventario", negocio?.modulos_activos ?? []).some(
     (h) => h.clave === "en_camino"
+  );
+
+  const fila = (i, { conCategoria }) => (
+    <FilaDeStock
+      key={i.id}
+      insumo={i}
+      conCategoria={conCategoria}
+      puedeCargar={puedeCargar}
+      conEnCamino={conEnCamino}
+    />
   );
 
   return (
@@ -89,20 +105,50 @@ export default function Inventario() {
         </Vacio>
       ) : (
         <>
+          {/* Las dos maneras de mirar el stock. Van debajo del alta y arriba
+              de la lista porque cambian la lista, no la pantalla. */}
+          <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Cómo ver el stock">
+            {[
+              ["productos", mayuscula(articulo.palabra(2)), "cajas"],
+              ["categorias", "Categorías", "secciones"],
+            ].map(([clave, palabra, icono]) => (
+              <button
+                key={clave}
+                type="button"
+                aria-pressed={vista === clave}
+                onClick={() => setVista(clave)}
+                className={`${PILDORA} ${vista === clave ? PILDORA_SI : PILDORA_NO}`}
+              >
+                <Icono nombre={icono} className="size-5" />
+                {palabra}
+              </button>
+            ))}
+          </div>
+
           <TituloSeccion>
             Lo que tenés{bajos.length > 0 && ` · ${bajos.length} por debajo del mínimo`}
           </TituloSeccion>
 
-          <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-            {enStock.map((i) => (
-              <FilaDeStock
-                key={i.id}
-                insumo={i}
-                puedeCargar={puedeCargar}
-                conEnCamino={conEnCamino}
-              />
-            ))}
-          </ul>
+          {vista === "productos" ? (
+            <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
+              {enStock.map((i) => fila(i, { conCategoria: true }))}
+            </ul>
+          ) : (
+            porCategoria(enStock).map((g) => (
+              <section key={g.categoria} className="mb-8" aria-label={g.categoria}>
+                <h3 className="mb-2 flex items-center gap-2 font-bold text-subtitulo">
+                  {g.categoria}
+                  <span className="font-normal text-etiqueta text-tinta-suave">
+                    · {articulo.cuantos(g.productos.length)}
+                  </span>
+                </h3>
+                <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
+                  {/* Adentro de su categoría no hace falta volver a decirla. */}
+                  {g.productos.map((i) => fila(i, { conCategoria: false }))}
+                </ul>
+              </section>
+            ))
+          )}
         </>
       )}
     </>
@@ -233,7 +279,7 @@ function AltaDeProducto({ alCerrar }) {
           Categoría
         </label>
         <p id="prod-categoria-ayuda" className="mt-1 text-etiqueta text-tinta-media">
-          Opcional. Sirve para ordenar el stock.
+          Opcional. Sirve para ver el stock agrupado.
         </p>
 
         {creando ? (
@@ -400,10 +446,13 @@ function AltaDeProducto({ alCerrar }) {
 // ------------------------------------------------------------
 // Una fila del stock
 // ------------------------------------------------------------
+// La usan las dos vistas, "Productos" y "Categorías": es la misma fila, y
+// copiarla para cada una era garantía de que se despegaran.
+//
 // Cada fila lleva su propio estado de "escribiendo la cantidad" y "¿borrar?".
 // Antes vivían arriba, en la pantalla, con el id de la fila; acá adentro es
 // lo mismo con menos cables.
-function FilaDeStock({ insumo: i, puedeCargar, conEnCamino }) {
+function FilaDeStock({ insumo: i, conCategoria, puedeCargar, conEnCamino }) {
   const datos = useDatos();
   const [contando, setContando] = useState(false);
   const [cuantos, setCuantos] = useState("");
@@ -419,11 +468,11 @@ function FilaDeStock({ insumo: i, puedeCargar, conEnCamino }) {
     <li className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0">
       <div className="min-w-0 flex-1">
         <p className="font-bold">{i.nombre}</p>
-        {(detalle || i.categoria) && (
+        {(detalle || (conCategoria && i.categoria)) && (
           <p className="text-apoyo text-tinta-suave">
             {detalle}
-            {detalle && i.categoria && " · "}
-            {i.categoria}
+            {detalle && conCategoria && i.categoria && " · "}
+            {conCategoria && i.categoria}
           </p>
         )}
         {i.descripcion && <p className="text-apoyo text-tinta-suave">{i.descripcion}</p>}

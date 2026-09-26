@@ -384,12 +384,20 @@ la que hay, y se dice.
 
 Las que crea un negocio **no tienen tabla**: viven en el producto que las usa, y
 la lista completa la arma `categoriasDisponibles()` con las de fábrica más las
-que ya usan sus productos. Una categoría sin ningún producto adentro no sirve
-para nada.
+que ya usan sus productos. Una categoría sin ningún producto adentro no sirve ni
+para mirar el stock agrupado.
 
 El botón dice "+ Nueva" y no sólo "+": la cartilla pide ícono y palabra en todo
 botón, y la única excepción anotada es el pincel de la foto del negocio, que
 encima de la foto no tiene lugar. Al lado del campo, sí.
+
+### Mirarlo por producto o por categoría
+
+"En stock" se mira de dos maneras, con dos botones arriba de la lista:
+**Productos**, todos juntos, o **Categorías**, agrupados en orden alfabético con
+"Sin categoría" al final, que es lo que falta ordenar y no una categoría más. Las
+dos vistas usan la misma fila. La elección no se guarda, igual que "Mensual /
+Semanal" del calendario.
 
 ### El alta, como la de un turno
 
