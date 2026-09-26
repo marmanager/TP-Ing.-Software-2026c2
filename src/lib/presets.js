@@ -55,11 +55,12 @@ export const PRESETS = {
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Patente", enFrase: "la patente", ejemplo: "AB 123 CD" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
-    // Lo que el taller tiene en stock y pide para un auto. "Repuesto" y no
-    // "pieza" porque es la palabra que este mismo preset ya usa para lo que
-    // un caso espera ("espera.negocio", arriba).
+    // Lo que el taller tiene en stock. Era "repuesto", y pasó a "producto"
+    // porque en el estante hay más que repuestos: tornillos, herramientas,
+    // lubricantes, y "Agregar un repuesto" para cargar una llave de 13 no se
+    // entiende.
     palabras: {
-      articulo: { uno: "repuesto", varios: "repuestos", genero: "m" },
+      articulo: { uno: "producto", varios: "productos", genero: "m" },
     },
     ejemplos: {
       negocio: "Taller Sur",
@@ -99,7 +100,8 @@ export const PRESETS = {
     modulos: ["agenda", "presupuesto"],
     identificador: { nombre: "DNI", enFrase: "el DNI", ejemplo: "30123456" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
-    // Guantes, jeringas, gasas: en un consultorio no hay "repuestos".
+    // Guantes, jeringas, gasas: en un consultorio no hay "repuestos" ni
+    // "productos", hay insumos.
     palabras: {
       articulo: { uno: "insumo", varios: "insumos", genero: "m" },
     },
@@ -141,8 +143,9 @@ export const PRESETS = {
     modulos: ["inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Número de serie", enFrase: "el número de serie", ejemplo: "SN-48219" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
+    // Igual que el taller: el estante tiene más que repuestos.
     palabras: {
-      articulo: { uno: "repuesto", varios: "repuestos", genero: "m" },
+      articulo: { uno: "producto", varios: "productos", genero: "m" },
     },
     ejemplos: {
       negocio: "Service Centro",
@@ -224,8 +227,8 @@ export function formas({ uno, varios, genero }) {
 // Todas las palabras del rubro, declinadas. Se usa así:
 //
 //   const { articulo } = vocabulario(negocio?.rubro);
-//   `Agregar ${articulo.un()}`              → "Agregar un repuesto"
-//   `${articulo.cuantos(3)} en camino`      → "3 repuestos en camino"
+//   `Agregar ${articulo.un()}`              → "Agregar un producto" (taller)
+//   `${articulo.cuantos(3)} en camino`      → "3 insumos en camino" (medicina)
 export function vocabulario(rubro) {
   const palabras = preset(rubro).palabras ?? {};
   return Object.fromEntries(

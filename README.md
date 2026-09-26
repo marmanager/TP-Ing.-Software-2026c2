@@ -76,11 +76,10 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `027_agenda_ics.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `031_productos.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
-   ya no existe: traía datos inventados y se sacó; el `025` y el `026` todavía no
-   están en esta rama, son los cobros). Todos se pueden volver a correr
-   cuantas veces haga falta.
+   ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
+   correr cuantas veces haga falta.
 
    Si una base existente muestra `function gen_random_bytes(integer) does not exist`,
    ejecutar `supabase/029_reparar_codigos.sql` en el SQL Editor. Actualiza las
@@ -126,6 +125,7 @@ src/
     ├── turnos.js           los cuatro estados de un turno de la agenda
     ├── horarios.js         cuándo atiende el negocio y qué huecos quedan
     ├── calendario.js       turnos por día, meses, semanas y carriles
+    ├── inventario.js       cuándo dos productos son el mismo, y cajas
     ├── ics.js              el archivo iCalendar de la agenda
     ├── presets.js          los diccionarios de rubro, y su vocabulario
     ├── modulos.js          el catálogo de módulos, y las pantallas de adentro
@@ -304,16 +304,20 @@ acciones.
 ## Cada rubro habla como su mostrador
 
 Lo que un negocio tiene en stock y pide no se llama igual en todos lados: un
-taller tiene **repuestos**, un consultorio **insumos**. Esas palabras viven en
-el preset de cada rubro (`src/lib/presets.js`, campo `palabras`) y las pantallas
-las piden con `vocabulario()`. Ninguna palabra del oficio se escribe a mano en
-una pantalla.
+taller o un service tienen **productos**, un consultorio **insumos**. Esas
+palabras viven en el preset de cada rubro (`src/lib/presets.js`, campo
+`palabras`) y las pantallas las piden con `vocabulario()`. Ninguna palabra del
+oficio se escribe a mano en una pantalla.
+
+El taller empezó con "repuesto" y pasó a "producto" porque en el estante hay
+más que repuestos: tornillos, herramientas, lubricantes. Fue cambiar una línea
+del preset, y cambió en toda la app.
 
 ```js
 const { articulo } = vocabulario(negocio?.rubro);
-`Agregar ${articulo.un()}`             // "Agregar un repuesto" · "Agregar un insumo"
-`Guardar ${articulo.el()}`             // "Guardar el repuesto"
-`${articulo.cuantos(3)} en camino`     // "3 repuestos en camino"
+`Agregar ${articulo.un()}`             // "Agregar un producto" · "Agregar un insumo"
+`Guardar ${articulo.el()}`             // "Guardar el producto"
+`${articulo.cuantos(3)} en camino`     // "3 productos en camino"
 `${articulo.segun("Nuevo", "Nueva")}`  // concuerda con el género de la palabra
 ```
 
@@ -334,6 +338,46 @@ texto con `vocabulario(rubro).cliente`.
 
 Las descripciones de los módulos (`src/lib/modulos.js`) no nombran lo que se
 guarda: ese catálogo es uno solo para todos los rubros.
+
+## Qué hay en el estante
+
+Cada producto tiene, además del nombre, **marca** y **modelo**, y puede venir
+**suelto o en caja**. Las tres son opcionales y nacen en
+`supabase/031_productos.sql`; sin esa migración la app sigue guardando
+productos, sin esos datos, en vez de perderlos.
+
+**En caja, se cuenta en cajas.** Una caja de 100 tornillos se carga diciendo
+cuántos trae cada una, y la cantidad y el mínimo van en cajas, que es como se
+cuenta en el estante. La fila muestra "3 cajas de 100 · 300 en total", y los
+botones ± suman y restan de a una caja (y el lector de pantalla lo dice).
+
+### Dos productos iguales son uno solo
+
+Si se agrega algo que ya está, **se suma a lo que hay** en vez de crear otra
+fila: dos filas de lo mismo hacen que ninguno de los dos números sea el del
+estante. El alta lo avisa antes de guardar ("Ya lo tenés: hay 3 cajas de 100"),
+el botón pasa a decir "Sumarlo a lo que hay", y el mínimo no se pide, porque se
+está reponiendo, no configurando.
+
+"Igual" lo decide `mismoProducto()`, en `src/lib/inventario.js`, con prueba:
+
+- mismo nombre, marca y modelo, escritos como sea: sin mayúsculas, espacios de
+  más ni tildes ("Bujía NGK" es "bujia  ngk"). La **ñ se queda**: "caño" no es
+  "cano".
+- y la misma presentación: suelto con suelto, y cajas del mismo tamaño. Una caja
+  de 100 y una de 50 del mismo tornillo son dos líneas, porque 3 cajas más 2
+  cajas no son 5 cajas de nada.
+
+La regla se aplica en las dos puertas por donde entra stock: el alta, y un
+pedido para reponer que llega desde "En camino". Con una sola, la otra seguía
+dejando duplicados.
+
+### El alta, como la de un turno
+
+"Agregar un producto" se apaga en su lugar mientras el alta está abierta, y dice
+por qué, en vez de cambiar de texto y cerrarla. Salir es "Cancelar", en rojo y
+con el tacho, al pie del formulario. Es el mismo arreglo que el alta de un turno
+y el pedido de "En camino".
 
 ## Lo que está en camino (SCRUM-113)
 

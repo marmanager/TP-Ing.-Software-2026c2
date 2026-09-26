@@ -32,15 +32,15 @@ test("todos los rubros tienen las mismas palabras", () => {
   }
 });
 
-test("un taller tiene repuestos y un consultorio, insumos", () => {
-  assert.equal(vocabulario("taller").articulo.palabra(2), "repuestos");
+test("un taller tiene productos y un consultorio, insumos", () => {
+  assert.equal(vocabulario("taller").articulo.palabra(2), "productos");
   assert.equal(vocabulario("medicina").articulo.palabra(2), "insumos");
-  assert.equal(vocabulario("service").articulo.palabra(2), "repuestos");
+  assert.equal(vocabulario("service").articulo.palabra(2), "productos");
 });
 
 test("un rubro que no existe cae en el taller, como el resto del preset", () => {
-  assert.equal(vocabulario("loquesea").articulo.palabra(), "repuesto");
-  assert.equal(vocabulario(undefined).articulo.palabra(), "repuesto");
+  assert.equal(vocabulario("loquesea").articulo.palabra(), "producto");
+  assert.equal(vocabulario(undefined).articulo.palabra(), "producto");
 });
 
 // ---------- las formas, con una palabra masculina ----------

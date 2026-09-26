@@ -2,12 +2,15 @@
 
 // "En stock", la primera pantalla del Inventario: lo que hay y cuánto queda.
 //
-// Lo pedido que todavía no llegó se mudó a "En camino"
-// (inventario/en-camino), que es su propio submódulo desde SCRUM-113.
+// Lo pedido que todavía no llegó vive en "En camino" (inventario/en-camino),
+// que es su propio submódulo desde SCRUM-113.
 //
-// Los textos nombran lo que se guarda con la palabra del rubro —"repuesto" en
+// Los textos nombran lo que se guarda con la palabra del rubro —"producto" en
 // un taller, "insumo" en un consultorio— a través de vocabulario(), en
 // presets.js. Ninguna palabra del oficio se escribe a mano en esta pantalla.
+//
+// Lo que no es de pantalla —cuándo dos productos son el mismo, cómo se lee
+// una caja— está en lib/inventario.js, con sus pruebas.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -17,9 +20,20 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { ejemplosDe, vocabulario } from "@/lib/presets";
 import { hijosActivos } from "@/lib/modulos";
+import {
+  buscarIgual,
+  enTotal,
+  limpiarProducto,
+  presentacion,
+} from "@/lib/inventario";
 import Icono from "@/componentes/Icono";
 import Pestanas from "@/componentes/Pestanas";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+
+const PILDORA =
+  "flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-2 px-4 text-etiqueta";
+const PILDORA_SI = "border-azul bg-azul-claro font-bold text-azul";
+const PILDORA_NO = "border-borde bg-tarjeta text-tinta-media hover:bg-superficie";
 
 export default function Inventario() {
   const datos = useDatos();
@@ -27,11 +41,6 @@ export default function Inventario() {
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const { cargando, insumos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
-  const [form, setForm] = useState({ nombre: "", descripcion: "", cantidad: "", minimo: "", unidad: "unidad" });
-  const [porBorrar, setPorBorrar] = useState(null);
-  // El insumo cuya cantidad se está escribiendo a mano, y lo escrito.
-  const [contando, setContando] = useState(null);
-  const [cuantos, setCuantos] = useState("");
   useTitulo("Inventario");
 
   if (cargando) return <Cargando />;
@@ -44,15 +53,6 @@ export default function Inventario() {
     (h) => h.clave === "en_camino"
   );
 
-  const motivo = !form.nombre.trim() ? "falta el nombre" : null;
-
-  function guardar() {
-    datos.agregarInsumo(form);
-    datos.avisarExito(`Listo. ${form.nombre.trim()} ya está en el inventario.`);
-    setForm({ nombre: "", descripcion: "", cantidad: "", minimo: "", unidad: "unidad" });
-    setAbierto(false);
-  }
-
   return (
     <>
       <Pestanas padre="inventario" />
@@ -64,182 +64,365 @@ export default function Inventario() {
             Lo que tenés y lo que está por debajo del mínimo.
           </p>
         </div>
+        {/* El mismo arreglo que "Anotar un turno": mientras el alta está
+            abierta el botón se apaga en su lugar, en gris, y dice por qué. No
+            cambia de texto ni cierra el alta: el lugar de "Agregar" siempre
+            hace lo mismo, y no se pueden abrir dos. Salir es "Cancelar". */}
         {puedeCargar && (
-        <Boton icono="mas" onClick={() => setAbierto((v) => !v)}>
-          {abierto ? "Cerrar el alta" : `Agregar ${articulo.un()}`}
-        </Boton>
+          <Boton
+            icono="mas"
+            motivo={abierto ? `ya estás agregando ${articulo.segun("uno", "una")}` : null}
+            onClick={() => setAbierto(true)}
+          >
+            Agregar {articulo.un()}
+          </Boton>
         )}
       </div>
 
-      {abierto && puedeCargar && (
-        <Tarjeta className="mb-8 max-w-[560px]">
-          <TituloSeccion>
-            {articulo.segun("Nuevo", "Nueva")} {articulo.palabra()}
-          </TituloSeccion>
-          <Campo
-            id="ins-nombre"
-            etiqueta="Qué es"
-            ayuda={`Con el nombre que usan en el mostrador. Ejemplo: ${ejemplosDe(negocio?.rubro).insumo}.`}
-            value={form.nombre}
-            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-          />
-          <div className="grid gap-4 @md:grid-cols-2">
-            <Campo
-              id="ins-cantidad"
-              etiqueta="Cuántos tenés"
-              ayuda="El número de ahora."
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={form.cantidad}
-              onChange={(e) => setForm({ ...form, cantidad: e.target.value })}
-            />
-            <Campo
-              id="ins-minimo"
-              etiqueta="Avisame cuando queden"
-              ayuda="Debajo de este número te avisamos."
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={form.minimo}
-              onChange={(e) => setForm({ ...form, minimo: e.target.value })}
-            />
-          </div>
-          <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar}>
-            Guardar {articulo.el()}
-          </Boton>
-        </Tarjeta>
-      )}
-
-      <TituloSeccion>
-        Lo que tenés{bajos.length > 0 && ` · ${bajos.length} por debajo del mínimo`}
-      </TituloSeccion>
+      {abierto && puedeCargar && <AltaDeProducto alCerrar={() => setAbierto(false)} />}
 
       {enStock.length === 0 ? (
         <Vacio icono="cajas" titulo="Todavía no hay nada cargado">
           Agregá lo que más usás y te avisamos cuando esté por acabarse.
         </Vacio>
       ) : (
-        <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-          {enStock.map((i) => {
-            const bajo = i.cantidad <= i.minimo;
-            return (
-              <li
+        <>
+          <TituloSeccion>
+            Lo que tenés{bajos.length > 0 && ` · ${bajos.length} por debajo del mínimo`}
+          </TituloSeccion>
+
+          <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
+            {enStock.map((i) => (
+              <FilaDeStock
                 key={i.id}
-                className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold">{i.nombre}</p>
-                  {i.descripcion && <p className="text-apoyo text-tinta-suave">{i.descripcion}</p>}
-                  {bajo && (
-                    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-bold text-espera text-etiqueta">
-                      <Icono nombre="alerta" className="size-5" />
-                      Quedan {i.cantidad}. Conviene pedir más.
-                      {/* Antes el aviso no llevaba a ningún lado: decía
-                          "pedí más" y no había dónde. Llega a "En camino"
-                          con el nombre ya puesto. */}
-                      {conEnCamino && puedeCargar && (
-                        <Link
-                          href={`/inventario/en-camino?pedir=${encodeURIComponent(i.nombre)}`}
-                          className="text-azul underline underline-offset-2"
-                        >
-                          Pedirlo
-                        </Link>
-                      )}
-                    </p>
-                  )}
-                </div>
-
-                {/* Los botones se ven como un signo, pero el lector de
-                    pantalla tiene que oír qué hacen y sobre qué: "menos",
-                    solo, no dice menos de qué (auditoría, accesibilidad). El
-                    número se anuncia al cambiar, así se sabe cómo quedó. */}
-                <div className="flex items-center gap-2">
-                  <Boton
-                    className="min-w-12 px-0"
-                    aria-label={`Quitar uno de ${i.nombre.toLowerCase()}`}
-                    onClick={() => datos.ajustarCantidad(i.id, -1)}
-                    disabled={i.cantidad === 0}
-                  >
-                    −
-                  </Boton>
-                  {contando === i.id ? (
-                    <input
-                      autoFocus
-                      type="number"
-                      min="0"
-                      inputMode="numeric"
-                      aria-label={`La cantidad de ${i.nombre.toLowerCase()}`}
-                      value={cuantos}
-                      onChange={(e) => setCuantos(e.target.value)}
-                      onBlur={() => {
-                        datos.fijarCantidad(i.id, cuantos);
-                        setContando(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") e.currentTarget.blur();
-                        if (e.key === "Escape") setContando(null);
-                      }}
-                      className="w-20 rounded-campo border-2 border-azul bg-tarjeta px-2 py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums"
-                    />
-                  ) : (
-                    /* Tocar el número lo vuelve escribible: después de un
-                       inventario físico se pasa de 3 a 40 de una (auditoría,
-                       H7). Los botones de a uno siguen para los ajustes
-                       chicos de todos los días. */
-                    <button
-                      type="button"
-                      aria-live="polite"
-                      aria-label={`Escribir la cantidad de ${i.nombre.toLowerCase()}. Ahora hay ${i.cantidad}`}
-                      onClick={() => {
-                        setCuantos(String(i.cantidad));
-                        setContando(i.id);
-                      }}
-                      className="w-20 cursor-pointer rounded-campo py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums hover:bg-superficie"
-                    >
-                      {i.cantidad}
-                    </button>
-                  )}
-                  <Boton
-                    className="min-w-12 px-0"
-                    aria-label={`Sumar uno de ${i.nombre.toLowerCase()}`}
-                    onClick={() => datos.ajustarCantidad(i.id, 1)}
-                  >
-                    +
-                  </Boton>
-                  <span className="w-16 text-apoyo text-tinta-suave">{i.unidad}</span>
-                </div>
-
-                {porBorrar === i.id ? (
-                  <div className="flex w-full flex-wrap items-center gap-2 rounded-campo bg-superficie p-3">
-                    <p className="flex-1">
-                      ¿Querés borrar {i.nombre.toLowerCase()} del inventario? Se pierde el
-                      número que tenías cargado.
-                    </p>
-                    <Boton
-                      variante="peligro"
-                      icono="tacho"
-                      onClick={() => {
-                        datos.eliminarInsumo(i.id);
-                        setPorBorrar(null);
-                      }}
-                    >
-                      Sí, borrarlo
-                    </Boton>
-                    <Boton variante="plano" onClick={() => setPorBorrar(null)}>
-                      Dejarlo como está
-                    </Boton>
-                  </div>
-                ) : (
-                  <Boton variante="peligro" icono="tacho" onClick={() => setPorBorrar(i.id)}>
-                    Borrar
-                  </Boton>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                insumo={i}
+                puedeCargar={puedeCargar}
+                conEnCamino={conEnCamino}
+              />
+            ))}
+          </ul>
+        </>
       )}
     </>
+  );
+}
+
+// ------------------------------------------------------------
+// El alta de un producto
+// ------------------------------------------------------------
+
+const VACIO = {
+  nombre: "",
+  marca: "",
+  modelo: "",
+  cantidad: "",
+  minimo: "",
+  unidad: "unidad",
+  porCaja: "",
+};
+
+function AltaDeProducto({ alCerrar }) {
+  const datos = useDatos();
+  const { insumos, negocio } = datos;
+  const [form, setForm] = useState(VACIO);
+
+  const { articulo } = vocabulario(negocio?.rubro);
+  const cambiar = (que) => setForm((f) => ({ ...f, ...que }));
+  const enCaja = form.unidad === "caja";
+
+  // Si lo que se está escribiendo ya está en el stock, se avisa ANTES de
+  // guardar: se va a sumar ahí. Es lo que pasa con "Ya es cliente" en el alta
+  // de un turno.
+  const producto = limpiarProducto(form);
+  const igual = producto.nombre ? buscarIgual(insumos, producto) : null;
+
+  const porCajaValido = Number.isInteger(Number(form.porCaja)) && Number(form.porCaja) >= 1;
+  const motivo = !form.nombre.trim()
+    ? "falta el nombre"
+    : enCaja && !porCajaValido
+      ? "falta cuántos vienen en cada caja"
+      : igual && producto.cantidad < 1
+        ? "falta cuántos agregás"
+        : null;
+
+  function guardar() {
+    const r = datos.agregarInsumo(form);
+    datos.avisarExito(
+      r.sumado
+        ? `Listo. Sumaste ${r.insumo.cantidad - r.antes} a ${r.insumo.nombre}: ahora hay ${r.insumo.cantidad} ${presentacion(r.insumo, r.insumo.cantidad)}.`
+        : `Listo. ${r.insumo.nombre} ya está en el inventario.`
+    );
+    alCerrar();
+  }
+
+  return (
+    <Tarjeta className="mb-8 max-w-[640px]">
+      <TituloSeccion>
+        {articulo.segun("Nuevo", "Nueva")} {articulo.palabra()}
+      </TituloSeccion>
+
+      <Campo
+        id="prod-nombre"
+        etiqueta="Qué es"
+        ayuda={`Con el nombre que usan en el mostrador. Ejemplo: ${ejemplosDe(negocio?.rubro).insumo}.`}
+        value={form.nombre}
+        onChange={(e) => cambiar({ nombre: e.target.value })}
+        list="prod-conocidos"
+        autoComplete="off"
+      />
+      {/* Lo que ya hay, para elegirlo en vez de escribirlo de otra manera. */}
+      <datalist id="prod-conocidos">
+        {[...new Set(insumos.filter((i) => i.estado === "en_stock").map((i) => i.nombre))].map(
+          (n) => (
+            <option key={n} value={n} />
+          )
+        )}
+      </datalist>
+
+      <div className="grid gap-x-4 @md:grid-cols-2">
+        <Campo
+          id="prod-marca"
+          etiqueta="Marca"
+          ayuda="Opcional."
+          value={form.marca}
+          onChange={(e) => cambiar({ marca: e.target.value })}
+          autoComplete="off"
+        />
+        <Campo
+          id="prod-modelo"
+          etiqueta="Modelo"
+          ayuda="Opcional."
+          value={form.modelo}
+          onChange={(e) => cambiar({ modelo: e.target.value })}
+          autoComplete="off"
+        />
+      </div>
+
+      {/* Cómo viene. Una caja de cien tornillos se cuenta en cajas, que es
+          como se cuenta en el estante; el total de tornillos sale solo. */}
+      <div className="mb-6">
+        <p className="font-bold text-cuerpo" id="prod-viene">
+          Cómo viene
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="prod-viene">
+          {[
+            ["unidad", "Suelto"],
+            ["caja", "En caja"],
+          ].map(([clave, palabra]) => (
+            <button
+              key={clave}
+              type="button"
+              aria-pressed={form.unidad === clave}
+              onClick={() => cambiar({ unidad: clave })}
+              className={`${PILDORA} ${form.unidad === clave ? PILDORA_SI : PILDORA_NO}`}
+            >
+              {palabra}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {enCaja && (
+        <Campo
+          id="prod-por-caja"
+          etiqueta="Cuántos vienen en cada caja"
+          type="number"
+          min="1"
+          inputMode="numeric"
+          value={form.porCaja}
+          onChange={(e) => cambiar({ porCaja: e.target.value })}
+        />
+      )}
+
+      <div className="grid gap-x-4 @md:grid-cols-2">
+        <Campo
+          id="prod-cantidad"
+          etiqueta={
+            igual ? (enCaja ? "Cuántas cajas agregás" : "Cuántos agregás") : enCaja ? "Cuántas cajas tenés" : "Cuántos tenés"
+          }
+          ayuda={igual ? "Se suman a los que ya hay." : "El número de ahora."}
+          type="number"
+          min="0"
+          inputMode="numeric"
+          value={form.cantidad}
+          onChange={(e) => cambiar({ cantidad: e.target.value })}
+        />
+        {/* Si ya existe, el mínimo es el que ya tiene: lo que se está
+            haciendo es reponer, no volver a configurarlo. */}
+        {!igual && (
+          <Campo
+            id="prod-minimo"
+            etiqueta="Avisame cuando queden"
+            ayuda={enCaja ? "En cajas. Debajo de este número te avisamos." : "Debajo de este número te avisamos."}
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={form.minimo}
+            onChange={(e) => cambiar({ minimo: e.target.value })}
+          />
+        )}
+      </div>
+
+      {/* Dos iguales no son dos filas: se suman. Se avisa acá, antes de
+          tocar Guardar, y el botón dice lo que va a pasar. */}
+      {igual && (
+        <p className="mb-6 flex items-start gap-2 rounded-campo bg-azul-claro p-3 font-bold text-azul">
+          <Icono nombre="cajas" className="mt-0.5 size-5 shrink-0" />
+          <span>
+            Ya lo tenés: hay {igual.cantidad} {presentacion(igual, igual.cantidad)}. Lo que
+            cargues se suma ahí, no se crea {articulo.segun("otro", "otra")}.
+          </span>
+        </p>
+      )}
+
+      {/* Guardar y cancelar juntos, al pie. Cancelar va en rojo con el tacho
+          porque tira lo escrito, y eso no tiene vuelta. */}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Boton
+          variante="principal"
+          icono="check"
+          motivo={motivo}
+          className="w-full sm:w-auto"
+          onClick={guardar}
+        >
+          {igual ? "Sumarlo a lo que hay" : `Guardar ${articulo.el()}`}
+        </Boton>
+        <Boton variante="peligro" icono="tacho" className="w-full sm:w-auto" onClick={alCerrar}>
+          Cancelar
+        </Boton>
+      </div>
+    </Tarjeta>
+  );
+}
+
+// ------------------------------------------------------------
+// Una fila del stock
+// ------------------------------------------------------------
+// Cada fila lleva su propio estado de "escribiendo la cantidad" y "¿borrar?".
+// Antes vivían arriba, en la pantalla, con el id de la fila; acá adentro es
+// lo mismo con menos cables.
+function FilaDeStock({ insumo: i, puedeCargar, conEnCamino }) {
+  const datos = useDatos();
+  const [contando, setContando] = useState(false);
+  const [cuantos, setCuantos] = useState("");
+  const [borrando, setBorrando] = useState(false);
+
+  const bajo = i.cantidad <= i.minimo;
+  const enCaja = i.unidad === "caja";
+  const total = enTotal(i);
+  const nombre = i.nombre.toLowerCase();
+  const detalle = [i.marca, i.modelo].filter(Boolean).join(" · ");
+
+  return (
+    <li className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0">
+      <div className="min-w-0 flex-1">
+        <p className="font-bold">{i.nombre}</p>
+        {detalle && <p className="text-apoyo text-tinta-suave">{detalle}</p>}
+        {i.descripcion && <p className="text-apoyo text-tinta-suave">{i.descripcion}</p>}
+        {bajo && (
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-bold text-espera text-etiqueta">
+            <Icono nombre="alerta" className="size-5" />
+            Quedan {i.cantidad} {presentacion(i, i.cantidad)}. Conviene pedir más.
+            {/* Antes el aviso no llevaba a ningún lado: decía "pedí más" y no
+                había dónde. Llega a "En camino" con el nombre ya puesto. */}
+            {conEnCamino && puedeCargar && (
+              <Link
+                href={`/inventario/en-camino?pedir=${encodeURIComponent(i.nombre)}`}
+                className="text-azul underline underline-offset-2"
+              >
+                Pedirlo
+              </Link>
+            )}
+          </p>
+        )}
+      </div>
+
+      {/* Los botones se ven como un signo, pero el lector de pantalla tiene
+          que oír qué hacen y sobre qué: "menos", solo, no dice menos de qué
+          (auditoría, accesibilidad). En caja se suma y se resta de a una caja,
+          y lo dice. */}
+      <div className="flex items-center gap-2">
+        <Boton
+          className="min-w-12 px-0"
+          aria-label={enCaja ? `Quitar una caja de ${nombre}` : `Quitar uno de ${nombre}`}
+          onClick={() => datos.ajustarCantidad(i.id, -1)}
+          disabled={i.cantidad === 0}
+        >
+          −
+        </Boton>
+        {contando ? (
+          <input
+            autoFocus
+            type="number"
+            min="0"
+            inputMode="numeric"
+            aria-label={`La cantidad de ${nombre}`}
+            value={cuantos}
+            onChange={(e) => setCuantos(e.target.value)}
+            onBlur={() => {
+              datos.fijarCantidad(i.id, cuantos);
+              setContando(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") setContando(false);
+            }}
+            className="w-20 rounded-campo border-2 border-azul bg-tarjeta px-2 py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums"
+          />
+        ) : (
+          /* Tocar el número lo vuelve escribible: después de un inventario
+             físico se pasa de 3 a 40 de una (auditoría, H7). Los botones de a
+             uno siguen para los ajustes chicos de todos los días. */
+          <button
+            type="button"
+            aria-live="polite"
+            aria-label={`Escribir la cantidad de ${nombre}. Ahora hay ${i.cantidad} ${presentacion(i, i.cantidad)}`}
+            onClick={() => {
+              setCuantos(String(i.cantidad));
+              setContando(true);
+            }}
+            className="w-20 cursor-pointer rounded-campo py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums hover:bg-superficie"
+          >
+            {i.cantidad}
+          </button>
+        )}
+        <Boton
+          className="min-w-12 px-0"
+          aria-label={enCaja ? `Sumar una caja de ${nombre}` : `Sumar uno de ${nombre}`}
+          onClick={() => datos.ajustarCantidad(i.id, 1)}
+        >
+          +
+        </Boton>
+        <span className="whitespace-nowrap text-apoyo text-tinta-suave">
+          {presentacion(i, i.cantidad)}
+          {total !== null && <span className="block">{total} en total</span>}
+        </span>
+      </div>
+
+      {borrando ? (
+        <div className="flex w-full flex-wrap items-center gap-2 rounded-campo bg-superficie p-3">
+          <p className="flex-1">
+            ¿Querés borrar {nombre} del inventario? Se pierde el número que tenías cargado.
+          </p>
+          <Boton
+            variante="peligro"
+            icono="tacho"
+            onClick={() => {
+              datos.eliminarInsumo(i.id);
+              setBorrando(false);
+            }}
+          >
+            Sí, borrarlo
+          </Boton>
+          <Boton variante="plano" onClick={() => setBorrando(false)}>
+            Dejarlo como está
+          </Boton>
+        </div>
+      ) : (
+        <Boton variante="peligro" icono="tacho" onClick={() => setBorrando(true)}>
+          Borrar
+        </Boton>
+      )}
+    </li>
   );
 }

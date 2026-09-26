@@ -13,6 +13,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
+import { buscarIgual, limpiarProducto } from "./inventario";
 import {
   FIRMA_DEL_CLIENTE,
   alLlegarInsumo,
@@ -36,6 +37,12 @@ import {
   montoDeCobroValido,
   sePuedeAnular,
 } from "./cobros.js";
+
+// Las columnas que el insumo gana en 031_productos.sql (marca, modelo,
+// por_caja). Van aparte para que una base donde todavía no se corrió esa
+// migración siga guardando productos —sin esos datos— en vez de perderlos:
+// ver escribirConColumnasNuevas.
+const COLUMNAS_NUEVAS_DE_INSUMO = ["marca", "modelo", "por_caja"];
 
 const LLAVE = "marmanager.datos.v1";
 const VACIO = {
@@ -1369,23 +1376,32 @@ export function DatosProvider({ children }) {
         const rubro = datos.negocio?.rubro;
         const { articulo } = vocabulario(rubro);
 
-        setDatos((d) => ({
-          ...d,
-          insumos: d.insumos.map((i) =>
-            i.id === insumoId ? { ...i, estado: "en_stock", caso_id: null } : i
-          ),
-        }));
-        escribir("insumo", { id: insumoId, estado: "en_stock", caso_id: null });
+        // Al llegar pasa al stock. Si en el stock ya hay uno igual, se le suma
+        // y el pedido desaparece: es la misma regla que el alta, y sin ella
+        // cada reposición dejaba una fila más del mismo producto.
+        const igual = buscarIgual(datos.insumos, { ...insumo, estado: "en_stock" });
+        const llegar = (lista) =>
+          igual
+            ? lista
+                .filter((i) => i.id !== insumoId)
+                .map((i) => (i.id === igual.id ? { ...i, cantidad: i.cantidad + insumo.cantidad } : i))
+            : lista.map((i) => (i.id === insumoId ? { ...i, estado: "en_stock", caso_id: null } : i));
+        const insumosDespues = llegar(datos.insumos);
+
+        setDatos((d) => ({ ...d, insumos: llegar(d.insumos) }));
+        if (igual) {
+          escribir("insumo", { id: igual.id, cantidad: igual.cantidad + insumo.cantidad });
+          borrar("insumo", insumoId);
+        } else {
+          escribir("insumo", { id: insumoId, estado: "en_stock", caso_id: null });
+        }
 
         if (!insumo.caso_id) return null;
         const caso = datos.casos.find((c) => c.id === insumo.caso_id);
         const despues = alLlegarInsumo(caso, {
           rubro,
           pasos: datos.pasos,
-          // Como queda la lista con éste ya llegado.
-          insumos: datos.insumos.map((i) =>
-            i.id === insumoId ? { ...i, estado: "en_stock", caso_id: null } : i
-          ),
+          insumos: insumosDespues,
           cliente: datos.clientes.find((c) => c.id === caso?.cliente_id),
         });
 
@@ -1459,20 +1475,40 @@ export function DatosProvider({ children }) {
         return insumo;
       },
 
-      agregarInsumo({ nombre, descripcion, cantidad, minimo, unidad }) {
+      // Agregar un producto al stock. Si ya hay uno igual —mismo nombre, marca,
+      // modelo y presentación, escritos como sea (mismoProducto, en
+      // lib/inventario.js)— se suma a ése en vez de crear otra fila: dos filas
+      // de lo mismo hacen que ninguno de los dos números sea el del estante.
+      //
+      // Devuelve qué pasó, para que la pantalla lo diga: { sumado, insumo,
+      // antes }. "antes" es cuánto había, sólo si se sumó.
+      agregarInsumo(form) {
+        const producto = limpiarProducto(form);
+        const igual = buscarIgual(datos.insumos, producto);
+
+        if (igual) {
+          const cantidad = igual.cantidad + producto.cantidad;
+          setDatos((d) => ({
+            ...d,
+            insumos: d.insumos.map((i) => (i.id === igual.id ? { ...i, cantidad } : i)),
+          }));
+          escribir("insumo", { id: igual.id, cantidad });
+          return { sumado: true, insumo: { ...igual, cantidad }, antes: igual.cantidad };
+        }
+
         const insumo = {
           id: nuevoId(),
           negocio_id: datos.negocio.id,
-          nombre,
-          descripcion,
-          cantidad: Number(cantidad) || 0,
-          minimo: Number(minimo) || 0,
-          unidad: unidad || "unidad",
+          descripcion: null,
+          ...producto,
           estado: "en_stock",
           caso_id: null,
         };
         setDatos((d) => ({ ...d, insumos: [...d.insumos, insumo] }));
-        escribir("insumo", insumo, { insertar: true });
+        // Si la base todavía no tiene las columnas nuevas (031), el producto
+        // se guarda igual, sin ellas.
+        escribirConColumnasNuevas("insumo", insumo, COLUMNAS_NUEVAS_DE_INSUMO, { insertar: true });
+        return { sumado: false, insumo, antes: null };
       },
 
       // Escribir la cantidad directo. Después de un inventario físico hay
