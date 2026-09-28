@@ -58,6 +58,9 @@ const VACIO = {
   invitaciones: [],
   // Los cobros de cada caso (025). Un caso puede tener varios.
   cobros: [],
+  // La foto de cada compañero de negocio que cargó una (034), como
+  // [{ usuario_id, foto }]. Se cruza con empleado.usuario_id en Equipo.
+  fotosEquipo: [],
 };
 
 const Contexto = createContext(null);
@@ -407,7 +410,7 @@ const conModulos = (negocio) =>
 // (supabase/005_rls.sql), que ya no devolverían nada de otro negocio aunque
 // acá pidiéramos todo.
 async function leerDeSupabase(negocioId) {
-  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones, cobros] =
+  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones, cobros, fotosEquipo] =
     await Promise.all([
       supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
       supabase.from("empleado").select("*").eq("negocio_id", negocioId),
@@ -417,6 +420,9 @@ async function leerDeSupabase(negocioId) {
       supabase.from("turno").select("*").eq("negocio_id", negocioId),
       supabase.from("invitacion").select("*").eq("negocio_id", negocioId),
       supabase.from("cobro").select("*").eq("negocio_id", negocioId),
+      // Por función y no por la tabla: la tabla usuario sólo deja ver la
+      // fila propia, y abrirla mostraría también el mail y el teléfono.
+      supabase.rpc("fotos_del_equipo"),
     ]);
 
   const conError = [negocio, empleados, clientes, casos, insumos, turnos].find((r) => r.error);
@@ -451,6 +457,8 @@ async function leerDeSupabase(negocioId) {
     // Lo mismo con los cobros: sin 025 corrida, cada caso sigue con su
     // número único de 012 y nada se rompe.
     cobros: cobros.error ? [] : (cobros.data ?? []),
+    // Y con las fotos: sin 034 corrida, Equipo muestra el ícono como antes.
+    fotosEquipo: fotosEquipo.error ? [] : (fotosEquipo.data ?? []),
   };
 }
 
@@ -1927,6 +1935,23 @@ export function DatosProvider({ children }) {
         escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, horarios }, [
           "horarios",
         ]);
+      },
+
+      // Después de guardar el perfil (SCRUM-118). No escribe nada en la base:
+      // guardar_mi_perfil() ya cambió la cuenta y la ficha. Acá sólo se
+      // refleja en memoria, para que Equipo muestre el nombre y la foto nuevos
+      // sin tener que recargar la pantalla.
+      reflejarMiPerfil(usuarioId, { nombre, foto }) {
+        setDatos((d) => ({
+          ...d,
+          empleados: d.empleados.map((e) =>
+            e.usuario_id === usuarioId ? { ...e, nombre } : e
+          ),
+          fotosEquipo: [
+            ...d.fotosEquipo.filter((f) => f.usuario_id !== usuarioId),
+            ...(foto ? [{ usuario_id: usuarioId, foto }] : []),
+          ],
+        }));
       },
 
       // Con qué nace el nombre de los casos nuevos (SCRUM-119). No toca los

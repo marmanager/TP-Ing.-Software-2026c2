@@ -193,6 +193,16 @@ const TRAZOS = {
       <path d="M19.4 13.9a7.9 7.9 0 0 0 0-3.8l2-1.5-2-3.4-2.3 1a7.9 7.9 0 0 0-3.3-1.9L13.5 2h-3l-.3 2.3a7.9 7.9 0 0 0-3.3 1.9l-2.3-1-2 3.4 2 1.5a7.9 7.9 0 0 0 0 3.8l-2 1.5 2 3.4 2.3-1a7.9 7.9 0 0 0 3.3 1.9l.3 2.3h3l.3-2.3a7.9 7.9 0 0 0 3.3-1.9l2.3 1 2-3.4z" />
     </>
   ),
+  // Una persona dentro de un círculo: la cuenta de quien entró (Mi perfil).
+  // Distinto de "persona", que es el de Clientes: en el mismo menú, dos
+  // íconos iguales obligan a leer la palabra para saber cuál es cuál.
+  cuenta: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M6.2 18.4c1.3-2.2 3.4-3.4 5.8-3.4s4.5 1.2 5.8 3.4" />
+    </>
+  ),
   // Apunta a la derecha. En el seguimiento une un estado con el siguiente; en
   // celular, donde los estados van apilados, se gira con CSS para que apunte
   // abajo, en vez de tener un segundo ícono.

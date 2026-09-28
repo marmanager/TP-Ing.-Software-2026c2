@@ -10,7 +10,6 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
@@ -19,16 +18,15 @@ import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
 import { LISTA_MODULOS, estaPrendido } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
-import { contrasenaValida, telefonoValido } from "@/lib/validaciones";
+import { telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function MiNegocio() {
-  const router = useRouter();
   const datos = useDatos();
   const { cargando, negocio, casos, clientes, insumos, turnos } = datos;
-  const { esDemo, usuario, cerrarSesion, definirContrasena } = useAuth();
+  const { usuario } = useAuth();
   useTitulo("Mi negocio");
 
   // Cambiar el rubro va en dos pasos: elegir y confirmar.
@@ -59,10 +57,6 @@ export default function MiNegocio() {
   const LARGO_DESCRIPCION = 140;
 
   function abrirEdicion() {
-    // Se cierra el otro editor de la pantalla: dos formularios abiertos
-    // dejarían dos botones azules a la vez, y la cartilla permite uno solo.
-    // Además nadie edita dos cosas distintas al mismo tiempo.
-    cerrarCambioDeContrasena();
     setBorrador({
       nombre: negocio?.nombre ?? "",
       descripcion: negocio?.descripcion ?? "",
@@ -124,46 +118,6 @@ export default function MiNegocio() {
     } finally {
       setAchicandoFoto(false);
     }
-  }
-
-  // Cambiar la contraseña con la sesión abierta (SCRUM-32). Es la misma
-  // definirContrasena() que usa el mail de recuperación: Supabase pide la
-  // sesión, no la contraseña vieja, y acá la sesión ya está.
-  const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
-  const [borrandoTodo, setBorrandoTodo] = useState(false);
-  const [contrasena, setContrasena] = useState("");
-  const [repetida, setRepetida] = useState("");
-  const [errorContrasena, setErrorContrasena] = useState(null);
-  const [guardandoContrasena, setGuardandoContrasena] = useState(false);
-
-  // Se pide dos veces porque no se ve lo que se escribe: sin repetirla, un
-  // dedazo deja a alguien afuera de su propia cuenta y sin forma de saberlo
-  // hasta el próximo ingreso.
-  const motivoContrasena = !contrasenaValida(contrasena)
-    ? "necesita 8 caracteres o más"
-    : contrasena !== repetida
-      ? "repetila igual abajo"
-      : null;
-
-  function cerrarCambioDeContrasena() {
-    setCambiandoContrasena(false);
-    setContrasena("");
-    setRepetida("");
-    setErrorContrasena(null);
-  }
-
-  async function guardarContrasena() {
-    setGuardandoContrasena(true);
-    const r = await definirContrasena(contrasena);
-    setGuardandoContrasena(false);
-    if (!r.ok) return setErrorContrasena(r.error);
-    cerrarCambioDeContrasena();
-    datos.avisarExito("Listo, tu contraseña quedó cambiada.");
-  }
-
-  async function salir() {
-    await cerrarSesion();
-    router.replace("/iniciar-sesion");
   }
 
   if (cargando) return <Cargando />;
@@ -238,21 +192,34 @@ export default function MiNegocio() {
       </p>
 
       {/* En el celular esta pantalla son varias pantallas de scroll, y para
-          llegar a la contraseña, que está al final, había que pasar por los
-          estados, los módulos y el rubro todas las veces (auditoría, H6). */}
+          llegar a la contraseña, que estaba al final, había que pasar por los
+          estados, los módulos y el rubro todas las veces (auditoría, H6).
+
+          La contraseña y los datos de la cuenta se mudaron a Mi perfil
+          (SCRUM-118). El último enlace sigue acá y lleva allá: quien la busque
+          en el lugar de siempre tiene que encontrar adónde se fue. */}
       <nav aria-label="En esta pantalla" className="mb-8">
         <ul className="flex flex-wrap gap-x-6 gap-y-1">
           {[
             ["#estados", "Los estados"],
+            ["#nombres", "Los nombres de los casos"],
             ["#modulos", "Los módulos"],
             ...(estaPrendido("agenda", modulosActivos) ? [["#horarios", "Cuándo atendés"]] : []),
             ["#rubro", "El rubro"],
-            ["#cuenta", "Mi cuenta"],
+            ["/perfil", "Tu cuenta y tu contraseña, en Mi perfil"],
           ].map(([href, texto]) => (
             <li key={href}>
-              <a href={href} className="inline-flex min-h-12 items-center font-bold text-azul">
-                {texto}
-              </a>
+              {/* Los "#" saltan dentro de esta pantalla; lo demás es otra
+                  pantalla, y va con Link para no recargar la aplicación. */}
+              {href.startsWith("#") ? (
+                <a href={href} className="inline-flex min-h-12 items-center font-bold text-azul">
+                  {texto}
+                </a>
+              ) : (
+                <Link href={href} className="inline-flex min-h-12 items-center font-bold text-azul">
+                  {texto}
+                </Link>
+              )}
             </li>
           ))}
         </ul>
@@ -676,150 +643,6 @@ export default function MiNegocio() {
           </>
         )}
       </Tarjeta>
-
-      {/* Lo de la persona, separado de lo del negocio. La contraseña es de
-          quien entró, no del negocio: en un negocio con tres cuentas, buscar
-          la propia dentro de la configuración compartida no es donde nadie
-          la busca (auditoría, H2). */}
-      <div className="mt-16 border-t-2 border-borde pt-10">
-        <TituloSeccion id="cuenta" className="mb-1">
-          Mi cuenta
-        </TituloSeccion>
-        <p className="mb-4 max-w-[65ch] text-tinta-media">
-          Es tuya, no del negocio: con qué entrás y tu contraseña.
-        </p>
-        <Tarjeta>
-          {esDemo ? (
-            <>
-              <p className="flex items-center gap-2 font-bold text-espera">
-                <Icono nombre="alerta" className="size-6" />
-                Estás en el modo de ejemplo
-              </p>
-              <p className="mt-2 max-w-[65ch] text-tinta-media">
-                Lo que cargues vive sólo en este navegador y no lo ve nadie más. Al salir
-                volvés a la pantalla de entrada.
-              </p>
-              {/* Borrar todo estaba al lado de salir, con el mismo aspecto, y
-                  borraba sin preguntar (auditoría, H5). Ahora dice qué se
-                  pierde antes. */}
-              {borrandoTodo ? (
-                <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                  <p className="font-bold text-cuerpo">¿Borrar todo lo que cargaste?</p>
-                  <p className="mt-1 max-w-[65ch] text-tinta-media">
-                    Se pierden el negocio, los casos, los clientes, la agenda y el
-                    inventario de este navegador, y volvés a empezar desde crear el
-                    negocio. No se puede deshacer.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <Boton
-                      variante="peligro"
-                      icono="tacho"
-                      onClick={() => {
-                        setBorrandoTodo(false);
-                        datos.reiniciar();
-                      }}
-                    >
-                      Sí, borrar todo
-                    </Boton>
-                    <Boton variante="plano" onClick={() => setBorrandoTodo(false)}>
-                      Dejarlo como está
-                    </Boton>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <Boton icono="salir" onClick={salir}>
-                    Salir del modo de ejemplo
-                  </Boton>
-                  <Boton variante="plano" icono="tacho" onClick={() => setBorrandoTodo(true)}>
-                    Borrar todo y empezar de nuevo
-                  </Boton>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="text-tinta-media">
-                {usuario?.nombre ? (
-                  <>
-                    Entraste como{" "}
-                    <span className="font-bold text-tinta">{usuario.nombre}</span>, con{" "}
-                    {usuario.email}.
-                  </>
-                ) : (
-                  <>
-                    Entraste con{" "}
-                    <span className="font-bold text-tinta">{usuario?.email ?? "tu cuenta"}</span>.
-                  </>
-                )}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Boton
-                  icono="llave"
-                  onClick={() =>
-                    cambiandoContrasena
-                      ? cerrarCambioDeContrasena()
-                      : (cancelarEdicion(), setCambiandoContrasena(true))
-                  }
-                >
-                  {cambiandoContrasena ? "Mejor no" : "Cambiar la contraseña"}
-                </Boton>
-                <Boton icono="salir" onClick={salir}>
-                  Cerrar sesión
-                </Boton>
-              </div>
-
-              {cambiandoContrasena && (
-                <div className="mt-6 border-t border-borde pt-6">
-                  <Campo
-                    id="contrasena-nueva"
-                    etiqueta="Tu contraseña nueva"
-                    ayuda="Al menos 8 caracteres. Desde que la cambiás, entrás con esta."
-                    type="password"
-                    autoComplete="new-password"
-                    value={contrasena}
-                    onChange={(e) => {
-                      setContrasena(e.target.value);
-                      setErrorContrasena(null);
-                    }}
-                  />
-                  <Campo
-                    id="contrasena-repetida"
-                    etiqueta="Escribila de nuevo"
-                    error={
-                      repetida && contrasena !== repetida ? "Las dos no son iguales." : null
-                    }
-                    exito={repetida && contrasena === repetida ? "Coinciden." : null}
-                    type="password"
-                    autoComplete="new-password"
-                    value={repetida}
-                    onChange={(e) => {
-                      setRepetida(e.target.value);
-                      setErrorContrasena(null);
-                    }}
-                  />
-
-                  {errorContrasena && (
-                    <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
-                      <Icono nombre="alerta" className="size-6" />
-                      <span>{errorContrasena}</span>
-                    </p>
-                  )}
-
-                  <Boton
-                    variante="principal"
-                    icono="check"
-                    motivo={guardandoContrasena ? "guardando" : motivoContrasena}
-                    onClick={guardarContrasena}
-                  >
-                    Cambiar la contraseña
-                  </Boton>
-                </div>
-              )}
-            </>
-          )}
-        </Tarjeta>
-      </div>
     </>
   );
 }

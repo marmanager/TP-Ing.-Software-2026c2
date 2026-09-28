@@ -359,6 +359,29 @@ export function AuthProvider({ children }) {
         setUsuario((u) => (u ? { ...u, negocio_id: negocioId } : u));
       },
 
+      // Guarda el perfil de quien entró (SCRUM-118): nombre, teléfono y foto,
+      // y el nombre también en su ficha del equipo. Lo hace una función de la
+      // base (034) en una sola operación, porque la ficha sólo la puede tocar
+      // el dueño y el historial firma con ella. Después vuelve a leer la fila,
+      // así todo lo que muestra el usuario queda al día.
+      async guardarPerfil({ nombre, telefono, foto }) {
+        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        const { error } = await supabase.rpc("guardar_mi_perfil", {
+          p_nombre: nombre,
+          p_telefono: telefono,
+          p_foto: foto ?? null,
+        });
+        // P0001 es un `raise exception` de la función: esos mensajes ya están
+        // escritos para la persona ("Falta tu nombre.") y van tal cual. Lo
+        // demás —sin internet, o la 034 sin correr— pasa por traducir(), así
+        // nadie lee "Could not find the function" en inglés.
+        if (error) {
+          return { ok: false, error: error.code === "P0001" ? error.message : traducir(error) };
+        }
+        if (sesion?.user) setUsuario(await traerUsuario(sesion.user));
+        return { ok: true };
+      },
+
       // Vuelve a leer la fila de `usuario`. Se usa después de aceptar una
       // invitación, donde cambian el negocio y el rol de una sola vez.
       async refrescarUsuario() {

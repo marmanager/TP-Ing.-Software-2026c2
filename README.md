@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `033_nombre_del_caso.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `034_mi_perfil.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
@@ -113,7 +113,7 @@ src/
 │   ├── casos/              lista, alta, detalle y aprobación de pasos
 │   ├── seguimiento/        la pantalla pública que abre el cliente, sin cuenta
 │   ├── agenda/             los turnos en lista, y adentro calendario/, el mes
-│   ├── clientes/  inventario/  aprobar/  equipo/  historial/  negocio/
+│   ├── clientes/  inventario/  aprobar/  equipo/  historial/  negocio/  perfil/
 │   └── globals.css         los tokens de la cartilla, en Tailwind
 ├── componentes/            piezas base: botones, campos, chips, íconos
 │   └── inicio/             el marco y el contenido de cada módulo del Inicio
@@ -700,6 +700,50 @@ En el código hay dos formas de nombrar un caso, y no son intercambiables:
 `tituloDelCaso()` para un título ("Caso 271" o el nombre) y `casoEnFrase()` para
 adentro de una frase ("el caso 271" o "el caso Hugo Peralta"). Usar la primera
 en una frase da "el caso Caso 271".
+
+## Mi perfil
+
+Lo de la persona, aparte de lo del negocio (SCRUM-118). Está en la barra
+lateral, debajo de Mi negocio, y en el celular adentro de "Más". Tiene los
+datos de la cuenta —nombre, teléfono y foto, que se editan con **Editar**, el
+pincel y Guardar/Cancelar, igual que la ficha del negocio—, el mail (que se ve
+pero no se cambia), el negocio en el que está la persona, la contraseña y
+cerrar sesión. Todo eso antes vivía al pie de Mi negocio, como "Mi cuenta":
+la contraseña es de quien entró, no del negocio. En Mi negocio queda un enlace
+que dice adónde se mudó.
+
+**Hay dos fotos y no se mezclan.** La del local es la de la ficha del negocio.
+La de cada persona se carga en su perfil, y el equipo la ve en **Equipo**, al
+lado de su nombre. Se lee de la cuenta en vivo, no se copia: si la persona la
+cambia, en Equipo se ve la nueva. Las fichas cargadas a mano, sin cuenta, no
+tienen perfil y siguen con el ícono; el dueño no tiene ficha y no aparece en
+Equipo, así que su foto se ve en su perfil.
+
+**Cada persona tiene dos nombres**: el de su cuenta (`usuario.nombre`) y el de
+su ficha en el equipo (`empleado.nombre`), y el historial firma con el de la
+ficha. La ficha sólo la puede tocar el dueño, así que guardar el perfil pasa
+por `guardar_mi_perfil()` (`034_mi_perfil.sql`), que cambia los dos juntos y
+sólo los de quien entró. Si no, alguien cambiaba su nombre y el historial
+seguía firmando con el viejo.
+
+Esa función es un borde de confianza —cualquier cuenta la puede llamar con lo
+que quiera adentro—, así que valida en la base, sin confiar en la pantalla, que
+el nombre no esté vacío y que la foto sea una imagen de tamaño razonable.
+
+**Ver las fotos del equipo pasa por `fotos_del_equipo()`** y no por la tabla. La
+política de `usuario` deja ver sólo la fila propia, y abrirla a los compañeros
+abriría también el mail y el teléfono: las políticas filtran filas, no
+columnas. La función devuelve el id y la foto, nada más. Editar la foto de otro
+ya era imposible: lo impide la política `usuario_edita_lo_suyo` (005).
+
+Si la 034 no se corrió, la aplicación arranca igual y Equipo muestra los íconos,
+como con las invitaciones y los cobros. Guardar el perfil, en cambio, avisa que
+no se pudo.
+
+Hoy cada cuenta está en un solo negocio (`usuario.negocio_id`), y de eso cuelga
+todo el aislamiento entre negocios. "Tu negocio" ya se muestra como una lista
+para que el día que una cuenta pueda estar en varios crezca sin rediseñarse,
+pero eso es otro trabajo, y toca la seguridad de toda la base.
 
 ## La ficha del negocio
 

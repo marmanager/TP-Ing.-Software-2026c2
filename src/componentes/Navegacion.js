@@ -71,6 +71,9 @@ const DESTINOS = [
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
   { href: "/negocio", icono: "tienda", palabra: "Mi negocio" },
+  // Lo de la persona, aparte de lo del negocio (SCRUM-118): sus datos, su
+  // foto, su contraseña y el negocio en el que está.
+  { href: "/perfil", icono: "cuenta", palabra: "Mi perfil" },
 ];
 
 const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(href));

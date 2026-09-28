@@ -26,7 +26,7 @@ const CASOS_A_LA_VISTA = 3;
 
 export default function Equipo() {
   const datos = useDatos();
-  const { cargando, empleados, casos, negocio, avisarExito } = datos;
+  const { cargando, empleados, casos, negocio, avisarExito, fotosEquipo } = datos;
   const { usuario } = useAuth();
   useTitulo("Equipo");
 
@@ -140,13 +140,25 @@ export default function Equipo() {
         <ul className="mb-12 grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
           {empleados.map((e) => {
             const suyos = casos.filter((c) => c.responsable_id === e.id && estaAbierto(c));
+            // La foto que la persona cargó en su perfil (SCRUM-118), leída de
+            // su cuenta y no copiada a la ficha: si la cambia, acá se ve la
+            // nueva. Una ficha cargada a mano, sin cuenta, no tiene perfil y
+            // sigue con el ícono.
+            const foto = e.usuario_id
+              ? fotosEquipo.find((f) => f.usuario_id === e.usuario_id)?.foto
+              : null;
             return (
               <li key={e.id}>
                 <Tarjeta className="h-full">
                   <div className="flex items-center gap-3">
-                    <span className="flex size-12 items-center justify-center rounded-full bg-superficie text-tinta-media">
-                      <Icono nombre="persona" />
-                    </span>
+                    {/* Sin texto alternativo: el nombre está al lado. */}
+                    {foto ? (
+                      <img src={foto} alt="" className="size-12 shrink-0 rounded-full object-cover" />
+                    ) : (
+                      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-superficie text-tinta-media">
+                        <Icono nombre="persona" />
+                      </span>
+                    )}
                     <p className="font-bold text-subtitulo">{e.nombre}</p>
                   </div>
 
