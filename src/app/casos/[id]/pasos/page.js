@@ -155,6 +155,16 @@ export default function AprobarPasos() {
     document.getElementById("paso-nombre")?.focus();
   }
 
+  // Cierra el formulario y tira lo que se estaba escribiendo. Los pasos que ya
+  // se sumaron no se tocan: cada uno quedó guardado al tocar "Sumar el paso".
+  function cancelarPasos() {
+    setArmando(false);
+    setNombre("");
+    setDescripcion("");
+    setMonto("");
+    setTocado(false);
+  }
+
   return (
     <div className="mx-auto max-w-[560px]">
       <Link
@@ -271,8 +281,16 @@ export default function AprobarPasos() {
         </TituloSeccion>
         {sePuedeTocar && (
           <div className="flex flex-wrap gap-2">
-            <Boton icono="mas" onClick={() => setArmando((v) => !v)}>
-              {armando ? "Cerrar" : "Sumar un paso"}
+            {/* El mismo arreglo que "Agregar" en inventario: mientras el
+                formulario está abierto el botón se apaga en su lugar y dice
+                por qué, en vez de cambiar a "Cerrar". Salir es "Cancelar", al
+                pie del formulario, al lado de "Sumar el paso" (SCRUM-126). */}
+            <Boton
+              icono="mas"
+              motivo={armando ? "ya estás sumando pasos" : null}
+              onClick={() => setArmando(true)}
+            >
+              Sumar un paso
             </Boton>
             {mios.some((p) => p.estado === "esperando") && (
               <Boton
@@ -368,9 +386,20 @@ export default function AprobarPasos() {
             onChange={(e) => setMonto(e.target.value)}
             onBlur={() => setTocado(true)}
           />
-          <Boton variante="principal" icono="check" motivo={motivoPaso} onClick={sumarPaso}>
-            Sumar el paso
-          </Boton>
+          {/* Cancelar va con borde neutro y no en rojo con el tacho, como en
+              inventario. Allá se carga un producto y cancelar lo aborta; acá
+              el formulario queda abierto para cargar varios de corrido, y
+              cerrarlo es el final normal. Un tacho rojo al lado de la lista de
+              pasos recién cargados se leería como "borra los pasos", y no los
+              borra: sólo tira lo que se estaba escribiendo. */}
+          <div className="flex flex-wrap gap-3">
+            <Boton variante="principal" icono="check" motivo={motivoPaso} onClick={sumarPaso}>
+              Sumar el paso
+            </Boton>
+            <Boton variante="plano" onClick={cancelarPasos}>
+              Cancelar
+            </Boton>
+          </div>
         </Tarjeta>
       )}
 
