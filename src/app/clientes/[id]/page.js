@@ -19,6 +19,7 @@ import { comoSeIdentifica } from "@/lib/presets";
 import { diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
 import { telefonoValido } from "@/lib/validaciones";
 import { saldoDelCaso } from "@/lib/cobros";
+import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -240,8 +241,15 @@ export default function FichaDeCliente() {
                 <Tarjeta className="hover:bg-superficie">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
+                      {/* Sin pasar el cliente: ya estamos en su ficha. */}
                       <p className="font-bold text-cuerpo">
-                        Caso {c.numero} · {c.servicio}
+                        {tituloDelCaso(c)}
+                        {lineaDelCaso(c) && ` · ${lineaDelCaso(c)}`}
+                        {subtituloDelCaso(c) && (
+                          <span className="ml-2 font-normal text-apoyo text-tinta-suave">
+                            {subtituloDelCaso(c)}
+                          </span>
+                        )}
                       </p>
                       <p className="text-tinta-media">
                         {c.identificador && `${comoIdent.nombre} ${c.identificador} · `}

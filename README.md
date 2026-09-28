@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `032_categorias.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `033_nombre_del_caso.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
@@ -129,6 +129,7 @@ src/
     ├── ics.js              el archivo iCalendar de la agenda
     ├── presets.js          los diccionarios de rubro, y su vocabulario
     ├── modulos.js          el catálogo de módulos, y las pantallas de adentro
+    ├── nombres.js          con qué nombre nace un caso y cómo se muestra
     ├── historial.js        el historial del negocio: tipos de evento, filtros y resumen
     ├── imagen.js           achica la foto del negocio antes de guardarla
     ├── seguimiento.js      qué ve y qué no ve el cliente en la pantalla pública
@@ -671,6 +672,34 @@ borra o no tiene vuelta"— y está pedida por el equipo. El argumento a favor e
 que cancelar tira el borrador y eso no se deshace; el argumento en contra es que
 todavía no se creó nada, así que por la regla iría `neutro`. Queda anotado para
 que no se "corrija" sin saber que fue una decisión.
+
+## El nombre de los casos
+
+Un caso puede tener nombre (SCRUM-119). En el mostrador nadie busca "el 271":
+busca el Gol de Hugo, la patente o "el de los frenos".
+
+En **Mi negocio → Cómo se nombran los casos** se elige con qué nace el nombre
+de cada caso nuevo: por número (como siempre), por el nombre del cliente, por
+la patente —la ficha o el número de serie, según el rubro— o por lo que pidió.
+Cambiar la opción **no renombra los casos que ya existen**: esos se editan de a
+uno con el botón **Editar** del caso, que cambia el nombre y lo que pidió. Si el
+nombre se borra, el caso vuelve a verse como "Caso 271". Cada cambio queda en el
+historial, y con el caso cerrado no se edita.
+
+El nombre va de título y el número queda siempre a la vista, en chiquito: dos
+casos del mismo cliente se llamarían igual. Lo que el título ya dice no se
+repite abajo: un caso nombrado por la patente no dice "AB 123 CD · AB 123 CD".
+
+**El nombre es interno.** El cliente, en su link de seguimiento y en los
+WhatsApp, sigue viendo "Caso 271": un nombre que alguien del negocio le puso al
+caso no tiene por qué llegarle. Lo cuidan `ver_seguimiento()` en la base y
+`CAMPOS_PUBLICOS` en `src/lib/seguimiento.js`, y hay un test que falla si el
+nombre se filtra.
+
+En el código hay dos formas de nombrar un caso, y no son intercambiables:
+`tituloDelCaso()` para un título ("Caso 271" o el nombre) y `casoEnFrase()` para
+adentro de una frase ("el caso 271" o "el caso Hugo Peralta"). Usar la primera
+en una frase da "el caso Caso 271".
 
 ## La ficha del negocio
 

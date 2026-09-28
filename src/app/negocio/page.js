@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
-import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
+import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
 import { LISTA_MODULOS, estaPrendido } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
 import { contrasenaValida, telefonoValido } from "@/lib/validaciones";
@@ -175,6 +175,42 @@ export default function MiNegocio() {
   const prendidos = LISTA_MODULOS.filter((m) => estaPrendido(m.clave, modulosActivos));
   const nuevo = rubroElegido ? preset(rubroElegido) : null;
   const horarios = normalizarHorarios(negocio?.horarios);
+
+  // Cómo nacen los nombres de los casos (SCRUM-119). Un negocio de antes de
+  // esta opción no la tiene guardada: es "por número", como siempre fue.
+  const comoIdent = comoSeIdentifica(negocio?.rubro);
+  const nombrarCasos = negocio?.nombrar_casos ?? "numero";
+  const opcionesDeNombre = [
+    ["numero", "Por número"],
+    ["cliente", "Por el nombre del cliente"],
+    ["identificador", `Por ${comoIdent.enFrase}`],
+    ["servicio", "Por lo que pidió"],
+  ];
+  // El número de ejemplo es el que de verdad le toca al próximo caso.
+  const proximoNumero = Math.max(0, ...casos.map((c) => c.numero)) + 1;
+  const resaltado = (texto) => <span className="font-bold text-tinta">{texto}</span>;
+  const ejemploDeNombre = {
+    numero: <>Un caso nuevo se va a llamar {resaltado(`Caso ${proximoNumero}`)}.</>,
+    cliente: <>Un caso nuevo se va a llamar como su cliente.</>,
+    identificador: (
+      <>
+        Un caso nuevo se va a llamar como {comoIdent.enFrase}, por ejemplo{" "}
+        {resaltado(comoIdent.ejemplo)}.
+      </>
+    ),
+    servicio: (
+      <>
+        Un caso nuevo se va a llamar como lo que pidió, por ejemplo{" "}
+        {resaltado(ejemplosDe(negocio?.rubro).servicio)}.
+      </>
+    ),
+  }[nombrarCasos];
+
+  function elegirNombrarCasos(modo) {
+    if (!puedeConfigurar || modo === nombrarCasos) return;
+    datos.cambiarNombrarCasos(modo);
+    datos.avisarExito("Listo. Los casos que abras desde ahora van a nacer con ese nombre.");
+  }
 
   function cerrarCambioDeRubro() {
     setCambiandoRubro(false);
@@ -410,6 +446,43 @@ export default function MiNegocio() {
           );
         })}
       </ul>
+
+      {/* Con qué nombre nace cada caso nuevo (SCRUM-119). Se guarda al
+          tocar: sólo cambia los casos que se abran después, así que no hay
+          nada que confirmar ni nada que se pierda. */}
+      <TituloSeccion id="nombres">Cómo se nombran los casos</TituloSeccion>
+      <Tarjeta className="mb-12">
+        <p className="max-w-[65ch] text-tinta-media">
+          Con qué nombre nace cada caso nuevo. Los que ya abriste no cambian: esos
+          se editan de a uno desde el caso. El número queda siempre, en chiquito
+          debajo del nombre, y el cliente no ve el nombre: en su link sigue viendo
+          el número.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {opcionesDeNombre.map(([clave, palabra]) => (
+            <button
+              key={clave}
+              type="button"
+              aria-pressed={nombrarCasos === clave}
+              disabled={!puedeConfigurar}
+              onClick={() => elegirNombrarCasos(clave)}
+              className={[
+                "min-h-12 rounded-full border-2 px-4 text-etiqueta",
+                puedeConfigurar ? "cursor-pointer" : "cursor-not-allowed",
+                nombrarCasos === clave
+                  ? "border-azul bg-azul-claro font-bold text-azul"
+                  : "border-borde bg-tarjeta text-tinta-media hover:bg-superficie",
+              ].join(" ")}
+            >
+              {palabra}
+            </button>
+          ))}
+        </div>
+        {ejemploDeNombre && <p className="mt-4 text-tinta-media">{ejemploDeNombre}</p>}
+        {!puedeConfigurar && (
+          <p className="mt-2 text-apoyo text-tinta-suave">{QUIEN_PUEDE.configurarNegocio}</p>
+        )}
+      </Tarjeta>
 
       <TituloSeccion id="modulos">Módulos</TituloSeccion>
       <Tarjeta className="mb-12">

@@ -45,7 +45,9 @@ export default function Casos() {
         c.servicio.toLowerCase().includes(texto) ||
         // Por la patente, la ficha o el número de serie, según el rubro.
         (c.identificador ?? "").toLowerCase().includes(texto) ||
-        (cliente?.nombre ?? "").toLowerCase().includes(texto)
+        (cliente?.nombre ?? "").toLowerCase().includes(texto) ||
+        // Por el nombre que le pusieron al caso (SCRUM-119).
+        (c.nombre ?? "").toLowerCase().includes(texto)
       );
     })
     // Por estado es el orden de todos los días. Por antigüedad es el único

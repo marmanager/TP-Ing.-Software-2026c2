@@ -27,6 +27,7 @@ import {
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
 import { queFaltaPara, comoSeIdentifica, etiquetaEstado, vocabulario } from "@/lib/presets";
 import { hijosActivos } from "@/lib/modulos";
+import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } from "@/lib/cobros";
 import SelectorEstado from "@/componentes/SelectorEstado";
@@ -60,6 +61,10 @@ export default function VerCaso() {
   // vive ahora en la pantalla de los pasos.
   const [editandoIdent, setEditandoIdent] = useState(false);
   const [identificador, setIdentificador] = useState("");
+  // Editar el caso: su nombre y lo que pidió el cliente (SCRUM-119). Sobre
+  // un borrador, como la ficha de Mi negocio: "Cancelar" deshace de verdad.
+  const [editandoCaso, setEditandoCaso] = useState(false);
+  const [borradorCaso, setBorradorCaso] = useState({ nombre: "", servicio: "" });
   const [anotando, setAnotando] = useState(false);
   const [historialEntero, setHistorialEntero] = useState(false);
   const [nota, setNota] = useState("");
@@ -81,7 +86,7 @@ export default function VerCaso() {
   const [elResto, setElResto] = useState("despues");
 
   const caso = casos.find((c) => c.id === id);
-  useTitulo(caso ? `Caso ${caso.numero}` : "Caso");
+  useTitulo(caso ? tituloDelCaso(caso) : "Caso");
 
   if (cargando) return <Cargando />;
   if (!caso) {
@@ -125,6 +130,29 @@ export default function VerCaso() {
   // nada trabado, porque volver a abrirlo está a un toque acá abajo.
   const abierto = estaAbierto(caso);
   const sePuedeEditar = puedeCargar && abierto;
+
+  // Cómo se lee el encabezado (SCRUM-119). Lo que ya dice el título no se
+  // repite en las líneas de abajo.
+  const titulo = tituloDelCaso(caso);
+  const subtitulo = subtituloDelCaso(caso);
+  const identDistinto = caso.identificador && caso.identificador !== titulo;
+  const lineaDeAbajo = lineaDelCaso(caso, cliente?.nombre);
+
+  function abrirEdicionCaso() {
+    setBorradorCaso({ nombre: caso.nombre ?? "", servicio: caso.servicio ?? "" });
+    setEditandoCaso(true);
+  }
+
+  function guardarEdicionCaso() {
+    datos.editarCaso(caso.id, borradorCaso);
+    setEditandoCaso(false);
+    datos.avisarExito("Listo, el caso quedó actualizado.");
+  }
+
+  // Lo que pidió el cliente no puede quedar vacío; el nombre sí, y vacío
+  // quiere decir que el caso vuelve a verse con su número.
+  const motivoEdicionCaso = !borradorCaso.servicio.trim() ? "falta qué necesita" : null;
+
   // Para "Pedir un repuesto para este caso": la palabra del rubro, y si el
   // negocio tiene la pantalla "En camino" adonde lleva.
   const { articulo } = vocabulario(negocio?.rubro);
@@ -150,17 +178,26 @@ export default function VerCaso() {
         <div className={`h-1.5 w-full rounded-t-tarjeta ${barra}`} aria-hidden="true" />
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
+            {/* El nombre es el título, y el número queda abajo en chiquito
+                (SCRUM-119). Lo que ya dice el título no se repite abajo: un
+                caso nombrado por la patente no dice "AB 123 CD · AB 123 CD",
+                ni uno nombrado por el cliente lo nombra dos veces. */}
             <div className="min-w-0">
-              <h1 className="text-ident">
-                Caso {caso.numero}
-                {caso.identificador && (
-                  <span className="text-tinta-media"> · {caso.identificador}</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 className="text-ident">
+                  {titulo}
+                  {identDistinto && (
+                    <span className="text-tinta-media"> · {caso.identificador}</span>
+                  )}
+                </h1>
+                {sePuedeEditar && !editandoCaso && (
+                  <Boton variante="plano" icono="pincel" onClick={abrirEdicionCaso}>
+                    Editar
+                  </Boton>
                 )}
-              </h1>
-              <p className="mt-1 text-tinta-media">
-                {caso.servicio}
-                {cliente && ` · ${cliente.nombre}`}
-              </p>
+              </div>
+              {subtitulo && <p className="text-apoyo text-tinta-suave">{subtitulo}</p>}
+              {lineaDeAbajo && <p className="mt-1 text-tinta-media">{lineaDeAbajo}</p>}
             </div>
             {/* El estado se cambia donde se lee. Antes había que leerlo acá
                 arriba, bajar hasta "Cómo sigue" y buscar cuál de tres botones
@@ -183,6 +220,39 @@ export default function VerCaso() {
               }
             />
           </div>
+
+          {/* Editar el caso (SCRUM-119). Guardar va con borde y no azul: esta
+              pantalla ya tiene su botón azul, el del presupuesto, y la cartilla
+              permite uno solo. */}
+          {editandoCaso && sePuedeEditar && (
+            <div className="mt-6 max-w-[560px] border-t border-borde pt-6">
+              <Campo
+                id="caso-nombre"
+                etiqueta="Nombre del caso"
+                ayuda={`Opcional. Como lo reconocen en el mostrador. Si lo dejás vacío se ve como Caso ${caso.numero}. El cliente no lo ve.`}
+                maxLength={80}
+                autoComplete="off"
+                value={borradorCaso.nombre}
+                onChange={(e) => setBorradorCaso((b) => ({ ...b, nombre: e.target.value }))}
+              />
+              <Campo
+                id="caso-servicio"
+                etiqueta="Qué necesita"
+                ayuda="Con las palabras del cliente."
+                autoComplete="off"
+                value={borradorCaso.servicio}
+                onChange={(e) => setBorradorCaso((b) => ({ ...b, servicio: e.target.value }))}
+              />
+              <div className="flex flex-wrap gap-3">
+                <Boton icono="check" motivo={motivoEdicionCaso} onClick={guardarEdicionCaso}>
+                  Guardar
+                </Boton>
+                <Boton variante="plano" onClick={() => setEditandoCaso(false)}>
+                  Cancelar
+                </Boton>
+              </div>
+            </div>
+          )}
 
           <p className="mt-4 text-cuerpo">
             {/* Derivado de los pasos y los insumos, no de lo guardado: así
@@ -299,7 +369,7 @@ export default function VerCaso() {
                           icono="persona"
                           onClick={() => {
                             datos.asignarResponsable(caso.id, e.id);
-                            datos.avisarExito(`Listo. El caso ${caso.numero} lo atiende ${e.nombre}.`);
+                            datos.avisarExito(`Listo. El ${casoEnFrase(caso)} lo atiende ${e.nombre}.`);
                             setEligiendo(false);
                           }}
                         >
@@ -342,8 +412,8 @@ export default function VerCaso() {
                     // ("corregida la patente", pero "corregido el DNI").
                     datos.avisarExito(
                       caso.identificador
-                        ? `Listo. Cambiamos ${comoIdent.enFrase} del caso ${caso.numero}.`
-                        : `Listo. El caso ${caso.numero} ya tiene ${comoIdent.enFrase}.`
+                        ? `Listo. Cambiamos ${comoIdent.enFrase} del ${casoEnFrase(caso)}.`
+                        : `Listo. El ${casoEnFrase(caso)} ya tiene ${comoIdent.enFrase}.`
                     );
                     setEditandoIdent(false);
                   }}
@@ -877,10 +947,10 @@ export default function VerCaso() {
                       );
                       datos.avisarExito(
                         resto > 0
-                          ? `Listo. El caso ${caso.numero} quedó entregado. Falta cobrar ${pesos(resto)}.`
+                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(resto)}.`
                           : monto > 0
-                            ? `Listo. El caso ${caso.numero} quedó entregado y cobrado.`
-                            : `Listo. El caso ${caso.numero} quedó entregado.`
+                            ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
+                            : `Listo. El ${casoEnFrase(caso)} quedó entregado.`
                       );
                       setEntregando(false);
                     }}

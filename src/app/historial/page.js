@@ -18,6 +18,7 @@ import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { pesos } from "@/lib/estados";
 import { diaPasado, horaYMinutos } from "@/lib/fechas";
+import { casoEnFrase, tituloDelCaso } from "@/lib/nombres";
 import {
   LISTA_PERIODOS,
   LISTA_TIPOS,
@@ -149,8 +150,11 @@ export default function Historial() {
       {casoElegido && (
         <p className="mb-4 flex flex-wrap items-center gap-3">
           <span className="font-bold text-cuerpo">
-            Mostrando sólo el caso {casoElegido.numero}
-            {clienteElegido ? ` de ${clienteElegido.nombre}` : ""}
+            {/* "de Hugo Peralta" sólo si el caso no se llama ya así. */}
+            Mostrando sólo el {casoEnFrase(casoElegido)}
+            {clienteElegido && clienteElegido.nombre !== tituloDelCaso(casoElegido)
+              ? ` de ${clienteElegido.nombre}`
+              : ""}
           </span>
           <Boton variante="plano" icono="cruz" onClick={() => setSoloCaso(null)}>
             Ver todo de nuevo
@@ -191,8 +195,9 @@ export default function Historial() {
                         )}
                         <span className="mt-1 block text-apoyo text-tinta-suave">
                           {horaYMinutos(e.ocurrido_en)} · {e.autor}
-                          {caso && ` · Caso ${caso.numero}`}
-                          {cliente && ` de ${cliente.nombre}`}
+                          {caso && ` · ${tituloDelCaso(caso)}`}
+                          {cliente && cliente.nombre !== (caso && tituloDelCaso(caso)) &&
+                            ` de ${cliente.nombre}`}
                         </span>
                       </span>
                       {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
@@ -206,7 +211,7 @@ export default function Historial() {
                     {caso && !soloCaso && (
                       <button
                         type="button"
-                        aria-label={`Ver sólo lo del caso ${caso.numero}`}
+                        aria-label={`Ver sólo lo del ${casoEnFrase(caso)}`}
                         onClick={() => setSoloCaso(caso.id)}
                         className="flex min-h-12 w-12 shrink-0 cursor-pointer items-center justify-center self-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
                       >

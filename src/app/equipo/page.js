@@ -17,6 +17,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
 import { ORDEN_ROLES, etiquetaRol } from "@/lib/presets";
+import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -199,7 +200,11 @@ export default function Equipo() {
                             className="flex min-h-12 items-center gap-2 text-azul"
                           >
                             <Icono nombre="carpeta" className="size-5" />
-                            Caso {c.numero} · {c.servicio}
+                            {tituloDelCaso(c)}
+                            {lineaDelCaso(c) && ` · ${lineaDelCaso(c)}`}
+                            {subtituloDelCaso(c) && (
+                              <span className="text-apoyo text-tinta-suave">{subtituloDelCaso(c)}</span>
+                            )}
                           </Link>
                         </li>
                       ))}
@@ -259,9 +264,12 @@ export default function Equipo() {
               >
                 <div>
                   <Link href={`/casos/${c.id}`} className="font-bold text-azul">
-                    Caso {c.numero}
+                    {tituloDelCaso(c)}
                   </Link>
-                  <p className="text-tinta-media">{c.servicio}</p>
+                  {subtituloDelCaso(c) && (
+                    <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(c)}</span>
+                  )}
+                  {lineaDelCaso(c) && <p className="text-tinta-media">{lineaDelCaso(c)}</p>}
                 </div>
                 <ChipEstado estado={c.estado} />
               </li>

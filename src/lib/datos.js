@@ -24,6 +24,7 @@ import {
   sePuedeMarcarHecho,
 } from "./estados";
 import { normalizarInicio } from "./inicio";
+import { nombreInicial } from "./nombres.js";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
@@ -723,10 +724,25 @@ export function DatosProvider({ children }) {
         const idCliente = clienteId ?? cliente.id;
 
         const numero = Math.max(0, ...datos.casos.map((c) => c.numero)) + 1;
+
+        // El nombre con el que nace, según lo elegido en Mi negocio (SCRUM-119).
+        // Si el cliente ya existía se usa su nombre guardado y no lo que se
+        // tipeó: el alta lo reconoce sin mirar mayúsculas, y "hugo peralta"
+        // tiene que dar un caso que se llame "Hugo Peralta".
+        const nombreDelCliente = clienteId
+          ? datos.clientes.find((c) => c.id === clienteId)?.nombre
+          : nombreCliente;
+        const nombre = nombreInicial(datos.negocio?.nombrar_casos, {
+          cliente: nombreDelCliente,
+          identificador,
+          servicio,
+        });
+
         const caso = {
           id: nuevoId(),
           negocio_id: datos.negocio.id,
           numero,
+          nombre,
           cliente_id: idCliente,
           servicio,
           identificador: identificador || null,
@@ -850,6 +866,51 @@ export function DatosProvider({ children }) {
           detalle: antes ? `${identificador}. Antes decía ${antes}.` : identificador,
           icono: "nota",
         });
+      },
+
+      // Editar el caso (SCRUM-119): el nombre y lo que pidió el cliente. Los
+      // dos juntos y en una sola escritura, porque en la pantalla son un solo
+      // "Guardar". Cada cambio queda en el historial, como la patente.
+      editarCaso(casoId, { nombre, servicio }) {
+        const caso = datos.casos.find((c) => c.id === casoId);
+        if (!caso) return;
+
+        const cambios = {
+          // Vacío es "sin nombre": el caso vuelve a verse como "Caso 271".
+          nombre: nombre.trim() || null,
+          servicio: servicio.trim(),
+        };
+        // Lo que pidió el cliente no puede quedar vacío: pisarlo con nada
+        // perdería el dato. La pantalla ya no deja, esto es por si acaso.
+        if (!cambios.servicio) return;
+
+        const nombreAntes = caso.nombre?.trim() || null;
+        const cambioNombre = nombreAntes !== cambios.nombre;
+        const cambioServicio = caso.servicio !== cambios.servicio;
+        if (!cambioNombre && !cambioServicio) return;
+
+        parchearCaso(casoId, cambios);
+
+        if (cambioNombre) {
+          anotar({
+            casoId,
+            tipo: "nota",
+            titulo: cambios.nombre ? "Le cambiaron el nombre al caso" : "Le sacaron el nombre al caso",
+            detalle: cambios.nombre
+              ? `${cambios.nombre}. Antes era ${nombreAntes ?? `Caso ${caso.numero}`}.`
+              : `Vuelve a verse como Caso ${caso.numero}. Antes era ${nombreAntes}.`,
+            icono: "nota",
+          });
+        }
+        if (cambioServicio) {
+          anotar({
+            casoId,
+            tipo: "nota",
+            titulo: "Corrigieron lo que necesita",
+            detalle: `${cambios.servicio}. Antes decía ${caso.servicio}.`,
+            icono: "nota",
+          });
+        }
       },
 
       // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
@@ -1866,6 +1927,13 @@ export function DatosProvider({ children }) {
         escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, horarios }, [
           "horarios",
         ]);
+      },
+
+      // Con qué nace el nombre de los casos nuevos (SCRUM-119). No toca los
+      // que ya existen: esos se editan de a uno desde el caso.
+      cambiarNombrarCasos(modo) {
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, nombrar_casos: modo } }));
+        escribir("negocio", { id: datos.negocio?.id, nombrar_casos: modo });
       },
 
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.

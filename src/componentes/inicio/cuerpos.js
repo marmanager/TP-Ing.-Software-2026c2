@@ -22,6 +22,7 @@ import { horaYMinutos, diaLargo, cuando } from "@/lib/fechas";
 import { filtrarHistorial } from "@/lib/historial";
 import { estadoDeTurno } from "@/lib/turnos";
 import { hijosActivos } from "@/lib/modulos";
+import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import Icono from "@/componentes/Icono";
 
 // ---------- piezas compartidas ----------
@@ -129,7 +130,7 @@ function CuerpoPendientes() {
             enCamino.length === 0
               ? "No falta que llegue nada."
               : casoDelPrimero
-                ? `${enCamino[0].nombre}, para el caso ${casoDelPrimero.numero}.`
+                ? `${enCamino[0].nombre}, para el ${casoEnFrase(casoDelPrimero)}.`
                 : `${enCamino[0].nombre}, para el stock.`
           }
         />
@@ -173,15 +174,25 @@ function CuerpoCasos({ filtro, filas }) {
     <ul>
       {elegidos.slice(0, filas).map((caso) => {
         const cliente = clientes.find((c) => c.id === caso.cliente_id);
+        // El nombre arriba con el número en chiquito, y abajo el cliente
+        // sólo si el caso no se llama ya así (SCRUM-119).
+        const titulo = tituloDelCaso(caso);
+        const quien =
+          cliente?.nombre === titulo ? null : (cliente?.nombre ?? "Sin cliente");
         return (
           <Fila key={caso.id} href={`/casos/${caso.id}`}>
             <Barra estado={caso.estado} />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">
-                Caso {caso.numero} · {caso.servicio}
+                {titulo}
+                {lineaDelCaso(caso) && ` · ${lineaDelCaso(caso)}`}
+                {subtituloDelCaso(caso) && (
+                  <span className="font-normal text-apoyo text-tinta-suave"> · {subtituloDelCaso(caso)}</span>
+                )}
               </span>
               <span className="block truncate text-apoyo text-tinta-suave">
-                {cliente?.nombre ?? "Sin cliente"} · {queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente })}
+                {quien && `${quien} · `}
+                {queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente })}
               </span>
             </span>
             <span className="hidden shrink-0 text-apoyo text-tinta-suave sm:block">
@@ -299,7 +310,7 @@ function CuerpoInventario({ filtro, filas }) {
               <span className="block truncate text-apoyo text-tinta-suave">
                 {i.estado === "llegado"
                   ? caso
-                    ? `Llegó. Es del caso ${caso.numero}.`
+                    ? `Llegó. Es del ${casoEnFrase(caso)}.`
                     : "Llegó y todavía nadie lo usó."
                   : i.estado === "pedido"
                     ? "Pedido, todavía no llegó."
@@ -346,11 +357,18 @@ function CuerpoAprobar({ filas }) {
       <ul className="border-t border-borde">
         {conPendientes.slice(0, filas).map(({ caso, cuantos, plata }) => {
           const cliente = clientes.find((c) => c.id === caso.cliente_id);
+          const titulo = tituloDelCaso(caso);
+          const quien =
+            cliente?.nombre === titulo ? null : (cliente?.nombre ?? "Sin cliente");
           return (
             <Fila key={caso.id} href={`/casos/${caso.id}/pasos`}>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-bold">
-                  Caso {caso.numero} · {cliente?.nombre ?? "Sin cliente"}
+                  {titulo}
+                  {quien && ` · ${quien}`}
+                  {subtituloDelCaso(caso) && (
+                    <span className="font-normal text-apoyo text-tinta-suave"> · {subtituloDelCaso(caso)}</span>
+                  )}
                 </span>
                 <span className="block text-apoyo text-tinta-suave">
                   {cuantos} {cuantos === 1 ? "paso" : "pasos"} sin contestar
@@ -473,7 +491,7 @@ function CuerpoHistorial({ filtro, filas }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">
                 {e.titulo}
-                {caso && ` · Caso ${caso.numero}`}
+                {caso && ` · ${tituloDelCaso(caso)}`}
               </span>
               <span className="block truncate text-apoyo text-tinta-suave">
                 {cuando(e.ocurrido_en)} · {e.autor}

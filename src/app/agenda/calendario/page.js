@@ -30,6 +30,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { estadoDeTurno, turnoEnPie } from "@/lib/turnos";
 import { diaLargo, horaYMinutos } from "@/lib/fechas";
 import { normalizarHorarios, semanasDelMes } from "@/lib/horarios";
+import { casoEnFrase } from "@/lib/nombres";
 import {
   DIAS_DE_LA_SEMANA,
   MES_LARGO,
@@ -448,7 +449,7 @@ export default function Calendario() {
                         <>
                           {" · "}
                           <Link href={`/casos/${caso.id}`} className="text-azul">
-                            caso {caso.numero}
+                            {casoEnFrase(caso)}
                           </Link>
                         </>
                       )}

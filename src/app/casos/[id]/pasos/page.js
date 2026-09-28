@@ -27,6 +27,7 @@ import { montoValido } from "@/lib/validaciones";
 import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
 import { cuantoHace } from "@/lib/fechas";
 import { ejemplosDe } from "@/lib/presets";
+import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { linkDeSeguimiento, linkDeWhatsApp } from "@/lib/seguimiento";
@@ -81,7 +82,7 @@ export default function AprobarPasos() {
   const puedeResponder = puede(usuario?.rol, "cargarDatos");
 
   const caso = casos.find((c) => c.id === id);
-  useTitulo(caso ? `Pasos del caso ${caso.numero}` : "Pasos");
+  useTitulo(caso ? `Pasos · ${tituloDelCaso(caso)}` : "Pasos");
 
   if (cargando) return <Cargando />;
   if (!caso) {
@@ -175,11 +176,11 @@ export default function AprobarPasos() {
         Volver al caso
       </Link>
 
-      <h1 className="text-ident">Caso {caso.numero}</h1>
-      <p className="mt-1 text-tinta-media">
-        {caso.servicio}
-        {cliente && ` · ${cliente.nombre}`}
-      </p>
+      <h1 className="text-ident">{tituloDelCaso(caso)}</h1>
+      {subtituloDelCaso(caso) && (
+        <p className="text-apoyo text-tinta-suave">{subtituloDelCaso(caso)}</p>
+      )}
+      <p className="mt-1 text-tinta-media">{lineaDelCaso(caso, cliente?.nombre)}</p>
       <div className="mt-3">
         <ChipEstado estado={caso.estado} />
       </div>
@@ -237,7 +238,7 @@ export default function AprobarPasos() {
                 motivo={!diagnostico.trim() ? "falta escribir qué encontraron" : null}
                 onClick={() => {
                   datos.cargarDiagnostico(caso.id, diagnostico.trim());
-                  datos.avisarExito(`Listo. El diagnóstico del caso ${caso.numero} quedó anotado.`);
+                  datos.avisarExito(`Listo. El diagnóstico del ${casoEnFrase(caso)} quedó anotado.`);
                   setEditandoDiag(false);
                 }}
               >

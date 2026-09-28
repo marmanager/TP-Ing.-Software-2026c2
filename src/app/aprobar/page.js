@@ -9,6 +9,7 @@ import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { casosPorAprobar, pesos } from "@/lib/estados";
 import { cuantoHace, diasDesde } from "@/lib/fechas";
+import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Cargando, Tarjeta, Vacio } from "@/componentes/ui";
@@ -54,11 +55,11 @@ export default function AAprobar() {
                   <Tarjeta>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="font-titulo font-extrabold text-ident">Caso {caso.numero}</p>
-                        <p className="text-tinta-media">
-                          {caso.servicio}
-                          {cliente && ` · ${cliente.nombre}`}
-                        </p>
+                        <p className="font-titulo font-extrabold text-ident">{tituloDelCaso(caso)}</p>
+                        {subtituloDelCaso(caso) && (
+                          <p className="text-apoyo text-tinta-suave">{subtituloDelCaso(caso)}</p>
+                        )}
+                        <p className="text-tinta-media">{lineaDelCaso(caso, cliente?.nombre)}</p>
                       </div>
                       <ChipEstado estado={caso.estado} />
                     </div>

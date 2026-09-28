@@ -33,6 +33,7 @@ import { casosConSaldo } from "@/lib/cobros";
 import { diasDesde } from "@/lib/fechas";
 import { estaPrendido, hijosActivos } from "@/lib/modulos";
 import { vocabulario } from "@/lib/presets";
+import { casoEnFrase } from "@/lib/nombres";
 import {
   ALTO_FILA,
   COLUMNAS,
@@ -189,14 +190,14 @@ export default function Inicio() {
       href: contestados.length === 1 ? `/casos/${contestados[0].id}` : "/casos",
       texto:
         contestados.length === 1
-          ? `El cliente contestó el caso ${contestados[0].numero}`
+          ? `El cliente contestó el ${casoEnFrase(contestados[0])}`
           : `${contestados.length} casos que contestó el cliente`,
     },
     conSaldo.length > 0 && {
       href: conSaldo.length === 1 ? `/casos/${conSaldo[0].caso.id}` : "/casos",
       texto:
         conSaldo.length === 1
-          ? `Falta cobrar ${pesos(saldoTotal)} del caso ${conSaldo[0].caso.numero}`
+          ? `Falta cobrar ${pesos(saldoTotal)} del ${casoEnFrase(conSaldo[0].caso)}`
           : `Falta cobrar ${pesos(saldoTotal)} de ${conSaldo.length} casos entregados`,
     },
     prendido("presupuesto") && trabados > 0 && {

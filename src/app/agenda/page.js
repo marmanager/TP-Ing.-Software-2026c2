@@ -9,6 +9,7 @@ import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
 import { estadoDeTurno } from "@/lib/turnos";
 import { diaLargo, horaYMinutos } from "@/lib/fechas";
+import { casoEnFrase } from "@/lib/nombres";
 import Icono from "@/componentes/Icono";
 import AltaDeTurno from "@/componentes/AltaDeTurno";
 import Pestanas from "@/componentes/Pestanas";
@@ -158,7 +159,7 @@ export default function Agenda() {
                           <>
                             {" · "}
                             <Link href={`/casos/${caso.id}`} className="text-azul">
-                              caso {caso.numero}
+                              {casoEnFrase(caso)}
                             </Link>
                           </>
                         )}
@@ -246,7 +247,7 @@ export default function Agenda() {
                             onClick={() => {
                               datos.marcarTurnoAtendido(t.id, suCaso.id);
                               datos.avisarExito(
-                                `Listo. Queda anotado que ${cliente?.nombre ?? "la persona"} vino por el caso ${suCaso.numero}.`
+                                `Listo. Queda anotado que ${cliente?.nombre ?? "la persona"} vino por el ${casoEnFrase(suCaso)}.`
                               );
                             }}
                           >

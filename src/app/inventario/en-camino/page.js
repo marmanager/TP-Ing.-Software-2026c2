@@ -28,6 +28,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
 import { ejemplosDe, mayuscula, vocabulario } from "@/lib/presets";
+import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import Icono from "@/componentes/Icono";
 import Pestanas from "@/componentes/Pestanas";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
@@ -99,7 +100,7 @@ function Pantalla() {
     const caso = casoDe(casoId);
     datos.avisarExito(
       caso
-        ? `Listo. Pediste ${nombre} para el caso ${caso.numero}, que queda esperándolo.`
+        ? `Listo. Pediste ${nombre} para el ${casoEnFrase(caso)}, que queda esperándolo.`
         : `Listo. Pediste ${nombre} para reponer el stock.`
     );
     cerrar();
@@ -112,8 +113,8 @@ function Pantalla() {
       !caso
         ? `Listo. ${i.nombre} ya está en el stock.`
         : despues?.estado === "en_proceso"
-          ? `Listo. Llegó ${i.nombre} y el caso ${caso.numero} ya puede seguir.`
-          : `Listo. Llegó ${i.nombre}. El caso ${caso.numero} sigue esperando otra cosa.`
+          ? `Listo. Llegó ${i.nombre} y el ${casoEnFrase(caso)} ya puede seguir.`
+          : `Listo. Llegó ${i.nombre}. El ${casoEnFrase(caso)} sigue esperando otra cosa.`
     );
   }
 
@@ -189,8 +190,11 @@ function Pantalla() {
             >
               <option value={PARA_EL_STOCK}>Para reponer el stock</option>
               {abiertos.map((c) => (
+                // En un desplegable no hay letra chica: el número va entre
+                // paréntesis cuando el caso tiene nombre. Un solo texto, que
+                // es lo único que un <option> sabe mostrar.
                 <option key={c.id} value={c.id}>
-                  Caso {c.numero} · {clienteDe(c)?.nombre ?? "sin cliente"} · {c.servicio}
+                  {`${tituloDelCaso(c)}${subtituloDelCaso(c) ? ` (${subtituloDelCaso(c)})` : ""} · ${lineaDelCaso(c, clienteDe(c)?.nombre ?? "sin cliente")}`}
                 </option>
               ))}
             </select>
@@ -230,7 +234,7 @@ function Pantalla() {
                             <>
                               Es del{" "}
                               <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
-                                caso {caso.numero}
+                                {casoEnFrase(caso)}
                               </Link>
                               . Marcarlo destraba el trabajo.
                             </>
@@ -281,9 +285,11 @@ function Pantalla() {
                             <>
                               Para el{" "}
                               <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
-                                caso {caso.numero}
+                                {casoEnFrase(caso)}
                               </Link>
-                              {clienteDe(caso) && ` · ${clienteDe(caso).nombre}`}
+                              {clienteDe(caso) &&
+                                clienteDe(caso).nombre !== tituloDelCaso(caso) &&
+                                ` · ${clienteDe(caso).nombre}`}
                             </>
                           ) : (
                             "Para reponer el stock."

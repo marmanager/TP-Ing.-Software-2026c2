@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ESTADOS, accionDeFila, queFalta, quienLoTiene } from "@/lib/estados";
 import { useDatos } from "@/lib/datos";
+import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "./ChipEstado";
 import { Boton } from "./ui";
 
@@ -68,12 +69,14 @@ export default function FilaCaso({ caso }) {
             href={`/casos/${caso.id}`}
             className="font-titulo font-extrabold text-ident after:absolute after:inset-0 after:content-['']"
           >
-            Caso {caso.numero}
+            {tituloDelCaso(caso)}
           </Link>
-          <p className="truncate text-tinta-media">
-            {caso.servicio}
-            {cliente && ` · ${cliente.nombre}`}
-          </p>
+          {/* El número queda siempre a la vista, en chiquito al lado del
+              nombre: dos casos del mismo cliente se llaman igual (SCRUM-119). */}
+          {subtituloDelCaso(caso) && (
+            <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(caso)}</span>
+          )}
+          <p className="truncate text-tinta-media">{lineaDelCaso(caso, cliente?.nombre)}</p>
         </div>
 
         <p className="text-tinta-media">
