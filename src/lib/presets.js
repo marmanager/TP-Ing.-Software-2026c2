@@ -38,6 +38,17 @@ export const PRESETS = {
       esperando: "El repuesto o el sí del cliente",
       revision_final: "Control antes de entregar",
     },
+    // Lo que le dice el link de seguimiento al cliente en cada estado. Habla
+    // el negocio, en primera persona, y le habla de vos como el resto de esa
+    // pantalla. Lo que dejó el cliente es "tu vehículo".
+    seguimiento: {
+      nuevo: "Ya anotamos tu vehículo. Todavía no empezamos a trabajar en él.",
+      en_proceso: "Estamos diagnosticando y evaluando posibles problemas con tu vehículo.",
+      esperando: "Frenamos el trabajo en tu vehículo hasta tener lo que falta, como un repuesto.",
+      revision_final:
+        "Terminamos el trabajo y estamos revisando que tu vehículo quede bien antes de entregarlo.",
+      completado: "Tu vehículo está listo y entregado.",
+    },
     // Las dos esperas, separadas. "explica.esperando" las mezcla —"el
     // repuesto O el sí del cliente"— y para adentro alcanza, pero al cliente
     // que abre el link hay que decirle cuál de las dos es: si la pelota es
@@ -99,6 +110,15 @@ export const PRESETS = {
       esperando: "El estudio o el turno con el especialista",
       revision_final: "Control antes del alta",
     },
+    // En medicina no hay una "cosa" que se deja: se le habla a la persona.
+    seguimiento: {
+      nuevo: "Tu turno quedó anotado. Todavía no te atendimos.",
+      en_proceso: "Te estamos atendiendo y evaluando lo que te pasa.",
+      esperando:
+        "Tu atención quedó en pausa hasta tener lo que falta, como un estudio o un turno con el especialista.",
+      revision_final: "Estamos revisando los resultados antes de darte el alta.",
+      completado: "Te dimos el alta.",
+    },
     espera: { cliente: "tu respuesta", negocio: "un estudio o un turno con el especialista" },
     motivos: [
       "Primera consulta",
@@ -142,6 +162,15 @@ export const PRESETS = {
     explica: {
       esperando: "El repuesto o el presupuesto aprobado",
       revision_final: "Prueba antes de entregar",
+    },
+    seguimiento: {
+      nuevo: "Recibimos tu equipo. Todavía no empezamos a revisarlo.",
+      en_proceso: "Estamos revisando tu equipo y reparando lo que encontramos.",
+      esperando:
+        "Frenamos la reparación de tu equipo hasta tener lo que falta, como un repuesto.",
+      revision_final:
+        "Ya lo reparamos y estamos probando que tu equipo funcione bien antes de devolverlo.",
+      completado: "Tu equipo está reparado y entregado.",
     },
     espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
     motivos: [
@@ -277,6 +306,38 @@ export const mayuscula = (texto) =>
 //
 // "esperando" es el único que no sale de acá: depende de qué se está
 // esperando —un repuesto, el sí del cliente— y lo escribe quien lo produce.
+// Lo que le dice el link de seguimiento al cliente cuando el rubro no trae
+// textos propios. Es el punto de partida del preset "Personalizado", que
+// todavía no existe: cuando exista, el negocio va a poder cambiarlos
+// (sistema-presets.e2e.js, AC5). No nombran ninguna cosa —ni vehículo ni
+// equipo— porque no se sabe de qué oficio es el negocio.
+export const SEGUIMIENTO_GENERICO = {
+  nuevo: "Ya quedó anotado. Todavía no empezamos a trabajar.",
+  en_proceso: "Estamos trabajando en esto ahora.",
+  esperando: "Frenamos hasta tener lo que falta para poder seguir.",
+  revision_final: "Terminamos y estamos revisando que todo esté bien antes de entregarlo.",
+  completado: "Terminado y entregado.",
+};
+
+// Lo que el link de seguimiento le dice al cliente en un estado, en las
+// palabras de su rubro.
+//
+// No sale de ESTADOS[].significado: ese texto está escrito para adentro del
+// negocio ("detenido por algo de afuera: una aprobación, un insumo o la
+// respuesta del cliente"), y del otro lado el cliente ES esa respuesta que
+// se está esperando. Leerse nombrado en tercera persona es raro.
+//
+// Antes eran frases neutras en lib/seguimiento.js, iguales para un auto, un
+// paciente y una notebook. Pasaron acá cuando hizo falta que cada rubro
+// nombrara lo suyo: el vehículo, el equipo, o a la persona.
+//
+// Va a PRESETS directo y no por preset() a propósito: preset() cae en el
+// taller cuando no conoce el rubro, y un negocio "Personalizado" terminaría
+// hablándole al cliente de su vehículo. Tiene test: pruebas/presets.test.js
+export function queSignificaPara(rubro, estado) {
+  return (PRESETS[rubro]?.seguimiento ?? SEGUIMIENTO_GENERICO)[estado];
+}
+
 export function queFaltaPara(rubro, estado) {
   const p = preset(rubro);
   switch (estado) {

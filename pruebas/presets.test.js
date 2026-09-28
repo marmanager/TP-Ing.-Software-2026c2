@@ -14,6 +14,8 @@ import {
   etiquetaRol,
   comoSeIdentifica,
   ejemplosDe,
+  queSignificaPara,
+  SEGUIMIENTO_GENERICO,
 } from "../src/lib/presets.js";
 import { MODULOS } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
@@ -165,5 +167,48 @@ test("un ejemplo de un rubro no aparece en otro: cada oficio tiene los suyos", (
     for (const [clave, texto] of Object.entries(ejemplosDe(otro))) {
       assert.notEqual(texto, taller[clave], `${otro}.${clave} repite el de taller`);
     }
+  }
+});
+
+// ---------------------------------------------------------------
+// Qué le dice el link de seguimiento al cliente en cada estado
+// ---------------------------------------------------------------
+
+test("cada rubro le explica al cliente los cinco estados", () => {
+  for (const r of RUBROS) {
+    for (const estado of ORDEN_ESTADOS) {
+      assert.ok(
+        queSignificaPara(r.clave, estado)?.trim(),
+        `${r.clave} no le explica al cliente el estado ${estado}`
+      );
+    }
+  }
+});
+
+test("cada rubro nombra lo que dejó el cliente con su palabra", () => {
+  // Un taller habla del vehículo y un service del equipo. Medicina no tiene
+  // "cosa" que se deja: le habla a la persona.
+  assert.match(queSignificaPara("taller", "en_proceso"), /vehículo/);
+  assert.match(queSignificaPara("service", "en_proceso"), /equipo/);
+  for (const estado of ORDEN_ESTADOS) {
+    assert.doesNotMatch(queSignificaPara("medicina", estado), /vehículo|equipo/);
+    assert.doesNotMatch(queSignificaPara("service", estado), /vehículo/);
+  }
+});
+
+test("un rubro sin textos propios usa los genéricos, no los del taller", () => {
+  // preset() cae en taller cuando no conoce el rubro. Si los textos salieran
+  // de ahí, el futuro preset "Personalizado" le hablaría al cliente de su
+  // vehículo sin que nadie lo note.
+  for (const estado of ORDEN_ESTADOS) {
+    const texto = queSignificaPara("personalizado", estado);
+    assert.equal(texto, SEGUIMIENTO_GENERICO[estado]);
+    assert.doesNotMatch(texto, /vehículo|equipo/);
+  }
+});
+
+test("los textos genéricos cubren los cinco estados", () => {
+  for (const estado of ORDEN_ESTADOS) {
+    assert.ok(SEGUIMIENTO_GENERICO[estado]?.trim(), `falta el genérico de ${estado}`);
   }
 });

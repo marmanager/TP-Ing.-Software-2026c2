@@ -193,6 +193,10 @@ const TRAZOS = {
       <path d="M19.4 13.9a7.9 7.9 0 0 0 0-3.8l2-1.5-2-3.4-2.3 1a7.9 7.9 0 0 0-3.3-1.9L13.5 2h-3l-.3 2.3a7.9 7.9 0 0 0-3.3 1.9l-2.3-1-2 3.4 2 1.5a7.9 7.9 0 0 0 0 3.8l-2 1.5 2 3.4 2.3-1a7.9 7.9 0 0 0 3.3 1.9l.3 2.3h3l.3-2.3a7.9 7.9 0 0 0 3.3-1.9l2.3 1 2-3.4z" />
     </>
   ),
+  // Apunta a la derecha. En el seguimiento une un estado con el siguiente; en
+  // celular, donde los estados van apilados, se gira con CSS para que apunte
+  // abajo, en vez de tener un segundo ícono.
+  flecha: <path d="M4 12h15M13 6l6 6-6 6" />,
   // El mango en diagonal y las cerdas en la punta de abajo. Va sobre la foto
   // del negocio mientras se la edita, y es la única vez en todo el sistema
   // que un botón queda sin palabra al lado: encima de la foto no entra. Por

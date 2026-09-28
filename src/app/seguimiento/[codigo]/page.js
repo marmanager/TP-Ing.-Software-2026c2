@@ -29,9 +29,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { buscarSeguimiento, responderDesdeElLink } from "@/lib/datos";
 import { ESTADOS, pesos } from "@/lib/estados";
-import { comoSeEspera, comoSeIdentifica, etiquetaEstado, preset } from "@/lib/presets";
 import {
-  QUE_SIGNIFICA,
+  comoSeEspera,
+  comoSeIdentifica,
+  etiquetaEstado,
+  preset,
+  queSignificaPara,
+} from "@/lib/presets";
+import {
   laEspera,
   lineaDeEstados,
   linkDeLlamada,
@@ -40,7 +45,6 @@ import {
   totalAprobado,
 } from "@/lib/seguimiento";
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
-import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando } from "@/componentes/ui";
 
@@ -152,6 +156,7 @@ export default function Seguimiento() {
   const total = totalAprobado(pasos);
   const hechos = pasos.filter((p) => p.hecho).length;
   const linea = lineaDeEstados(caso.estado, caso.linea ?? [], { abiertoEn: caso.abierto_en });
+  const dondeEsta = linea.findIndex((paso) => paso.actual);
   // De quién es la pelota. Es la pregunta que decide si el cliente contesta
   // o se queda esperando a que lo llamen.
   const espera = laEspera({
@@ -183,13 +188,95 @@ export default function Seguimiento() {
           </h1>
           {caso.servicio && <p className="mt-1 text-tinta-media">{caso.servicio}</p>}
 
-          <div className="mt-5">
-            <ChipEstado estado={caso.estado} rubro={caso.rubro} grande />
-          </div>
-          {/* Frenado, el texto genérico sobra: lo que hace falta saber es de
+          {/* Los cinco estados como un camino: en fila con flechas en la
+              compu, apilados con flechas hacia abajo en el celular, que es
+              donde casi siempre se abre este link. La flecha que sale del
+              estado actual va resaltada: es la que dice qué sigue.
+
+              Cada estado se dice con color, ícono y palabra, como pide la
+              cartilla: impreso en blanco y negro se sigue entendiendo.
+
+              Las flechas van adentro de cada <li> y escondidas para el lector
+              de pantalla: la lista tiene cinco elementos y se lee "2 de 5",
+              no "3 de 9". El actual lleva aria-current. */}
+          <ol className="mt-5 flex flex-col gap-7 sm:flex-row sm:gap-6">
+            {linea.map((paso, i) => {
+              const p = ESTADOS[paso.estado];
+              return (
+                <li
+                  key={paso.estado}
+                  aria-current={paso.actual ? "step" : undefined}
+                  className="relative flex sm:flex-1"
+                >
+                  <div
+                    className={[
+                      "flex w-full items-center gap-3 rounded-campo border-2 p-3",
+                      "sm:flex-col sm:justify-start sm:gap-1 sm:px-1 sm:py-3 sm:text-center",
+                      paso.actual
+                        ? `${p.borde} ${p.fondo}`
+                        : paso.pendiente
+                          ? "border-borde bg-superficie text-tinta-suave"
+                          : "border-borde bg-tarjeta",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
+                        paso.pendiente
+                          ? "bg-tarjeta text-tinta-suave"
+                          : paso.actual
+                            ? `bg-tarjeta ${p.texto}`
+                            : `${p.fondo} ${p.texto}`
+                      }`}
+                    >
+                      <Icono nombre={paso.pasado ? "listo" : p.icono} className="size-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className={`block text-apoyo ${paso.actual ? "font-bold" : ""}`}>
+                        {etiquetaEstado(caso.rubro, paso.estado)}
+                      </span>
+                      {/* Sin fecha no se dice nada: un caso puede saltear
+                          etapas, y poner palabras encima del tilde sería
+                          afirmar que estuvo ahí. */}
+                      {(paso.actual || paso.cuando || paso.pendiente) && (
+                        <span className="block text-apoyo text-tinta-suave">
+                          {paso.actual
+                            ? "Acá está ahora"
+                            : paso.cuando
+                              ? diaPasado(paso.cuando)
+                              : "Todavía no"}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {i < linea.length - 1 && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-full left-1/2 flex h-7 w-6 -translate-x-1/2 items-center justify-center sm:top-1/2 sm:left-full sm:h-6 sm:-translate-y-1/2 sm:translate-x-0"
+                    >
+                      <Icono
+                        nombre="flecha"
+                        className={`size-5 rotate-90 sm:rotate-0 ${
+                          i === dondeEsta
+                            ? "text-azul"
+                            : i < dondeEsta
+                              ? "text-tinta-media"
+                              : "text-tinta-suave"
+                        }`}
+                      />
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+
+          {/* Qué quiere decir el estado actual, en las palabras del rubro.
+              Frenado, el texto genérico sobra: lo que hace falta saber es de
               quién es la pelota, y eso lo dice el bloque de abajo. */}
           {!espera && (
-            <p className="mt-3 max-w-[65ch] text-cuerpo">{QUE_SIGNIFICA[caso.estado]}</p>
+            <p className="mt-5 max-w-[65ch] text-cuerpo">
+              {queSignificaPara(caso.rubro, caso.estado)}
+            </p>
           )}
 
           {/* Por qué tarda, y sobre todo si le toca a él. Es la pregunta que
@@ -528,50 +615,6 @@ export default function Seguimiento() {
           principal={porResponder.length === 0}
         />
       )}
-
-      <h2 className="mt-10 mb-3 text-seccion">Por dónde va</h2>
-      <ol className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-        {linea.map((paso) => {
-          const p = ESTADOS[paso.estado];
-          return (
-            <li
-              key={paso.estado}
-              className={`flex items-start gap-3 border-b border-borde p-4 last:border-b-0 ${
-                paso.pendiente ? "text-tinta-suave" : ""
-              }`}
-            >
-              <span
-                className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${
-                  paso.pendiente ? "bg-superficie text-tinta-suave" : `${p.fondo} ${p.texto}`
-                }`}
-              >
-                <Icono nombre={paso.pasado ? "listo" : p.icono} className="size-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className={`block ${paso.actual ? "font-bold text-cuerpo" : ""}`}>
-                  {etiquetaEstado(caso.rubro, paso.estado)}
-                  {paso.actual && (
-                    <>
-                      {" "}
-                      <span className="font-normal text-tinta-media">· acá está ahora</span>
-                    </>
-                  )}
-                </span>
-                {/* Sin fecha no se dice nada. Decir "ya pasó" sería afirmar
-                    que el caso estuvo en esa etapa, y no siempre es cierto: un
-                    caso puede saltear etapas, y los anteriores a esta versión
-                    no tienen las fechas guardadas. El tilde ya dice que quedó
-                    atrás; poner palabras encima sería inventar. */}
-                {(paso.cuando || paso.pendiente) && (
-                  <span className="block text-apoyo text-tinta-suave">
-                    {paso.cuando ? diaPasado(paso.cuando) : "Todavía no"}
-                  </span>
-                )}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
 
       {/* Lo que aprobó, y nada más: los pasos que todavía no contestó o que
           rechazó no están ni en la lista ni en el total. Si no aprobó nada,

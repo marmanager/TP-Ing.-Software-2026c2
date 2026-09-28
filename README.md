@@ -837,15 +837,33 @@ WhatsApp con el mensaje ya armado —dice quién es, por qué cosa escribe y sob
 qué paso duda— o llamarlo. Si el negocio no lo cargó, no aparece ningún botón:
 una puerta que no abre es peor que ninguna.
 
+**El estado, como un camino.** Arriba de todo van los cinco estados como
+cuadrados unidos por flechas: en fila en la compu, apilados en el celular —que
+es donde casi siempre se abre el link—. Los que ya pasaron llevan un tilde y la
+fecha, el actual va resaltado con "Acá está ahora", y los que faltan van
+apagados. La flecha que sale del actual va en azul: es la que dice qué sigue.
+
+Debajo, qué quiere decir ese estado, dicho por el negocio y en las palabras del
+rubro: "Estamos diagnosticando y evaluando posibles problemas con tu vehículo"
+en un taller, "tu equipo" en un service, y a la persona en medicina. Esos textos
+viven en `src/lib/presets.js`, junto a los ejemplos de cada rubro, y un rubro
+que no traiga los suyos usa unos genéricos (`SEGUIMIENTO_GENERICO`), pensados
+como punto de partida del futuro preset "Personalizado". Se buscan con
+`queSignificaPara()` y no con `preset()`, porque `preset()` cae en el taller
+cuando no conoce el rubro, y un negocio de otro oficio terminaría leyendo
+"tu vehículo". Si el caso está frenado y se sabe qué se espera, en vez de ese
+texto va el aviso de quién tiene la pelota.
+
 **Qué ve y qué no.** Ve el estado con las palabras de su rubro, qué significa,
-qué se está esperando si está frenado, la línea de los cinco estados con sus
+qué se está esperando si está frenado, el camino de los cinco estados con sus
 fechas, los pasos que aprobó con su total y los que esperan su respuesta. No ve
 el diagnóstico interno, ni los pasos que ya rechazó, ni las notas, ni quién lo
-está atendiendo, ni nada del inventario, ni ningún otro caso.
+está atendiendo, ni nada del inventario, ni ningún otro caso, ni el nombre que
+el negocio le puso al caso.
 
 Eso está escrito en dos lugares que tienen que decir lo mismo: la función
 `ver_seguimiento()`, que nació en `supabase/018_seguimiento.sql` y hoy vive en
-`019_aprobar_desde_el_link.sql`, y `src/lib/seguimiento.js`, que hace el mismo
+`026_pago_en_el_seguimiento.sql`, y `src/lib/seguimiento.js`, que hace el mismo
 recorte para el modo de ejemplo. `pruebas/seguimiento.test.js` está escrito al revés de lo habitual:
 comprueba que **no hay ningún campo de más**, así que falla si mañana alguien le
 agrega una columna a `caso` sin acordarse de esta pantalla.

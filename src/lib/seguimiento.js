@@ -24,7 +24,7 @@ import { pagoPublico } from "./cobros.js";
 
 // Lo único que sale del negocio hacia afuera. El mismo recorte que hace
 // ver_seguimiento(), que nació en supabase/018_seguimiento.sql y hoy vive en
-// 019_aprobar_desde_el_link.sql: si se cambia uno, se cambian los dos.
+// 026_pago_en_el_seguimiento.sql: si se cambia uno, se cambian los dos.
 export const CAMPOS_PUBLICOS = [
   "sirve",
   "negocio_nombre",
@@ -137,24 +137,6 @@ const nullSiVacio = (texto) => (texto ?? "").trim() || null;
 
 const soloEstos = (objeto, campos) =>
   Object.fromEntries(campos.map((campo) => [campo, objeto?.[campo] ?? null]));
-
-// Qué quiere decir cada estado, dicho para el cliente.
-//
-// No sale de ESTADOS[].significado: ese texto está escrito para adentro del
-// negocio ("Está detenido por algo de afuera: una aprobación, un insumo o la
-// respuesta del cliente") y del otro lado el cliente ES esa respuesta que se
-// está esperando. Leerse nombrado en tercera persona es raro.
-//
-// Tampoco sale del preset: son frases neutras, que tienen que funcionar
-// igual para un auto, un paciente y una notebook. El día que a alguna le
-// quede corto el rubro, el lugar donde cambiarlas es acá.
-export const QUE_SIGNIFICA = {
-  nuevo: "Ya quedó anotado. Todavía no lo empezaron.",
-  en_proceso: "Lo están haciendo ahora.",
-  esperando: "Está frenado: falta algo para poder seguir.",
-  revision_final: "El trabajo está hecho. Lo están controlando antes de entregarlo.",
-  completado: "Terminado y entregado.",
-};
 
 // Lo que el negocio escribe en "qué falta" cuando comparte el link: de ahí
 // en más la pelota es del cliente. Es una constante porque la escribe la
