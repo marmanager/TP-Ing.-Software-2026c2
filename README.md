@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `035_usuario_blindado.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `036_sacar_del_equipo.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
@@ -974,6 +974,14 @@ su fila sólo pueden mandar `id`, `email`, `telefono` y `nombre`. El negocio y e
 rol cambian únicamente a través de las funciones de la base, que verifican antes
 de tocar. Si alguna vez hace falta que el navegador escriba otra columna de
 `usuario`, se le da permiso a esa columna sola, nunca a la tabla.
+
+**Sacar a alguien del equipo le quita el acceso** (`036_sacar_del_equipo.sql`).
+Antes se borraba su ficha y nada más: dejaba de aparecer en Equipo, pero su
+cuenta seguía apuntando al negocio y seguía entrando. Ahora un trigger sobre el
+borrado de `empleado` deja a esa cuenta sin negocio en la misma operación. Va
+como trigger y no en la pantalla a propósito: lo que abría el agujero era
+borrar la ficha, por el camino que fuera, así que el arreglo cubre todos los
+caminos.
 
 ## Lo que todavía no está
 
