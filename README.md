@@ -400,6 +400,36 @@ encima de la foto no tiene lugar. Al lado del campo, sí.
 dos vistas usan la misma fila. La elección no se guarda, igual que "Mensual /
 Semanal" del calendario.
 
+### Buscar y filtrar (SCRUM-81)
+
+En **Productos** hay una búsqueda que encuentra por nombre, marca, modelo o
+categoría, sin mirar mayúsculas ni tildes: "bujia" encuentra "Bujía". A su
+derecha, el botón **Filtros**, que abre debajo un panel con un grupo por
+característica: categoría, marca, modelo y cómo viene.
+
+**Los filtros salen de lo que tienen cargado los productos**, no de una lista
+fija. Si ningún producto tiene marca, no hay grupo Marca; si todo viene suelto,
+no hay "Cómo viene"; y si no hay nada que filtrar, no aparece el botón. Agregar
+un producto con una marca nueva la suma a los filtros, y borrar el último de una
+marca la saca. Lo mismo escrito distinto ("Bosch" y "bosch") es una sola
+pastilla.
+
+Adentro de un grupo se suma ("Bosch o NGK") y entre grupos se restringe ("Bosch
+y Filtros"). La pastilla elegida va con el contorno y las letras en azul y el
+fondo azul claro, la misma que "Productos / Categorías". Si se borra el único
+producto de un valor elegido, la elección se descarta sola: si no, la lista
+quedaría vacía sin nada a la vista para destrabarla.
+
+En **Categorías** hay búsqueda y no filtros. Si lo escrito es el nombre de una
+categoría, aparece entera; si es el de un producto, aparece su categoría con ese
+producto, que es la respuesta a "¿dónde puse la bujía?". Cada vista tiene su
+propia búsqueda porque buscan cosas distintas: "Bosch" escrito en una dejaría la
+otra vacía sin razón a la vista.
+
+Todo lo que no es pantalla está en `src/lib/inventario.js`, con pruebas:
+`filtrosDisponibles()`, `filtrarProductos()`, `soloVigentes()` y
+`buscarEnCategorias()`.
+
 ### El alta, como la de un turno
 
 "Agregar un producto" se apaga en su lugar mientras el alta está abierta, y dice

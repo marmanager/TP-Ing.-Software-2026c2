@@ -12,7 +12,7 @@
 // Lo que no es de pantalla —cuándo dos productos son el mismo, qué categorías
 // hay, cómo se lee una caja— está en lib/inventario.js, con sus pruebas.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
@@ -21,13 +21,19 @@ import { puede } from "@/lib/permisos";
 import { ejemplosDe, mayuscula, vocabulario } from "@/lib/presets";
 import { hijosActivos } from "@/lib/modulos";
 import {
+  alternarFiltro,
+  buscarEnCategorias,
   buscarIgual,
   categoriaExistente,
   categoriasDisponibles,
+  cuantosFiltros,
   enTotal,
+  filtrarProductos,
+  filtrosDisponibles,
   limpiarProducto,
   porCategoria,
   presentacion,
+  soloVigentes,
 } from "@/lib/inventario";
 import Icono from "@/componentes/Icono";
 import Pestanas from "@/componentes/Pestanas";
@@ -49,6 +55,14 @@ export default function Inventario() {
   // ponytail: no se guarda; volver a entrar arranca en la lista. Igual que
   // "Mensual / Semanal" del Calendario.
   const [vista, setVista] = useState("productos");
+  // Buscar y filtrar (SCRUM-81). Cada vista tiene su propia búsqueda: buscan
+  // cosas distintas —Productos mira marca y modelo, Categorías no—, y "Bosch"
+  // escrito en una dejaría la otra vacía sin razón a la vista. Los filtros
+  // son sólo de la vista Productos.
+  const [busquedaProductos, setBusquedaProductos] = useState("");
+  const [busquedaCategorias, setBusquedaCategorias] = useState("");
+  const [elegidos, setElegidos] = useState({});
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   useTitulo("Inventario");
 
   if (cargando) return <Cargando />;
@@ -56,6 +70,22 @@ export default function Inventario() {
   const { articulo } = vocabulario(negocio?.rubro);
   const enStock = insumos.filter((i) => i.estado === "en_stock");
   const bajos = enStock.filter((i) => i.cantidad <= i.minimo);
+
+  // Los filtros salen de lo que tienen cargado los productos, y de lo elegido
+  // se queda sólo lo que todavía existe (lib/inventario.js).
+  const grupos = filtrosDisponibles(enStock);
+  const activos = soloVigentes(elegidos, grupos);
+  const nFiltros = cuantosFiltros(activos);
+  const visibles = filtrarProductos(enStock, { texto: busquedaProductos, elegidos: activos });
+  const filtrando = busquedaProductos.trim() !== "" || nFiltros > 0;
+  const limpiarTodo = () => {
+    setBusquedaProductos("");
+    setElegidos({});
+  };
+
+  const categorias = porCategoria(enStock);
+  const totalDe = new Map(categorias.map((g) => [g.categoria, g.productos.length]));
+  const categoriasVisibles = buscarEnCategorias(categorias, busquedaCategorias);
   // "Conviene pedir más" lleva a pedirlo, si el negocio tiene dónde.
   const conEnCamino = hijosActivos("inventario", negocio?.modulos_activos ?? []).some(
     (h) => h.clave === "en_camino"
@@ -125,33 +155,216 @@ export default function Inventario() {
             ))}
           </div>
 
-          <TituloSeccion>
-            Lo que tenés{bajos.length > 0 && ` · ${bajos.length} por debajo del mínimo`}
-          </TituloSeccion>
-
           {vista === "productos" ? (
-            <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-              {enStock.map((i) => fila(i, { conCategoria: true }))}
-            </ul>
-          ) : (
-            porCategoria(enStock).map((g) => (
-              <section key={g.categoria} className="mb-8" aria-label={g.categoria}>
-                <h3 className="mb-2 flex items-center gap-2 font-bold text-subtitulo">
-                  {g.categoria}
-                  <span className="font-normal text-etiqueta text-tinta-suave">
-                    · {articulo.cuantos(g.productos.length)}
+            <>
+              {/* La búsqueda y, a su derecha, "Filtros". El botón sólo aparece
+                  si hay algo para filtrar: sin marcas, modelos ni categorías
+                  cargadas, no haría nada. */}
+              <div className="mb-4 flex flex-wrap items-end gap-3">
+                <Buscador
+                  id="buscar-producto"
+                  etiqueta={`Buscar ${articulo.un()}`}
+                  ayuda="Por nombre, marca, modelo o categoría."
+                  valor={busquedaProductos}
+                  alCambiar={setBusquedaProductos}
+                />
+                {grupos.length > 0 && (
+                  <button
+                    type="button"
+                    aria-expanded={filtrosAbiertos}
+                    aria-controls="panel-filtros"
+                    onClick={() => setFiltrosAbiertos((v) => !v)}
+                    className={`${PILDORA} ${filtrosAbiertos || nFiltros > 0 ? PILDORA_SI : PILDORA_NO}`}
+                  >
+                    {/* La palabra a la izquierda y el ícono a la derecha, como
+                        se ve este botón en cualquier lado. */}
+                    Filtros{nFiltros > 0 && ` · ${nFiltros}`}
+                    <Icono nombre="filtro" className="size-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* El panel se abre debajo, no flotando: en el celular un menú
+                  flotante tapa la lista que se está filtrando. Queda abierto
+                  mientras se eligen, porque se elige más de uno. */}
+              {filtrosAbiertos && grupos.length > 0 && (
+                <div
+                  id="panel-filtros"
+                  className="mb-6 rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-6"
+                >
+                  {grupos.map((g) => (
+                    <div
+                      key={g.clave}
+                      role="group"
+                      aria-labelledby={`filtro-${g.clave}`}
+                      className="mb-4 last:mb-0"
+                    >
+                      <p id={`filtro-${g.clave}`} className="mb-2 font-bold text-cuerpo">
+                        {g.titulo}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {g.opciones.map((o) => {
+                          const elegido = activos[g.clave]?.includes(o.valor) ?? false;
+                          return (
+                            <button
+                              key={o.valor}
+                              type="button"
+                              aria-pressed={elegido}
+                              onClick={() => setElegidos((e) => alternarFiltro(e, g.clave, o.valor))}
+                              className={`${PILDORA} ${elegido ? PILDORA_SI : PILDORA_NO}`}
+                            >
+                              {elegido && <Icono nombre="check" className="size-5" />}
+                              {o.etiqueta}
+                              <span className="font-normal text-tinta-suave">{o.cuantos}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {nFiltros > 0 && (
+                    <Boton variante="plano" icono="cruz" onClick={() => setElegidos({})}>
+                      Sacar los filtros
+                    </Boton>
+                  )}
+                </div>
+              )}
+
+              <TituloSeccion>
+                Lo que tenés{bajos.length > 0 && ` · ${bajos.length} por debajo del mínimo`}
+              </TituloSeccion>
+
+              {/* Cuánto se está viendo, para que una lista corta no se lea como
+                  un stock que se vació. */}
+              {filtrando && visibles.length > 0 && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-tinta-media">
+                    {visibles.length} de {articulo.cuantos(enStock.length)}
+                  </p>
+                  <Boton variante="plano" icono="cruz" onClick={limpiarTodo}>
+                    Ver todo
+                  </Boton>
+                </div>
+              )}
+
+              {visibles.length === 0 ? (
+                <Vacio icono="buscar" titulo={`No hay ${articulo.palabra(2)} que coincidan`}>
+                  Probá con otra palabra o sacá algún filtro.
+                  <span className="mt-4 block">
+                    <Boton icono="cruz" onClick={limpiarTodo}>
+                      Ver todo
+                    </Boton>
                   </span>
-                </h3>
+                </Vacio>
+              ) : (
                 <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-                  {/* Adentro de su categoría no hace falta volver a decirla. */}
-                  {g.productos.map((i) => fila(i, { conCategoria: false }))}
+                  {visibles.map((i) => fila(i, { conCategoria: true }))}
                 </ul>
-              </section>
-            ))
+              )}
+            </>
+          ) : (
+            <>
+              {/* En Categorías sólo se busca, sin filtros. Si lo escrito es un
+                  producto, aparece su categoría con ese producto: es la
+                  respuesta a "¿dónde puse la bujía?". */}
+              <div className="mb-4">
+                <Buscador
+                  id="buscar-categoria"
+                  etiqueta="Buscar una categoría"
+                  ayuda={`Si escribís el nombre de ${articulo.un()}, aparece la categoría donde está.`}
+                  valor={busquedaCategorias}
+                  alCambiar={setBusquedaCategorias}
+                />
+              </div>
+
+              <TituloSeccion>
+                Lo que tenés{bajos.length > 0 && ` · ${bajos.length} por debajo del mínimo`}
+              </TituloSeccion>
+
+              {categoriasVisibles.length === 0 ? (
+                <Vacio icono="buscar" titulo="Ninguna categoría coincide">
+                  Ni el nombre de una categoría ni el de {articulo.un()}.
+                  <span className="mt-4 block">
+                    <Boton icono="cruz" onClick={() => setBusquedaCategorias("")}>
+                      Ver todas
+                    </Boton>
+                  </span>
+                </Vacio>
+              ) : (
+                categoriasVisibles.map((g) => {
+                  const total = totalDe.get(g.categoria) ?? g.productos.length;
+                  return (
+                    <section key={g.categoria} className="mb-8" aria-label={g.categoria}>
+                      <h3 className="mb-2 flex items-center gap-2 font-bold text-subtitulo">
+                        {g.categoria}
+                        {/* Si la búsqueda dejó algunos, dice de cuántos: "1 de 4"
+                            no se confunde con una categoría de uno solo. */}
+                        <span className="font-normal text-etiqueta text-tinta-suave">
+                          ·{" "}
+                          {g.productos.length < total
+                            ? `${g.productos.length} de ${articulo.cuantos(total)}`
+                            : articulo.cuantos(total)}
+                        </span>
+                      </h3>
+                      <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
+                        {/* Adentro de su categoría no hace falta volver a decirla. */}
+                        {g.productos.map((i) => fila(i, { conCategoria: false }))}
+                      </ul>
+                    </section>
+                  );
+                })
+              )}
+            </>
           )}
         </>
       )}
     </>
+  );
+}
+
+// ------------------------------------------------------------
+// El buscador (SCRUM-81)
+// ------------------------------------------------------------
+// El mismo que el de Casos: etiqueta a la vista, la lupa adentro del campo, y
+// una cruz para borrar de un toque. Borrar letra por letra en el teclado de un
+// celular son doce toques para volver a la lista completa; la cruz es uno, y
+// devuelve el foco al campo para escribir otra cosa (auditoría, H3).
+
+function Buscador({ id, etiqueta, ayuda, valor, alCambiar }) {
+  const campo = useRef(null);
+  return (
+    <div className="min-w-64 flex-1">
+      <label htmlFor={id} className="block font-bold text-cuerpo">
+        {etiqueta}
+      </label>
+      {ayuda && <p className="mt-1 text-apoyo text-tinta-suave">{ayuda}</p>}
+      <div className="relative mt-2">
+        <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-tinta-suave">
+          <Icono nombre="buscar" />
+        </span>
+        <input
+          id={id}
+          ref={campo}
+          value={valor}
+          onChange={(e) => alCambiar(e.target.value)}
+          autoComplete="off"
+          className="block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta pl-13 pr-14 text-cuerpo placeholder:text-tinta-suave"
+        />
+        {valor && (
+          <button
+            type="button"
+            aria-label="Borrar la búsqueda"
+            onClick={() => {
+              alCambiar("");
+              campo.current?.focus();
+            }}
+            className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center rounded-r-campo text-tinta-media hover:text-tinta"
+          >
+            <Icono nombre="cruz" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

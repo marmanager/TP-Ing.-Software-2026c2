@@ -193,6 +193,9 @@ const TRAZOS = {
       <path d="M19.4 13.9a7.9 7.9 0 0 0 0-3.8l2-1.5-2-3.4-2.3 1a7.9 7.9 0 0 0-3.3-1.9L13.5 2h-3l-.3 2.3a7.9 7.9 0 0 0-3.3 1.9l-2.3-1-2 3.4 2 1.5a7.9 7.9 0 0 0 0 3.8l-2 1.5 2 3.4 2.3-1a7.9 7.9 0 0 0 3.3 1.9l.3 2.3h3l.3-2.3a7.9 7.9 0 0 0 3.3-1.9l2.3 1 2-3.4z" />
     </>
   ),
+  // Tres líneas que se achican hacia abajo, como un embudo: el ícono de
+  // filtros de siempre. Va a la derecha de la palabra "Filtros".
+  filtro: <path d="M4 7h16M7 12h10M10 17h4" />,
   // Una persona dentro de un círculo: la cuenta de quien entró (Mi perfil).
   // Distinto de "persona", que es el de Clientes: en el mismo menú, dos
   // íconos iguales obligan a leer la palabra para saber cuál es cuál.

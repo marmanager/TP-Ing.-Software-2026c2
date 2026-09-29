@@ -21,6 +21,12 @@ import {
   normalizar,
   porCategoria,
   presentacion,
+  alternarFiltro,
+  buscarEnCategorias,
+  cuantosFiltros,
+  filtrarProductos,
+  filtrosDisponibles,
+  soloVigentes,
 } from "../src/lib/inventario.js";
 
 // ---------- normalizar ----------
@@ -251,4 +257,138 @@ test("el total de una caja es cajas por lo que trae cada una", () => {
 
 test("suelto no tiene total aparte", () => {
   assert.equal(enTotal({ unidad: "unidad", cantidad: 3 }), null);
+});
+
+// ---------------------------------------------------------------
+// Buscar y filtrar el stock (SCRUM-81)
+// ---------------------------------------------------------------
+// Los filtros salen de lo que tienen cargado los productos: si ninguno tiene
+// marca, no hay filtro de marca. Adentro de un grupo se suma ("Bosch o NGK");
+// entre grupos se restringe ("Bosch y Filtros").
+
+const stock = [
+  { id: "1", nombre: "Filtro de aceite", marca: "Bosch", modelo: "F-100", categoria: "Filtros", unidad: "unidad" },
+  { id: "2", nombre: "Filtro de aire", marca: "bosch", modelo: null, categoria: "filtros", unidad: "unidad" },
+  { id: "3", nombre: "Bujía", marca: "NGK", modelo: "BKR6", categoria: "Encendido", unidad: "caja", por_caja: 4 },
+  { id: "4", nombre: "Estopa", marca: null, modelo: null, categoria: null, unidad: "unidad" },
+];
+const ids = (lista) => lista.map((p) => p.id);
+
+test("cada característica cargada es un grupo de filtros, con cuántos productos tiene cada valor", () => {
+  const grupos = filtrosDisponibles(stock);
+  assert.deepEqual(grupos.map((g) => g.clave), ["categoria", "marca", "modelo", "unidad"]);
+  const marca = grupos.find((g) => g.clave === "marca");
+  assert.deepEqual(marca.opciones, [
+    { valor: "bosch", etiqueta: "Bosch", cuantos: 2 },
+    { valor: "ngk", etiqueta: "NGK", cuantos: 1 },
+  ]);
+});
+
+test("lo mismo escrito distinto es un solo valor, y se muestra como apareció primero", () => {
+  // "Bosch" y "bosch", "Filtros" y "filtros": uno solo, no dos pastillas.
+  const categoria = filtrosDisponibles(stock).find((g) => g.clave === "categoria");
+  assert.deepEqual(categoria.opciones.map((o) => o.etiqueta), ["Encendido", "Filtros"]);
+  assert.equal(categoria.opciones.find((o) => o.valor === "filtros").cuantos, 2);
+});
+
+test("si ningún producto tiene una característica, no hay filtro para ella", () => {
+  const sinMarca = stock.map((p) => ({ ...p, marca: null }));
+  assert.equal(filtrosDisponibles(sinMarca).some((g) => g.clave === "marca"), false);
+});
+
+test("'cómo viene' sólo aparece si algo viene en caja: si todo es suelto, no filtra nada", () => {
+  const todoSuelto = stock.map((p) => ({ ...p, unidad: "unidad", por_caja: null }));
+  assert.equal(filtrosDisponibles(todoSuelto).some((g) => g.clave === "unidad"), false);
+  const unidad = filtrosDisponibles(stock).find((g) => g.clave === "unidad");
+  assert.deepEqual(unidad.opciones, [
+    { valor: "unidad", etiqueta: "Suelto", cuantos: 3 },
+    { valor: "caja", etiqueta: "En caja", cuantos: 1 },
+  ]);
+});
+
+test("sin nada filtrable, no hay grupos: la pantalla no ofrece un botón que no hace nada", () => {
+  assert.deepEqual(filtrosDisponibles([{ id: "x", nombre: "Estopa", unidad: "unidad" }]), []);
+  assert.deepEqual(filtrosDisponibles([]), []);
+});
+
+test("la búsqueda encuentra por nombre, marca, modelo o categoría, sin mirar mayúsculas ni tildes", () => {
+  assert.deepEqual(ids(filtrarProductos(stock, { texto: "bujia" })), ["3"]);
+  assert.deepEqual(ids(filtrarProductos(stock, { texto: "ngk" })), ["3"]);
+  assert.deepEqual(ids(filtrarProductos(stock, { texto: "f-100" })), ["1"]);
+  assert.deepEqual(ids(filtrarProductos(stock, { texto: "ENCENDIDO" })), ["3"]);
+  assert.deepEqual(ids(filtrarProductos(stock, { texto: "  filtro  " })), ["1", "2"]);
+});
+
+test("sin búsqueda ni filtros se ve todo", () => {
+  assert.deepEqual(ids(filtrarProductos(stock)), ["1", "2", "3", "4"]);
+  assert.deepEqual(ids(filtrarProductos(stock, { texto: "", elegidos: {} })), ["1", "2", "3", "4"]);
+});
+
+test("adentro de un grupo se suma, entre grupos se restringe", () => {
+  assert.deepEqual(ids(filtrarProductos(stock, { elegidos: { marca: ["bosch", "ngk"] } })), ["1", "2", "3"]);
+  assert.deepEqual(
+    ids(filtrarProductos(stock, { elegidos: { marca: ["bosch"], categoria: ["filtros"] } })),
+    ["1", "2"]
+  );
+  assert.deepEqual(
+    ids(filtrarProductos(stock, { elegidos: { marca: ["ngk"], categoria: ["filtros"] } })),
+    []
+  );
+  assert.deepEqual(ids(filtrarProductos(stock, { elegidos: { unidad: ["caja"] } })), ["3"]);
+});
+
+test("un producto sin la característica no entra cuando se filtra por ella", () => {
+  // La estopa no tiene marca: filtrando por Bosch no aparece.
+  assert.equal(ids(filtrarProductos(stock, { elegidos: { marca: ["bosch"] } })).includes("4"), false);
+});
+
+test("búsqueda y filtros se combinan", () => {
+  assert.deepEqual(ids(filtrarProductos(stock, { texto: "aire", elegidos: { marca: ["bosch"] } })), ["2"]);
+});
+
+test("tocar una pastilla la elige, tocarla de nuevo la saca, y no toca lo que ya había", () => {
+  const antes = { marca: ["bosch"] };
+  const despues = alternarFiltro(antes, "marca", "ngk");
+  assert.deepEqual(despues, { marca: ["bosch", "ngk"] });
+  assert.deepEqual(antes, { marca: ["bosch"] }, "no cambia el objeto de antes");
+  assert.deepEqual(alternarFiltro(despues, "marca", "bosch"), { marca: ["ngk"] });
+  // Sacar el último de un grupo borra el grupo: no quedan grupos vacíos.
+  assert.deepEqual(alternarFiltro({ marca: ["ngk"] }, "marca", "ngk"), {});
+});
+
+test("cuántos filtros hay elegidos, para el botón", () => {
+  assert.equal(cuantosFiltros({}), 0);
+  assert.equal(cuantosFiltros({ marca: ["bosch", "ngk"], unidad: ["caja"] }), 3);
+});
+
+test("un filtro elegido que ya no existe se descarta, en vez de esconder todo", () => {
+  // Estaba elegida una marca y se borró el único producto que la tenía: la
+  // pastilla desaparece, y si la elección quedara, la lista quedaría vacía
+  // sin nada que se pueda tocar para arreglarla.
+  const grupos = filtrosDisponibles(stock);
+  assert.deepEqual(soloVigentes({ marca: ["bosch", "champion"], modelo: ["xx"] }, grupos), {
+    marca: ["bosch"],
+  });
+});
+
+// ---------------------------------------------------------------
+// Buscar en la vista Categorías
+// ---------------------------------------------------------------
+
+test("en Categorías, buscar el nombre de una categoría la muestra entera", () => {
+  const r = buscarEnCategorias(porCategoria(stock), "filtros");
+  assert.deepEqual(r.map((g) => g.categoria), ["Filtros"]);
+  assert.deepEqual(ids(r[0].productos), ["1", "2"]);
+});
+
+test("en Categorías, buscar un producto muestra su categoría con ese producto", () => {
+  const r = buscarEnCategorias(porCategoria(stock), "aceite");
+  assert.deepEqual(r.map((g) => g.categoria), ["Filtros"]);
+  assert.deepEqual(ids(r[0].productos), ["1"]);
+});
+
+test("en Categorías, la búsqueda no mira mayúsculas ni tildes, y sin texto se ve todo", () => {
+  assert.deepEqual(buscarEnCategorias(porCategoria(stock), "BUJIA").map((g) => g.categoria), ["Encendido"]);
+  assert.equal(buscarEnCategorias(porCategoria(stock), "").length, porCategoria(stock).length);
+  assert.deepEqual(buscarEnCategorias(porCategoria(stock), "nada que ver"), []);
 });
