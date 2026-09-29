@@ -204,12 +204,15 @@ export async function sincronizarTodos() {
 // Si la cuenta sigue en el negocio del calendario conectado: si tiene ficha
 // ahí (docs/multinegocio.md). Pararse en otra sucursal no lo desconecta;
 // que la saquen del equipo, sí. Sin la 038 corrida los dueños no tienen
-// ficha: por eso vale también que sea su negocio activo.
+// ficha: por eso vale también que sea su negocio activo. Si la consulta falla,
+// se tira el error y no se desconecta a nadie por un problema de red.
 export async function sigueEnNegocio(usuarioId, negocioId) {
-  const [{ data: ficha }, { data: cuenta }] = await Promise.all([
+  const [{ data: ficha, error: fichaError }, { data: cuenta, error: cuentaError }] = await Promise.all([
     db.from("empleado").select("id")
       .eq("usuario_id", usuarioId).eq("negocio_id", negocioId).limit(1).maybeSingle(),
     db.from("usuario").select("negocio_id").eq("id", usuarioId).maybeSingle(),
   ]);
+  if (fichaError) throw fichaError;
+  if (cuentaError) throw cuentaError;
   return Boolean(ficha) || cuenta?.negocio_id === negocioId;
 }
