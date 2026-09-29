@@ -132,7 +132,9 @@ Va antes de cambiar las funciones, para que ninguna cuenta quede sin ficha.
 directo, o que hay que mostrar el selector:
 
 - Inicio rápido y un predeterminado que sigue siendo suyo → entra a ése.
-- Si no → selector (también con cero negocios: muestra sólo "Nuevo negocio").
+- Sin ningún negocio → a `/crear-negocio`, donde viven el aviso de mail recién
+  confirmado y el de invitación pendiente.
+- Si no → selector.
 
 ### `src/lib/auth.js`
 
@@ -160,7 +162,6 @@ Las filas son un componente, `FilaNegocio`, que usa también Mi perfil.
 - Una pantalla de entrada con sesión abierta —lo que pasa al volver de Google—
   → `/negocios` (antes, `/`).
 - `iniciar-sesion` → `/negocios` al entrar con mail (antes, `/`).
-- `crear-cuenta` sin confirmación de mail → `/negocios` (antes, `/crear-negocio`).
 - `/negocios` y `/crear-negocio` se pueden abrir teniendo negocio.
 - El modo de ejemplo no cambia.
 
