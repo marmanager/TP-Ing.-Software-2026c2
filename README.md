@@ -76,10 +76,13 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `037_rol_da_permisos.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `038_multinegocio.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
+
+   Después de la 038, correr `supabase/pruebas/multinegocio.sql`: prueba el
+   aislamiento y los permisos contra la base y no deja nada guardado.
 
    Si una base existente muestra `function gen_random_bytes(integer) does not exist`,
    ejecutar `supabase/029_reparar_codigos.sql` en el SQL Editor. Actualiza las
@@ -993,6 +996,16 @@ puede cambiar el rol propio, y `empleado.usuario_id` no se escribe desde el
 navegador: sólo lo pone aceptar una invitación. Al correrla, las etiquetas que
 ya no coincidían se corrigen para decir la verdad: la migración no le cambia el
 acceso a nadie.
+
+**Varios negocios por cuenta** (`038_multinegocio.sql`, diseño en
+`docs/multinegocio.md`). Una cuenta puede estar en varios negocios —sus
+sucursales, o el propio y otro al que la invitaron—, con un rol en cada uno. Al
+iniciar sesión elige a cuál entra, o entra directo al predeterminado si prendió
+Inicio rápido; desde Mi perfil cambia de uno a otro. El negocio activo sigue en
+`usuario.negocio_id`, así que el aislamiento no cambió: cambiar de negocio es
+una función de la base que verifica que la cuenta tenga ficha ahí. El dueño
+ahora tiene ficha y aparece en Equipo. A quien ya tenía un negocio no le cambia
+nada: queda como predeterminado, con Inicio rápido prendido.
 
 ## Lo que todavía no está
 

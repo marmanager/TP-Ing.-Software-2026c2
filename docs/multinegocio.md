@@ -1,6 +1,6 @@
 # Varios negocios por cuenta — diseño
 
-Estado: **aprobado en conversación, falta revisar este documento**.
+Estado: **aprobado; implementado en `development` (plan: `docs/multinegocio-plan.md`)**.
 Fecha: 28 de septiembre de 2026.
 
 ## Qué se quiere
@@ -236,3 +236,35 @@ y las fotos del equipo.
 A diferencia de la 037, acá la base va primero: el código nuevo llama a
 funciones de la 038. Si igual se publica antes, entra directo como hoy (ver
 "Si la 038 todavía no se corrió").
+
+## Prueba a mano, con cuentas reales
+
+Con la 038 corrida y la prueba de la base pasada. Dos cuentas: **Dueña** (con
+un negocio) y **Otra** (sin nada).
+
+1. Dueña inicia sesión → entra directo a su negocio (Inicio rápido, del pasaje).
+2. Mi perfil → Tus negocios: su negocio con "· Dueño", "Estás acá",
+   Predeterminado en Sí; Inicio rápido prendido. Equipo: su ficha con "Vos",
+   sin desplegable ni "Sacar".
+3. Mi perfil → Nuevo negocio → crear "Sucursal 2" → entra a la sucursal, vacía.
+   Mi perfil: dos negocios; "Estás acá" en la Sucursal 2.
+4. "Entrar" en el primero → Inicio del primero, con sus casos.
+5. Apagar Predeterminado → Inicio rápido se apaga solo y queda "primero elegí
+   uno predeterminado". Cerrar sesión e iniciar → "¿A qué negocio entrás?" con
+   los dos. Elegir uno → entra.
+6. Dueña invita a Otra como técnica. Otra crea cuenta, acepta → entra al
+   negocio de Dueña. Otra crea un negocio propio → entra a ése como dueña.
+   Mi perfil de Otra: dos negocios, "· Técnico" en uno y "· Dueño" en el otro.
+7. Dueña saca a Otra del equipo. Otra, en la pestaña que tenía abierta en el
+   negocio de Dueña, vuelve a la pestaña → cartel "Ya no estás en este
+   negocio" → Recargar → su propio negocio (o el selector).
+8. Dos dispositivos con Dueña: en uno cambiar a la Sucursal 2; en el otro,
+   volver a la pestaña → "Desde otro dispositivo pasaste a Sucursal 2" →
+   Recargar → la Sucursal 2.
+9. Una cuenta que entró con Google: Mi perfil dice "Entrás con Google" y
+   "Crear una".
+10. Con Google Calendar conectado: cambiar de sucursal y esperar la
+    sincronización (un minuto) → en Agenda del negocio conectado sigue
+    conectado.
+11. Modo de ejemplo: "Probá sin cuenta" → igual que antes, sin selector; Mi
+    perfil dice "Tu negocio".
