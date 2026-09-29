@@ -69,7 +69,16 @@ crear o confirmar la cuenta—, no cada vez que se abre la aplicación.
 dispositivos. Se guardan en la base.
 
 **6. A quien ya tiene un negocio no le cambia nada:** al pasar a esta versión, su
-negocio queda como predeterminado y con Inicio rápido prendido.
+negocio queda como predeterminado y con Inicio rápido prendido. **Y el primer
+negocio de una cuenta nueva —creado o por invitación— también queda de
+predeterminado con Inicio rápido**, para que no vea el selector con una sola
+fila en cada inicio de sesión. "Primero" es que la cuenta no tenía ninguna
+ficha: a quien apagó el predeterminado no se le vuelve a prender.
+
+**7. A quien creó el negocio no se lo baja ni se lo saca.** Desde que el dueño
+tiene ficha, otro dueño podía bajarle el rol o sacarlo y dejarlo afuera de su
+propio negocio. Se guarda en `negocio.creado_por`, y los triggers de la ficha
+lo frenan.
 
 ## La base: `038_multinegocio.sql`
 
@@ -80,6 +89,13 @@ negocio queda como predeterminado y con Inicio rápido prendido.
 
 Como el resto de `usuario` desde la 035, no se escriben desde el navegador:
 sólo por `guardar_preferencias_de_entrada()`.
+
+### Columna nueva en `negocio`
+
+- `creado_por uuid references usuario (id) on delete set null` — quién lo creó.
+  Lo pone `crear_mi_negocio()`; para los negocios que ya existen, el dueño sin
+  ficha (el que no entró por invitación). Con sesión no se cambia (trigger
+  `negocio_creado_por_fijo`); desde el SQL Editor, sí.
 
 ### Funciones
 
@@ -113,7 +129,13 @@ Todas `security definer`, con `set search_path = public`, sin ejecución para
 `quitar_acceso_al_sacar()`, además de dejar la cuenta sin negocio activo, le
 saca ese negocio como predeterminado —y apaga Inicio rápido si queda sin
 predeterminado—. Una cuenta con otros negocios, al iniciar sesión, pasa por el
-selector.
+selector. Y a quien creó el negocio no lo saca nadie: *"A quien creó el negocio
+no se lo puede sacar del equipo."*.
+
+### Cambio a la 037
+
+`rol_de_la_ficha_da_permisos()`: a quien creó el negocio no se le cambia el
+rol (*"A quien creó el negocio no se le puede cambiar el rol."*).
 
 ### Pasaje de lo que ya existe (dentro de la 038)
 
@@ -192,7 +214,9 @@ palabra, como pide la cartilla.
 ### Equipo
 
 La ficha propia lleva la marca **"Vos"**, sin desplegable de rol ni "Sacar": la
-base ya lo impide (036, 037), y un botón que no funciona no se muestra.
+base ya lo impide (036, 037), y un botón que no funciona no se muestra. La de
+quien creó el negocio, lo mismo, y dice *"· Creó el negocio"* al lado del rol
+(038).
 
 ### Cuando el negocio cambia desde otro dispositivo
 
@@ -220,7 +244,10 @@ y las fotos del equipo.
   - `entrar_al_negocio()` a un negocio ajeno falla;
   - crear un segundo negocio y aceptar una invitación estando en otro funcionan;
   - `mis_negocios()` devuelve sólo los propios;
-  - el predeterminado no puede ser un negocio ajeno.
+  - el predeterminado no puede ser un negocio ajeno;
+  - el primer negocio de una cuenta queda de predeterminado, y los siguientes
+    no se lo cambian;
+  - otro dueño no baja, no saca ni reemplaza a quien creó el negocio.
 
   Si una prueba falla, frena y dice cuál. Si pasan todas, lo dice.
 - **A mano, con cuentas reales**: una lista de pasos para el selector, cambiar de
@@ -255,6 +282,9 @@ un negocio) y **Otra** (sin nada).
 6. Dueña invita a Otra como técnica. Otra crea cuenta, acepta → entra al
    negocio de Dueña. Otra crea un negocio propio → entra a ése como dueña.
    Mi perfil de Otra: dos negocios, "· Técnico" en uno y "· Dueño" en el otro.
+   Dueña hace dueña a Otra en su negocio. Otra entra a ese negocio → Equipo:
+   la ficha de Dueña dice "· Creó el negocio", sin desplegable de rol ni
+   "Sacar". Dueña la vuelve a técnica.
 7. Dueña saca a Otra del equipo. Otra, en la pestaña que tenía abierta en el
    negocio de Dueña, vuelve a la pestaña → cartel "Ya no estás en este
    negocio" → Recargar → su propio negocio (o el selector).

@@ -155,6 +155,10 @@ export default function Equipo() {
             // cambia el rol ni se saca a sí mismo —la base lo rechaza (036,
             // 037)—, y un botón que no funciona no se muestra.
             const esVos = Boolean(e.usuario_id) && e.usuario_id === usuario?.id;
+            // Quien creó el negocio: nadie le cambia el rol ni lo saca —la
+            // base lo rechaza (038)—. En el modo de ejemplo no hay creado_por.
+            const esFundador = Boolean(e.usuario_id) && e.usuario_id === negocio?.creado_por;
+            const intocable = esVos || esFundador;
             return (
               <li key={e.id}>
                 <Tarjeta className="h-full">
@@ -175,7 +179,7 @@ export default function Equipo() {
                     )}
                   </div>
 
-                  {puedeManejar && !esVos ? (
+                  {puedeManejar && !intocable ? (
                     <div className="mt-4">
                       <label
                         htmlFor={`rol-${e.id}`}
@@ -229,6 +233,7 @@ export default function Equipo() {
                   ) : (
                     <p className="mt-2 text-apoyo text-tinta-suave">
                       {etiquetaRol(rubro, e.rol)}
+                      {esFundador && !esVos && " · Creó el negocio"}
                     </p>
                   )}
 
@@ -272,7 +277,7 @@ export default function Equipo() {
                     </Boton>
                   )}
 
-                  {!puedeManejar || esVos ? null : sacando === e.id ? (
+                  {!puedeManejar || intocable ? null : sacando === e.id ? (
                     <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                       <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
                       {/* Con cuenta, sacarlo también le quita el acceso (036): es

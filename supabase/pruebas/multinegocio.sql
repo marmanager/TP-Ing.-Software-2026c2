@@ -3,6 +3,9 @@
 --
 -- Correr entero en el SQL Editor de Supabase, DESPUÉS de la 038.
 --
+-- Cubre también que el primer negocio de una cuenta queda de predeterminado,
+-- y que otro dueño no baja, no saca ni reemplaza a quien creó el negocio.
+--
 -- No deja nada: crea tres cuentas y dos negocios de mentira, prueba, y al
 -- final lo deshace todo. El bloque de adentro termina con un error a
 -- propósito ('deshacer') que se atrapa: al atraparlo, Postgres vuelve atrás
@@ -30,6 +33,7 @@ declare
   inv_beto text;
   ficha_ana uuid;
   ficha_caro uuid;
+  ficha_beto uuid;
   n integer;
   fila record;
   frenado boolean;
@@ -49,6 +53,9 @@ begin
     select * into fila from usuario where id = ana;
     if fila.negocio_id is distinct from neg_a or fila.rol <> 'duenio' then
       raise exception 'FALLÓ 1: crear un negocio no dejó a la cuenta adentro como dueña.';
+    end if;
+    if fila.negocio_predeterminado is distinct from neg_a or not fila.inicio_rapido then
+      raise exception 'FALLÓ 1: el primer negocio no quedó de predeterminado.';
     end if;
     select id into ficha_ana from empleado
      where usuario_id = ana and negocio_id = neg_a and rol = 'duenio';
@@ -118,6 +125,9 @@ begin
     if fila.negocio_id is distinct from neg_a or fila.rol <> 'tecnico' then
       raise exception 'FALLÓ 7: aceptar la invitación no dejó a la cuenta adentro con su rol.';
     end if;
+    if fila.negocio_predeterminado is distinct from neg_a or not fila.inicio_rapido then
+      raise exception 'FALLÓ 7: el primer negocio al que se sumó no quedó de predeterminado.';
+    end if;
 
     frenado := false;
     begin
@@ -157,6 +167,9 @@ begin
     if fila.negocio_id is distinct from neg_a or fila.rol <> 'encargado' then
       raise exception 'FALLÓ 9: aceptar una invitación estando en otro negocio no funcionó.';
     end if;
+    if fila.negocio_predeterminado is distinct from neg_b then
+      raise exception 'FALLÓ 9: sumarse a otro negocio le cambió el predeterminado.';
+    end if;
     select count(*) into n from mis_negocios() m where m.id in (neg_a, neg_b);
     if n <> 2 then
       raise exception 'FALLÓ 9: mis_negocios() no trae los dos negocios de la cuenta.';
@@ -178,6 +191,10 @@ begin
     select count(*) into n from mis_negocios() m where m.id = neg_b;
     if n <> 0 then
       raise exception 'FALLÓ 10: mis_negocios() trae un negocio ajeno.';
+    end if;
+    select * into fila from usuario where id = ana;
+    if fila.negocio_predeterminado is distinct from neg_a then
+      raise exception 'FALLÓ 10: crear otro negocio le cambió el predeterminado.';
     end if;
     perform entrar_al_negocio(neg_a);
 
@@ -261,6 +278,47 @@ begin
     end;
     if not frenado then
       raise exception 'FALLÓ 14: una cuenta se pudo sacar a sí misma del equipo.';
+    end if;
+
+    -- ---- 15. Otro dueño no baja, no saca ni reemplaza a quien creó el negocio (038) ----
+    select id into ficha_beto from empleado where usuario_id = beto and negocio_id = neg_a;
+    update empleado set rol = 'duenio' where id = ficha_beto;
+
+    perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_a);
+
+    frenado := false;
+    begin
+      update empleado set rol = 'tecnico' where id = ficha_ana;
+    exception when raise_exception then
+      frenado := sqlerrm = 'A quien creó el negocio no se le puede cambiar el rol.';
+    end;
+    if not frenado then
+      raise exception 'FALLÓ 15: otro dueño le pudo cambiar el rol a quien creó el negocio.';
+    end if;
+
+    frenado := false;
+    begin
+      delete from empleado where id = ficha_ana;
+    exception when raise_exception then
+      frenado := sqlerrm = 'A quien creó el negocio no se lo puede sacar del equipo.';
+    end;
+    if not frenado then
+      raise exception 'FALLÓ 15: otro dueño pudo sacar del equipo a quien creó el negocio.';
+    end if;
+
+    -- Frenado por el trigger o sin filas por la política, da lo mismo: lo que
+    -- se mira es que siga siendo Ana. Otro error no se traga: se relanza.
+    begin
+      update negocio set creado_por = beto where id = neg_a;
+    exception when raise_exception then
+      if sqlerrm <> 'Quién creó el negocio no se cambia.' then
+        raise;
+      end if;
+    end;
+    select * into fila from negocio where id = neg_a;
+    if fila.creado_por is distinct from ana then
+      raise exception 'FALLÓ 15: otro dueño pudo cambiar quién creó el negocio.';
     end if;
 
     raise exception 'deshacer';

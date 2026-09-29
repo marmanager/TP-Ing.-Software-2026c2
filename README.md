@@ -1004,7 +1004,8 @@ iniciar sesión elige a cuál entra, o entra directo al predeterminado si prendi
 Inicio rápido; desde Mi perfil cambia de uno a otro. El negocio activo sigue en
 `usuario.negocio_id`, así que el aislamiento no cambió: cambiar de negocio es
 una función de la base que verifica que la cuenta tenga ficha ahí. El dueño
-ahora tiene ficha y aparece en Equipo. A quien ya tenía un negocio no le cambia
+ahora tiene ficha y aparece en Equipo; a quien creó el negocio otro dueño no lo
+puede bajar ni sacar. A quien ya tenía un negocio no le cambia
 nada: queda como predeterminado, con Inicio rápido prendido.
 
 ## Lo que todavía no está

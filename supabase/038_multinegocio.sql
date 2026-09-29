@@ -12,6 +12,8 @@
 --     fichas con su usuario_id, cada una con su rol.
 --   - Cambiar de negocio es entrar_al_negocio(), que verifica y copia.
 --   - El dueño pasa a tener ficha, y aparece en Equipo como uno más.
+--   - Quien creó el negocio no se puede bajar ni sacar; el primer negocio de
+--     una cuenta queda de predeterminado.
 --
 -- ORDEN: primero el pasaje de lo que ya existe —así ninguna cuenta queda sin
 -- ficha—, después las funciones.
@@ -48,6 +50,72 @@ begin
      where negocio_id is not null;
   end if;
 end $$;
+
+-- ------------------------------------------------------------
+-- 1b. Quién creó cada negocio
+-- ------------------------------------------------------------
+-- Desde que el dueño tiene ficha, otro dueño podía bajarle el rol o sacarlo,
+-- y dejarlo afuera de su propio negocio. A quien lo creó no se lo toca.
+--
+-- Los negocios que ya existen: antes de la 038 el que creaba el negocio era
+-- el único dueño sin ficha —los demás entraron por invitación—. Por eso va
+-- antes de la sección 2, que les da ficha a todos. Si hubiera más de uno sin
+-- ficha, gana el que se creó la cuenta primero.
+--
+-- Como en la sección 1, el pasaje corre sólo la vez que se agrega la columna:
+-- después, usuario.negocio_id es "dónde estoy ahora" y ya no dice quién creó
+-- qué.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public'
+       and table_name = 'negocio'
+       and column_name = 'creado_por'
+  ) then
+    alter table negocio
+      add column if not exists creado_por uuid references usuario (id) on delete set null;
+
+    update negocio n
+       set creado_por = f.id
+      from (
+        select distinct on (u.negocio_id) u.negocio_id, u.id
+          from usuario u
+         where u.negocio_id is not null
+           and u.rol = 'duenio'
+         order by u.negocio_id,
+                  exists (select 1 from empleado e
+                           where e.usuario_id = u.id
+                             and e.negocio_id = u.negocio_id),
+                  u.creado_en
+      ) f
+     where n.id = f.negocio_id
+       and n.creado_por is null;
+  end if;
+end $$;
+
+-- Que nadie lo cambie desde el navegador: el dueño puede editar su negocio
+-- (008), y sin esto podría ponerse de creador o sacar al que lo es. Sin
+-- sesión —desde el SQL Editor— se puede corregir a mano.
+create or replace function creado_por_fijo()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.creado_por is distinct from old.creado_por and auth.uid() is not null then
+    raise exception 'Quién creó el negocio no se cambia.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists negocio_creado_por_fijo on negocio;
+create trigger negocio_creado_por_fijo
+  before update of creado_por on negocio
+  for each row
+  execute function creado_por_fijo();
 
 -- ------------------------------------------------------------
 -- 2. El dueño tiene ficha
@@ -224,25 +292,36 @@ declare
   nuevo uuid;
   mi_mail text;
   mi_nombre text;
+  es_el_primero boolean;
 begin
   if auth.uid() is null then
     raise exception 'Hay que iniciar sesión para crear un negocio.';
   end if;
 
-  insert into negocio (nombre, rubro, modulos_activos)
-  values (p_nombre, p_rubro, coalesce(p_modulos, '[]'::jsonb))
-  returning id into nuevo;
+  -- El primero: la cuenta no tenía ninguna ficha antes de este alta. Así no
+  -- se le vuelve a prender el predeterminado a quien lo apagó a propósito.
+  es_el_primero := not exists (select 1 from empleado where usuario_id = auth.uid());
 
   select email into mi_mail from auth.users where id = auth.uid();
 
   -- La fila de usuario puede no existir todavía, según cuándo se confirmó el
-  -- mail. El rol va explícito: quien es encargado en el negocio en el que está
-  -- y crea otro, entra al nuevo como dueño.
-  insert into usuario (id, email, negocio_id, rol)
-  values (auth.uid(), mi_mail, nuevo, 'duenio')
-  on conflict (id) do update
-    set negocio_id = excluded.negocio_id,
-        rol        = excluded.rol;
+  -- mail. Va antes que el negocio: negocio.creado_por apunta a ella.
+  insert into usuario (id, email)
+  values (auth.uid(), mi_mail)
+  on conflict (id) do nothing;
+
+  -- creado_por va en el alta y no en un update después: el trigger
+  -- negocio_creado_por_fijo frena cualquier cambio hecho con sesión.
+  insert into negocio (nombre, rubro, modulos_activos, creado_por)
+  values (p_nombre, p_rubro, coalesce(p_modulos, '[]'::jsonb), auth.uid())
+  returning id into nuevo;
+
+  -- El rol va explícito: quien es encargado en el negocio en el que está y
+  -- crea otro, entra al nuevo como dueño.
+  update usuario
+     set negocio_id = nuevo,
+         rol        = 'duenio'
+   where id = auth.uid();
 
   select nombre into mi_nombre from usuario where id = auth.uid();
 
@@ -253,6 +332,15 @@ begin
     'duenio',
     auth.uid()
   );
+
+  -- Como el pasaje de la sección 1: con un solo negocio se entra directo, sin
+  -- pasar por "¿A qué negocio entrás?" con una sola fila.
+  if es_el_primero then
+    update usuario
+       set negocio_predeterminado = nuevo,
+           inicio_rapido          = true
+     where id = auth.uid();
+  end if;
 
   return nuevo;
 end;
@@ -272,6 +360,7 @@ declare
   inv invitacion%rowtype;
   quien uuid := auth.uid();
   mi_mail text;
+  es_el_primero boolean;
 begin
   if quien is null then
     raise exception 'Hay que iniciar sesión para aceptar una invitación.';
@@ -301,6 +390,9 @@ begin
     raise exception 'Ya estás en ese negocio.';
   end if;
 
+  -- Mismo criterio que crear_mi_negocio().
+  es_el_primero := not exists (select 1 from empleado where usuario_id = quien);
+
   select email into mi_mail from auth.users where id = quien;
 
   insert into usuario (id, email, negocio_id, rol)
@@ -318,6 +410,13 @@ begin
   );
 
   update invitacion set usos = usos + 1 where id = inv.id;
+
+  if es_el_primero then
+    update usuario
+       set negocio_predeterminado = inv.negocio_id,
+           inicio_rapido          = true
+     where id = quien;
+  end if;
 
   return inv.negocio_id;
 end;
@@ -352,6 +451,12 @@ begin
     raise exception 'No te podés sacar a vos del equipo.';
   end if;
 
+  -- Al fundador no lo saca otro dueño (sección 1b). Si se borra el negocio
+  -- entero, sus fichas se borran después que él: el select da null y no frena.
+  if old.usuario_id = (select creado_por from negocio where id = old.negocio_id) then
+    raise exception 'A quien creó el negocio no se lo puede sacar del equipo.';
+  end if;
+
   update usuario
      set negocio_id = case when negocio_id = old.negocio_id then null else negocio_id end,
          rol = case when negocio_id = old.negocio_id then 'duenio' else rol end,
@@ -371,6 +476,44 @@ end;
 $$;
 
 -- El trigger (036) ya apunta a esta función: no hace falta recrearlo.
+
+-- ------------------------------------------------------------
+-- 7. Al fundador no se le cambia el rol (cambia la 037)
+-- ------------------------------------------------------------
+-- El cuerpo de la 037 tal cual, más el chequeo del fundador (sección 1b).
+create or replace function rol_de_la_ficha_da_permisos()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.rol is not distinct from old.rol then
+    return new;
+  end if;
+
+  if old.usuario_id is not null and old.usuario_id = auth.uid() then
+    raise exception 'No podés cambiar tu propio rol.';
+  end if;
+
+  if old.usuario_id = (select creado_por from negocio where id = old.negocio_id) then
+    raise exception 'A quien creó el negocio no se le puede cambiar el rol.';
+  end if;
+
+  -- Sólo si la cuenta está en este negocio. El día que pueda estar en varios,
+  -- cambiarle el rol en uno no le toca los permisos que tiene en otro.
+  if new.usuario_id is not null then
+    update usuario
+       set rol = new.rol
+     where id = new.usuario_id
+       and negocio_id = new.negocio_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- El trigger (037) ya apunta a esta función: no hace falta recrearlo.
 
 -- CÓMO VERIFICARLO (sólo lee):
 --
