@@ -58,6 +58,55 @@ export function Boton({
   );
 }
 
+// Un interruptor de prendido y apagado. La etiqueta es parte del botón: así el
+// área para tocar llega a los 48 px aunque la perilla sea chica, y el lector
+// de pantalla dice el nombre y el estado juntos. El estado se dice con color,
+// ícono —la tilde en la perilla— y palabra. Apagado, dice por qué, como Boton.
+export function Interruptor({
+  prendido,
+  onChange,
+  children,
+  ayuda,
+  palabras = ["Apagado", "Prendido"],
+  motivo,
+  disabled,
+}) {
+  const apagado = Boolean(motivo) || disabled;
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={prendido}
+      disabled={apagado}
+      onClick={() => onChange(!prendido)}
+      className="inline-flex min-h-12 cursor-pointer items-center gap-3 rounded-campo text-left disabled:cursor-not-allowed"
+    >
+      <span
+        aria-hidden="true"
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+          prendido ? "bg-azul" : "bg-borde-fuerte"
+        } ${apagado ? "opacity-50" : ""}`}
+      >
+        <span
+          className={`absolute top-0.5 left-0 flex size-6 items-center justify-center rounded-full bg-white text-azul transition-transform ${
+            prendido ? "translate-x-5.5" : "translate-x-0.5"
+          }`}
+        >
+          {prendido && <Icono nombre="check" className="size-4" />}
+        </span>
+      </span>
+      <span>
+        <span className="block font-bold">{children}</span>
+        {ayuda && <span className="block text-tinta-media">{ayuda}</span>}
+        <span className="block text-apoyo text-tinta-suave">
+          {prendido ? palabras[1] : palabras[0]}
+          {motivo && ` · ${motivo}`}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 // Con el teléfono acostado quedan menos de 400 px de alto: ahí lo fijo no
 // puede comerse la pantalla, así que el botón deja de ir clavado y acompaña
 // al formulario (auditoría, criterio "funciona acostado").
