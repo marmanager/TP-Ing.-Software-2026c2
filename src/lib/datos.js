@@ -9,7 +9,7 @@
 // Sirve para que los cuatro puedan clonar y levantar el proyecto sin esperar
 // a que alguien reparta las claves, y para que la demo no dependa del wifi.
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
@@ -479,6 +479,12 @@ export function DatosProvider({ children }) {
   // Vive mientras el aviso esté en pantalla: el "Deshacer" está donde ocurrió
   // la acción, no en un menú (auditoría, H3).
   const [deshacerExito, setDeshacerExito] = useState(null);
+  // De qué negocio es lo que hay en pantalla. Al cambiar de negocio, hasta
+  // tener el nuevo se muestra "cargando" y no lo del anterior.
+  const cargadoDe = useRef(null);
+  // Si desde otro dispositivo la cuenta pasó a otro negocio (o la sacaron de
+  // éste): { nombre } del nuevo, o nombre null. Ver docs/multinegocio.md.
+  const [otroNegocio, setOtroNegocio] = useState(null);
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
   // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
@@ -519,6 +525,7 @@ export function DatosProvider({ children }) {
       // Cuenta real todavía sin negocio: la Guardia manda a crearlo.
       if (!usuario.negocio_id) {
         if (!vivo) return;
+        cargadoDe.current = null;
         setDatos(VACIO);
         setFuente("supabase");
         setCargando(false);
@@ -526,15 +533,40 @@ export function DatosProvider({ children }) {
       }
 
       // Cuenta real con negocio: se lee de Supabase, sólo lo de ese negocio.
+      if (cargadoDe.current !== usuario.negocio_id) setCargando(true);
       try {
         const traido = await leerDeSupabase(usuario.negocio_id);
         if (!vivo) return;
         if (traido.negocio) {
+          cargadoDe.current = usuario.negocio_id;
+          setOtroNegocio(null);
           setDatos(traido);
           setFuente("supabase");
           setCargando(false);
           return;
         }
+
+        // La base ya no deja ver este negocio. Si es porque la cuenta está en
+        // otro —se cambió desde otro dispositivo— o porque la sacaron, lo
+        // que hay en pantalla queda, con un cartel para recargar: cambiar
+        // solo podría llevarse algo que se estaba escribiendo. Mientras
+        // tanto la base rechaza lo que se intente guardar acá.
+        const { data: ahora } = await supabase
+          .from("usuario")
+          .select("negocio_id")
+          .eq("id", usuario.id)
+          .maybeSingle();
+        if (!vivo) return;
+        if (ahora && ahora.negocio_id !== usuario.negocio_id) {
+          const { data: suyos } = await supabase.rpc("mis_negocios");
+          if (!vivo) return;
+          setOtroNegocio({
+            nombre: suyos?.find((n) => n.id === ahora.negocio_id)?.nombre ?? null,
+          });
+          setCargando(false);
+          return;
+        }
+
         setAviso(
           "Tu negocio todavía no aparece en la base. Esperá unos segundos y volvé a entrar."
         );
@@ -2015,6 +2047,7 @@ export function DatosProvider({ children }) {
     cargando,
     fuente,
     aviso,
+    otroNegocio,
     exito,
     deshacerExito,
     ...acciones,

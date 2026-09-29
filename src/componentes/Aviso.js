@@ -15,7 +15,7 @@ import { useDatos } from "@/lib/datos";
 import Icono from "./Icono";
 import { Boton } from "./ui";
 
-function Banda({ tono, icono, texto, alDescartar, deshacer, rol }) {
+function Banda({ tono, icono, texto, alDescartar, deshacer, rol, textoDescartar = "Entendido" }) {
   return (
     <div
       role={rol}
@@ -36,7 +36,7 @@ function Banda({ tono, icono, texto, alDescartar, deshacer, rol }) {
           </Boton>
         )}
         <Boton variante="plano" onClick={alDescartar}>
-          Entendido
+          {textoDescartar}
         </Boton>
       </div>
     </div>
@@ -44,9 +44,9 @@ function Banda({ tono, icono, texto, alDescartar, deshacer, rol }) {
 }
 
 export default function Aviso() {
-  const { aviso, exito, deshacerExito, descartarAviso, descartarExito } = useDatos();
+  const { aviso, exito, deshacerExito, descartarAviso, descartarExito, otroNegocio } = useDatos();
 
-  if (!exito && !aviso) return null;
+  if (!exito && !aviso && !otroNegocio) return null;
 
   return (
     <div
@@ -69,6 +69,22 @@ export default function Aviso() {
           icono="alerta"
           texto={aviso}
           alDescartar={descartarAviso}
+        />
+      )}
+      {/* No se descarta: lo de abajo ya es de un negocio en el que no está.
+          Recargar lee de nuevo la cuenta y entra al negocio en el que está. */}
+      {otroNegocio && (
+        <Banda
+          rol="alert"
+          tono="border-l-espera bg-espera-fondo text-espera"
+          icono="alerta"
+          texto={
+            otroNegocio.nombre
+              ? `Desde otro dispositivo pasaste a ${otroNegocio.nombre}. Lo que ves acá es del negocio anterior y ya no se guarda.`
+              : "Ya no estás en este negocio. Lo que ves acá ya no se guarda."
+          }
+          textoDescartar="Recargar"
+          alDescartar={() => window.location.reload()}
         />
       )}
     </div>
