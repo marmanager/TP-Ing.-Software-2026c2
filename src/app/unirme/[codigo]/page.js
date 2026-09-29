@@ -6,6 +6,9 @@
 // que la pantalla tiene que explicarse sola: sin cuenta, o con cuenta —con o
 // sin negocios—. Sumarse a otro negocio no saca de los que ya se tiene: se
 // entra al nuevo, y desde Mi perfil se vuelve.
+//
+// Se puede ver a qué negocio te invitan ANTES de crearte la cuenta: crearse
+// una cuenta a ciegas sería pedirle a alguien que firme sin leer.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -137,7 +140,6 @@ export default function Unirme() {
       </>
     );
   }
-
 
   return (
     <>

@@ -324,6 +324,7 @@ end;
 $$;
 
 revoke all on function aceptar_invitacion(text, text) from public;
+revoke all on function aceptar_invitacion(text, text) from anon;
 grant execute on function aceptar_invitacion(text, text) to authenticated;
 
 -- ------------------------------------------------------------

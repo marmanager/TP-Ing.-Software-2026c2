@@ -169,7 +169,7 @@ export default function Equipo() {
                     )}
                     <p className="font-bold text-subtitulo">{e.nombre}</p>
                     {esVos && (
-                      <span className="rounded-full bg-azul-claro px-3 py-1 text-apoyo font-bold text-azul">
+                      <span className="shrink-0 rounded-full bg-azul-claro px-3 py-1 text-apoyo font-bold text-azul">
                         Vos
                       </span>
                     )}

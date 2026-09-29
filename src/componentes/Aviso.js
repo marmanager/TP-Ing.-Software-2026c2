@@ -72,7 +72,8 @@ export default function Aviso() {
         />
       )}
       {/* No se descarta: lo de abajo ya es de un negocio en el que no está.
-          Recargar lee de nuevo la cuenta y entra al negocio en el que está. */}
+          Recargar lleva al Inicio del negocio en el que está: la misma
+          dirección, si era un detalle, no existiría en el nuevo. */}
       {otroNegocio && (
         <Banda
           rol="alert"
@@ -84,7 +85,7 @@ export default function Aviso() {
               : "Ya no estás en este negocio. Lo que ves acá ya no se guarda."
           }
           textoDescartar="Recargar"
-          alDescartar={() => window.location.reload()}
+          alDescartar={() => window.location.assign("/")}
         />
       )}
     </div>

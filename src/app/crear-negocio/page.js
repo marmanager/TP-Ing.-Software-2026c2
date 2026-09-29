@@ -43,7 +43,6 @@ export default function CrearNegocio() {
     }
   }, []);
 
-
   const elegido = rubro ? preset(rubro) : null;
   const motivo = !nombre.trim()
     ? "falta el nombre"

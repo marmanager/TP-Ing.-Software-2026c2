@@ -43,7 +43,7 @@ export function invitacionPendiente() {
   }
 }
 
-function olvidarInvitacion() {
+export function olvidarInvitacion() {
   try {
     window.localStorage.removeItem(LLAVE_INVITACION);
   } catch {
