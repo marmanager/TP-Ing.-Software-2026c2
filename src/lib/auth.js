@@ -11,7 +11,7 @@
 // La tabla `usuario` liga la cuenta con su negocio, y de ahí cuelgan todas
 // las políticas de Row Level Security (supabase/005_rls.sql y 008_permisos.sql).
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, haySupabase, formasDeEntrar } from "./supabase";
 import { errorAlSalirHaciaGoogle, googleActivado, nombreDeLaCuenta, origenDeIngreso } from "./ingreso-google.js";
 
@@ -102,6 +102,12 @@ export function AuthProvider({ children }) {
   const [recuperando, setRecuperando] = useState(false);
   // Si "Entrar con Google" está activado en Supabase. Hasta saberlo, no.
   const [hayGoogle, setHayGoogle] = useState(false);
+  // Id de la cuenta cargada en `usuario`; el callback de onAuthStateChange
+  // vive con el alcance del montaje y no vería el estado al día.
+  const idCargado = useRef(null);
+  useEffect(() => {
+    idCargado.current = usuario?.id ?? null;
+  }, [usuario]);
 
   useEffect(() => {
     let vivo = true;
@@ -180,6 +186,14 @@ export function AuthProvider({ children }) {
         setCargando(false);
         return;
       }
+      // Supabase avisa SIGNED_IN cada vez que la pestaña vuelve al frente (y
+      // TOKEN_REFRESHED al renovar la sesión). Releer la cuenta ahí cambiaba
+      // solo de negocio si se había cambiado en otro dispositivo, y pasaba
+      // por "cargando", borrando lo que se estaba escribiendo. Si ya es la
+      // misma cuenta, no se toca nada: lo que cambia la cuenta desde este
+      // dispositivo ya la relee, y lo de otro dispositivo lo detecta datos.js
+      // y lo avisa (docs/multinegocio.md).
+      if (s.user.id === idCargado.current) return;
       // Supabase puede bloquear las llamadas hechas dentro de este callback.
       // Esperamos al siguiente ciclo antes de consultar la tabla usuario.
       setCargando(true);

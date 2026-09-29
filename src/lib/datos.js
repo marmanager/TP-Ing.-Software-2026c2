@@ -501,6 +501,8 @@ export function DatosProvider({ children }) {
       // Sin entrar: no hay nada que cargar. La Guardia manda a iniciar sesión.
       if (!esDemo && !usuario) {
         if (!vivo) return;
+        cargadoDe.current = null;
+        setOtroNegocio(null);
         setDatos(VACIO);
         setCargando(false);
         return;
@@ -526,6 +528,7 @@ export function DatosProvider({ children }) {
       if (!usuario.negocio_id) {
         if (!vivo) return;
         cargadoDe.current = null;
+        setOtroNegocio(null);
         setDatos(VACIO);
         setFuente("supabase");
         setCargando(false);
