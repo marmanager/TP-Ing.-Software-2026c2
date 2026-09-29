@@ -39,10 +39,11 @@ export default function Negocios() {
       if (!r.ok) {
         setEntrando(null);
         setError(r.error);
-        return;
+        return false;
       }
     }
     router.replace("/");
+    return true;
   }
 
   useEffect(() => {
@@ -66,8 +67,11 @@ export default function Negocios() {
         inicioRapido: usuario?.inicio_rapido,
       });
       if (paso.ir === "crear") router.replace("/crear-negocio");
-      else if (paso.ir === "entrar") entrar(paso.negocio);
-      else setNegocios(r.negocios);
+      else if (paso.ir === "entrar") {
+        // Si entrar directo falla, se muestra la lista con el error: sin esto
+        // quedaba el "Cargando" para siempre y el error no se veía.
+        if (!(await entrar(paso.negocio)) && vivo) setNegocios(r.negocios);
+      } else setNegocios(r.negocios);
     })();
     return () => {
       vivo = false;
