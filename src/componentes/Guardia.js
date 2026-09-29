@@ -4,9 +4,10 @@
 //
 // Decide, según el estado de la sesión, si se ve una pantalla de entrada o el
 // sistema completo con su navegación, y manda a la persona a donde corresponde:
-//   sin entrar            -> /iniciar-sesion
+//   sin entrar             -> /bienvenida
 //   entró, falta confirmar -> /confirma-tu-mail
-//   entró, sin negocio     -> /crear-negocio
+//   entró, sin negocio     -> /negocios (el modo de ejemplo, /crear-negocio)
+//   recién entró           -> /negocios, que elige o entra directo
 //   entró y con negocio    -> el sistema
 
 import { usePathname, useRouter } from "next/navigation";
@@ -31,6 +32,9 @@ const RUTAS_ENTRADA = [
 ];
 const RUTA_NEGOCIO = "/crear-negocio";
 const RUTA_CONFIRMAR = "/confirma-tu-mail";
+// "¿A qué negocio entrás?" (docs/multinegocio.md). Se puede abrir con o sin
+// negocio activo, y va con el marco de las pantallas de entrada.
+const RUTA_NEGOCIOS = "/negocios";
 
 // La landing es lo primero que ve quien todavía no tiene cuenta. No entra en
 // RUTAS_ENTRADA porque no comparte el marco: las pantallas de entrada son una
@@ -121,12 +125,16 @@ export default function Guardia({ children }) {
     } else if (!esDemo && necesitaConfirmarMail) {
       if (ruta !== RUTA_CONFIRMAR) destino = RUTA_CONFIRMAR;
     } else if (!tieneNegocio) {
-      if (ruta !== RUTA_NEGOCIO && !esInvitacion(ruta)) destino = RUTA_NEGOCIO;
+      // Una cuenta real sin negocio activo elige entre los suyos o crea uno.
+      // El modo de ejemplo tiene uno solo: lo crea.
+      if (ruta !== RUTA_NEGOCIO && ruta !== RUTA_NEGOCIOS && !esInvitacion(ruta))
+        destino = esDemo ? RUTA_NEGOCIO : RUTA_NEGOCIOS;
     } else if (RUTAS_ENTRADA.includes(ruta) || ruta === RUTA_BIENVENIDA) {
-      // Con negocio ya creado, /crear-negocio se puede visitar (avisa que ya
-      // hay uno); las demás pantallas de entrada, y la landing, llevan al
-      // inicio: a quien ya entró no hay nada que contarle.
-      destino = "/";
+      // Con sesión y negocio, estar en una pantalla de entrada es haber
+      // iniciado sesión recién —así se vuelve de Google—: toca elegir
+      // negocio. El modo de ejemplo tiene uno solo y va directo al Inicio.
+      // /crear-negocio y /negocios se pueden visitar teniendo negocio.
+      destino = esDemo ? "/" : RUTA_NEGOCIOS;
     }
   }
 
@@ -156,6 +164,7 @@ export default function Guardia({ children }) {
     !tieneNegocio ||
     RUTAS_ENTRADA.includes(ruta) ||
     ruta === RUTA_NEGOCIO ||
+    ruta === RUTA_NEGOCIOS ||
     esInvitacion(ruta);
 
   if (enEntrada) return <PantallaEntrada>{children}</PantallaEntrada>;

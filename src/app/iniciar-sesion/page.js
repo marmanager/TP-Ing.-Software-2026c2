@@ -48,7 +48,7 @@ export default function IniciarSesion() {
       setErrorGeneral(r.error);
       return;
     }
-    router.replace("/");
+    router.replace("/negocios");
   }
 
   function verEjemplo() {
