@@ -43,11 +43,6 @@ export default function CrearNegocio() {
     }
   }, []);
 
-  // El modo de ejemplo también crea su negocio: es el mismo paso, sólo que se
-  // guarda en el navegador.
-  if (!esDemo && usuario?.negocio_id) {
-    return <YaHayNegocio texto="Ya tenés un negocio creado." />;
-  }
 
   const elegido = rubro ? preset(rubro) : null;
   const motivo = !nombre.trim()
@@ -202,26 +197,17 @@ export default function CrearNegocio() {
           </Boton>
         </div>
       </Tarjeta>
-    </>
-  );
-}
 
-function YaHayNegocio({ texto }) {
-  return (
-    <>
-      <TituloPantalla>Crear tu negocio</TituloPantalla>
-      <Tarjeta>
-        <p className="text-tinta-media">{texto}</p>
-        <div className="mt-4">
-          <Link
-            href="/"
-            className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
-          >
+      {/* Quien ya está en un negocio llega acá desde "Nuevo negocio", y puede
+          arrepentirse. */}
+      {!esDemo && usuario?.negocio_id && (
+        <div className="mt-6">
+          <Link href="/" className="inline-flex min-h-12 items-center gap-2 font-bold text-azul">
             <Icono nombre="volver" />
-            Ir al inicio
+            Volver sin crear
           </Link>
         </div>
-      </Tarjeta>
+      )}
     </>
   );
 }

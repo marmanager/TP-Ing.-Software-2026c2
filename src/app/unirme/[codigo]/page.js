@@ -3,11 +3,9 @@
 // "Sumarme a un negocio" (SCRUM-34).
 //
 // Es la otra punta del link de invitación. Se abre en cualquier estado, así
-// que la pantalla tiene que explicarse sola: sin cuenta, con cuenta y sin
-// negocio, o con un negocio propio.
-//
-// Se puede ver a qué negocio te invitan ANTES de crearte la cuenta: crearse
-// una cuenta a ciegas sería pedirle a alguien que firme sin leer.
+// que la pantalla tiene que explicarse sola: sin cuenta, o con cuenta —con o
+// sin negocios—. Sumarse a otro negocio no saca de los que ya se tiene: se
+// entra al nuevo, y desde Mi perfil se vuelve.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -20,7 +18,7 @@ import Icono from "@/componentes/Icono";
 export default function Unirme() {
   const { codigo } = useParams();
   const router = useRouter();
-  const { sesion, usuario, esDemo, cargando, verInvitacion, aceptarInvitacion } = useAuth();
+  const { sesion, esDemo, cargando, verInvitacion, aceptarInvitacion } = useAuth();
   useTitulo("Sumarte a un negocio");
 
   const [mirando, setMirando] = useState(true);
@@ -140,30 +138,6 @@ export default function Unirme() {
     );
   }
 
-  // Ya tiene un negocio: no se puede estar en dos.
-  if (usuario?.negocio_id) {
-    return (
-      <>
-        {cabecera}
-        <Tarjeta>
-          <p className="max-w-[65ch] text-tinta-media">
-            Tu cuenta ya está en un negocio, y por ahora cada cuenta puede estar en uno
-            solo. Si querés sumarte a {invitacion.negocio}, pedile a quien te invitó que
-            invite a otro mail tuyo.
-          </p>
-          <div className="mt-6">
-            <Link
-              href="/"
-              className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
-            >
-              <Icono nombre="volver" />
-              Ir a Hoy
-            </Link>
-          </div>
-        </Tarjeta>
-      </>
-    );
-  }
 
   return (
     <>
