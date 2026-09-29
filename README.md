@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `034_mi_perfil.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `035_usuario_blindado.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
@@ -962,6 +962,18 @@ La tabla `usuario` liga la cuenta con su negocio, y la función `mi_negocio()` e
 de la que cuelgan todas las políticas. El negocio se crea con la función
 `crear_mi_negocio()`, que lo da de alta y lo ata a la cuenta en un solo paso —
 por eso `negocio` no tiene política de alta: no se pueden crear negocios sueltos.
+
+**`usuario.negocio_id` y `usuario.rol` no se tocan desde el navegador**
+(`035_usuario_blindado.sql`). Son las dos columnas de las que leen
+`mi_negocio()` y `mi_rol()`, y hasta la 035 cada cuenta podía cambiarlas en su
+propia fila: las políticas filtran filas, no columnas, y la de `usuario` sólo
+mira que la fila sea de quien entró. Un técnico se podía poner `'duenio'`, y
+cualquiera que conociera el identificador de otro negocio se podía meter en él.
+Ahora las cuentas no pueden modificar ninguna columna de `usuario`, y al crear
+su fila sólo pueden mandar `id`, `email`, `telefono` y `nombre`. El negocio y el
+rol cambian únicamente a través de las funciones de la base, que verifican antes
+de tocar. Si alguna vez hace falta que el navegador escriba otra columna de
+`usuario`, se le da permiso a esa columna sola, nunca a la tabla.
 
 ## Lo que todavía no está
 

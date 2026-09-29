@@ -1,0 +1,59 @@
+-- ============================================================
+-- 035_usuario_blindado.sql — nadie cambia su negocio ni su rol a mano
+--
+-- Correr entero en el SQL Editor de Supabase, después de 001..034.
+-- Es idempotente.
+--
+-- EL AGUJERO:
+-- usuario_edita_lo_suyo (005_rls.sql) deja modificar la fila propia, y las
+-- políticas filtran filas, no columnas. Así que cada cuenta podía cambiar
+-- cualquier columna de su propia fila, incluidas las dos de las que cuelga
+-- toda la seguridad:
+--
+--   usuario.rol         de donde lee mi_rol() (008). Un técnico podía ponerse
+--                       'duenio' con una sola consulta, usando la clave
+--                       pública que viaja en el navegador, y quedaban anulados
+--                       todos los permisos por rol.
+--
+--   usuario.negocio_id  de donde lee mi_negocio() (005). Una cuenta que
+--                       conociera el identificador de otro negocio —alguien
+--                       que trabajó ahí y lo sacaron del equipo— podía ponerlo
+--                       en su fila y ver todos sus datos.
+--
+-- Lo mismo con usuario_crea_lo_suyo: una cuenta nueva podía crear su fila ya
+-- con un negocio y un rol elegidos por ella.
+--
+-- EL ARREGLO:
+-- Permisos por columna, que Postgres controla aparte de las políticas. Desde
+-- el navegador:
+--
+--   modificar:  ninguna columna. El perfil se guarda con guardar_mi_perfil()
+--               (034), que es security definer y no depende de este permiso.
+--
+--   crear:      sólo id, email, telefono y nombre. negocio_id nace vacío y rol
+--               con su valor por defecto; sin negocio, mi_negocio() da null y
+--               no se ve nada, así que ese rol no abre nada.
+--
+-- negocio_id y rol pasan a cambiar sólo a través de las funciones de la base
+-- —crear_mi_negocio(), aceptar_invitacion()—, que verifican antes de tocar.
+-- Esas funciones son security definer: corren como su dueño, y este cambio no
+-- las alcanza.
+--
+-- Leer no cambia: usuario_ve_lo_suyo sigue igual.
+--
+-- CÓMO VERIFICARLO, después de correrlo (sólo lee):
+--
+--   select privilege_type, column_name
+--     from information_schema.column_privileges
+--    where table_schema = 'public' and table_name = 'usuario'
+--      and grantee = 'authenticated' and privilege_type in ('INSERT', 'UPDATE')
+--    order by 1, 2;
+--
+-- Tiene que devolver cuatro filas, todas INSERT: email, id, nombre, telefono.
+-- Ninguna UPDATE.
+-- ============================================================
+
+revoke insert, update on usuario from authenticated;
+revoke insert, update on usuario from anon;
+
+grant insert (id, email, telefono, nombre) on usuario to authenticated;

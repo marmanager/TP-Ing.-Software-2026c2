@@ -133,7 +133,12 @@ export function AuthProvider({ children }) {
       .maybeSingle();
     if (error) return sinBase; // la tabla puede no existir todavía
     if (data) return data;
-    await supabase.from("usuario").insert(sinBase);
+    // Sin negocio_id ni rol: la base no deja que una cuenta los elija
+    // (035_usuario_blindado.sql), y rechaza el alta entera si los nombra,
+    // aunque vayan vacíos. Nacen con sus valores por defecto —sin negocio,
+    // rol 'duenio'—, que son los mismos que dice sinBase.
+    const { id, email, telefono, nombre } = sinBase;
+    await supabase.from("usuario").insert({ id, email, telefono, nombre });
     return sinBase;
   }
 
