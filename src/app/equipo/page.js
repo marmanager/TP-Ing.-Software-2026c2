@@ -151,6 +151,10 @@ export default function Equipo() {
             const foto = e.usuario_id
               ? fotosEquipo.find((f) => f.usuario_id === e.usuario_id)?.foto
               : null;
+            // La ficha propia: desde la 038 el dueño también tiene una. No se
+            // cambia el rol ni se saca a sí mismo —la base lo rechaza (036,
+            // 037)—, y un botón que no funciona no se muestra.
+            const esVos = Boolean(e.usuario_id) && e.usuario_id === usuario?.id;
             return (
               <li key={e.id}>
                 <Tarjeta className="h-full">
@@ -164,9 +168,14 @@ export default function Equipo() {
                       </span>
                     )}
                     <p className="font-bold text-subtitulo">{e.nombre}</p>
+                    {esVos && (
+                      <span className="rounded-full bg-azul-claro px-3 py-1 text-apoyo font-bold text-azul">
+                        Vos
+                      </span>
+                    )}
                   </div>
 
-                  {puedeManejar ? (
+                  {puedeManejar && !esVos ? (
                     <div className="mt-4">
                       <label
                         htmlFor={`rol-${e.id}`}
@@ -263,7 +272,7 @@ export default function Equipo() {
                     </Boton>
                   )}
 
-                  {!puedeManejar ? null : sacando === e.id ? (
+                  {!puedeManejar || esVos ? null : sacando === e.id ? (
                     <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                       <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
                       {/* Con cuenta, sacarlo también le quita el acceso (036): es
