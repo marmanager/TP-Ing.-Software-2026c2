@@ -19,7 +19,7 @@ import Icono from "@/componentes/Icono";
 
 export default function CrearNegocio() {
   const router = useRouter();
-  const { esDemo, usuario, anotarNegocio } = useAuth();
+  const { esDemo, usuario, refrescarUsuario } = useAuth();
   const { crearNegocio } = useDatos();
   useTitulo("Crear tu negocio");
 
@@ -67,7 +67,10 @@ export default function CrearNegocio() {
       setErrorGeneral(creado.error);
       return;
     }
-    anotarNegocio(creado.id);
+    // La base ya dejó la cuenta adentro, como dueña (038). Se vuelve a leer
+    // la fila entera y no sólo el negocio: el rol también cambió. En el modo
+    // de ejemplo no hay cuenta y no hace nada.
+    await refrescarUsuario();
     router.replace("/");
   }
 

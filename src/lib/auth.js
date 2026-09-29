@@ -357,11 +357,42 @@ export function AuthProvider({ children }) {
         return { ok: true };
       },
 
-      // La usa "Crear negocio" (SCRUM-12) al volver de crear_mi_negocio().
-      // El vínculo en la base ya lo dejó hecho esa función; acá sólo se
-      // refresca lo que hay en pantalla, para no leer de nuevo.
-      anotarNegocio(negocioId) {
-        setUsuario((u) => (u ? { ...u, negocio_id: negocioId } : u));
+      // Los negocios de la cuenta (docs/multinegocio.md): uno por cada ficha
+      // de equipo que tiene. Sin la 038 corrida la función no existe y da
+      // ok: false; quien la usa sigue como antes, con el negocio activo.
+      async misNegocios() {
+        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        const { data, error } = await supabase.rpc("mis_negocios");
+        if (error) return { ok: false, error: traducir(error) };
+        return { ok: true, negocios: data ?? [] };
+      },
+
+      // Pasa la cuenta a otro de sus negocios. La base verifica que tenga
+      // ficha ahí y copia el rol de esa ficha (038). Después se vuelve a leer
+      // la fila de usuario, y con eso datos.js carga el negocio nuevo.
+      async entrarAlNegocio(negocioId) {
+        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        const { error } = await supabase.rpc("entrar_al_negocio", { p_negocio: negocioId });
+        if (error) {
+          return { ok: false, error: error.code === "P0001" ? error.message : traducir(error) };
+        }
+        if (sesion?.user) setUsuario(await traerUsuario(sesion.user));
+        return { ok: true };
+      },
+
+      // El predeterminado y el Inicio rápido: valen para la cuenta, en todos
+      // los dispositivos, por eso van a la base y no al navegador.
+      async guardarPreferenciasDeEntrada({ predeterminado, inicioRapido }) {
+        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        const { error } = await supabase.rpc("guardar_preferencias_de_entrada", {
+          p_predeterminado: predeterminado ?? null,
+          p_inicio_rapido: Boolean(inicioRapido),
+        });
+        if (error) {
+          return { ok: false, error: error.code === "P0001" ? error.message : traducir(error) };
+        }
+        if (sesion?.user) setUsuario(await traerUsuario(sesion.user));
+        return { ok: true };
       },
 
       // Guarda el perfil de quien entró (SCRUM-118): nombre, teléfono y foto,
@@ -388,7 +419,8 @@ export function AuthProvider({ children }) {
       },
 
       // Vuelve a leer la fila de `usuario`. Se usa después de aceptar una
-      // invitación, donde cambian el negocio y el rol de una sola vez.
+      // invitación o de crear un negocio, donde cambian el negocio y el rol
+      // de una sola vez.
       async refrescarUsuario() {
         if (!sesion?.user) return { ok: false };
         const u = await traerUsuario(sesion.user);
