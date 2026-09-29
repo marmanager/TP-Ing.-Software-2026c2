@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `036_sacar_del_equipo.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `037_rol_da_permisos.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
@@ -982,6 +982,17 @@ borrado de `empleado` deja a esa cuenta sin negocio en la misma operación. Va
 como trigger y no en la pantalla a propósito: lo que abría el agujero era
 borrar la ficha, por el camino que fuera, así que el arreglo cubre todos los
 caminos.
+
+**El rol de Equipo es el que da los permisos** (`037_rol_da_permisos.sql`). Cada
+persona con cuenta tenía el rol en dos lugares: la etiqueta de su ficha y el que
+daba los permisos (`usuario.rol`), y nada los volvía a unir después de la
+invitación. Bajar a un encargado a técnico le cambiaba la etiqueta y seguía con
+permisos de encargado. Ahora cambiar el rol de la ficha cambia los permisos, y
+Equipo lo confirma antes diciendo qué gana y qué pierde la persona. Nadie se
+puede cambiar el rol propio, y `empleado.usuario_id` no se escribe desde el
+navegador: sólo lo pone aceptar una invitación. Al correrla, las etiquetas que
+ya no coincidían se corrigen para decir la verdad: la migración no le cambia el
+acceso a nadie.
 
 ## Lo que todavía no está
 

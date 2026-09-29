@@ -598,7 +598,12 @@ export function DatosProvider({ children }) {
     const escribir = async (tabla, fila, { insertar = false } = {}) => {
       if (!enSupabase()) return;
       const q = supabase.from(tabla);
-      const { error } = insertar ? await q.insert(fila) : await q.update(fila).eq("id", fila.id);
+      // Al modificar, el id dice qué fila y no va entre lo que cambia: nadie
+      // reescribe una clave. Además, en las tablas con permisos por columna
+      // (035, 037) la base rechaza la modificación entera si nombra una
+      // columna sin permiso, aunque el valor sea el mismo.
+      const { id, ...cambios } = fila;
+      const { error } = insertar ? await q.insert(fila) : await q.update(cambios).eq("id", id);
       if (error) setAviso("No se pudo guardar en la base: " + error.message);
     };
 
@@ -1624,15 +1629,16 @@ export function DatosProvider({ children }) {
         return empleado;
       },
 
-      // OJO AL CAMBIAR ESTO. Hoy el rol del empleado es sólo el nombre con
-      // el que figura en la lista: quién puede qué sale de usuario.rol, que
-      // mira la base con mi_rol() (008_permisos.sql). Por eso el desplegable
-      // cambia el rol sin preguntar nada.
+      // OJO AL CAMBIAR ESTO. Desde la 037 el rol de la ficha es el que da los
+      // permisos: si la ficha es de una cuenta, la base pasa este rol a
+      // usuario.rol, que es de donde lee mi_rol() (008_permisos.sql). Antes
+      // era sólo el nombre con el que figuraba en la lista.
       //
-      // El día que este rol dé permisos, el cambio tiene que pedir
+      // Por eso Equipo, antes de llamar acá por alguien con cuenta, pide
       // confirmación diciendo qué gana y qué pierde esa persona: en un
       // desplegable de celular el dedo arrastra y elige otra opción sin
-      // querer (auditoría, H5).
+      // querer (auditoría, H5). Una ficha sin cuenta sigue siendo sólo un
+      // nombre y cambia directo.
       cambiarRolEmpleado(empleadoId, rol) {
         setDatos((d) => ({
           ...d,

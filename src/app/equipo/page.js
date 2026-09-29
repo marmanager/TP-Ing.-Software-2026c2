@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, queCambiaConElRol, QUIEN_PUEDE } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
 import { ORDEN_ROLES, etiquetaRol } from "@/lib/presets";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -39,6 +39,10 @@ export default function Equipo() {
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState("tecnico");
   const [sacando, setSacando] = useState(null);
+  // El cambio de rol de alguien con cuenta, esperando que se confirme:
+  // { id, rol }. Desde la 037 el rol da los permisos, y el cambio se confirma
+  // diciendo qué gana y qué pierde la persona (auditoría, H5).
+  const [cambiandoRol, setCambiandoRol] = useState(null);
 
   if (cargando) return <Cargando />;
 
@@ -170,13 +174,22 @@ export default function Equipo() {
                       >
                         Qué hace
                       </label>
+                      {/* Con cuenta, el rol da los permisos (037): elegir otro no
+                          lo cambia todavía, abre la confirmación de abajo. Sin
+                          cuenta —una ficha cargada a mano— es sólo el nombre
+                          con el que figura, y cambia directo como siempre. */}
                       <select
                         id={`rol-${e.id}`}
                         value={e.rol}
                         onChange={(ev) => {
-                          datos.cambiarRolEmpleado(e.id, ev.target.value);
+                          const nuevo = ev.target.value;
+                          if (e.usuario_id) {
+                            setCambiandoRol({ id: e.id, rol: nuevo });
+                            return;
+                          }
+                          datos.cambiarRolEmpleado(e.id, nuevo);
                           avisarExito(
-                            `${e.nombre} ahora figura como ${etiquetaRol(rubro, ev.target.value).toLowerCase()}.`
+                            `${e.nombre} ahora figura como ${etiquetaRol(rubro, nuevo).toLowerCase()}.`
                           );
                         }}
                         className="mt-1 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
@@ -187,6 +200,22 @@ export default function Equipo() {
                           </option>
                         ))}
                       </select>
+
+                      {cambiandoRol?.id === e.id && (
+                        <ConfirmarRol
+                          persona={e}
+                          nuevo={cambiandoRol.rol}
+                          rubro={rubro}
+                          alConfirmar={() => {
+                            datos.cambiarRolEmpleado(e.id, cambiandoRol.rol);
+                            avisarExito(
+                              `Listo. ${e.nombre} ahora es ${etiquetaRol(rubro, cambiandoRol.rol).toLowerCase()}.`
+                            );
+                            setCambiandoRol(null);
+                          }}
+                          alCancelar={() => setCambiandoRol(null)}
+                        />
+                      )}
                     </div>
                   ) : (
                     <p className="mt-2 text-apoyo text-tinta-suave">
@@ -237,10 +266,19 @@ export default function Equipo() {
                   {!puedeManejar ? null : sacando === e.id ? (
                     <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                       <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
+                      {/* Con cuenta, sacarlo también le quita el acceso (036): es
+                          lo más importante que pasa, y va primero. */}
+                      {e.usuario_id && (
+                        <p className="mt-1 font-bold text-tinta">
+                          Su cuenta deja de poder entrar a este negocio.
+                        </p>
+                      )}
                       <p className="mt-1 text-tinta-media">
                         {suyos.length
                           ? `Sus ${suyos.length} ${suyos.length === 1 ? "caso queda" : "casos quedan"} sin responsable. No se borra ningún caso.`
-                          : "No tiene casos abiertos, así que no cambia nada más."}
+                          : e.usuario_id
+                            ? "No tiene casos abiertos."
+                            : "No tiene casos abiertos, así que no cambia nada más."}
                       </p>
                       <div className="mt-4 flex flex-wrap gap-3">
                         <Boton variante="peligro" icono="tacho" onClick={() => sacar(e)}>
@@ -290,5 +328,57 @@ export default function Equipo() {
         </>
       )}
     </>
+  );
+}
+
+// ------------------------------------------------------------
+// Confirmar un cambio de rol (037)
+// ------------------------------------------------------------
+// Desde la 037 el rol de la ficha da los permisos, y el cambio se confirma
+// diciendo qué gana y qué pierde la persona: en un desplegable de celular el
+// dedo elige otra opción sin querer (auditoría, H5). Lo que sale de las dos
+// listas lo decide queCambiaConElRol(), en lib/permisos.js, con pruebas.
+//
+// Van como lista y no en una oración: las frases de los permisos ya tienen
+// comas adentro, y unidas se mezclarían.
+//
+// Bajar a alguien —que pierda algo— va en rojo, como "Sacar del equipo": deja
+// a una persona sin poder hacer parte de su trabajo.
+function ConfirmarRol({ persona, nuevo, rubro, alConfirmar, alCancelar }) {
+  const { gana, pierde } = queCambiaConElRol(persona.rol, nuevo);
+  return (
+    <div className="mt-3 rounded-tarjeta bg-superficie p-4">
+      <p className="font-bold text-cuerpo">
+        ¿Pasar a {persona.nombre} a {etiquetaRol(rubro, nuevo).toLowerCase()}?
+      </p>
+      {pierde.length > 0 && (
+        <>
+          <p className="mt-2 font-bold text-tinta">Deja de poder:</p>
+          <ul className="ml-5 list-disc text-tinta-media">
+            {pierde.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {gana.length > 0 && (
+        <>
+          <p className="mt-2 font-bold text-tinta">Va a poder:</p>
+          <ul className="ml-5 list-disc text-tinta-media">
+            {gana.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Boton variante={pierde.length > 0 ? "peligro" : "borde"} icono="check" onClick={alConfirmar}>
+          Sí, cambiarlo
+        </Boton>
+        <Boton variante="plano" onClick={alCancelar}>
+          Dejarlo como está
+        </Boton>
+      </div>
+    </div>
   );
 }

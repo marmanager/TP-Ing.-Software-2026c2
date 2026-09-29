@@ -74,3 +74,31 @@ export const QUIEN_PUEDE = {
   // acciones se puedan explicar con las mismas palabras si hace falta.
   verTodosLosCasos: "Cada quien ve los casos que tiene asignados.",
 };
+
+// Qué significa cada permiso, dicho de la persona. Para la confirmación de
+// Equipo: "Va a poder..." / "Deja de poder...".
+const QUE_ES = {
+  configurarNegocio: "cambiar la configuración del negocio",
+  manejarEquipo: "sumar y sacar gente del equipo",
+  verTodosLosCasos: "ver todos los casos, no sólo los suyos",
+  cargarDatos: "cargar y cambiar casos, presupuestos, clientes, agenda e inventario",
+};
+
+// Qué gana y qué pierde alguien al pasar de un rol a otro.
+//
+// Desde la 037, cambiar el rol en Equipo cambia los permisos de verdad, y el
+// cambio se confirma diciendo esto antes (auditoría, H5): en un desplegable de
+// celular el dedo elige otra opción sin querer, y bajar a alguien sin querer
+// lo deja sin poder trabajar.
+//
+// Sale de PERMISOS, no de una lista aparte: si se suma un permiso, entra solo.
+// Si ese permiso no tiene su frase en QUE_ES, la prueba lo ataja.
+export function queCambiaConElRol(de, a) {
+  const antes = PERMISOS[de] ?? {};
+  const despues = PERMISOS[a] ?? {};
+  const claves = Object.keys(PERMISOS.duenio);
+  return {
+    gana: claves.filter((k) => !antes[k] && despues[k]).map((k) => QUE_ES[k]),
+    pierde: claves.filter((k) => antes[k] && !despues[k]).map((k) => QUE_ES[k]),
+  };
+}

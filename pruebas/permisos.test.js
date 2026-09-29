@@ -9,7 +9,7 @@
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
-import { PERMISOS, puede, quienEscribe } from "../src/lib/permisos.js";
+import { PERMISOS, puede, queCambiaConElRol, quienEscribe } from "../src/lib/permisos.js";
 
 const ROLES = ["duenio", "encargado", "tecnico"];
 const ACCIONES = ["configurarNegocio", "manejarEquipo", "verTodosLosCasos", "cargarDatos"];
@@ -98,4 +98,43 @@ test("nunca firma en blanco: una firma vacía se lee como un olvido del sistema"
     }),
     "a"
   );
+});
+
+// ---------------------------------------------------------------
+// Qué gana y qué pierde alguien al cambiarle el rol
+// ---------------------------------------------------------------
+// Cambiar el rol en Equipo cambia los permisos de verdad (037). Antes de
+// confirmarlo, la pantalla dice qué gana y qué pierde esa persona: en un
+// desplegable de celular el dedo elige otra opción sin querer (auditoría, H5).
+
+test("pasar de técnico a encargado: gana ver todo y cargar, no pierde nada", () => {
+  const { gana, pierde } = queCambiaConElRol("tecnico", "encargado");
+  assert.equal(gana.length, 2);
+  assert.ok(gana.some((t) => /todos los casos/.test(t)));
+  assert.ok(gana.some((t) => /cargar/.test(t)));
+  assert.deepEqual(pierde, []);
+});
+
+test("pasar de encargado a técnico es lo mismo al revés", () => {
+  const { gana, pierde } = queCambiaConElRol("encargado", "tecnico");
+  assert.deepEqual(gana, []);
+  assert.deepEqual(pierde, queCambiaConElRol("tecnico", "encargado").gana);
+});
+
+test("pasar a dueño gana también el negocio y el equipo", () => {
+  const { gana } = queCambiaConElRol("encargado", "duenio");
+  assert.ok(gana.some((t) => /equipo/.test(t)));
+  assert.ok(gana.some((t) => /negocio/.test(t)));
+});
+
+test("cada permiso que existe tiene su frase: si se suma uno, no queda callado", () => {
+  // Si mañana alguien agrega un permiso a PERMISOS y se olvida de decir qué
+  // es, la confirmación lo omitiría: la persona perdería algo sin enterarse.
+  const todo = queCambiaConElRol("tecnico", "duenio").gana;
+  assert.equal(todo.length, Object.keys(PERMISOS.duenio).length);
+  assert.ok(todo.every((t) => typeof t === "string" && t.trim().length > 0));
+});
+
+test("el mismo rol no cambia nada", () => {
+  assert.deepEqual(queCambiaConElRol("encargado", "encargado"), { gana: [], pierde: [] });
 });
