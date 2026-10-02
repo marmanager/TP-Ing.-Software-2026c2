@@ -1,0 +1,50 @@
+# Cómo habla el front con la API
+
+El contrato completo —endpoints, campos, códigos de error, idempotencia, paginado— vive en el repo de la API:
+
+- **`MIGRACION.md`** del repo `TP-IngeSoft-API`: las reglas de la casa y el plan de migración.
+- Un documento por recurso en ese mismo repo, a medida que se construyen.
+
+Acá queda sólo lo que el front implementa, para que quien toque [src/lib/api.js](../src/lib/api.js) sepa qué está cumpliendo sin cambiar de repositorio.
+
+## Las cinco reglas que implementa `api.js`
+
+1. **Toda respuesta tiene la misma forma.** `{ ok: true, datos }` —con `siguiente` si es una lista— o `{ ok: false, error: { codigo, mensaje, campo } }`. El `mensaje` lo escribe la API y se muestra tal cual; el `codigo` es lo único sobre lo que se puede ramificar.
+2. **La sesión viaja en la cabecera**: `Authorization: Bearer <access_token de Supabase>`. Ante un 401, `api.js` avisa una vez para que la aplicación cierre la sesión.
+3. **Los `POST` que crean algo o mueven plata llevan `Idempotency-Key`.** Reintentar con la misma clave devuelve la misma respuesta en vez de cobrar dos veces. La clave la genera `nuevaClave()`.
+4. **Las listas se paginan por cursor**: se manda `limite` y el `siguiente` de la respuesta anterior. El cursor es opaco; el front no lo interpreta.
+5. **Los campos desconocidos se ignoran.** La API puede agregar campos sin romper nada; sacarlos o renombrarlos es `v2`.
+
+Cuando la API no contesta —se cayó, no hay internet o se acabó el tiempo de espera—, `api.js` devuelve un error con el mismo formato y la frase *"No pudimos conectarnos. Fijate que tengas internet y volvé a probar."*
+
+## El reparto
+
+```
+Pantalla  →  acción de datos.js  →  api.js  →  API  →  base
+```
+
+| Capa | De qué se encarga |
+|---|---|
+| **Pantalla** | Mostrar, y no ofrecer botones que van a fallar. No hace `fetch` ni habla con Supabase |
+| **Acción de `datos.js`** | Llamar, actualizar la lista en memoria y devolver `{ ok, error }` |
+| **`api.js`** | Todo lo de la red: cabeceras, tiempos de espera, reintentos, traducción de errores |
+| **API** | La regla de negocio, en un solo lugar |
+| **Base** | `check`, índices únicos y RLS como última línea |
+
+Esas fronteras no son una recomendación: las verifica [pruebas/fronteras.test.js](../pruebas/fronteras.test.js), que lee el código fuente y falla si una pantalla habla con la base o llama a la API por su cuenta. Las excepciones que hay hoy están en ese archivo, cada una con su motivo.
+
+## Cómo se usa
+
+```js
+import { traer, mandar, parchar, nuevaClave } from "@/lib/api";
+
+// En una acción de datos.js, no en una pantalla:
+const r = await mandar("/insumos", producto, token, { idempotencia: nuevaClave() });
+if (!r.ok) return { ok: false, error: r.error.mensaje };
+setDatos((d) => ponerInsumo(d, r.datos.insumo));
+return { ok: true };
+```
+
+La dirección sale de `NEXT_PUBLIC_API_URL`. Mientras esté vacía, cualquier llamada devuelve un error con código `sin_api` y no sale ningún pedido.
+
+Los tests de todo esto están en [pruebas/api.test.js](../pruebas/api.test.js), contra una API de mentira.
