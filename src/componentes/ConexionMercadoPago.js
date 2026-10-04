@@ -9,7 +9,7 @@ import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
 export default function ConexionMercadoPago() {
   const { sesion, usuario } = useAuth();
-  const { negocio, casosPorApi, avisarExito } = useDatos();
+  const { negocio, avisarExito } = useDatos();
   const [conectado, setConectado] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
   const [desvinculando, setDesvinculando] = useState(false);
@@ -19,7 +19,7 @@ export default function ConexionMercadoPago() {
 
   useEffect(() => {
     let vivo = true;
-    if (!casosPorApi || !puedeConfigurar || !sesion?.access_token) return;
+    if (!puedeConfigurar || !sesion?.access_token) return;
     traer("/cobros/mercadopago/status", sesion.access_token).then((r) => {
       if (!vivo) return;
       if (r.ok) setConectado(Boolean(r.datos?.conectado));
@@ -29,9 +29,9 @@ export default function ConexionMercadoPago() {
       }
     });
     return () => { vivo = false; };
-  }, [casosPorApi, puedeConfigurar, sesion?.access_token, negocio?.id]);
+  }, [puedeConfigurar, sesion?.access_token, negocio?.id]);
 
-  if (!casosPorApi || !puedeConfigurar) return null;
+  if (!puedeConfigurar) return null;
 
   async function desvincular() {
     setDesvinculando(true);

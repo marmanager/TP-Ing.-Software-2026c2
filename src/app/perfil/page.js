@@ -467,7 +467,7 @@ export default function MiPerfil() {
         </>
       )}
 
-      {!esDemo && (
+      {!esDemo && (usuario?.rol === "duenio" || usuario?.rol === "encargado") && (
         <>
           <TituloSeccion id="integraciones">Integraciones del negocio</TituloSeccion>
           <ConexionMercadoPago />
