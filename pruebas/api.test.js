@@ -14,6 +14,7 @@ import {
   parchar,
   quitar,
   raizDeLaApi,
+  reemplazar,
   recursosPrendidos,
   traer,
   usaLaApi,
@@ -82,6 +83,9 @@ test("traer, parchar y quitar usan el método que corresponde", async () => {
   assert.equal(llamadas[0].method, "GET");
   assert.equal(llamadas[1].method, "PATCH");
   assert.equal(llamadas[2].method, "DELETE");
+  await reemplazar("/negocio/horarios", { dias: ["lun"] }, "t", { base: BASE, fetcher });
+  assert.equal(llamadas[3].method, "PUT");
+  assert.deepEqual(llamadas[3].cuerpo, { dias: ["lun"] });
   assert.equal(llamadas[2].body, undefined);
   assert.equal(llamadas[2].headers.Authorization, "Bearer t");
 });

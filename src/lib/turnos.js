@@ -71,6 +71,22 @@ export function turnosSinVer(turnos = [], { ahora = Date.now() } = {}) {
   );
 }
 
+// Lo que llega del alta de un turno, con los nombres del contrato de la API
+// (POST /v1/turnos). Quién viene: un cliente que ya está (cliente_id), uno
+// nuevo que se da de alta con el turno (cliente), o nadie. La hora del
+// formulario es hora local ("2026-10-05T10:00"); a la API va como instante.
+export function turnoParaLaApi({ clienteId, nombreCliente, telefono, motivo, empiezaEn }) {
+  const nuevo = !clienteId && nombreCliente?.trim()
+    ? { nombre: nombreCliente.trim(), telefono: telefono?.trim() || null }
+    : null;
+  return {
+    empieza_en: new Date(empiezaEn).toISOString(),
+    motivo,
+    cliente_id: clienteId || null,
+    cliente: nuevo,
+  };
+}
+
 // Un turno está en pie mientras no se canceló ni se atendió: son los que
 // todavía esperan algo de alguien.
 export const turnoEnPie = (turno) =>

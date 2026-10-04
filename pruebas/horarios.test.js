@@ -13,6 +13,7 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
+  agendaDeLaApi,
   enFranjas,
   mesesConLugar,
   semanasDelMes,
@@ -518,4 +519,37 @@ test("un horario más allá del tope no se puede reservar aunque esté libre", (
   assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 2, 10, 0), horarios, ahora }), true);
   // Lunes 5 de octubre: día 15, afuera.
   assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 5, 10, 0), horarios, ahora }), false);
+});
+
+// ------------------------------------------------------------
+// Lo que contesta la API
+// ------------------------------------------------------------
+
+test("la agenda de la API queda con la forma de siempre, con los días ya armados", () => {
+  const a = agendaDeLaApi({
+    negocio: { nombre: "Taller", telefono: "341 456 7890", rubro: "taller" },
+    horarios: HORARIOS_DE_FABRICA,
+    dias: [{ fecha: "2026-09-21", huecos: [enElDia(9).toISOString(), enElDia(16).toISOString()] }],
+  });
+  assert.equal(a.sirve, true);
+  assert.equal(a.negocio_nombre, "Taller");
+  assert.equal(a.negocio_telefono, "341 456 7890");
+  assert.equal(a.rubro, "taller");
+  assert.deepEqual(a.horarios, HORARIOS_DE_FABRICA);
+  // El día es la medianoche local, como lo arma huecosLibres().
+  assert.equal(a.dias[0].fecha.getTime(), LUNES.getTime());
+  assert.ok(a.dias[0].huecos.every((h) => h instanceof Date));
+  assert.equal(a.dias[0].huecos[1].getTime(), enElDia(16).getTime());
+});
+
+test("los días de la API sirven para lo que ya usa la pantalla", () => {
+  const a = agendaDeLaApi({ dias: [{ fecha: "2026-09-21", huecos: [enElDia(9).toISOString(), enElDia(16).toISOString()] }] });
+  assert.deepEqual(mesesConLugar(a.dias), [{ anio: 2026, mes: 8 }]);
+  assert.deepEqual(enFranjas(a.dias[0].huecos).map((f) => f.nombre), ["A la mañana", "A la tarde"]);
+});
+
+test("sin horarios publicados, la agenda de la API abre sin días", () => {
+  const a = agendaDeLaApi({ negocio: { nombre: "Taller" }, horarios: null, dias: [] });
+  assert.equal(a.horarios, null);
+  assert.deepEqual(a.dias, []);
 });

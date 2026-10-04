@@ -8,7 +8,7 @@
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
-import { estadoDeTurno, turnoEnPie, turnosSinVer } from "../src/lib/turnos.js";
+import { estadoDeTurno, turnoEnPie, turnoParaLaApi, turnosSinVer } from "../src/lib/turnos.js";
 
 const AHORA = new Date("2026-09-21T12:00:00.000Z").getTime();
 const enHoras = (h) => new Date(AHORA + h * 3600000).toISOString();
@@ -67,4 +67,31 @@ test("y está en pie hasta que se cancela o se atiende", () => {
   assert.equal(turnoEnPie({ estado: "confirmado" }), true);
   assert.equal(turnoEnPie({ estado: "cancelado" }), false);
   assert.equal(turnoEnPie({ estado: "atendido" }), false);
+});
+
+// ---------- lo que se manda a la API ----------
+
+test("a la API va un cliente que ya está por su id, sin volver a mandar sus datos", () => {
+  const t = turnoParaLaApi({ clienteId: "c1", nombreCliente: "Ana", telefono: "11", motivo: "Service", empiezaEn: "2026-10-05T10:00" });
+  assert.equal(t.cliente_id, "c1");
+  assert.equal(t.cliente, null);
+  assert.equal(t.motivo, "Service");
+});
+
+test("alguien que todavía no es cliente va como cliente nuevo, sin espacios de más", () => {
+  const t = turnoParaLaApi({ clienteId: null, nombreCliente: "  Beto ", telefono: " ", motivo: "x", empiezaEn: "2026-10-05T10:00" });
+  assert.equal(t.cliente_id, null);
+  assert.deepEqual(t.cliente, { nombre: "Beto", telefono: null });
+});
+
+test("sin nadie, el turno va sin cliente", () => {
+  const t = turnoParaLaApi({ clienteId: null, nombreCliente: "", motivo: "x", empiezaEn: "2026-10-05T10:00" });
+  assert.equal(t.cliente_id, null);
+  assert.equal(t.cliente, null);
+});
+
+test("la hora del formulario (local) va a la API como instante", () => {
+  const t = turnoParaLaApi({ motivo: "x", empiezaEn: "2026-10-05T10:00" });
+  assert.equal(t.empieza_en, new Date("2026-10-05T10:00").toISOString());
+  assert.match(t.empieza_en, /Z$/);
 });

@@ -127,6 +127,18 @@ export default function PedirTurno() {
     );
   }
 
+  // No es lo mismo que el link no sirva que no haber podido preguntar: si la
+  // API no contestó, se dice eso, y el link puede andar en un rato.
+  if (!agenda?.sirve && agenda?.problema) {
+    return (
+      <Marco>
+        <Tarjetita titulo="No pudimos abrir la agenda" icono="alerta">
+          {agenda.problema}
+        </Tarjetita>
+      </Marco>
+    );
+  }
+
   if (!agenda?.sirve) {
     return (
       <Marco>
@@ -189,10 +201,15 @@ export default function PedirTurno() {
     );
   }
 
-  const dias = huecosLibres({
-    horarios,
-    turnos: (agenda.ocupados ?? []).map((o) => ({ ...o, estado: "agendado" })),
-  });
+  // Con los turnos por la API, los huecos ya vienen calculados por la API
+  // (que es la que después decide si se puede reservar). Sin la API, o en el
+  // modo de ejemplo, se calculan acá como siempre.
+  const dias =
+    agenda.dias ??
+    huecosLibres({
+      horarios,
+      turnos: (agenda.ocupados ?? []).map((o) => ({ ...o, estado: "agendado" })),
+    });
 
   const meses = mesesConLugar(dias);
   const posMes = Math.max(0, Math.min(cualMes, meses.length - 1));

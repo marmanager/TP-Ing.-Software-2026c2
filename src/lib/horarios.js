@@ -283,6 +283,32 @@ export function agendaPublica({ codigo, negocio, turnos = [] }) {
   };
 }
 
+// Lo que contesta la API (GET /v1/publico/agenda/:codigo), con la forma que
+// ya usa la página pública: la misma que agendaPublica() más los días ya
+// armados. Con la API prendida, los huecos los calcula la API y la página no
+// llama a huecosLibres().
+//
+// La API manda cada día como "2026-10-05" (fecha de Argentina) y cada hueco
+// como instante. El día se pasa a la medianoche local, que es como lo arma
+// huecosLibres() y lo que esperan semanasDelMes() y mesesConLugar().
+export function agendaDeLaApi(datos) {
+  const fechaLocal = (texto) => {
+    const [anio, mes, dia] = String(texto).split("-").map(Number);
+    return new Date(anio, mes - 1, dia);
+  };
+  return {
+    sirve: true,
+    negocio_nombre: datos?.negocio?.nombre ?? null,
+    negocio_telefono: datos?.negocio?.telefono ?? null,
+    rubro: datos?.negocio?.rubro ?? null,
+    horarios: datos?.horarios ?? null,
+    dias: (datos?.dias ?? []).map((d) => ({
+      fecha: fechaLocal(d.fecha),
+      huecos: (d.huecos ?? []).map((h) => new Date(h)),
+    })),
+  };
+}
+
 // El primer instante que ya queda afuera del tope: la medianoche del día
 // siguiente al último que se ofrece. Hoy cuenta como el día 1.
 function ultimoDiaQueSePide(h, ahora) {
