@@ -67,6 +67,13 @@ export const buscarIgual = (insumos = [], producto) =>
 //
 // Nulo y no "" para lo que no se dijo: "sin marca" no es una marca, y en la
 // base dos productos sin marca tienen que comparar igual.
+// Lo que llega del formulario, con los nombres del contrato de la API
+// (snake_case, como las columnas). La API limpia por su cuenta con la misma
+// regla que limpiarProducto(): acá sólo se traduce, no se decide nada.
+export function productoParaLaApi({ nombre, marca, modelo, categoria, cantidad, minimo, unidad, porCaja }) {
+  return { nombre, marca, modelo, categoria, cantidad, minimo, unidad, por_caja: porCaja };
+}
+
 export function limpiarProducto({
   nombre,
   marca,

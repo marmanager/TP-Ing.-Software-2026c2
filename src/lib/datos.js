@@ -13,7 +13,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
-import { buscarIgual, limpiarProducto } from "./inventario";
+import { buscarIgual, limpiarProducto, productoParaLaApi } from "./inventario";
 import {
   FIRMA_DEL_CLIENTE,
   alLlegarInsumo,
@@ -30,6 +30,7 @@ import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
 import { agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
 import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
+import { mandar, nuevaClave, parchar, quitar, usaLaApi } from "./api.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -654,6 +655,21 @@ export function DatosProvider({ children }) {
       if (!supabase) return null;
       const { data } = await supabase.auth.getSession();
       return data?.session?.access_token ?? null;
+    };
+
+    // Si este recurso ya pasa por la API (el interruptor de api.js). Sólo
+    // con Supabase: en el modo de ejemplo no hay sesión ni servidor.
+    const porLaApi = (recurso) => enSupabase() && usaLaApi(recurso);
+
+    // Para los cambios que ya se ven en pantalla antes de que conteste la API
+    // (sumar uno, escribir la cantidad, borrar): se mandan por atrás, y si la
+    // API dice que no, se avisa con su mensaje y se vuelve a leer todo, para
+    // que la pantalla no quede mostrando algo que no pasó.
+    const enLaApi = async (pedir) => {
+      const r = await pedir(await tokenDeSesion());
+      if (r.ok) return;
+      setAviso(r.error.mensaje);
+      setRefresco((n) => n + 1);
     };
 
     // Quién firma el historial. La regla vive en permisos.js y tiene test.
@@ -1591,7 +1607,33 @@ export function DatosProvider({ children }) {
       //
       // Devuelve qué pasó, para que la pantalla lo diga: { sumado, insumo,
       // antes }. "antes" es cuánto había, sólo si se sumó.
-      agregarInsumo(form) {
+      //
+      // Con el inventario por la API, la regla la decide la API (que ve el
+      // stock de verdad, no el que tiene esta pestaña): se espera su
+      // respuesta y recién ahí se muestra. Si dice que no, avisa y devuelve
+      // null. La clave de idempotencia hace que un reintento por mala
+      // conexión no sume dos veces.
+      async agregarInsumo(form) {
+        if (porLaApi("inventario")) {
+          const r = await mandar("/insumos", productoParaLaApi(form), await tokenDeSesion(), {
+            idempotencia: nuevaClave(),
+          });
+          if (!r.ok) {
+            setAviso(r.error.mensaje);
+            return null;
+          }
+          const { sumado, insumo, antes } = r.datos;
+          // Si se sumó a uno que esta pestaña no tenía (lo cargó otra persona
+          // hace un rato), se agrega; si ya estaba, se reemplaza.
+          setDatos((d) => ({
+            ...d,
+            insumos: d.insumos.some((i) => i.id === insumo.id)
+              ? d.insumos.map((i) => (i.id === insumo.id ? insumo : i))
+              : [...d.insumos, insumo],
+          }));
+          return { sumado, insumo, antes };
+        }
+
         const producto = limpiarProducto(form);
         const igual = buscarIgual(datos.insumos, producto);
 
@@ -1629,9 +1671,15 @@ export function DatosProvider({ children }) {
           ...d,
           insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad: limpia } : i)),
         }));
+        if (porLaApi("inventario")) {
+          enLaApi((token) => parchar(`/insumos/${insumoId}`, { cantidad: limpia }, token));
+          return;
+        }
         escribir("insumo", { id: insumoId, cantidad: limpia });
       },
 
+      // Con el inventario por la API se manda cuánto sumar o restar, no el
+      // número final: así dos personas tocando "+" a la vez suman las dos.
       ajustarCantidad(insumoId, delta) {
         const insumo = datos.insumos.find((i) => i.id === insumoId);
         if (!insumo) return;
@@ -1640,11 +1688,20 @@ export function DatosProvider({ children }) {
           ...d,
           insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad } : i)),
         }));
+        if (porLaApi("inventario")) {
+          const clave = nuevaClave();
+          enLaApi((token) => mandar(`/insumos/${insumoId}/ajustar`, { delta }, token, { idempotencia: clave }));
+          return;
+        }
         escribir("insumo", { id: insumoId, cantidad });
       },
 
       eliminarInsumo(insumoId) {
         setDatos((d) => ({ ...d, insumos: d.insumos.filter((i) => i.id !== insumoId) }));
+        if (porLaApi("inventario")) {
+          enLaApi((token) => quitar(`/insumos/${insumoId}`, token));
+          return;
+        }
         borrar("insumo", insumoId);
       },
 

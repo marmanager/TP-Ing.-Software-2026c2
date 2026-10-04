@@ -19,9 +19,13 @@
 //     y probar las pantallas; no es un pago.
 //   · Con Supabase y sin API, el botón aparece apagado y dice por qué.
 
-// La dirección de la API, sin la barra final. Es pública (va al navegador),
-// igual que la URL de Supabase.
-export const API_PAGOS = (process.env.NEXT_PUBLIC_API_URL ?? "").trim().replace(/\/+$/, "") || null;
+import { RAIZ } from "./api.js";
+
+// La dirección de los pagos: la raíz de la API (la arma api.js, que es el
+// que conoce NEXT_PUBLIC_API_URL) más "/payments". Con el valor que hoy
+// tiene Vercel (".../payments") da lo mismo de siempre; el día que la
+// variable pase a la raíz, también.
+export const API_PAGOS = RAIZ ? `${RAIZ}/payments` : null;
 
 export function apiPagosApuntaAlFrontend(api) {
   if (!api) return false;
