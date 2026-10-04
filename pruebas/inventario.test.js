@@ -17,6 +17,7 @@ import {
   categoriasDisponibles,
   enTotal,
   limpiarProducto,
+  productoParaLaApi,
   mismoProducto,
   normalizar,
   porCategoria,
@@ -161,6 +162,23 @@ test("en caja guarda cuántos vienen, y nunca menos de uno", () => {
 
 test("una unidad que no conocemos se guarda como suelto", () => {
   assert.equal(limpiarProducto({ nombre: "x", unidad: "loquesea" }).unidad, "unidad");
+});
+
+// ---------- lo que se manda a la API ----------
+
+test("a la API va lo del formulario con los nombres del contrato, sin decidir nada", () => {
+  const form = { nombre: " Tornillo ", marca: "", modelo: "M6", categoria: "Bulones",
+    cantidad: "3", minimo: "1", unidad: "caja", porCaja: "100" };
+  assert.deepEqual(productoParaLaApi(form), {
+    nombre: " Tornillo ", marca: "", modelo: "M6", categoria: "Bulones",
+    cantidad: "3", minimo: "1", unidad: "caja", por_caja: "100",
+  });
+});
+
+test("lo que no es del producto no viaja a la API (ni un negocio_id)", () => {
+  const enviado = productoParaLaApi({ nombre: "x", negocio_id: "otro", id: "i1" });
+  assert.equal("negocio_id" in enviado, false);
+  assert.equal("id" in enviado, false);
 });
 
 // ---------- categorías ----------

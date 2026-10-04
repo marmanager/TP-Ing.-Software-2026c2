@@ -6,7 +6,18 @@
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
-import { alVencerLaSesion, api, mandar, nuevaClave, parchar, traer } from "../src/lib/api.js";
+import {
+  alVencerLaSesion,
+  api,
+  mandar,
+  nuevaClave,
+  parchar,
+  quitar,
+  raizDeLaApi,
+  recursosPrendidos,
+  traer,
+  usaLaApi,
+} from "../src/lib/api.js";
 
 const BASE = "https://api.ejemplo/v1";
 
@@ -63,12 +74,46 @@ test("cada clave de idempotencia es distinta", () => {
   assert.notEqual(nuevaClave(), nuevaClave());
 });
 
-test("traer y parchar usan el método que corresponde", async () => {
+test("traer, parchar y quitar usan el método que corresponde", async () => {
   const { fetcher, llamadas } = apiFalsa(200, ok({}));
   await traer("/casos", "t", { base: BASE, fetcher });
   await parchar("/casos/1", { nombre: "x" }, "t", { base: BASE, fetcher });
+  await quitar("/insumos/1", "t", { base: BASE, fetcher });
   assert.equal(llamadas[0].method, "GET");
   assert.equal(llamadas[1].method, "PATCH");
+  assert.equal(llamadas[2].method, "DELETE");
+  assert.equal(llamadas[2].body, undefined);
+  assert.equal(llamadas[2].headers.Authorization, "Bearer t");
+});
+
+// ------------------------------------------------------------
+// La dirección y el interruptor
+// ------------------------------------------------------------
+
+test("la raíz sale igual con el valor viejo de Vercel (/payments) que con la raíz", () => {
+  const raiz = "https://tp-ingesoft-api.onrender.com";
+  assert.equal(raizDeLaApi(`${raiz}/payments`), raiz);
+  assert.equal(raizDeLaApi(`${raiz}/payments/`), raiz);
+  assert.equal(raizDeLaApi(` ${raiz}/ `), raiz);
+  assert.equal(raizDeLaApi(raiz), raiz);
+});
+
+test("sin dirección no hay raíz", () => {
+  assert.equal(raizDeLaApi(""), null);
+  assert.equal(raizDeLaApi(undefined), null);
+});
+
+test("los recursos prendidos se leen de una lista, sin importar mayúsculas ni espacios", () => {
+  assert.deepEqual([...recursosPrendidos(" Inventario , turnos,,")], ["inventario", "turnos"]);
+  assert.equal(recursosPrendidos("").size, 0);
+  assert.equal(recursosPrendidos(undefined).size, 0);
+});
+
+test("un recurso pasa por la API sólo si está prendido y hay dirección", () => {
+  const prendidos = recursosPrendidos("inventario");
+  assert.equal(usaLaApi("inventario", { prendidos, base: BASE }), true);
+  assert.equal(usaLaApi("turnos", { prendidos, base: BASE }), false);
+  assert.equal(usaLaApi("inventario", { prendidos, base: null }), false);
 });
 
 // ------------------------------------------------------------
