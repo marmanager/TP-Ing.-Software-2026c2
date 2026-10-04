@@ -21,6 +21,7 @@ import { DIAS, normalizarHorarios } from "@/lib/horarios";
 import { telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
+import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function MiNegocio() {
@@ -204,6 +205,7 @@ export default function MiNegocio() {
             ["#estados", "Los estados"],
             ["#nombres", "Los nombres de los casos"],
             ["#modulos", "Los módulos"],
+            ...(["duenio", "encargado"].includes(usuario?.rol) ? [["#integraciones", "Las integraciones"]] : []),
             ...(estaPrendido("agenda", modulosActivos) ? [["#horarios", "Cuándo atendés"]] : []),
             ["#rubro", "El rubro"],
             ["/perfil", "Tu cuenta y tu contraseña, en Mi perfil"],
@@ -392,6 +394,13 @@ export default function MiNegocio() {
           ))}
         </dl>
       </Tarjeta>
+
+      {["duenio", "encargado"].includes(usuario?.rol) && (
+        <>
+          <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
+          <ConexionMercadoPago />
+        </>
+      )}
 
       <TituloSeccion id="estados">Cómo se llaman los estados en tu rubro</TituloSeccion>
       <ul className="mb-12 overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">

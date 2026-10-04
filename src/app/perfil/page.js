@@ -26,7 +26,6 @@ import { contrasenaValida, telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import FilaNegocio from "@/componentes/FilaNegocio";
 import Icono from "@/componentes/Icono";
-import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import TusNegocios from "./TusNegocios";
 
@@ -464,13 +463,6 @@ export default function MiPerfil() {
               </>
             )}
           </Tarjeta>
-        </>
-      )}
-
-      {!esDemo && (usuario?.rol === "duenio" || usuario?.rol === "encargado") && (
-        <>
-          <TituloSeccion id="integraciones">Integraciones del negocio</TituloSeccion>
-          <ConexionMercadoPago />
         </>
       )}
 
