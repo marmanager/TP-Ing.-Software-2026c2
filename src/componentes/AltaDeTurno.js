@@ -34,14 +34,25 @@ export default function AltaDeTurno({
     (c) => c.nombre.toLowerCase() === form.nombreCliente.trim().toLowerCase()
   );
 
-  const motivoApagado = !form.motivo.trim()
+  // Mientras se guarda, el botón no se puede volver a tocar: un segundo toque
+  // anotaría otro turno.
+  const [guardando, setGuardando] = useState(false);
+
+  const motivoApagado = guardando
+    ? "se está guardando"
+    : !form.motivo.trim()
     ? "falta el motivo"
     : !form.empiezaEn
       ? "falta el día y la hora"
       : null;
 
-  function guardar() {
-    datos.agregarTurno({ ...form, clienteId: yaEsCliente?.id ?? null });
+  async function guardar() {
+    setGuardando(true);
+    const r = await datos.agregarTurno({ ...form, clienteId: yaEsCliente?.id ?? null });
+    setGuardando(false);
+    // Si no se pudo (por ejemplo, ya hay un turno a esa hora), el aviso ya lo
+    // dio datos.js y el formulario queda con lo escrito, para cambiar la hora.
+    if (!r) return;
     datos.avisarExito(`Listo. El turno de ${form.motivo.trim()} quedó anotado.`);
     setForm({ ...VACIO, empiezaEn: cuandoSugerido });
     alGuardar?.();

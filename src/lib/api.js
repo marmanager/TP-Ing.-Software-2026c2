@@ -234,4 +234,8 @@ export const mandar = (ruta, cuerpo, token, opciones) =>
 export const parchar = (ruta, cuerpo, token, opciones) =>
   api(ruta, { metodo: "PATCH", cuerpo, token, ...opciones });
 
+// PUT: se manda la cosa entera, no sólo lo que cambia (los horarios, por ejemplo).
+export const reemplazar = (ruta, cuerpo, token, opciones) =>
+  api(ruta, { metodo: "PUT", cuerpo, token, ...opciones });
+
 export const quitar = (ruta, token, opciones) => api(ruta, { metodo: "DELETE", token, ...opciones });

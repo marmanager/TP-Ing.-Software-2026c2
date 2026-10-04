@@ -69,9 +69,13 @@ Hasta que un recurso está en la lista, sus acciones de `datos.js` siguen hablan
 | Recurso | Qué pasa por la API cuando está prendido | Qué sigue por Supabase |
 |---|---|---|
 | `inventario` | Agregar (`POST /insumos`), escribir la cantidad (`PATCH /insumos/:id`), sumar o restar (`POST /insumos/:id/ajustar`) y borrar (`DELETE /insumos/:id`) | La lectura, que llega con todo lo demás hasta que exista `GET /v1/datos`. Pedir un insumo y marcar que llegó, que van con casos |
+| `turnos` | La agenda: anotar un turno (`POST /turnos`), confirmar, cancelar y deshacer (`PATCH /turnos/:id`), "ya vino" y deshacerlo (`POST /turnos/:id/atender` y `/desatender`), los horarios (`PUT /negocio/horarios`). **Y la página pública de pedir turno** (`GET /publico/agenda/:codigo` y `POST /publico/agenda/:codigo/turnos`): los huecos los calcula la API | La lectura de la agenda del negocio. Compartir o dejar de compartir el link y el calendario (siguen por las funciones de la base) |
 
 Cómo se comporta cada acción:
 
+- **Anotar un turno** espera la respuesta de la API, como agregar un producto: si el horario ya está tomado, el aviso lo dice ("Ya hay un turno a esa hora") y el formulario queda con lo escrito, para cambiar la hora. El botón queda apagado mientras tanto.
+- **Confirmar, cancelar, "ya vino" y los horarios** se ven al instante y van por atrás; si la API dice que no (por ejemplo, deshacer una cancelación cuando otro tomó el lugar), avisa y se vuelve a leer todo.
+- **La página pública** recibe los días y los huecos ya armados por la API y no calcula nada. Si la API no conoce el código, se busca en el navegador (los links del modo de ejemplo siguen andando). Si la API no contesta, la página dice "No pudimos abrir la agenda" y no "este link ya no sirve".
 - **Agregar** espera la respuesta de la API, porque es la API la que decide si se suma a uno igual. Mientras espera, el botón queda apagado ("se está guardando"): un segundo toque sería otro pedido y sumaría dos veces. Si la API dice que no, el aviso muestra su mensaje y el formulario queda abierto con lo escrito.
 - **Sumar, restar, escribir la cantidad y borrar** se ven al instante y se mandan por atrás. Si la API dice que no, el aviso muestra su mensaje y se vuelven a leer los datos, para que la pantalla no muestre algo que no pasó. Sumar y restar mandan cuánto (`delta`), no el número final: dos personas tocando "+" a la vez suman las dos.
 

@@ -28,9 +28,10 @@ import { nombreInicial } from "./nombres.js";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
-import { agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
+import { agendaDeLaApi, agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
 import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
-import { mandar, nuevaClave, parchar, quitar, usaLaApi } from "./api.js";
+import { mandar, nuevaClave, parchar, quitar, reemplazar, traer, usaLaApi } from "./api.js";
+import { turnoParaLaApi } from "./turnos.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -309,8 +310,17 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
 // Suelta y no acción del proveedor, igual que buscarSeguimiento(): quien abre
 // el link de la agenda no tiene sesión ni negocio. Y busca en los dos lados
 // por lo mismo: un link armado en modo de ejemplo no está en la base.
+//
+// Con los turnos por la API, la agenda viene de la API con los huecos ya
+// armados (agendaDeLaApi). Si la API no conoce el código, se sigue buscando
+// en el navegador: puede ser un link del modo de ejemplo. Si la API no
+// contesta, se dice eso y no "el link no sirve", que sería mentira.
 export async function buscarAgenda(codigo) {
-  if (haySupabase && supabase) {
+  if (usaLaApi("turnos")) {
+    const r = await traer(`/publico/agenda/${encodeURIComponent(codigo)}`);
+    if (r.ok) return agendaDeLaApi(r.datos);
+    if (r.error.codigo !== "agenda_no_encontrada") return { sirve: false, problema: r.error.mensaje };
+  } else if (haySupabase && supabase) {
     const { data, error } = await supabase.rpc("ver_agenda_publica", { p_codigo: codigo });
     if (!error && data?.sirve) return data;
   }
@@ -327,8 +337,21 @@ export async function buscarAgenda(codigo) {
 
 // Pedir el turno. Devuelve { ok } o { ok: false, motivo }, con el motivo
 // escrito para que el cliente lo lea tal cual.
+//
+// Con los turnos por la API, la que decide si ese horario se puede pedir es
+// la API, y sus mensajes son los mismos de siempre. Un código que la API no
+// conoce sigue al modo de ejemplo, igual que con la base.
 export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }) {
-  if (haySupabase && supabase) {
+  if (usaLaApi("turnos")) {
+    const r = await mandar(`/publico/agenda/${encodeURIComponent(codigo)}/turnos`, {
+      empieza_en: new Date(cuando).toISOString(),
+      motivo,
+      nombre,
+      telefono: telefono || null,
+    });
+    if (r.ok) return { ok: true, cuando: r.datos.cuando, minutos: r.datos.minutos };
+    if (r.error.codigo !== "agenda_no_encontrada") return { ok: false, motivo: r.error.mensaje };
+  } else if (haySupabase && supabase) {
     const { data, error } = await supabase.rpc("reservar_turno", {
       p_codigo: codigo,
       p_cuando: new Date(cuando).toISOString(),
@@ -1830,7 +1853,34 @@ export function DatosProvider({ children }) {
       //
       // Cuánto dura el turno no se pide: en un taller no se sabe de antemano,
       // y un número inventado no sirve para nada.
-      agregarTurno({ clienteId, nombreCliente, telefono, motivo, empiezaEn }) {
+      //
+      // Devuelve { ok: true } o null si no se pudo (el aviso ya se dio).
+      //
+      // Con los turnos por la API se espera su respuesta: si el horario ya
+      // está tomado, la API lo dice ("Ya hay un turno a esa hora") y el turno
+      // no aparece. Antes aparecía igual y después fallaba la base. La clave
+      // de idempotencia hace que un reintento no anote dos turnos.
+      async agregarTurno({ clienteId, nombreCliente, telefono, motivo, empiezaEn }) {
+        if (porLaApi("turnos")) {
+          const r = await mandar(
+            "/turnos",
+            turnoParaLaApi({ clienteId, nombreCliente, telefono, motivo, empiezaEn }),
+            await tokenDeSesion(),
+            { idempotencia: nuevaClave() }
+          );
+          if (!r.ok) {
+            setAviso(r.error.mensaje);
+            return null;
+          }
+          const { turno, cliente } = r.datos;
+          setDatos((d) => ({
+            ...d,
+            clientes: cliente ? [...d.clientes, cliente] : d.clientes,
+            turnos: [...d.turnos, turno],
+          }));
+          return { ok: true };
+        }
+
         const cliente =
           clienteId || !nombreCliente?.trim()
             ? null
@@ -1866,6 +1916,7 @@ export function DatosProvider({ children }) {
           if (cliente) await escribir("cliente", cliente, { insertar: true });
           await escribir("turno", turno, { insertar: true });
         })();
+        return { ok: true };
       },
 
       // "Vino a buscarlo": el turno era por un trabajo que ya estaba en
@@ -1878,6 +1929,10 @@ export function DatosProvider({ children }) {
             t.id === turnoId ? { ...t, estado: "atendido", caso_id: casoId } : t
           ),
         }));
+        if (porLaApi("turnos")) {
+          enLaApi((token) => mandar(`/turnos/${turnoId}/atender`, { caso_id: casoId }, token));
+          return;
+        }
         escribir("turno", { id: turnoId, estado: "atendido", caso_id: casoId });
       },
 
@@ -1890,14 +1945,25 @@ export function DatosProvider({ children }) {
             t.id === turnoId ? { ...t, estado: "confirmado", caso_id: null } : t
           ),
         }));
+        if (porLaApi("turnos")) {
+          enLaApi((token) => mandar(`/turnos/${turnoId}/desatender`, {}, token));
+          return;
+        }
         escribir("turno", { id: turnoId, estado: "confirmado", caso_id: null });
       },
 
+      // Confirmar, cancelar, y el "Deshacer" que vuelve al estado de antes.
+      // Deshacer una cancelación puede chocar con otro turno que tomó el
+      // lugar: con la API, el aviso lo dice y la agenda se vuelve a leer.
       cambiarEstadoTurno(turnoId, estado) {
         setDatos((d) => ({
           ...d,
           turnos: d.turnos.map((t) => (t.id === turnoId ? { ...t, estado } : t)),
         }));
+        if (porLaApi("turnos")) {
+          enLaApi((token) => parchar(`/turnos/${turnoId}`, { estado }, token));
+          return;
+        }
         escribir("turno", { id: turnoId, estado });
       },
 
@@ -2028,8 +2094,24 @@ export function DatosProvider({ children }) {
 
       // Los días y horas en los que el negocio da turnos (023). De acá sale
       // lo que se le ofrece a un cliente para pedir uno solo.
+      //
+      // Con los turnos por la API, se ven al instante y van por atrás; la API
+      // los valida (los mismos problemas que muestra la pantalla) y los
+      // devuelve limpios, que es lo que queda en memoria.
       guardarHorarios(horarios) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, horarios } }));
+        if (porLaApi("turnos")) {
+          (async () => {
+            const r = await reemplazar("/negocio/horarios", horarios, await tokenDeSesion());
+            if (!r.ok) {
+              setAviso(r.error.mensaje);
+              setRefresco((n) => n + 1);
+              return;
+            }
+            setDatos((d) => ({ ...d, negocio: { ...d.negocio, horarios: r.datos.horarios } }));
+          })();
+          return;
+        }
         escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, horarios }, [
           "horarios",
         ]);
