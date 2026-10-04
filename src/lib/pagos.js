@@ -19,7 +19,7 @@
 //     y probar las pantallas; no es un pago.
 //   · Con Supabase y sin API, el botón aparece apagado y dice por qué.
 
-import { RAIZ } from "./api.js";
+import { API, RAIZ, usaLaApi } from "./api.js";
 
 // La dirección de los pagos: la raíz de la API (la arma api.js, que es el
 // que conoce NEXT_PUBLIC_API_URL) más "/payments". Con el valor que hoy
@@ -110,10 +110,12 @@ export const anularPagoEnLinea = ({ cobroId, motivo, token, ...resto }) =>
 // la misma cuenta que ver_seguimiento() y arma el link por eso, y nada más.
 // El código del seguimiento es lo único que identifica el caso.
 export async function pagarDesdeSeguimiento({ codigo, api = API_PAGOS, fetcher = fetch } = {}) {
-  if (!api) return { ok: false, error: "Por ahora no se puede pagar desde acá. Podés pagarlo en el local." };
+  const nueva = usaLaApi("casos");
+  const base = nueva ? API : api;
+  if (!base) return { ok: false, error: "Por ahora no se puede pagar desde acá. Podés pagarlo en el local." };
   let respuesta;
   try {
-    respuesta = await fetcher(`${api}/seguimiento/${encodeURIComponent(codigo)}/pagos`, {
+    respuesta = await fetcher(`${base}${nueva ? "/publico" : ""}/seguimiento/${encodeURIComponent(codigo)}/pagos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
@@ -127,8 +129,9 @@ export async function pagarDesdeSeguimiento({ codigo, api = API_PAGOS, fetcher =
   } catch {
     // Sin cuerpo: se decide por el código.
   }
-  if (!respuesta.ok || !datos?.ok || !datos?.link) {
-    return { ok: false, error: datos?.motivo ?? "No pudimos armar el pago. Probá de nuevo o pagalo en el local." };
+  const link = nueva ? datos?.datos?.cobro?.link : datos?.link;
+  if (!respuesta.ok || !datos?.ok || !link) {
+    return { ok: false, error: datos?.error?.mensaje ?? datos?.motivo ?? "No pudimos armar el pago. Probá de nuevo o pagalo en el local." };
   }
-  return { ok: true, link: datos.link };
+  return { ok: true, link };
 }

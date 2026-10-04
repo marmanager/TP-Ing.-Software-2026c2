@@ -894,6 +894,27 @@ export default function VerCaso() {
                       const monto = montoCobrado(cobro);
                       setErrorEntrega(null);
 
+                      if (datos.casosPorApi) {
+                        setCerrando(true);
+                        const r = await datos.entregarCaso({
+                          casoId: caso.id,
+                          monto,
+                          medio: medioEntrega,
+                          resto: elResto,
+                        });
+                        setCerrando(false);
+                        if (!r.ok) return setErrorEntrega(r.error);
+                        datos.avisarExito(
+                          r.falta > 0
+                            ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
+                            : monto > 0
+                              ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
+                              : `Listo. El ${casoEnFrase(caso)} quedó entregado.`
+                        );
+                        setEntregando(false);
+                        return;
+                      }
+
                       // Primero el cobro, después el cierre: si el cobro no
                       // se pudo anotar, el caso no se cierra como si se
                       // hubiera cobrado.

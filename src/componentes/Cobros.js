@@ -39,6 +39,7 @@ import Icono from "@/componentes/Icono";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import { useAuth } from "@/lib/auth";
 import { API_PAGOS, apiPagosApuntaAlFrontend } from "@/lib/pagos";
+import { mandar, traer } from "@/lib/api";
 
 // La cuenta en una frase, según cómo esté. Es lo primero que se lee: el
 // número suelto no dice si está bien o si falta algo.
@@ -183,6 +184,12 @@ export default function SeccionCobros({
   useEffect(() => {
     if (!API_PAGOS || apiPagosApuntaAlFrontend(API_PAGOS) || !sesion?.access_token || enLinea.simulado) return;
     let vivo = true;
+    if (datos.casosPorApi) {
+      traer("/cobros/mercadopago/status", sesion.access_token).then(r => {
+        if (vivo) setMercadoPagoConectado(Boolean(r.ok && r.datos.conectado));
+      });
+      return () => { vivo = false; };
+    }
     fetch(`${API_PAGOS}/mercadopago/status`, {
       headers: { Authorization: `Bearer ${sesion.access_token}` },
     }).then(r => r.json()).then(r => {
@@ -198,6 +205,13 @@ export default function SeccionCobros({
       return;
     }
     try {
+      if (datos.casosPorApi) {
+        const r = await mandar("/cobros/mercadopago/conectar", {}, sesion.access_token);
+        if (!r.ok) throw new Error(r.error.mensaje);
+        window.sessionStorage.setItem("marmanager.mp-caso", caso.id);
+        window.location.assign(r.datos.url);
+        return;
+      }
       const response = await fetch(`${API_PAGOS}/mercadopago/connect`, {
         method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
       });
@@ -220,9 +234,13 @@ export default function SeccionCobros({
     const mirar = async () => {
       if (API_PAGOS && sesion?.access_token) {
         try {
-          await fetch(`${API_PAGOS}/casos/${caso.id}/conciliar-cobros`, {
-            method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
-          });
+          if (datos.casosPorApi) {
+            await mandar(`/casos/${encodeURIComponent(caso.id)}/cobros/conciliar`, {}, sesion.access_token);
+          } else {
+            await fetch(`${API_PAGOS}/casos/${caso.id}/conciliar-cobros`, {
+              method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
+            });
+          }
         } catch { /* El webhook sigue funcionando aunque falle esta consulta. */ }
       }
       const r = await datos.refrescarCobros(caso.id);

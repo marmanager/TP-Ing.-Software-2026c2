@@ -786,6 +786,10 @@ export function DatosProvider({ children }) {
     };
 
     return {
+      // El interruptor de MIGRACION.md. Las pantallas sólo lo usan durante
+      // la transición para no mezclar una entrega nueva con las escrituras
+      // antiguas a Supabase.
+      casosPorApi: porLaApi("casos"),
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
       abrirCaso({
@@ -1046,7 +1050,15 @@ export function DatosProvider({ children }) {
         }
 
         let nuevo;
-        if (enSupabase()) {
+        let eventoDeLaApi = null;
+        if (porLaApi("casos")) {
+          const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros`, {
+            monto: Number(monto), medio, nota,
+          }, await tokenDeSesion(), { idempotencia: nuevaClave() });
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          nuevo = r.datos.cobro ?? r.datos;
+          eventoDeLaApi = r.datos.evento ?? null;
+        } else if (enSupabase()) {
           const { data, error } = await supabase.rpc("registrar_cobro", {
             p_caso_id: casoId,
             p_monto: Number(monto),
@@ -1072,7 +1084,8 @@ export function DatosProvider({ children }) {
         }
 
         setDatos((d) => ponerCobro(d, nuevo, { adoptarLoViejo: !enSupabase(), nuevoId }));
-        anotar({
+        if (eventoDeLaApi) setDatos((d) => ({ ...d, eventos: [eventoDeLaApi, ...d.eventos] }));
+        else if (!porLaApi("casos")) anotar({
           casoId,
           tipo: "plata",
           titulo: "Cobraron",
@@ -1086,8 +1099,15 @@ export function DatosProvider({ children }) {
       // Lo que no se le cobra: un descuento, una cortesía, una garantía. Va
       // en el caso y no como cobro, porque no es plata que entra. "monto" es
       // el descuento total que queda (0 lo saca).
-      cambiarDescuento(casoId, monto, { antes = 0 } = {}) {
+      async cambiarDescuento(casoId, monto, { antes = 0 } = {}) {
         const nuevo = Math.max(0, Number(monto) || 0);
+        if (porLaApi("casos")) {
+          const r = await reemplazar(`/casos/${encodeURIComponent(casoId)}/descuento`, { monto: nuevo }, await tokenDeSesion());
+          if (!r.ok) { setAviso(r.error.mensaje); return { ok: false, error: r.error.mensaje }; }
+          setDatos((d) => ({ ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso ?? r.datos : c) }));
+          if (r.datos.evento) setDatos((d) => ({ ...d, eventos: [r.datos.evento, ...d.eventos] }));
+          return { ok: true };
+        }
         parchearCaso(casoId, { descuento: nuevo });
         anotar({
           casoId,
@@ -1142,9 +1162,17 @@ export function DatosProvider({ children }) {
         } else {
           const token = await tokenDeSesion();
           if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
-          const r = await pedirPagoEnLinea({ casoId, monto, medio, token });
-          if (!r.ok) return { ok: false, error: r.error };
-          nuevo = r.cobro;
+          if (porLaApi("casos")) {
+            const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/en-linea`, {
+              monto: Number(monto), medio,
+            }, token, { idempotencia: nuevaClave() });
+            if (!r.ok) return { ok: false, error: r.error.mensaje };
+            nuevo = r.datos.cobro;
+          } else {
+            const r = await pedirPagoEnLinea({ casoId, monto, medio, token });
+            if (!r.ok) return { ok: false, error: r.error };
+            nuevo = r.cobro;
+          }
         }
 
         setDatos((d) => ponerCobro(d, nuevo, { nuevoId }));
@@ -1193,6 +1221,18 @@ export function DatosProvider({ children }) {
       // a pagado desde la última vez, para que la pantalla lo pueda contar.
       async refrescarCobros(casoId) {
         if (!enSupabase()) return { ok: true, pagados: [] };
+        if (porLaApi("casos")) {
+          const r = await traer(`/casos/${encodeURIComponent(casoId)}/cobros`, await tokenDeSesion());
+          if (!r.ok) return { ok: false, pagados: [] };
+          const nuevos = r.datos ?? [];
+          const antes = new Map(datos.cobros.filter((c) => c.caso_id === casoId).map((c) => [c.id, c.estado]));
+          const pagados = nuevos.filter((c) => c.estado === "pagado" && antes.get(c.id) === "pendiente");
+          setDatos((d) => nuevos.reduce(
+            (actual, cobro) => ponerCobro(actual, cobro, { nuevoId }),
+            { ...d, cobros: d.cobros.filter((c) => c.caso_id !== casoId) }
+          ));
+          return { ok: true, pagados };
+        }
         const [cobros, caso] = await Promise.all([
           supabase.from("cobro").select("*").eq("caso_id", casoId),
           supabase.from("caso").select("id, cobrado, cobrado_en").eq("id", casoId).maybeSingle(),
@@ -1232,7 +1272,14 @@ export function DatosProvider({ children }) {
 
         let anulado;
         const enLinea = pagosEnLinea({ esDemo });
-        if (cobro.estado === "pendiente" && MEDIOS_EN_LINEA.includes(cobro.medio) && !enLinea.simulado) {
+        let eventoDeLaApi = null;
+        if (porLaApi("casos") && !enLinea.simulado) {
+          const r = await mandar(`/cobros/${encodeURIComponent(cobroId)}/anular`, { motivo },
+            await tokenDeSesion(), { idempotencia: nuevaClave() });
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          anulado = r.datos.cobro;
+          eventoDeLaApi = r.datos.evento ?? null;
+        } else if (cobro.estado === "pendiente" && MEDIOS_EN_LINEA.includes(cobro.medio) && !enLinea.simulado) {
           // Además de anularlo en la tabla hay que dar de baja el link en el
           // medio de pago: si no, el cliente todavía podría pagarlo. Eso lo
           // hace la API, que es la única que habla con él.
@@ -1258,7 +1305,8 @@ export function DatosProvider({ children }) {
         }
 
         setDatos((d) => ponerCobro(d, anulado, { nuevoId }));
-        anotar({
+        if (eventoDeLaApi) setDatos((d) => ({ ...d, eventos: [eventoDeLaApi, ...d.eventos] }));
+        else if (!porLaApi("casos")) anotar({
           casoId: cobro.caso_id,
           tipo: "plata",
           titulo: "Anularon un cobro",
@@ -1269,6 +1317,25 @@ export function DatosProvider({ children }) {
           monto: Number(cobro.monto),
         });
         return { ok: true, cobro: anulado };
+      },
+
+      // La API guarda cobro, descuento, cierre e historial en la misma
+      // transacción. Esta acción sólo existe en el camino nuevo; el formulario
+      // conserva abajo el camino anterior mientras el interruptor esté apagado.
+      async entregarCaso({ casoId, monto, medio, resto }) {
+        const r = await mandar(`/casos/${encodeURIComponent(casoId)}/entregar`, {
+          monto: monto == null ? null : Number(monto),
+          medio: Number(monto) > 0 ? medio : null,
+          resto,
+        }, await tokenDeSesion(), { idempotencia: nuevaClave() });
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        setDatos((d) => {
+          let siguiente = { ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso : c) };
+          if (r.datos.cobro) siguiente = ponerCobro(siguiente, r.datos.cobro, { nuevoId });
+          if (r.datos.evento) siguiente = { ...siguiente, eventos: [r.datos.evento, ...siguiente.eventos] };
+          return siguiente;
+        });
+        return { ok: true, ...r.datos };
       },
 
       // Marcar que un paso aprobado ya se hizo, o desmarcarlo (flujo, 7).
