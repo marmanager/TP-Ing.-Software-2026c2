@@ -393,6 +393,9 @@ function AltaDeProducto({ alCerrar }) {
   const [creando, setCreando] = useState(false);
   const [nueva, setNueva] = useState("");
   const [avisoCategoria, setAvisoCategoria] = useState(null);
+  // Mientras la API contesta, el botón no se puede volver a tocar: un
+  // segundo toque sería otro pedido y sumaría dos veces.
+  const [guardando, setGuardando] = useState(false);
 
   const { articulo } = vocabulario(negocio?.rubro);
   const cambiar = (que) => setForm((f) => ({ ...f, ...que }));
@@ -406,7 +409,9 @@ function AltaDeProducto({ alCerrar }) {
   const igual = producto.nombre ? buscarIgual(insumos, producto) : null;
 
   const porCajaValido = Number.isInteger(Number(form.porCaja)) && Number(form.porCaja) >= 1;
-  const motivo = !form.nombre.trim()
+  const motivo = guardando
+    ? "se está guardando"
+    : !form.nombre.trim()
     ? "falta el nombre"
     : enCaja && !porCajaValido
       ? "falta cuántos vienen en cada caja"
@@ -431,8 +436,13 @@ function AltaDeProducto({ alCerrar }) {
     setCreando(false);
   }
 
-  function guardar() {
-    const r = datos.agregarInsumo(form);
+  async function guardar() {
+    setGuardando(true);
+    const r = await datos.agregarInsumo(form);
+    setGuardando(false);
+    // Si no se pudo, el aviso ya lo dio datos.js; el formulario queda abierto
+    // con lo escrito, para volver a probar.
+    if (!r) return;
     datos.avisarExito(
       r.sumado
         ? `Listo. Sumaste ${r.insumo.cantidad - r.antes} a ${r.insumo.nombre}: ahora hay ${r.insumo.cantidad} ${presentacion(r.insumo, r.insumo.cantidad)}.`
