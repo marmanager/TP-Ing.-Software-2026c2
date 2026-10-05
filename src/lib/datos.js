@@ -575,17 +575,19 @@ export function DatosProvider({ children }) {
         // que hay en pantalla queda, con un cartel para recargar: cambiar
         // solo podría llevarse algo que se estaba escribiendo. Mientras
         // tanto la base rechaza lo que se intente guardar acá.
-        const { data: ahora } = await supabase
-          .from("usuario")
-          .select("negocio_id")
-          .eq("id", usuario.id)
-          .maybeSingle();
+        // Si la API falla, se sigue como si no hubiera respuesta: el aviso
+        // genérico de abajo, o el cartel sin el nombre del negocio.
+        const cuenta = await traer("/cuenta", sesion?.access_token);
         if (!vivo) return;
+        const ahora = cuenta.ok ? cuenta.datos.usuario : null;
         if (ahora && ahora.negocio_id !== usuario.negocio_id) {
-          const { data: suyos } = await supabase.rpc("mis_negocios");
+          // /cuenta/negocios devuelve las filas de mis_negocios en { negocios }.
+          const suyos = await traer("/cuenta/negocios", sesion?.access_token);
           if (!vivo) return;
           setOtroNegocio({
-            nombre: suyos?.find((n) => n.id === ahora.negocio_id)?.nombre ?? null,
+            nombre: suyos.ok
+              ? suyos.datos.negocios?.find((n) => n.id === ahora.negocio_id)?.nombre ?? null
+              : null,
           });
           setCargando(false);
           return;
