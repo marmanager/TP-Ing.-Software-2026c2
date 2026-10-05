@@ -125,6 +125,24 @@ export default function Seguimiento() {
     );
   }
 
+  // No es lo mismo que el link no sirva que no haber podido preguntar: si la
+  // API no contestó —Render tarda en despertar—, se dice eso, y el link puede
+  // andar en un rato. No confirma nada sobre el código: un corte pasa igual
+  // con un link bueno que con uno inventado.
+  if (!caso?.sirve && caso?.problema) {
+    return (
+      <Marco>
+        <div className="rounded-tarjeta border border-borde bg-tarjeta p-6">
+          <p className="flex items-start gap-3 font-titulo font-extrabold text-seccion">
+            <Icono nombre="alerta" className="mt-1 size-7 shrink-0 text-espera" />
+            <span>No pudimos mostrarte cómo viene lo tuyo</span>
+          </p>
+          <p className="mt-3 max-w-[65ch] text-tinta-media">{caso.problema}</p>
+        </div>
+      </Marco>
+    );
+  }
+
   // El link no sirve. Da lo mismo si nunca existió, si el negocio lo dio de
   // baja o si el caso ya no está: contarle la diferencia a quien lo abre
   // sería confirmarle que alguna vez fue bueno (criterio 15).

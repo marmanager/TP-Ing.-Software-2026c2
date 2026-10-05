@@ -157,9 +157,11 @@ export async function buscarSeguimiento(codigo) {
   //
   // Buscar de más no abre nada: el código del navegador sólo existe en ese
   // navegador, y el de la base no aparece acá.
+  let problema = null;
   if (API) {
     const s = seguimientoDeLaApi(await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`));
     if (s.sirve) return s;
+    problema = s.problema ?? null;
   }
 
   // En el modo de ejemplo la visita NO queda registrada, así que del lado
@@ -168,13 +170,20 @@ export async function buscarSeguimiento(codigo) {
   // cada vez que cambia, y escribir la visita desde acá sería escribir sobre
   // lo mismo desde dos lados. Con la base conectada la anota la API, que
   // pasa por ver_seguimiento(), que es donde corresponde.
+  //
+  // Aunque la API no haya contestado se mira igual acá: un link del modo de
+  // ejemplo no depende de la API y tiene que abrirse lo mismo.
   try {
     const guardado = window.localStorage.getItem(LLAVE);
-    if (!guardado) return { sirve: false };
-    return casoPublico({ codigo, ...JSON.parse(guardado) });
+    if (guardado) {
+      const local = casoPublico({ codigo, ...JSON.parse(guardado) });
+      if (local.sirve) return local;
+    }
   } catch {
-    return { sirve: false };
+    // Sin almacenamiento del navegador, sólo queda lo que dijo la API.
   }
+  // Si la API no contestó, se dice eso: el link puede andar en un rato.
+  return problema ? { sirve: false, problema } : { sirve: false };
 }
 
 // La respuesta del cliente a un paso del presupuesto, desde el link

@@ -136,7 +136,15 @@ export function casoPublico({
 // La API recorta lo mismo que ver_seguimiento() pero le saca "sirve": un
 // código que no sirve es un 404. Cualquier error se ve igual que un código
 // que no sirve, como con la base: contar la diferencia sería contar de más.
-export const seguimientoDeLaApi = (r) => (r.ok ? { ...r.datos, sirve: true } : { sirve: false });
+// "No existe" y "no pude preguntar" son dos cosas: si la API no contestó, se
+// devuelve el problema para que la pantalla lo diga, y el link puede andar
+// en un rato. Un link que no existe no trae problema: no hay qué contar.
+export const seguimientoDeLaApi = (r) =>
+  r.ok
+    ? { ...r.datos, sirve: true }
+    : r.error.codigo === "seguimiento_no_encontrado"
+      ? { sirve: false }
+      : { sirve: false, problema: r.error.mensaje };
 
 // La respuesta a un paso: { ok, destrabo, quedan } o { ok: false, motivo },
 // con el mensaje de la API, que ya está escrito para el cliente.
