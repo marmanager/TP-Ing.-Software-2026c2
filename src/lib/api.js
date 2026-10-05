@@ -127,6 +127,9 @@ export async function api(
     fetcher = typeof fetch === "function" ? fetch : null,
     base = API,
     reintentar,
+    // El pedido que renueva la sesión lo apaga: si falla, lo resuelve quien
+    // renueva (src/lib/sesion.js), no el aviso general.
+    avisarSiVence = true,
   } = {}
 ) {
   if (!base) {
@@ -143,9 +146,10 @@ export async function api(
   // lleva clave de idempotencia: sin ella, repetir podría cobrar dos veces.
   const sePuedeRepetir = reintentar ?? (metodo === "GET" || Boolean(idempotencia));
 
-  let respuesta = await unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, fetcher, base });
+  const opciones = { metodo, cuerpo, token, idempotencia, segundos, fetcher, base, avisarSiVence };
+  let respuesta = await unIntento(ruta, opciones);
   if (!respuesta.ok && respuesta.reintentable && sePuedeRepetir) {
-    respuesta = await unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, fetcher, base });
+    respuesta = await unIntento(ruta, opciones);
   }
 
   // "reintentable" es cosa de acá adentro: no sale a la pantalla.
@@ -153,7 +157,7 @@ export async function api(
   return limpia;
 }
 
-async function unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, fetcher, base }) {
+async function unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, fetcher, base, avisarSiVence }) {
   const cortar = typeof AbortController === "function" ? new AbortController() : null;
   const reloj = cortar ? setTimeout(() => cortar.abort(), segundos * 1000) : null;
 
@@ -195,7 +199,7 @@ async function unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, 
     };
   }
 
-  if (r.status === 401 && avisarQueVencio) avisarQueVencio();
+  if (r.status === 401 && avisarSiVence && avisarQueVencio) avisarQueVencio();
 
   // Si la API contestó con su error, manda el suyo: está escrito para esta
   // situación y es mejor que cualquier frase genérica de acá.
