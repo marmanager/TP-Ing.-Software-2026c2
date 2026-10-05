@@ -516,9 +516,10 @@ habría cambiado esos dos números sin que nadie lo pidiera.
 Tres reglas, todas en `modulos.js` y todas con prueba en `pruebas/modulos.test.js`:
 
 - **Prender la Agenda prende las dos.** Apagarla se las lleva.
-- **La última prendida no se apaga.** Dejaría la Agenda prendida y vacía, que es
-  lo mismo que apagarla pero por la puerta de atrás. El botón dice por qué:
-  «Apagar Calendario · apagá Agenda».
+- **Apagar la última prendida apaga la Agenda.** Apagar las dos, de a una, es
+  lo mismo que apagar la sección: no queda ningún botón bloqueado. Volver a
+  prender la Agenda prende las dos. Igual con En stock y En camino del
+  Inventario.
 - **Un negocio de antes de esto tiene las dos.** Tiene `agenda` en la lista y
   ningún hijo escrito, y eso no quiere decir "las dos apagadas": quiere decir que
   nadie eligió todavía. La primera vez que alguien toca un interruptor quedan

@@ -17,7 +17,6 @@ import {
   estaPrendido,
   hijosActivos,
   hijosDe,
-  motivoParaNoApagar,
   ningunoPrendido,
 } from "../src/lib/modulos.js";
 
@@ -152,27 +151,36 @@ test("prender el Inventario prende sus dos pantallas, y apagarlo se las lleva", 
   assert.deepEqual(alternarModulo("inventario", con), ["agenda"]);
 });
 
-// ---------- la última pantalla no se apaga ----------
+// ---------- apagar la última pantalla apaga el módulo ----------
+// Antes el último hijo no se podía apagar y el botón decía "apagá Agenda".
+// Ahora apagarlo es apagar el módulo entero: nada queda bloqueado.
 
-test("el último hijo prendido no se puede apagar, y el botón dice por qué", () => {
-  const soloCalendario = ["agenda", "calendario"];
-  assert.equal(motivoParaNoApagar("calendario", soloCalendario), "apagá Agenda");
+test("apagar el último hijo apaga el módulo", () => {
+  assert.deepEqual(alternarModulo("calendario", ["agenda", "calendario"]), []);
+  const sinInventario = alternarModulo("en_camino", ["inventario", "en_camino"]);
+  assert.deepEqual(sinInventario, []);
+  assert.equal(estaPrendido("inventario", sinInventario), false);
 });
 
-test("con los dos prendidos, cualquiera de los dos se puede apagar", () => {
-  const losDos = ["agenda", "turnos", "calendario"];
-  assert.equal(motivoParaNoApagar("turnos", losDos), null);
-  assert.equal(motivoParaNoApagar("calendario", losDos), null);
+test("apagar los dos, de a uno, apaga el módulo", () => {
+  const sinStock = alternarModulo("stock", ["inventario", "stock", "en_camino"]);
+  assert.deepEqual(claves(hijosActivos("inventario", sinStock)), ["en_camino"]);
+  assert.deepEqual(alternarModulo("en_camino", sinStock), []);
 });
 
-test("un negocio viejo puede apagar cualquiera de los dos", () => {
-  assert.equal(motivoParaNoApagar("turnos", ["agenda"]), null);
-  assert.equal(motivoParaNoApagar("calendario", ["agenda"]), null);
+test("un negocio viejo, con los dos sin escribir, también termina apagando el módulo", () => {
+  const sinTurnos = alternarModulo("turnos", ["agenda"]);
+  assert.deepEqual(claves(hijosActivos("agenda", sinTurnos)), ["calendario"]);
+  assert.deepEqual(alternarModulo("calendario", sinTurnos), []);
 });
 
-test("un módulo que no es hijo nunca tiene motivo", () => {
-  assert.equal(motivoParaNoApagar("agenda", ["agenda"]), null);
-  assert.equal(motivoParaNoApagar("inventario", ["inventario"]), null);
+test("después de apagarse así, prender el módulo prende las dos pantallas", () => {
+  const apagado = alternarModulo("en_camino", ["inventario", "en_camino"]);
+  assert.deepEqual(claves(hijosActivos("inventario", alternarModulo("inventario", apagado))), ["en_camino", "stock"]);
+});
+
+test("apagar el último hijo de un módulo no toca a los otros", () => {
+  assert.deepEqual(alternarModulo("calendario", ["agenda", "calendario", "equipo"]), ["equipo"]);
 });
 
 // ---------- la invariante que sostiene todo ----------
@@ -190,7 +198,6 @@ test("nunca queda un módulo prendido sin ninguna pantalla adentro", () => {
   const padres = [...new Set(LISTA_SUBMODULOS.map((s) => s.padre))];
   for (const activos of partidas) {
     for (const clave of Object.keys(SUBMODULOS)) {
-      if (motivoParaNoApagar(clave, activos)) continue;
       const despues = alternarModulo(clave, activos);
       for (const padre of padres) {
         if (!despues.includes(padre)) continue;

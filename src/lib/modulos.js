@@ -210,22 +210,12 @@ export function hijosActivos(clave, activos = []) {
   return escritos.length ? escritos : hijos;
 }
 
-// Apagar el último hijo dejaría el módulo prendido y sin ninguna pantalla
-// adentro. Eso no es un estado que alguien quiera: es apagar el módulo, y
-// para eso está el interruptor del padre. El botón lo dice, como manda la
-// cartilla para todo botón apagado.
-export function motivoParaNoApagar(clave, activos = []) {
-  const def = SUBMODULOS[clave];
-  if (!def) return null;
-  const quedan = hijosActivos(def.padre, activos).filter((h) => h.clave !== clave);
-  return quedan.length ? null : `apagá ${MODULOS[def.padre].nombre}`;
-}
-
 // Prender o apagar, devolviendo la lista nueva. Es una función suelta y no
-// dos líneas adentro de la pantalla porque tiene cuatro reglas que no se ven:
+// dos líneas adentro de la pantalla porque tiene cinco reglas que no se ven:
 // los de fábrica se apagan anotando que se apagaron, prender un padre prende a
-// sus hijos, apagarlo se los lleva, y tocar un hijo por primera vez tiene que
-// dejar escritos a los hermanos que hasta entonces valían sin estar.
+// sus hijos, apagarlo se los lleva, tocar un hijo por primera vez tiene que
+// dejar escritos a los hermanos que hasta entonces valían sin estar, y apagar
+// el último hijo apaga al padre.
 export function alternarModulo(clave, activos = []) {
   // Los de fábrica no tienen hijos (hay una prueba que lo cuida), así que no
   // hace falta cruzar esta regla con la de los submódulos.
@@ -247,6 +237,11 @@ export function alternarModulo(clave, activos = []) {
   const def = SUBMODULOS[clave];
   if (def) {
     const hermanos = hijosActivos(def.padre, activos).map((h) => h.clave);
+    // Apagar el último hijo es apagar el módulo entero. Antes no se podía
+    // (el botón decía "apagá Inventario"). Y no alcanza con sacar al hijo:
+    // un padre prendido sin ningún hijo escrito vale como "los dos" (ver
+    // hijosActivos), y volvería a prender lo que se acababa de apagar.
+    if (hermanos.length === 1 && hermanos[0] === clave) return alternarModulo(def.padre, activos);
     const resto = activos.filter((c) => !hermanos.includes(c));
     return hermanos.includes(clave)
       ? [...resto, ...hermanos.filter((c) => c !== clave)]
