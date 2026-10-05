@@ -23,6 +23,8 @@ import {
   mensajeDeConsulta,
   mensajeDeLoHecho,
   mensajeDeWhatsApp,
+  respuestaDeLaApi,
+  seguimientoDeLaApi,
   totalAprobado,
 } from "../src/lib/seguimiento.js";
 
@@ -679,4 +681,55 @@ test("sin nombre ni patente no queda un hueco", () => {
   });
 
   assert.ok(m.startsWith("Hola, te escribimos de Taller Sur por Ruido raro."), m);
+});
+
+// ------------------------------------------------------------
+// Lo que contesta la API (GET y POST /v1/publico/seguimiento/...)
+// ------------------------------------------------------------
+// La API recorta lo mismo que la base pero le saca "sirve": un código que no
+// sirve es un 404, no un objeto. La pantalla, en cambio, sigue preguntando
+// por "sirve", así que se lo devuelve la traducción.
+
+test("lo que manda la API se muestra tal cual, y sirve", () => {
+  const datos = { negocio_nombre: "Taller Sur", estado: "en_proceso", pasos: [], por_responder: [] };
+
+  assert.deepEqual(seguimientoDeLaApi({ ok: true, datos }), { ...datos, sirve: true });
+});
+
+test("un link que la API no conoce no sirve", () => {
+  const r = seguimientoDeLaApi({
+    ok: false,
+    error: { codigo: "seguimiento_no_encontrado", mensaje: "Este link ya no sirve. Pedile uno nuevo al negocio." },
+  });
+
+  assert.deepEqual(r, { sirve: false });
+});
+
+// Igual que con la base: al cliente no le sirve saber si fue la red o el
+// código, y contarlo sería contar de más.
+test("si la API no contesta, el link tampoco sirve", () => {
+  const r = seguimientoDeLaApi({
+    ok: false,
+    error: { codigo: "sin_conexion", mensaje: "No pudimos conectarnos. Fijate que tengas internet y volvé a probar." },
+  });
+
+  assert.deepEqual(r, { sirve: false });
+});
+
+test("contestar un paso por la API devuelve ok con lo que dice la API", () => {
+  assert.deepEqual(respuestaDeLaApi({ ok: true, datos: { destrabo: true, quedan: 0 } }), {
+    ok: true,
+    destrabo: true,
+    quedan: 0,
+  });
+});
+
+// El mensaje de la API ya está escrito para el cliente: se muestra tal cual.
+test("si la API dice que no, el motivo es su mensaje", () => {
+  const r = respuestaDeLaApi({
+    ok: false,
+    error: { codigo: "respuesta_no_va", mensaje: "Ese paso ya estaba aprobado." },
+  });
+
+  assert.deepEqual(r, { ok: false, motivo: "Ese paso ya estaba aprobado." });
 });

@@ -147,3 +147,21 @@ for (const archivo of PUROS) {
     );
   });
 }
+
+// ------------------------------------------------------------
+// 5. El link público no le habla a Supabase
+// ------------------------------------------------------------
+// El seguimiento que abre el cliente pasa por la API
+// (/v1/publico/seguimiento): ahí están el límite de uso por IP y los
+// códigos de error. Una llamada directa a la base se saltea las dos cosas.
+
+test("el link público no le habla a Supabase", () => {
+  const fuente = leer("src/lib/datos.js");
+
+  for (const funcion of ["ver_seguimiento", "responder_paso_desde_el_link"]) {
+    assert.ok(
+      !fuente.includes(`rpc("${funcion}"`),
+      `src/lib/datos.js llama a ${funcion}() directo en Supabase; el link va por /publico/seguimiento de la API`
+    );
+  }
+});
