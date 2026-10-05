@@ -42,9 +42,6 @@ const PERMITIDOS = {
   // Es una ruta de servidor (route handler), no una pantalla: corre en el
   // servidor de Next y necesita leer la agenda para armar el .ics.
   "src/app/calendario/[codigo]/route.js": "ruta de servidor, no es una pantalla",
-  // Los fetch de Mercado Pago entraron con la integración de pagos. Tienen
-  // que pasar a una acción de datos.js cuando se migre ese módulo.
-  "src/componentes/Cobros.js": "los fetch de Mercado Pago, hasta que pasen a datos.js",
 };
 
 const permitido = (archivo) => Object.hasOwn(PERMITIDOS, archivo);
@@ -79,7 +76,7 @@ test("ninguna pantalla ni componente llama a la API directo", () => {
     .filter((a) => !permitido(a))
     .filter((a) => {
       const fuente = leer(a);
-      if (/NEXT_PUBLIC_API_URL/.test(fuente)) return true;
+      if (/NEXT_PUBLIC_API_URL/.test(fuente) || /from ["']@\/lib\/api["']/.test(fuente)) return true;
       // fetch(`${ALGO}/...`) o fetch("https://...") es salir afuera;
       // fetch("/api/...") es una ruta propia y está bien.
       return /fetch\(\s*[`"']?\s*(\$\{|https?:)/.test(fuente);

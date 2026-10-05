@@ -487,7 +487,7 @@ async function leerDeSupabase(negocioId) {
 }
 
 export function DatosProvider({ children }) {
-  const { esDemo, usuario, cargando: authCargando } = useAuth();
+  const { esDemo, usuario, sesion, cargando: authCargando } = useAuth();
   const [datos, setDatos] = useState(VACIO);
   const [cargando, setCargando] = useState(true);
   const [fuente, setFuente] = useState("local");
@@ -562,7 +562,13 @@ export function DatosProvider({ children }) {
       // Cuenta real con negocio: se lee de Supabase, sólo lo de ese negocio.
       if (cargadoDe.current !== usuario.negocio_id) setCargando(true);
       try {
-        const traido = await leerDeSupabase(usuario.negocio_id);
+        const traido = usaLaApi("datos")
+          ? await (async () => {
+              const r = await traer("/datos", sesion?.access_token);
+              if (!r.ok) throw new Error(r.error.mensaje);
+              return { ...r.datos, negocio: conModulos(r.datos.negocio) };
+            })()
+          : await leerDeSupabase(usuario.negocio_id);
         if (!vivo) return;
         if (traido.negocio) {
           cargadoDe.current = usuario.negocio_id;
@@ -614,7 +620,7 @@ export function DatosProvider({ children }) {
     return () => {
       vivo = false;
     };
-  }, [authCargando, esDemo, usuario, refresco]);
+  }, [authCargando, esDemo, usuario, sesion?.access_token, refresco]);
 
   // Volver a leer cuando la pestaña vuelve al frente.
   //
@@ -785,6 +791,24 @@ export function DatosProvider({ children }) {
       escribirConColumnasNuevas("caso", { id: casoId, ...cambios }, ["descuento"]);
     };
 
+    const incorporarCasoApi = ({ caso, cliente, turno, evento, eventos = [] }) => setDatos((d) => ({
+      ...d,
+      casos: caso ? (d.casos.some((x) => x.id === caso.id)
+        ? d.casos.map((x) => x.id === caso.id ? caso : x) : [caso, ...d.casos]) : d.casos,
+      clientes: cliente ? (d.clientes.some((x) => x.id === cliente.id)
+        ? d.clientes.map((x) => x.id === cliente.id ? cliente : x) : [...d.clientes, cliente]) : d.clientes,
+      turnos: turno ? d.turnos.map((x) => x.id === turno.id ? turno : x) : d.turnos,
+      eventos: [...(evento ? [evento] : []), ...eventos, ...d.eventos],
+    }));
+
+    const llamarCasos = async (ruta, cuerpo, { metodo = "POST", idempotencia } = {}) => {
+      const token = await tokenDeSesion();
+      const opciones = { token, ...(idempotencia ? { idempotencia } : {}) };
+      return metodo === "PATCH" ? parchar(ruta, cuerpo, token)
+        : metodo === "DELETE" ? quitar(ruta, token)
+          : mandar(ruta, cuerpo, token, opciones);
+    };
+
     return {
       // El interruptor de MIGRACION.md. Las pantallas sólo lo usan durante
       // la transición para no mezclar una entrega nueva con las escrituras
@@ -792,7 +816,7 @@ export function DatosProvider({ children }) {
       casosPorApi: porLaApi("casos"),
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
-      abrirCaso({
+      async abrirCaso({
         clienteId,
         nombreCliente,
         telefono,
@@ -801,6 +825,17 @@ export function DatosProvider({ children }) {
         responsableId,
         turnoId = null,
       }) {
+        if (porLaApi("casos")) {
+          const r = await llamarCasos("/casos", {
+            servicio, identificador: identificador || null, responsable_id: responsableId || null,
+            turno_id: turnoId, ...(clienteId
+              ? { cliente_id: clienteId, telefono: telefono || null }
+              : { cliente: { nombre: nombreCliente, telefono: telefono || null } }),
+          }, { idempotencia: nuevaClave() });
+          if (!r.ok) { setAviso(r.error.mensaje); return null; }
+          incorporarCasoApi(r.datos);
+          return r.datos.caso;
+        }
         // El cliente se puede dar de alta desde la misma pantalla: el mostrador
         // está apurado y con el cliente enfrente.
         const cliente = clienteId
@@ -903,7 +938,12 @@ export function DatosProvider({ children }) {
         return caso;
       },
 
-      asignarResponsable(casoId, empleadoId) {
+      async asignarResponsable(casoId, empleadoId) {
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/asignar`, { responsable_id: empleadoId });
+          if (!r.ok) return setAviso(r.error.mensaje);
+          incorporarCasoApi(r.datos); return r.datos.caso;
+        }
         const persona = datos.empleados.find((e) => e.id === empleadoId);
         parchearCaso(casoId, {
           responsable_id: empleadoId,
@@ -927,7 +967,13 @@ export function DatosProvider({ children }) {
       // ---------- diagnóstico e identificador (SCRUM-50 y SCRUM-51) ----------
       // "servicio" es lo que pidió el cliente; "diagnostico" es lo que se
       // encontró al revisar. Son dos cosas distintas y las dos quedan.
-      cargarDiagnostico(casoId, diagnostico) {
+      async cargarDiagnostico(casoId, diagnostico) {
+        if (porLaApi("casos")) {
+          const actual = datos.casos.find((c) => c.id === casoId);
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, { diagnostico, actualizado_en: actual?.actualizado_en }, { metodo: "PATCH" });
+          if (!r.ok) return setAviso(r.error.mensaje);
+          incorporarCasoApi(r.datos); return r.datos.caso;
+        }
         const antes = datos.casos.find((c) => c.id === casoId)?.diagnostico;
         parchearCaso(casoId, { diagnostico });
         anotar({
@@ -943,7 +989,13 @@ export function DatosProvider({ children }) {
       // que se busca el caso: si alguien lo cambia y no queda rastro, quien
       // lo buscaba por el anterior no tiene dónde enterarse. Por eso el
       // valor viejo va en el detalle y no se pierde.
-      ponerIdentificador(casoId, identificador) {
+      async ponerIdentificador(casoId, identificador) {
+        if (porLaApi("casos")) {
+          const actual = datos.casos.find((c) => c.id === casoId);
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, { identificador, actualizado_en: actual?.actualizado_en }, { metodo: "PATCH" });
+          if (!r.ok) return setAviso(r.error.mensaje);
+          incorporarCasoApi(r.datos); return r.datos.caso;
+        }
         const antes = datos.casos.find((c) => c.id === casoId)?.identificador;
         if (antes === identificador) return;
 
@@ -962,9 +1014,16 @@ export function DatosProvider({ children }) {
       // Editar el caso (SCRUM-119): el nombre y lo que pidió el cliente. Los
       // dos juntos y en una sola escritura, porque en la pantalla son un solo
       // "Guardar". Cada cambio queda en el historial, como la patente.
-      editarCaso(casoId, { nombre, servicio }) {
+      async editarCaso(casoId, { nombre, servicio }) {
         const caso = datos.casos.find((c) => c.id === casoId);
         if (!caso) return;
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, {
+            nombre: nombre.trim() || null, servicio: servicio.trim(), actualizado_en: caso.actualizado_en,
+          }, { metodo: "PATCH" });
+          if (!r.ok) return setAviso(r.error.mensaje);
+          incorporarCasoApi(r.datos); return r.datos.caso;
+        }
 
         const cambios = {
           // Vacío es "sin nombre": el caso vuelve a verse como "Caso 271".
@@ -1006,7 +1065,12 @@ export function DatosProvider({ children }) {
 
       // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
       // historial se agrega, nunca se reescribe.
-      anotarNota(casoId, texto) {
+      async anotarNota(casoId, texto) {
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/notas`, { texto }, { idempotencia: nuevaClave() });
+          if (!r.ok) return setAviso(r.error.mensaje);
+          incorporarCasoApi({ evento: r.datos }); return r.datos;
+        }
         anotar({ casoId, tipo: "nota", titulo: "Anotaron algo", detalle: texto, icono: "nota" });
       },
 
@@ -1018,7 +1082,14 @@ export function DatosProvider({ children }) {
       //
       // Entregar es un cambio de estado, pero en el historial va aparte: es
       // lo que más se quiere contar ("cuándo terminan", dice SCRUM-75).
-      cambiarEstado(casoId, estado, queFalta, textoHistorial, tambien = {}) {
+      async cambiarEstado(casoId, estado, queFalta, textoHistorial, tambien = {}) {
+        if (porLaApi("casos") && estado !== "completado") {
+          const ruta = datos.casos.find((c) => c.id === casoId)?.estado === "completado"
+            ? `/casos/${encodeURIComponent(casoId)}/reabrir` : `/casos/${encodeURIComponent(casoId)}/estado`;
+          const r = await llamarCasos(ruta, ruta.endsWith("/estado") ? { estado } : {});
+          if (!r.ok) return setAviso(r.error.mensaje);
+          incorporarCasoApi(r.datos); return r.datos.caso;
+        }
         parchearCaso(casoId, { estado, que_falta: queFalta, ...tambien });
         anotar({
           casoId,
@@ -1129,6 +1200,35 @@ export function DatosProvider({ children }) {
       // nada (Supabase sin API todavía). Lo lee la pantalla para decidir si
       // ofrece el botón o lo muestra apagado con el motivo.
       pagosEnLinea: pagosEnLinea({ esDemo }),
+
+      async estadoMercadoPago() {
+        const token = await tokenDeSesion();
+        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        const r = await traer("/cobros/mercadopago/status", token);
+        return r.ok ? { ok: true, conectado: Boolean(r.datos?.conectado) }
+          : { ok: false, error: r.error.mensaje };
+      },
+
+      async conectarMercadoPago() {
+        const token = await tokenDeSesion();
+        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        const r = await mandar("/cobros/mercadopago/conectar", {}, token);
+        return r.ok ? { ok: true, url: r.datos.url } : { ok: false, error: r.error.mensaje };
+      },
+
+      async desvincularMercadoPago() {
+        const token = await tokenDeSesion();
+        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        const r = await quitar("/cobros/mercadopago/vinculacion", token);
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+      },
+
+      async conciliarCobrosMercadoPago(casoId) {
+        const token = await tokenDeSesion();
+        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/conciliar`, {}, token);
+        return r.ok ? { ok: true, ...r.datos } : { ok: false, error: r.error.mensaje };
+      },
 
       // Pedir un pago: la API arma el link o el QR y guarda el cobro
       // "pendiente". Pasa a pagado sólo cuando el medio de pago le avisa a la
@@ -1372,6 +1472,16 @@ export function DatosProvider({ children }) {
 
         let cuando = hecho ? new Date().toISOString() : null;
 
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/pasos/${encodeURIComponent(pasoId)}/hecho`, { hecho: Boolean(hecho) });
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          setDatos((d) => ({ ...d,
+            pasos: d.pasos.map((x) => x.id === pasoId ? r.datos.paso : x),
+            eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos,
+          }));
+          return { ok: true, cambio: r.datos.cambio };
+        }
+
         if (enSupabase()) {
           const { data, error } = await supabase.rpc("marcar_paso_hecho", {
             p_paso_id: pasoId,
@@ -1420,6 +1530,13 @@ export function DatosProvider({ children }) {
         const caso = datos.casos.find((c) => c.id === casoId);
         if (!caso) return { ok: false, error: "No encontramos ese caso." };
         if (caso.seguimiento_codigo) return { ok: true, codigo: caso.seguimiento_codigo };
+
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/compartir`, {});
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          incorporarCasoApi(r.datos);
+          return { ok: true, codigo: r.datos.codigo, quedaEsperando: r.datos.queda_esperando };
+        }
 
         // Mandar el link deja el caso esperando al cliente SÓLO si hay algo
         // que el cliente tenga que contestar. Es lo que pasa cuando se manda
@@ -1473,6 +1590,13 @@ export function DatosProvider({ children }) {
       // El link anterior deja de funcionar en el mismo momento. La fecha de
       // la última visita se va con él: es de ese link, no del caso.
       async dejarDeCompartirCaso(casoId) {
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/dejar-de-compartir`, {});
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          setDatos((d) => ({ ...d, casos: d.casos.map((c) => c.id === casoId
+            ? { ...c, seguimiento_codigo: null, seguimiento_visto_en: null } : c) }));
+          return { ok: true };
+        }
         if (enSupabase()) {
           const { error } = await supabase.rpc("dejar_de_compartir_caso", { p_caso_id: casoId });
           if (error) return { ok: false, error: porQueNoSePudoCompartir(error) };
@@ -1493,7 +1617,15 @@ export function DatosProvider({ children }) {
       // Armar el presupuesto es sumar pasos de a uno (SCRUM-59). Cada paso
       // nace esperando la respuesta del cliente: el presupuesto se aprueba
       // parte por parte, nunca todo junto.
-      agregarPaso({ casoId, nombre, descripcion, monto }) {
+      async agregarPaso({ casoId, nombre, descripcion, monto }) {
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/pasos`,
+            { nombre, descripcion: descripcion || null, monto: Number(monto) }, { idempotencia: nuevaClave() });
+          if (!r.ok) { setAviso(r.error.mensaje); return null; }
+          setDatos((d) => ({ ...d, pasos: [...d.pasos, r.datos.paso],
+            eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
+          return r.datos.paso;
+        }
         const delCaso = datos.pasos.filter((p) => p.caso_id === casoId);
         const paso = {
           id: nuevoId(),
@@ -1524,9 +1656,17 @@ export function DatosProvider({ children }) {
       // Sólo se borra lo que todavía está esperando respuesta. Un rechazado
       // primero vuelve a esperar respuesta; uno aprobado no se borra nunca,
       // porque es un acuerdo con el cliente (015_paso_aprobado_fijo.sql).
-      eliminarPaso(pasoId) {
+      async eliminarPaso(pasoId) {
         const paso = datos.pasos.find((p) => p.id === pasoId);
         if (!paso || paso.estado !== "esperando") return;
+
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/pasos/${encodeURIComponent(pasoId)}`, undefined, { metodo: "DELETE" });
+          if (!r.ok) return setAviso(r.error.mensaje);
+          setDatos((d) => ({ ...d, pasos: d.pasos.filter((p) => p.id !== pasoId),
+            eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
+          return r.datos.id;
+        }
 
         setDatos((d) => ({ ...d, pasos: d.pasos.filter((p) => p.id !== pasoId) }));
         borrar("paso", pasoId);
@@ -1550,9 +1690,17 @@ export function DatosProvider({ children }) {
       //
       // "aprobado_en" es cuándo dijo que sí. Como no se deshace, el
       // historial suma con eso la plata aprobada en un período.
-      responderPaso(pasoId, estado) {
+      async responderPaso(pasoId, estado) {
         const paso = datos.pasos.find((p) => p.id === pasoId);
         if (!paso || paso.estado === "aprobado") return;
+
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/pasos/${encodeURIComponent(pasoId)}/responder`, { estado });
+          if (!r.ok) return setAviso(r.error.mensaje);
+          setDatos((d) => ({ ...d, pasos: d.pasos.map((p) => p.id === pasoId ? r.datos.paso : p),
+            eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
+          return r.datos.paso;
+        }
 
         const cambios =
           estado === "aprobado"
@@ -1585,9 +1733,20 @@ export function DatosProvider({ children }) {
       // falta nada: la regla vive en alLlegarInsumo() (estados.js), que tiene
       // prueba. Antes se pasaba a "en proceso" siempre, aunque faltara otra
       // pieza o el caso estuviera cerrado.
-      marcarInsumoLlegado(insumoId) {
+      async marcarInsumoLlegado(insumoId) {
         const insumo = datos.insumos.find((i) => i.id === insumoId);
         if (!insumo) return null;
+        if (porLaApi("casos")) {
+          const r = await llamarCasos(`/insumos/${encodeURIComponent(insumoId)}/llego`, {}, { idempotencia: nuevaClave() });
+          if (!r.ok) { setAviso(r.error.mensaje); return null; }
+          setDatos((d) => ({ ...d,
+            insumos: r.datos.sumado ? d.insumos.filter((i) => i.id !== insumoId).map((i) => i.id === r.datos.insumo.id ? r.datos.insumo : i)
+              : d.insumos.map((i) => i.id === insumoId ? r.datos.insumo : i),
+            casos: r.datos.caso ? d.casos.map((c) => c.id === r.datos.caso.id ? r.datos.caso : c) : d.casos,
+            eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos,
+          }));
+          return r.datos.despues;
+        }
         const rubro = datos.negocio?.rubro;
         const { articulo } = vocabulario(rubro);
 
@@ -1651,7 +1810,15 @@ export function DatosProvider({ children }) {
       // Un pedido es un insumo en estado "pedido". Con caso, el caso queda
       // esperándolo (alPedirInsumo, en estados.js, decide cómo). Sin caso es
       // reponer el stock: al llegar pasa a "Lo que tenés".
-      pedirInsumo({ nombre, cantidad, casoId }) {
+      async pedirInsumo({ nombre, cantidad, casoId }) {
+        if (porLaApi("casos")) {
+          const r = await llamarCasos("/insumos/pedidos", { nombre, cantidad, caso_id: casoId || null }, { idempotencia: nuevaClave() });
+          if (!r.ok) { setAviso(r.error.mensaje); return null; }
+          setDatos((d) => ({ ...d, insumos: [...d.insumos, r.datos.insumo],
+            casos: r.datos.caso ? d.casos.map((c) => c.id === r.datos.caso.id ? r.datos.caso : c) : d.casos,
+            eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
+          return r.datos.insumo;
+        }
         const rubro = datos.negocio?.rubro;
         const { articulo } = vocabulario(rubro);
         const insumo = {
@@ -1807,6 +1974,21 @@ export function DatosProvider({ children }) {
           rol: rol || "tecnico",
         };
         setDatos((d) => ({ ...d, empleados: [...d.empleados, empleado] }));
+        if (porLaApi("equipo")) {
+          enLaApi(async (token) => {
+            const r = await mandar("/equipo", { nombre, rol: rol || "tecnico" }, token, {
+              idempotencia: nuevaClave(),
+            });
+            if (r.ok) {
+              setDatos((d) => ({
+                ...d,
+                empleados: d.empleados.map((e) => (e.id === empleado.id ? r.datos.empleado : e)),
+              }));
+            }
+            return r;
+          });
+          return empleado;
+        }
         escribir("empleado", empleado, { insertar: true });
         return empleado;
       },
@@ -1826,6 +2008,10 @@ export function DatosProvider({ children }) {
           ...d,
           empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol } : e)),
         }));
+        if (porLaApi("equipo")) {
+          enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol }, token));
+          return;
+        }
         escribir("empleado", { id: empleadoId, rol });
       },
 
@@ -1839,6 +2025,10 @@ export function DatosProvider({ children }) {
             c.responsable_id === empleadoId ? { ...c, responsable_id: null } : c
           ),
         }));
+        if (porLaApi("equipo")) {
+          enLaApi((token) => mandar(`/equipo/${empleadoId}/sacar`, {}, token));
+          return;
+        }
         borrar("empleado", empleadoId);
       },
 
@@ -1854,6 +2044,22 @@ export function DatosProvider({ children }) {
         }
         const vence = new Date();
         vence.setDate(vence.getDate() + (Number(dias) || 7));
+
+        if (porLaApi("equipo")) {
+          const r = await mandar(
+            "/invitaciones",
+            {
+              rol: rol || "tecnico",
+              usos_maximos: Number(usosMaximos) || 1,
+              vence_en: vence.toISOString(),
+            },
+            await tokenDeSesion(),
+            { idempotencia: nuevaClave() }
+          );
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          setDatos((d) => ({ ...d, invitaciones: [r.datos.invitacion, ...d.invitaciones] }));
+          return { ok: true, invitacion: r.datos.invitacion };
+        }
 
         const { data, error } = await supabase
           .from("invitacion")
@@ -1885,6 +2091,10 @@ export function DatosProvider({ children }) {
             i.id === id ? { ...i, anulada: true } : i
           ),
         }));
+        if (porLaApi("equipo")) {
+          enLaApi((token) => mandar(`/invitaciones/${id}/anular`, {}, token));
+          return;
+        }
         escribir("invitacion", { id, anulada: true });
       },
 
@@ -1900,7 +2110,23 @@ export function DatosProvider({ children }) {
           confirmado: true,
         };
         setDatos((d) => ({ ...d, clientes: [...d.clientes, cliente] }));
+        if (porLaApi("clientes")) {
+          enLaApi(async (token) => {
+            const r = await mandar("/clientes", { nombre, telefono, notas: notas || "" }, token, {
+              idempotencia: nuevaClave(),
+            });
+            if (r.ok) {
+              setDatos((d) => ({
+                ...d,
+                clientes: d.clientes.map((c) => (c.id === cliente.id ? r.datos.cliente : c)),
+              }));
+            }
+            return r;
+          });
+          return cliente;
+        }
         escribir("cliente", cliente, { insertar: true });
+        return cliente;
       },
 
       // Corregir el teléfono desde la ficha del cliente. Antes, uno mal
@@ -1910,6 +2136,10 @@ export function DatosProvider({ children }) {
           ...d,
           clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono } : c)),
         }));
+        if (porLaApi("clientes")) {
+          enLaApi((token) => parchar(`/clientes/${clienteId}`, { telefono }, token));
+          return;
+        }
         escribir("cliente", { id: clienteId, telefono });
       },
 
@@ -2055,6 +2285,16 @@ export function DatosProvider({ children }) {
           setDatos((d) => ({ ...d, negocio }));
           return { ok: true, id: negocio.id };
         }
+        if (porLaApi("negocio")) {
+          const r = await mandar(
+            "/negocios",
+            { nombre, rubro, modulos: preset(rubro).modulos ?? [] },
+            await tokenDeSesion(),
+            { idempotencia: nuevaClave() }
+          );
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          return { ok: true, id: r.datos.id };
+        }
         const { data, error } = await supabase.rpc("crear_mi_negocio", {
           p_nombre: nombre,
           p_rubro: rubro,
@@ -2071,6 +2311,10 @@ export function DatosProvider({ children }) {
       cambiarRubro(rubro) {
         if (datos.casos.length > 0) return false;
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, rubro } }));
+        if (porLaApi("negocio")) {
+          enLaApi((token) => parchar("/negocio", { rubro }, token));
+          return true;
+        }
         escribir("negocio", { id: datos.negocio?.id, rubro });
         return true;
       },
@@ -2095,6 +2339,10 @@ export function DatosProvider({ children }) {
           telefono: (telefono ?? "").trim() || null,
         };
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
+        if (porLaApi("negocio")) {
+          enLaApi((token) => parchar("/negocio", cambios, token));
+          return;
+        }
         escribirConColumnasNuevas("negocio", { id: datos.negocio?.id, ...cambios }, [
           "telefono",
         ]);
@@ -2106,6 +2354,13 @@ export function DatosProvider({ children }) {
       async compartirAgenda() {
         if (datos.negocio?.agenda_codigo)
           return { ok: true, codigo: datos.negocio.agenda_codigo };
+
+        if (porLaApi("negocio")) {
+          const r = await mandar("/negocio/agenda/compartir", {}, await tokenDeSesion());
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: r.datos.codigo } }));
+          return { ok: true, codigo: r.datos.codigo };
+        }
 
         if (enSupabase()) {
           const { data, error } = await supabase.rpc("compartir_agenda");
@@ -2120,7 +2375,10 @@ export function DatosProvider({ children }) {
       },
 
       async dejarDeCompartirAgenda() {
-        if (enSupabase()) {
+        if (porLaApi("negocio")) {
+          const r = await mandar("/negocio/agenda/dejar-de-compartir", {}, await tokenDeSesion());
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+        } else if (enSupabase()) {
           const { error } = await supabase.rpc("dejar_de_compartir_agenda");
           if (error) return { ok: false, error: porQueNoSePudoCompartirAgenda(error) };
         }
@@ -2138,6 +2396,13 @@ export function DatosProvider({ children }) {
         if (datos.negocio?.ics_codigo)
           return { ok: true, codigo: datos.negocio.ics_codigo };
 
+        if (porLaApi("negocio")) {
+          const r = await mandar("/negocio/calendario/compartir", {}, await tokenDeSesion());
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: r.datos.codigo } }));
+          return { ok: true, codigo: r.datos.codigo };
+        }
+
         if (enSupabase()) {
           const { data, error } = await supabase.rpc("compartir_ics");
           if (error) return { ok: false, error: porQueNoSePudoCompartirCalendario(error) };
@@ -2151,7 +2416,10 @@ export function DatosProvider({ children }) {
       },
 
       async dejarDeCompartirCalendario() {
-        if (enSupabase()) {
+        if (porLaApi("negocio")) {
+          const r = await mandar("/negocio/calendario/dejar-de-compartir", {}, await tokenDeSesion());
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+        } else if (enSupabase()) {
           const { error } = await supabase.rpc("dejar_de_compartir_ics");
           if (error) return { ok: false, error: porQueNoSePudoCompartirCalendario(error) };
         }
@@ -2205,12 +2473,20 @@ export function DatosProvider({ children }) {
       // que ya existen: esos se editan de a uno desde el caso.
       cambiarNombrarCasos(modo) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, nombrar_casos: modo } }));
+        if (porLaApi("negocio")) {
+          enLaApi((token) => parchar("/negocio", { nombrar_casos: modo }, token));
+          return;
+        }
         escribir("negocio", { id: datos.negocio?.id, nombrar_casos: modo });
       },
 
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
       cambiarModulos(claves) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));
+        if (porLaApi("negocio")) {
+          enLaApi((token) => reemplazar("/negocio/modulos", { valor: claves }, token));
+          return;
+        }
         escribir("negocio", { id: datos.negocio?.id, modulos_activos: claves });
       },
 
@@ -2219,6 +2495,10 @@ export function DatosProvider({ children }) {
       // qué filtro.
       cambiarInicio(config) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, inicio: config } }));
+        if (porLaApi("negocio")) {
+          enLaApi((token) => reemplazar("/negocio/inicio", { valor: config }, token));
+          return;
+        }
         escribir("negocio", { id: datos.negocio?.id, inicio: config });
       },
 

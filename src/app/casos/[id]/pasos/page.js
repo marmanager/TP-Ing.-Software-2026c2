@@ -137,14 +137,15 @@ export default function AprobarPasos() {
         ? "el monto va sin puntos"
         : null;
 
-  function sumarPaso() {
+  async function sumarPaso() {
     const que = nombre.trim();
-    datos.agregarPaso({
+    const paso = await datos.agregarPaso({
       casoId: caso.id,
       nombre: que,
       descripcion: descripcion.trim(),
       monto,
     });
+    if (!paso) return;
     datos.avisarExito(`Listo. "${que}" ya está en el presupuesto, esperando respuesta.`);
     setNombre("");
     setDescripcion("");

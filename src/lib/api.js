@@ -32,7 +32,7 @@
 // así la misma variable sirve con el valor viejo y con la raíz, y el día que
 // se cambie en Vercel no hay que tocar código (MIGRACION.md, sección 9).
 export function raizDeLaApi(valor) {
-  return String(valor ?? "").trim().replace(/\/+$/, "").replace(/\/payments$/, "") || null;
+  return String(valor ?? "").trim().replace(/\/+$/, "").replace(/\/(payments|v1)$/, "") || null;
 }
 
 export const RAIZ = raizDeLaApi(process.env.NEXT_PUBLIC_API_URL);

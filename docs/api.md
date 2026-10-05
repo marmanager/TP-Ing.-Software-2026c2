@@ -47,10 +47,10 @@ return { ok: true };
 
 ## La dirección
 
-Sale de `NEXT_PUBLIC_API_URL`, que hoy en Vercel vale `https://tp-ingesoft-api.onrender.com/payments` porque es lo que usa `pagos.js`. `api.js` le saca el `/payments` del final (`raizDeLaApi()`) y arma:
+Sale de `NEXT_PUBLIC_API_URL`. `api.js` acepta la raíz, la dirección anterior terminada en `/payments` y la nueva terminada en `/v1`; normaliza cualquiera de las tres antes de armar las rutas.
 
 - `api.js` → raíz + `/v1`: las rutas se escriben `"/insumos"`, no `"/v1/insumos"`.
-- `pagos.js` → raíz + `/payments`: lo mismo de siempre.
+- `pagos.js` → raíz + `/v1`: cobros, Mercado Pago y seguimiento usan el contrato nuevo.
 
 Así anda igual con el valor de hoy y con la raíz sola. Cuando se decida, se cambia en Vercel a `https://tp-ingesoft-api.onrender.com` sin tocar código.
 
@@ -70,6 +70,7 @@ Hasta que un recurso está en la lista, sus acciones de `datos.js` siguen hablan
 |---|---|---|
 | `inventario` | Agregar (`POST /insumos`), escribir la cantidad (`PATCH /insumos/:id`), sumar o restar (`POST /insumos/:id/ajustar`) y borrar (`DELETE /insumos/:id`) | La lectura, que llega con todo lo demás hasta que exista `GET /v1/datos`. Pedir un insumo y marcar que llegó, que van con casos |
 | `turnos` | La agenda: anotar un turno (`POST /turnos`), confirmar, cancelar y deshacer (`PATCH /turnos/:id`), "ya vino" y deshacerlo (`POST /turnos/:id/atender` y `/desatender`), los horarios (`PUT /negocio/horarios`). **Y la página pública de pedir turno** (`GET /publico/agenda/:codigo` y `POST /publico/agenda/:codigo/turnos`): los huecos los calcula la API | La lectura de la agenda del negocio. Compartir o dejar de compartir el link y el calendario (siguen por las funciones de la base) |
+| `casos` | Abrir, editar, asignar, mover, reabrir, notas, compartir, presupuesto, pedidos, cobros, entrega y pago desde seguimiento | La carga inicial de listas, hasta que exista `GET /v1/datos` |
 
 Cómo se comporta cada acción:
 

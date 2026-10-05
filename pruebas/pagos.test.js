@@ -70,18 +70,18 @@ test("en el modo de ejemplo se simula, aunque haya API", () => {
 
 test("pide el pago con la sesión de la persona, no con una clave del servidor", async () => {
   const cobro = { id: "x", estado: "pendiente", link: "https://pago/x" };
-  const { fetcher, llamadas } = apiFalsa(201, { ok: true, cobro });
+  const { fetcher, llamadas } = apiFalsa(201, { ok: true, datos: { cobro } });
   const r = await pedirPagoEnLinea({ casoId: "c1", monto: "60000", medio: "link", token: "jwt", api: API, fetcher });
 
   assert.deepEqual(r, { ok: true, cobro });
-  assert.equal(llamadas[0].url, `${API}/cobros`);
+  assert.equal(llamadas[0].url, `${API}/casos/c1/cobros/en-linea`);
   assert.equal(llamadas[0].method, "POST");
   assert.equal(llamadas[0].headers.Authorization, "Bearer jwt");
-  assert.deepEqual(llamadas[0].cuerpo, { caso_id: "c1", monto: 60000, medio: "link" });
+  assert.deepEqual(llamadas[0].cuerpo, { monto: 60000, medio: "link" });
 });
 
 test("lo que contesta la API con palabras llega tal cual", async () => {
-  const { fetcher } = apiFalsa(422, { ok: false, motivo: "Ese caso ya está cobrado." });
+  const { fetcher } = apiFalsa(422, { ok: false, error: { codigo: "SALDO_AGOTADO", mensaje: "Ese caso ya está cobrado." } });
   const r = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "link", token: "t", api: API, fetcher });
   assert.deepEqual(r, { ok: false, error: "Ese caso ya está cobrado." });
 });
@@ -90,7 +90,7 @@ test("sesión vencida o sin permiso: una frase que diga qué hacer", async () =>
   const vencida = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "link", token: "t", api: API, fetcher: apiFalsa(401).fetcher });
   assert.match(vencida.error, /sesión venció/);
   const sinPermiso = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "link", token: "t", api: API, fetcher: apiFalsa(403).fetcher });
-  assert.match(sinPermiso.error, /dueño o el encargado/);
+  assert.match(sinPermiso.error, /permiso/);
 });
 
 test("si la API no contesta, no explota", async () => {
@@ -99,7 +99,7 @@ test("si la API no contesta, no explota", async () => {
   };
   const r = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "qr", token: "t", api: API, fetcher: caida });
   assert.equal(r.ok, false);
-  assert.match(r.error, /conexión/);
+  assert.match(r.error, /conectarnos/);
 });
 
 test("un 200 que no dice ok no cuenta como pedido", async () => {
@@ -115,7 +115,7 @@ test("sin API no se llama a nada", async () => {
 });
 
 test("anular un pedido va a la API, para que el link deje de servir", async () => {
-  const { fetcher, llamadas } = apiFalsa(200, { ok: true, cobro: { id: "x/1", estado: "anulado" } });
+  const { fetcher, llamadas } = apiFalsa(200, { ok: true, datos: { cobro: { id: "x/1", estado: "anulado" } } });
   const r = await anularPagoEnLinea({ cobroId: "x/1", motivo: "Pagó en efectivo", token: "t", api: API, fetcher });
   assert.equal(r.ok, true);
   assert.equal(llamadas[0].url, `${API}/cobros/x%2F1/anular`);
@@ -158,10 +158,10 @@ test("el mensaje de WhatsApp dice quién cobra, cuánto y dónde pagar", () => {
 
 
 test("desde el seguimiento no se manda sesión ni monto: sólo el código", async () => {
-  const { fetcher, llamadas } = apiFalsa(200, { ok: true, link: "https://pago/y" });
+  const { fetcher, llamadas } = apiFalsa(200, { ok: true, datos: { cobro: { link: "https://pago/y" } } });
   const r = await pagarDesdeSeguimiento({ codigo: "abc", api: API, fetcher });
   assert.deepEqual(r, { ok: true, link: "https://pago/y" });
-  assert.equal(llamadas[0].url, `${API}/seguimiento/abc/pagos`);
+  assert.equal(llamadas[0].url, `${API}/publico/seguimiento/abc/pagos`);
   assert.equal(llamadas[0].headers.Authorization, undefined);
   assert.deepEqual(llamadas[0].cuerpo, {});
 });

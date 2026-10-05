@@ -94,10 +94,12 @@ test("traer, parchar y quitar usan el método que corresponde", async () => {
 // La dirección y el interruptor
 // ------------------------------------------------------------
 
-test("la raíz sale igual con el valor viejo de Vercel (/payments) que con la raíz", () => {
+test("la raíz sale igual con /payments, /v1 o con la raíz", () => {
   const raiz = "https://tp-ingesoft-api.onrender.com";
   assert.equal(raizDeLaApi(`${raiz}/payments`), raiz);
   assert.equal(raizDeLaApi(`${raiz}/payments/`), raiz);
+  assert.equal(raizDeLaApi(`${raiz}/v1`), raiz);
+  assert.equal(raizDeLaApi(`${raiz}/v1/`), raiz);
   assert.equal(raizDeLaApi(` ${raiz}/ `), raiz);
   assert.equal(raizDeLaApi(raiz), raiz);
 });

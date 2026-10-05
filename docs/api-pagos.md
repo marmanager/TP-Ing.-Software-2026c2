@@ -5,7 +5,7 @@ en Render, ejecutar `supabase/030_cobro_qr.sql` en el mismo proyecto Supabase
 que usan Render y Vercel, y configurar en Vercel:
 
 ```text
-NEXT_PUBLIC_API_URL=https://tp-ingesoft-api.onrender.com/payments
+NEXT_PUBLIC_API_URL=https://tp-ingesoft-api.onrender.com/v1
 ```
 
 La API tiene que tener configurados OAuth y el Webhook `payment` con su clave
@@ -44,15 +44,15 @@ La API tiene que:
 
 Siempre JSON, con `ok`:
 
-- Bien: `{ "ok": true, "cobro": { ...la fila de la tabla cobro... } }`
-- Mal: `{ "ok": false, "motivo": "Frase para mostrarle a la persona." }`
+- Bien: `{ "ok": true, "datos": { "cobro": { ...la fila de la tabla cobro... } } }`
+- Mal: `{ "ok": false, "error": { "codigo": "...", "mensaje": "Frase para mostrarle a la persona." } }`
 
 El `motivo` se muestra tal cual en pantalla, así que va en castellano, sin códigos ni palabras técnicas. Si no hay `motivo`, el front usa una frase propia según el código (`401` → sesión vencida, `403` → sin permiso, otro → "no contestó").
 
-## `POST /cobros` — pedir un pago
+## `POST /casos/:casoId/cobros/en-linea` — pedir un pago
 
 ```json
-{ "caso_id": "uuid", "monto": 60000, "medio": "link" }
+{ "monto": 60000, "medio": "link" }
 ```
 
 `medio` es `"link"` o `"qr"`.
@@ -76,7 +76,7 @@ La API da de baja el link en el medio de pago (para que el cliente ya no pueda p
 
 Un pago que **ya entró** no se anula: se devuelve desde el medio de pago, y la fila pasa a `devuelto`.
 
-## `POST /seguimiento/:codigo/pagos` — el cliente paga desde su link (sin sesión)
+## `POST /publico/seguimiento/:codigo/pagos` — el cliente paga desde su link (sin sesión)
 
 Es la única ruta **sin autenticación**: la usa el cliente desde la página de seguimiento, que no tiene cuenta. El `:codigo` es el código del link de seguimiento (`caso.seguimiento_codigo`), y es lo único que identifica el caso.
 

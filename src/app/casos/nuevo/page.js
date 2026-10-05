@@ -101,8 +101,8 @@ function Formulario() {
   const motivoApagado = motivoDeFaltantes(faltan);
   const marcar = (campo) => faltan.length > 1 && faltan.some((f) => f.campo === campo);
 
-  function guardar() {
-    const caso = abrirCaso({
+  async function guardar() {
+    const caso = await abrirCaso({
       clienteId: yaEsCliente?.id ?? null,
       nombreCliente: nombre.trim(),
       telefono: telefono.trim(),
@@ -111,6 +111,7 @@ function Formulario() {
       responsableId: responsable || null,
       turnoId: turno?.id ?? null,
     });
+    if (!caso) return;
     avisarExito(`Listo. El caso de ${nombre.trim()} ya está en la lista de hoy.`);
     router.push(`/casos/${caso.id}`);
   }

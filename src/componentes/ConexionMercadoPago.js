@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
-import { quitar, traer } from "@/lib/api";
 import Icono from "./Icono";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
 export default function ConexionMercadoPago() {
-  const { sesion, usuario } = useAuth();
-  const { negocio, avisarExito } = useDatos();
+  const { usuario } = useAuth();
+  const { negocio, avisarExito, estadoMercadoPago, desvincularMercadoPago } = useDatos();
   const [conectado, setConectado] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
   const [desvinculando, setDesvinculando] = useState(false);
@@ -19,24 +18,24 @@ export default function ConexionMercadoPago() {
 
   useEffect(() => {
     let vivo = true;
-    if (!puedeConfigurar || !sesion?.access_token) return;
-    traer("/cobros/mercadopago/status", sesion.access_token).then((r) => {
+    if (!puedeConfigurar) return;
+    estadoMercadoPago().then((r) => {
       if (!vivo) return;
-      if (r.ok) setConectado(Boolean(r.datos?.conectado));
+      if (r.ok) setConectado(r.conectado);
       else {
         setConectado(false);
         setError(r.error?.mensaje ?? "No pudimos consultar la conexión de Mercado Pago.");
       }
     });
     return () => { vivo = false; };
-  }, [puedeConfigurar, sesion?.access_token, negocio?.id]);
+  }, [puedeConfigurar, negocio?.id]);
 
   if (!puedeConfigurar) return null;
 
   async function desvincular() {
     setDesvinculando(true);
     setError(null);
-    const r = await quitar("/cobros/mercadopago/vinculacion", sesion.access_token);
+    const r = await desvincularMercadoPago();
     setDesvinculando(false);
     if (!r.ok) return setError(r.error?.mensaje ?? "No pudimos desvincular Mercado Pago.");
     setConectado(false);

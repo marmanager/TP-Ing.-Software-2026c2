@@ -19,13 +19,7 @@
 //     y probar las pantallas; no es un pago.
 //   · Con Supabase y sin API, el botón aparece apagado y dice por qué.
 
-import { API, RAIZ, usaLaApi } from "./api.js";
-
-// La dirección de los pagos: la raíz de la API (la arma api.js, que es el
-// que conoce NEXT_PUBLIC_API_URL) más "/payments". Con el valor que hoy
-// tiene Vercel (".../payments") da lo mismo de siempre; el día que la
-// variable pase a la raíz, también.
-export const API_PAGOS = RAIZ ? `${RAIZ}/payments` : null;
+import { API, mandar } from "./api.js";
 
 export function apiPagosApuntaAlFrontend(api) {
   if (!api) return false;
@@ -39,7 +33,7 @@ export function apiPagosApuntaAlFrontend(api) {
 }
 
 // Si se puede pedir un pago en línea, y si es de verdad o simulado.
-export function pagosEnLinea({ esDemo = false, api = API_PAGOS } = {}) {
+export function pagosEnLinea({ esDemo = false, api = API } = {}) {
   if (esDemo) return { disponible: true, simulado: true, motivo: null };
   if (apiPagosApuntaAlFrontend(api)) return {
     disponible: false,
@@ -54,68 +48,33 @@ export function pagosEnLinea({ esDemo = false, api = API_PAGOS } = {}) {
   };
 }
 
-// Lo que contesta la API cuando algo sale mal, en una frase para la
-// pantalla. La API ya contesta { ok: false, motivo } con palabras; esto
-// cubre lo que no llega a contestar.
-function porQueFallo(respuesta, cuerpo) {
-  if (cuerpo?.motivo) return cuerpo.motivo;
-  if (respuesta?.status === 401) return "Tu sesión venció. Volvé a entrar y probá de nuevo.";
-  if (respuesta?.status === 403) return "Los cobros los piden el dueño o el encargado.";
-  return "El sistema de pagos no contestó. Probá de nuevo en un rato.";
-}
-
-async function llamar(ruta, { token, cuerpo, api = API_PAGOS, fetcher = fetch } = {}) {
-  if (!api) return { ok: false, error: "Todavía no está conectado el sistema de pagos." };
-  let respuesta;
-  try {
-    respuesta = await fetcher(`${api}${ruta}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // La sesión de la persona, no una clave del servidor: la API la
-        // valida y actúa como ella, así las reglas de 008_permisos siguen
-        // valiendo del otro lado.
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(cuerpo ?? {}),
-    });
-  } catch {
-    return { ok: false, error: "No hay conexión con el sistema de pagos. Probá de nuevo." };
-  }
-
-  let datos = null;
-  try {
-    datos = await respuesta.json();
-  } catch {
-    // Sin cuerpo: se decide por el código.
-  }
-  if (!respuesta.ok || !datos?.ok) return { ok: false, error: porQueFallo(respuesta, datos) };
-  return { ok: true, cobro: datos.cobro };
-}
-
 // Pedir un pago: la API arma el link o el QR con el medio de pago, guarda el
 // cobro "pendiente" en la tabla y lo devuelve.
-export const pedirPagoEnLinea = ({ casoId, monto, medio, token, ...resto }) =>
-  llamar("/cobros", { token, cuerpo: { caso_id: casoId, monto: Number(monto), medio }, ...resto });
+export async function pedirPagoEnLinea({ casoId, monto, medio, token, api = API, fetcher = fetch }) {
+  const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/en-linea`,
+    { monto: Number(monto), medio }, token, { base: api, fetcher });
+  return r.ok ? { ok: true, cobro: r.datos.cobro } : { ok: false, error: r.error.mensaje };
+}
 
 // Anular un pago que todavía no se hizo. Pasa por la API y no por la base
 // directo, porque además hay que dar de baja el link en el medio de pago: si
 // no, el cliente todavía podría pagarlo.
-export const anularPagoEnLinea = ({ cobroId, motivo, token, ...resto }) =>
-  llamar(`/cobros/${encodeURIComponent(cobroId)}/anular`, { token, cuerpo: { motivo }, ...resto });
+export async function anularPagoEnLinea({ cobroId, motivo, token, api = API, fetcher = fetch }) {
+  const r = await mandar(`/cobros/${encodeURIComponent(cobroId)}/anular`, { motivo }, token, { base: api, fetcher });
+  return r.ok ? { ok: true, cobro: r.datos.cobro } : { ok: false, error: r.error.mensaje };
+}
 
 // Pagar desde el link de seguimiento, cuando el negocio todavía no le mandó
 // un link de pago. Es la única llamada SIN sesión: la hace el cliente, que
 // no tiene cuenta. Por eso no manda monto: la API calcula lo que falta con
 // la misma cuenta que ver_seguimiento() y arma el link por eso, y nada más.
 // El código del seguimiento es lo único que identifica el caso.
-export async function pagarDesdeSeguimiento({ codigo, api = API_PAGOS, fetcher = fetch } = {}) {
-  const nueva = usaLaApi("casos");
-  const base = nueva ? API : api;
+export async function pagarDesdeSeguimiento({ codigo, api = API, fetcher = fetch } = {}) {
+  const base = api;
   if (!base) return { ok: false, error: "Por ahora no se puede pagar desde acá. Podés pagarlo en el local." };
   let respuesta;
   try {
-    respuesta = await fetcher(`${base}${nueva ? "/publico" : ""}/seguimiento/${encodeURIComponent(codigo)}/pagos`, {
+    respuesta = await fetcher(`${base}/publico/seguimiento/${encodeURIComponent(codigo)}/pagos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",
@@ -129,7 +88,7 @@ export async function pagarDesdeSeguimiento({ codigo, api = API_PAGOS, fetcher =
   } catch {
     // Sin cuerpo: se decide por el código.
   }
-  const link = nueva ? datos?.datos?.cobro?.link : datos?.link;
+  const link = datos?.datos?.cobro?.link;
   if (!respuesta.ok || !datos?.ok || !link) {
     return { ok: false, error: datos?.error?.mensaje ?? datos?.motivo ?? "No pudimos armar el pago. Probá de nuevo o pagalo en el local." };
   }

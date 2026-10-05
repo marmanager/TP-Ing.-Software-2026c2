@@ -37,9 +37,6 @@ import { cuando } from "@/lib/fechas";
 import { linkDeWhatsApp, linkDeWhatsAppA } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
-import { useAuth } from "@/lib/auth";
-import { API_PAGOS, apiPagosApuntaAlFrontend } from "@/lib/pagos";
-import { mandar, traer } from "@/lib/api";
 
 // La cuenta en una frase, según cómo esté. Es lo primero que se lee: el
 // número suelto no dice si está bien o si falta algo.
@@ -167,7 +164,6 @@ export default function SeccionCobros({
   const [pidiendo, setPidiendo] = useState(false);
   const [montoPedido, setMontoPedido] = useState("");
   const [medioPedido, setMedioPedido] = useState("link");
-  const { sesion } = useAuth();
   const [mercadoPagoConectado, setMercadoPagoConectado] = useState(null);
   const [vinculadoAhora, setVinculadoAhora] = useState(false);
 
@@ -182,45 +178,21 @@ export default function SeccionCobros({
   const frase = fraseDeLaCuenta(cuenta);
   const enLinea = datos.pagosEnLinea ?? { disponible: false, simulado: false, motivo: null };
   useEffect(() => {
-    if (!API_PAGOS || apiPagosApuntaAlFrontend(API_PAGOS) || !sesion?.access_token || enLinea.simulado) return;
+    if (enLinea.simulado) return;
     let vivo = true;
-    if (datos.casosPorApi) {
-      traer("/cobros/mercadopago/status", sesion.access_token).then(r => {
-        if (vivo) setMercadoPagoConectado(Boolean(r.ok && r.datos.conectado));
-      });
-      return () => { vivo = false; };
-    }
-    fetch(`${API_PAGOS}/mercadopago/status`, {
-      headers: { Authorization: `Bearer ${sesion.access_token}` },
-    }).then(r => r.json()).then(r => {
+    datos.estadoMercadoPago().then(r => {
       if (vivo) setMercadoPagoConectado(Boolean(r.ok && r.conectado));
-    }).catch(() => { if (vivo) setMercadoPagoConectado(false); });
+    });
     return () => { vivo = false; };
-  }, [sesion?.access_token, enLinea.simulado]);
+  }, [enLinea.simulado, caso.id]);
 
   async function conectarMercadoPago() {
     setError(null);
-    if (apiPagosApuntaAlFrontend(API_PAGOS)) {
-      setError("La dirección de pagos apunta a la app. En Vercel configurá NEXT_PUBLIC_API_URL=https://tp-ingesoft-api.onrender.com/payments y volvé a desplegar.");
-      return;
-    }
     try {
-      if (datos.casosPorApi) {
-        const r = await mandar("/cobros/mercadopago/conectar", {}, sesion.access_token);
-        if (!r.ok) throw new Error(r.error.mensaje);
-        window.sessionStorage.setItem("marmanager.mp-caso", caso.id);
-        window.location.assign(r.datos.url);
-        return;
-      }
-      const response = await fetch(`${API_PAGOS}/mercadopago/connect`, {
-        method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
-      });
-      const data = await response.json().catch(() => {
-        throw new Error("La API de pagos devolvió una página en lugar de datos. Revisá NEXT_PUBLIC_API_URL en Vercel.");
-      });
-      if (!response.ok || !data.url) throw new Error(data.motivo || "No se pudo vincular Mercado Pago.");
+      const r = await datos.conectarMercadoPago();
+      if (!r.ok) throw new Error(r.error);
       window.sessionStorage.setItem("marmanager.mp-caso", caso.id);
-      window.location.assign(data.url);
+      window.location.assign(r.url);
     } catch (e) { setError(e.message); }
   }
 
@@ -232,17 +204,7 @@ export default function SeccionCobros({
     if (!esperandoAlgo) return;
     let vivo = true;
     const mirar = async () => {
-      if (API_PAGOS && sesion?.access_token) {
-        try {
-          if (datos.casosPorApi) {
-            await mandar(`/casos/${encodeURIComponent(caso.id)}/cobros/conciliar`, {}, sesion.access_token);
-          } else {
-            await fetch(`${API_PAGOS}/casos/${caso.id}/conciliar-cobros`, {
-              method: "POST", headers: { Authorization: `Bearer ${sesion.access_token}` },
-            });
-          }
-        } catch { /* El webhook sigue funcionando aunque falle esta consulta. */ }
-      }
+      await datos.conciliarCobrosMercadoPago(caso.id);
       const r = await datos.refrescarCobros(caso.id);
       if (vivo && r?.pagados?.length) {
         const total = r.pagados.reduce((s, c) => s + Number(c.monto), 0);

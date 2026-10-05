@@ -14,6 +14,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, haySupabase, formasDeEntrar } from "./supabase";
 import { errorAlSalirHaciaGoogle, googleActivado, nombreDeLaCuenta, origenDeIngreso } from "./ingreso-google.js";
+import { mandar, quitar, reemplazar, traer, usaLaApi } from "./api.js";
 
 const LLAVE_DEMO = "marmanager.demo.v1";
 const LLAVE_MAIL = "marmanager.mail-a-confirmar";
@@ -120,7 +121,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Trae (o crea) la fila de `usuario` que liga la cuenta con su negocio.
-  async function traerUsuario(user) {
+  async function traerUsuario(user, accessToken = null) {
     if (!user) return null;
     const sinBase = {
       id: user.id,
@@ -132,6 +133,14 @@ export function AuthProvider({ children }) {
       negocio_id: null,
       rol: "duenio",
     };
+    if (usaLaApi("auth")) {
+      const token = accessToken ?? (await supabase.auth.getSession()).data?.session?.access_token;
+      if (token) {
+        const r = await traer("/cuenta", token);
+        if (r.ok && r.datos.usuario) return r.datos.usuario;
+      }
+      return sinBase;
+    }
     const { data, error } = await supabase
       .from("usuario")
       .select("*")
@@ -173,7 +182,7 @@ export function AuthProvider({ children }) {
       const { data } = await supabase.auth.getSession();
       if (!vivo) return;
       setSesion(data.session ?? null);
-      setUsuario(data.session ? await traerUsuario(data.session.user) : null);
+      setUsuario(data.session ? await traerUsuario(data.session.user, data.session.access_token) : null);
       setCargando(false);
     })();
 
@@ -199,7 +208,7 @@ export function AuthProvider({ children }) {
       setCargando(true);
       setTimeout(async () => {
         try {
-          const perfil = await traerUsuario(s.user);
+          const perfil = await traerUsuario(s.user, s.access_token);
           if (vivo) setUsuario(perfil);
         } catch (error) {
           console.error("No se pudo cargar el usuario:", error);
@@ -247,6 +256,18 @@ export function AuthProvider({ children }) {
             error:
               "Para crear una cuenta hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
+        if (usaLaApi("auth")) {
+          const r = await mandar("/cuentas", { nombre, email, telefono, contrasena });
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          if (r.datos.necesita_confirmar) {
+            try { window.localStorage.setItem(LLAVE_MAIL, email.trim()); } catch {}
+            return { ok: true, necesitaConfirmar: true, email: email.trim() };
+          }
+          if (r.datos.token && r.datos.refresh_token) {
+            await supabase.auth.setSession({ access_token: r.datos.token, refresh_token: r.datos.refresh_token });
+          }
+          return { ok: true, necesitaConfirmar: false };
+        }
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: contrasena,
@@ -287,6 +308,17 @@ export function AuthProvider({ children }) {
             error:
               "Para iniciar sesión hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
+        if (usaLaApi("auth")) {
+          const r = await mandar("/sesiones", { email, contrasena });
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          const { error } = await supabase.auth.setSession({
+            access_token: r.datos.token,
+            refresh_token: r.datos.refresh_token,
+          });
+          if (error) return { ok: false, error: traducir(error) };
+          setUsuario(r.datos.usuario ?? null);
+          return { ok: true };
+        }
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: contrasena,
@@ -311,6 +343,12 @@ export function AuthProvider({ children }) {
               "Para entrar con Google hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
           };
         window.localStorage.removeItem(LLAVE_DEMO);
+        if (usaLaApi("auth")) {
+          const r = await mandar("/sesiones/google", {});
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          window.location.assign(r.datos.url);
+          return { ok: true };
+        }
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
@@ -330,7 +368,10 @@ export function AuthProvider({ children }) {
           setEsDemo(false);
           return { ok: true };
         }
-        await supabase.auth.signOut();
+        if (usaLaApi("auth") && sesion?.access_token) {
+          await quitar("/sesiones", sesion.access_token);
+        }
+        await supabase.auth.signOut({ scope: "local" });
         setSesion(null);
         setUsuario(null);
         setRecuperando(false);
@@ -349,6 +390,10 @@ export function AuthProvider({ children }) {
       async pedirResetContrasena(email) {
         if (!haySupabase)
           return { ok: false, error: "Para recuperar la contraseña hace falta conectar la base de Supabase." };
+        if (usaLaApi("auth")) {
+          await mandar("/sesiones/recuperar", { email });
+          return { ok: true };
+        }
         await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: origenDeIngreso(window.location.origin) + "/nueva-contrasena",
         });
@@ -358,6 +403,12 @@ export function AuthProvider({ children }) {
 
       async definirContrasena(nueva) {
         if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (usaLaApi("auth")) {
+          const r = await mandar("/sesiones/contrasena", { contrasena: nueva }, sesion?.access_token);
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          setRecuperando(false);
+          return { ok: true };
+        }
         const { error } = await supabase.auth.updateUser({ password: nueva });
         if (error) return { ok: false, error: traducir(error) };
         setRecuperando(false);
@@ -366,6 +417,10 @@ export function AuthProvider({ children }) {
 
       async reenviarConfirmacion(email) {
         if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (usaLaApi("auth")) {
+          const r = await mandar("/cuentas/confirmacion", { email });
+          return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+        }
         const { error } = await supabase.auth.resend({ type: "signup", email: email.trim() });
         if (error) return { ok: false, error: traducir(error) };
         return { ok: true };
@@ -376,6 +431,10 @@ export function AuthProvider({ children }) {
       // ok: false; quien la usa sigue como antes, con el negocio activo.
       async misNegocios() {
         if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (usaLaApi("auth")) {
+          const r = await traer("/cuenta/negocios", sesion?.access_token);
+          return r.ok ? { ok: true, negocios: r.datos.negocios ?? [] } : { ok: false, error: r.error.mensaje };
+        }
         const { data, error } = await supabase.rpc("mis_negocios");
         if (error) return { ok: false, error: traducir(error) };
         return { ok: true, negocios: data ?? [] };
@@ -386,6 +445,12 @@ export function AuthProvider({ children }) {
       // la fila de usuario, y con eso datos.js carga el negocio nuevo.
       async entrarAlNegocio(negocioId) {
         if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (usaLaApi("auth")) {
+          const r = await mandar("/cuenta/negocio", { negocio_id: negocioId }, sesion?.access_token);
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
+          return { ok: true };
+        }
         const { error } = await supabase.rpc("entrar_al_negocio", { p_negocio: negocioId });
         if (error) {
           return { ok: false, error: error.code === "P0001" ? error.message : traducir(error) };
@@ -398,6 +463,15 @@ export function AuthProvider({ children }) {
       // los dispositivos, por eso van a la base y no al navegador.
       async guardarPreferenciasDeEntrada({ predeterminado, inicioRapido }) {
         if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (usaLaApi("auth")) {
+          const r = await reemplazar("/cuenta/preferencias", {
+            predeterminado: predeterminado ?? null,
+            inicio_rapido: Boolean(inicioRapido),
+          }, sesion?.access_token);
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
+          return { ok: true };
+        }
         const { error } = await supabase.rpc("guardar_preferencias_de_entrada", {
           p_predeterminado: predeterminado ?? null,
           p_inicio_rapido: Boolean(inicioRapido),
@@ -416,6 +490,12 @@ export function AuthProvider({ children }) {
       // así todo lo que muestra el usuario queda al día.
       async guardarPerfil({ nombre, telefono, foto }) {
         if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (usaLaApi("auth")) {
+          const r = await reemplazar("/cuenta/perfil", { nombre, telefono, foto: foto ?? null }, sesion?.access_token);
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
+          return { ok: true };
+        }
         const { error } = await supabase.rpc("guardar_mi_perfil", {
           p_nombre: nombre,
           p_telefono: telefono,
@@ -437,7 +517,7 @@ export function AuthProvider({ children }) {
       // de una sola vez.
       async refrescarUsuario() {
         if (!sesion?.user) return { ok: false };
-        const u = await traerUsuario(sesion.user);
+        const u = await traerUsuario(sesion.user, sesion.access_token);
         setUsuario(u);
         return { ok: true, usuario: u };
       },
@@ -446,6 +526,13 @@ export function AuthProvider({ children }) {
       async verInvitacion(codigo) {
         if (!haySupabase) {
           return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
+        }
+        if (usaLaApi("auth")) {
+          const r = await traer(`/publico/invitaciones/${encodeURIComponent(codigo)}`);
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          const fila = r.datos.invitacion;
+          if (!fila) return { ok: false, error: "Este link no existe. Fijate que esté completo." };
+          return { ok: true, negocio: fila.negocio_nombre, rol: fila.rol, sirve: fila.sirve, motivo: fila.motivo };
         }
         const { data, error } = await supabase.rpc("ver_invitacion", { p_codigo: codigo });
         if (error) return { ok: false, error: traducir(error) };
@@ -463,6 +550,14 @@ export function AuthProvider({ children }) {
       async aceptarInvitacion(codigo, nombre) {
         if (!haySupabase) {
           return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
+        }
+        if (usaLaApi("auth")) {
+          const r = await mandar(`/invitaciones/${encodeURIComponent(codigo)}/aceptar`, { nombre: nombre ?? null }, sesion?.access_token);
+          if (!r.ok) return { ok: false, error: r.error.mensaje };
+          olvidarInvitacion();
+          const refrescado = await traerUsuario(sesion.user, sesion.access_token);
+          setUsuario(refrescado);
+          return { ok: true };
         }
         const { error } = await supabase.rpc("aceptar_invitacion", {
           p_codigo: codigo,

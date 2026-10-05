@@ -94,9 +94,10 @@ function Pantalla() {
     setAbierto(false);
   }
 
-  function pedir() {
+  async function pedir() {
     const nombre = form.nombre.trim();
-    datos.pedirInsumo({ nombre, cantidad: form.cantidad, casoId: casoId || null });
+    const insumo = await datos.pedirInsumo({ nombre, cantidad: form.cantidad, casoId: casoId || null });
+    if (!insumo) return;
     const caso = casoDe(casoId);
     datos.avisarExito(
       caso
@@ -106,9 +107,9 @@ function Pantalla() {
     cerrar();
   }
 
-  function llego(i) {
+  async function llego(i) {
     const caso = casoDe(i.caso_id);
-    const despues = datos.marcarInsumoLlegado(i.id);
+    const despues = await datos.marcarInsumoLlegado(i.id);
     datos.avisarExito(
       !caso
         ? `Listo. ${i.nombre} ya está en el stock.`
