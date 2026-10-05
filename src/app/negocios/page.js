@@ -142,7 +142,7 @@ export default function Negocios() {
               {entrando === n.id ? (
                 <span className="text-tinta-media">Entrando…</span>
               ) : (
-                <Icono nombre="flecha" className="shrink-0 text-azul" />
+                <Icono nombre="flecha" className="size-6 text-azul" />
               )}
             </button>
           </li>
