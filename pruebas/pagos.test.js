@@ -12,6 +12,7 @@ import {
   pagarDesdeSeguimiento,
   pagosEnLinea,
   pedirPagoEnLinea,
+  vueltaDeMercadoPago,
 } from "../src/lib/pagos.js";
 import { hayPagosEnCamino, mensajeDePago, montoParaPedir, cuentaDelCaso } from "../src/lib/cobros.js";
 
@@ -186,4 +187,21 @@ test("sin API, el cliente lee que puede pagar en el local", async () => {
 test("una respuesta sin link no manda al cliente a ningún lado", async () => {
   const r = await pagarDesdeSeguimiento({ codigo: "abc", api: API, fetcher: apiFalsa(200, { ok: true }).fetcher });
   assert.equal(r.ok, false);
+});
+
+// Mercado Pago, después de vincular, vuelve siempre a /casos?mp=conectado.
+// Desde ahí se manda a la persona a donde había tocado "Vincular".
+test("quien vinculó desde Mi negocio vuelve a Integraciones", () => {
+  assert.equal(vueltaDeMercadoPago("negocio"), "/negocio?mp=conectado#integraciones");
+});
+
+test("quien vinculó desde un caso vuelve a los cobros de ese caso", () => {
+  const id = "3f2b8c1e-0a4d-4e5f-9b6a-1c2d3e4f5a6b";
+  assert.equal(vueltaDeMercadoPago(id), `/casos/${id}?mp=conectado#cobros`);
+});
+
+test("sin saber de dónde salió, o con algo raro anotado, se queda en Casos", () => {
+  assert.equal(vueltaDeMercadoPago(null), null);
+  assert.equal(vueltaDeMercadoPago("//otro-sitio.com"), null);
+  assert.equal(vueltaDeMercadoPago("../perfil"), null);
 });

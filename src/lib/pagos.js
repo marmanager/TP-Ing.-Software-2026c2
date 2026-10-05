@@ -32,6 +32,16 @@ export function apiPagosApuntaAlFrontend(api) {
   }
 }
 
+// Después de vincular, Mercado Pago vuelve siempre a /casos?mp=conectado.
+// Antes de irse, la pantalla anota en el navegador de dónde salió —"negocio"
+// o el id del caso—, y Casos la manda de vuelta ahí. Sólo esas dos: lo
+// anotado no arma una dirección cualquiera. null es quedarse en Casos.
+export function vueltaDeMercadoPago(desde) {
+  if (desde === "negocio") return "/negocio?mp=conectado#integraciones";
+  if (/^[0-9a-f-]{36}$/i.test(desde ?? "")) return `/casos/${desde}?mp=conectado#cobros`;
+  return null;
+}
+
 // Si se puede pedir un pago en línea, y si es de verdad o simulado.
 export function pagosEnLinea({ esDemo = false, api = API } = {}) {
   if (esDemo) return { disponible: true, simulado: true, motivo: null };

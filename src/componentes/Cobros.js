@@ -169,6 +169,7 @@ export default function SeccionCobros({
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
+    window.sessionStorage.removeItem("marmanager.mp-desde");
     setVinculadoAhora(true);
     document.getElementById("cobros")?.scrollIntoView({ block: "start" });
     window.history.replaceState(null, "", window.location.pathname + "#cobros");
@@ -191,7 +192,7 @@ export default function SeccionCobros({
     try {
       const r = await datos.conectarMercadoPago();
       if (!r.ok) throw new Error(r.error);
-      window.sessionStorage.setItem("marmanager.mp-caso", caso.id);
+      window.sessionStorage.setItem("marmanager.mp-desde", caso.id);
       window.location.assign(r.url);
     } catch (e) { setError(e.message); }
   }

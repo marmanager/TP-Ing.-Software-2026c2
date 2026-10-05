@@ -7,6 +7,7 @@ import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { etiquetaEstado, comoSeIdentifica } from "@/lib/presets";
+import { vueltaDeMercadoPago } from "@/lib/pagos";
 import FilaCaso from "@/componentes/FilaCaso";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Vacio } from "@/componentes/ui";
@@ -22,9 +23,11 @@ export default function Casos() {
   useTitulo("Casos");
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
-    const casoId = window.sessionStorage.getItem("marmanager.mp-caso");
-    window.sessionStorage.removeItem("marmanager.mp-caso");
-    if (casoId && /^[0-9a-f-]{36}$/i.test(casoId)) router.replace(`/casos/${casoId}?mp=conectado#cobros`);
+    // La nota la borra la pantalla a la que se vuelve, al llegar: si se
+    // borrara acá, la segunda vez que corre el efecto (React lo corre dos en
+    // desarrollo) no la encontraría y pisaría la vuelta con /casos.
+    const vuelta = vueltaDeMercadoPago(window.sessionStorage.getItem("marmanager.mp-desde"));
+    if (vuelta) router.replace(vuelta);
     else {
       setMercadoPagoVinculado(true);
       window.history.replaceState(null, "", window.location.pathname);

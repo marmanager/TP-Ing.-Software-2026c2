@@ -192,41 +192,6 @@ export default function MiNegocio() {
         Cómo se llaman las cosas en tu oficio, y qué tenés cargado hasta ahora.
       </p>
 
-      {/* En el celular esta pantalla son varias pantallas de scroll, y para
-          llegar a la contraseña, que estaba al final, había que pasar por los
-          estados, los módulos y el rubro todas las veces (auditoría, H6).
-
-          La contraseña y los datos de la cuenta se mudaron a Mi perfil
-          (SCRUM-118). El último enlace sigue acá y lleva allá: quien la busque
-          en el lugar de siempre tiene que encontrar adónde se fue. */}
-      <nav aria-label="En esta pantalla" className="mb-8">
-        <ul className="flex flex-wrap gap-x-6 gap-y-1">
-          {[
-            ["#estados", "Los estados"],
-            ["#nombres", "Los nombres de los casos"],
-            ["#modulos", "Los módulos"],
-            ...(["duenio", "encargado"].includes(usuario?.rol) ? [["#integraciones", "Las integraciones"]] : []),
-            ...(estaPrendido("agenda", modulosActivos) ? [["#horarios", "Cuándo atendés"]] : []),
-            ["#rubro", "El rubro"],
-            ["/perfil", "Tu cuenta y tu contraseña, en Mi perfil"],
-          ].map(([href, texto]) => (
-            <li key={href}>
-              {/* Los "#" saltan dentro de esta pantalla; lo demás es otra
-                  pantalla, y va con Link para no recargar la aplicación. */}
-              {href.startsWith("#") ? (
-                <a href={href} className="inline-flex min-h-12 items-center font-bold text-azul">
-                  {texto}
-                </a>
-              ) : (
-                <Link href={href} className="inline-flex min-h-12 items-center font-bold text-azul">
-                  {texto}
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      </nav>
-
       <Tarjeta className="mb-12">
         {/* El input vive afuera de los dos modos: si se desmontara al entrar
             en edición, el explorador de archivos se abriría sobre un elemento

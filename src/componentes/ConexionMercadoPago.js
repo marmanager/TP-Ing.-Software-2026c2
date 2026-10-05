@@ -8,13 +8,26 @@ import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
 export default function ConexionMercadoPago() {
   const { usuario } = useAuth();
-  const { negocio, avisarExito, estadoMercadoPago, desvincularMercadoPago } = useDatos();
+  const { negocio, avisarExito, estadoMercadoPago, conectarMercadoPago, desvincularMercadoPago, pagosEnLinea } =
+    useDatos();
   const [conectado, setConectado] = useState(null);
+  const [vinculando, setVinculando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [desvinculando, setDesvinculando] = useState(false);
   const [error, setError] = useState(null);
 
   const puedeConfigurar = usuario?.rol === "duenio" || usuario?.rol === "encargado";
+
+  // La vuelta de Mercado Pago, que pasa por Casos (vueltaDeMercadoPago).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
+    window.sessionStorage.removeItem("marmanager.mp-desde");
+    avisarExito("Mercado Pago quedó vinculado con este negocio.");
+    document.getElementById("integraciones")?.scrollIntoView({ block: "start" });
+    window.history.replaceState(null, "", window.location.pathname + "#integraciones");
+    // Una vez, al llegar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let vivo = true;
@@ -31,6 +44,20 @@ export default function ConexionMercadoPago() {
   }, [puedeConfigurar, negocio?.id]);
 
   if (!puedeConfigurar) return null;
+
+  // La API arma el link de Mercado Pago; ahí la persona entra con su cuenta
+  // y autoriza. Antes de irse se anota que salió de acá, para volver.
+  async function vincular() {
+    setVinculando(true);
+    setError(null);
+    const r = await conectarMercadoPago();
+    if (!r.ok) {
+      setVinculando(false);
+      return setError(r.error ?? "No pudimos abrir Mercado Pago.");
+    }
+    window.sessionStorage.setItem("marmanager.mp-desde", "negocio");
+    window.location.assign(r.url);
+  }
 
   async function desvincular() {
     setDesvinculando(true);
@@ -59,10 +86,18 @@ export default function ConexionMercadoPago() {
             <p className="text-tinta-media">
               {conectado
                 ? `Vinculado con ${negocio?.nombre ?? "este negocio"}.`
-                : "No está vinculado con este negocio."}
+                : "Vinculalo para cobrar por link o QR desde los casos."}
             </p>
           )}
         </div>
+        {conectado === false && (
+          <Boton
+            motivo={!pagosEnLinea?.disponible ? pagosEnLinea?.motivo : vinculando ? "abriendo Mercado Pago" : null}
+            onClick={vincular}
+          >
+            Vincular Mercado Pago
+          </Boton>
+        )}
         {conectado && !confirmando && (
           <Boton variante="peligro" icono="salir" onClick={() => setConfirmando(true)}>
             Desvincular Mercado Pago
