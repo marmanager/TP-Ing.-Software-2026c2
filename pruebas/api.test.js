@@ -7,6 +7,7 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
+  alPedirConSesion,
   alVencerLaSesion,
   api,
   mandar,
@@ -274,6 +275,27 @@ test("un 401 avisa una vez para que la aplicación cierre la sesión", async () 
   const { fetcher } = apiFalsa(401, { ok: false, error: { codigo: "sesion_vencida", mensaje: "Tu sesión venció." } });
   await traer("/casos", "t", { base: BASE, fetcher });
   assert.equal(avisos, 1);
+  alVencerLaSesion(null);
+});
+
+test("antes de un pedido autenticado reemplaza el token por el vigente", async () => {
+  alPedirConSesion(async () => "nuevo");
+  const { fetcher, llamadas } = apiFalsa(200, { ok: true, datos: {} });
+  await traer("/casos", "viejo", { base: BASE, fetcher });
+  assert.equal(llamadas[0].headers.Authorization, "Bearer nuevo");
+  alPedirConSesion(null);
+});
+
+test("si la sesión no se puede renovar, no manda el token vencido", async () => {
+  let avisos = 0;
+  alPedirConSesion(async () => null);
+  alVencerLaSesion(() => avisos++);
+  const { fetcher, llamadas } = apiFalsa(200, { ok: true, datos: {} });
+  const r = await traer("/casos", "viejo", { base: BASE, fetcher });
+  assert.equal(r.error.codigo, "sesion_vencida");
+  assert.equal(llamadas.length, 0);
+  assert.equal(avisos, 1);
+  alPedirConSesion(null);
   alVencerLaSesion(null);
 });
 

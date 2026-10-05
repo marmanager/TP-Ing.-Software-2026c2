@@ -29,6 +29,31 @@ export function sesionDelFragmento(hash) {
   };
 }
 
+// La API devuelve los tokens con nombres propios del contrato. El resto del
+// front todavía consume la forma histórica de Supabase (`access_token` y
+// `user`), así que este módulo hace de adaptador mientras se retiran los
+// accesos directos restantes.
+export function sesionDeRespuesta(datos, { recuperando = false } = {}) {
+  if (!datos?.token) return null;
+  return {
+    token: datos.token,
+    refresh_token: datos.refresh_token ?? null,
+    vence_en: Number(datos.vence_en),
+    auth_usuario: datos.auth_usuario ?? null,
+    recuperando,
+  };
+}
+
+export function sesionParaLaApp(sesion) {
+  if (!sesion?.token) return null;
+  return {
+    access_token: sesion.token,
+    refresh_token: sesion.refresh_token ?? null,
+    expires_at: sesion.vence_en,
+    user: sesion.auth_usuario ?? null,
+  };
+}
+
 // Sin storage explícito se usa el localStorage del navegador; en el
 // servidor no existe y la ReferenceError cae en el mismo catch.
 const conStorage = (storage, fn) => {
@@ -75,6 +100,9 @@ async function renovarYGuardar(sesion, storage, renovar) {
     borrar(storage);
     return null;
   }
-  guardar(storage, r.datos);
-  return r.datos.token;
+  // Renovar devuelve sólo tokens. Conservamos el usuario de Auth y la marca
+  // de recuperación que ya estaban guardados.
+  const nueva = { ...sesion, ...r.datos };
+  guardar(storage, nueva);
+  return nueva.token;
 }

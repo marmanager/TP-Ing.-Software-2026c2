@@ -7,7 +7,16 @@
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
-import { LLAVE, borrar, guardar, leer, sesionDelFragmento, tokenVigente } from "../src/lib/sesion.js";
+import {
+  LLAVE,
+  borrar,
+  guardar,
+  leer,
+  sesionDeRespuesta,
+  sesionDelFragmento,
+  sesionParaLaApp,
+  tokenVigente,
+} from "../src/lib/sesion.js";
 
 // Un localStorage de mentira: un Map con la misma cara.
 function storageFalso(inicial = {}) {
@@ -54,6 +63,21 @@ test("sin access_token no hay sesión", () => {
 test("un fragmento con error no es una sesión", () => {
   assert.equal(sesionDelFragmento("#error=access_denied"), null);
   assert.equal(sesionDelFragmento("#access_token=a&error=access_denied"), null);
+});
+
+test("adapta la respuesta de la API a la forma que usa la aplicación", () => {
+  const propia = sesionDeRespuesta({
+    token: "a",
+    refresh_token: "r",
+    vence_en: 100,
+    auth_usuario: { id: "u1", email: "ana@ejemplo.com" },
+  });
+  assert.deepEqual(sesionParaLaApp(propia), {
+    access_token: "a",
+    refresh_token: "r",
+    expires_at: 100,
+    user: { id: "u1", email: "ana@ejemplo.com" },
+  });
 });
 
 // ------------------------------------------------------------
@@ -124,7 +148,25 @@ test("por vencer, tres pedidos a la vez renuevan una sola vez y reciben el token
 
   assert.deepEqual(tokens, ["b", "b", "b"]);
   assert.deepEqual(llamadas, ["r"]);
-  assert.deepEqual(leer(storage), nueva);
+  assert.deepEqual(leer(storage), { token: "b", refresh_token: "r2", vence_en: AHORA + 3600 });
+});
+
+test("al renovar conserva el usuario y que la sesión era de recuperación", async () => {
+  const storage = storageFalso();
+  guardar(storage, {
+    token: "a", refresh_token: "r", vence_en: AHORA - 1,
+    auth_usuario: { id: "u1" }, recuperando: true,
+  });
+  const { renovar } = renovarFalso({
+    ok: true,
+    datos: { token: "b", refresh_token: "r2", vence_en: AHORA + 3600 },
+  });
+
+  assert.equal(await tokenVigente({ storage, ahora: AHORA, renovar }), "b");
+  assert.deepEqual(leer(storage), {
+    token: "b", refresh_token: "r2", vence_en: AHORA + 3600,
+    auth_usuario: { id: "u1" }, recuperando: true,
+  });
 });
 
 test("si renovar falla, no hay token y el storage queda vacío", async () => {

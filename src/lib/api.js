@@ -101,6 +101,14 @@ export function alVencerLaSesion(fn) {
   avisarQueVencio = fn;
 }
 
+// Auth instala esta función cuando la sesión vive en nuestro almacén. Antes
+// de cada pedido autenticado renueva el token si hace falta. El pedido de
+// renovación no lleva token, por lo que no vuelve a entrar acá.
+let prepararToken = null;
+export function alPedirConSesion(fn) {
+  prepararToken = fn;
+}
+
 // Una clave por intento, para los POST que crean algo o mueven plata.
 // Reintentar con la misma clave devuelve la misma respuesta en vez de cobrar
 // dos veces (docs/api.md, "Idempotencia").
@@ -142,11 +150,24 @@ export async function api(
     };
   }
 
+  let tokenPreparado = token;
+  if (token && prepararToken) {
+    try {
+      tokenPreparado = await prepararToken(token);
+    } catch {
+      tokenPreparado = null;
+    }
+    if (!tokenPreparado) {
+      if (avisarSiVence && avisarQueVencio) avisarQueVencio();
+      return { ok: false, error: { ...PORQUE[401] } };
+    }
+  }
+
   // Un GET perdido se puede repetir sin consecuencias. Un POST, sólo si
   // lleva clave de idempotencia: sin ella, repetir podría cobrar dos veces.
   const sePuedeRepetir = reintentar ?? (metodo === "GET" || Boolean(idempotencia));
 
-  const opciones = { metodo, cuerpo, token, idempotencia, segundos, fetcher, base, avisarSiVence };
+  const opciones = { metodo, cuerpo, token: tokenPreparado, idempotencia, segundos, fetcher, base, avisarSiVence };
   let respuesta = await unIntento(ruta, opciones);
   if (!respuesta.ok && respuesta.reintentable && sePuedeRepetir) {
     respuesta = await unIntento(ruta, opciones);

@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { Boton } from "./ui";
 
 export default function VincularGoogleCalendar() {
-  const { sesion, esDemo } = useAuth();
+  const { sesion, esDemo, tokenActual } = useAuth();
   const [estado, setEstado] = useState(null);
   const [error, setError] = useState(null);
   const [ocupado, setOcupado] = useState(false);
@@ -13,7 +13,11 @@ export default function VincularGoogleCalendar() {
   useEffect(() => {
     if (!sesion || esDemo) return;
     let activo = true;
-    fetch("/api/google-calendar", { headers: { authorization: `Bearer ${sesion.access_token}` } })
+    tokenActual()
+      .then((token) => {
+        if (!token) throw new Error("Tu sesión venció. Volvé a entrar.");
+        return fetch("/api/google-calendar", { headers: { authorization: `Bearer ${token}` } });
+      })
       .then(async r => {
         if (!r.ok) throw new Error("No se pudo consultar Google Calendar.");
         return r.json();
@@ -21,7 +25,7 @@ export default function VincularGoogleCalendar() {
       .then(data => { if (activo) setEstado(data); })
       .catch(e => { if (activo) setError(e.message); });
     return () => { activo = false; };
-  }, [sesion?.access_token, esDemo]);
+  }, [sesion?.access_token, esDemo, tokenActual]);
 
   if (!sesion || esDemo) return null;
 
@@ -29,9 +33,11 @@ export default function VincularGoogleCalendar() {
     setOcupado(true);
     setError(null);
     try {
+      const token = await tokenActual();
+      if (!token) throw new Error("Tu sesión venció. Volvé a entrar.");
       const response = await fetch("/api/google-calendar", {
         method,
-        headers: { authorization: `Bearer ${sesion.access_token}`, "content-type": "application/json" },
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
         ...(action ? { body: JSON.stringify({ action }) } : {}),
       });
       const data = await response.json();

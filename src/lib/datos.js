@@ -682,11 +682,7 @@ export function DatosProvider({ children }) {
 
     // La sesión de quien está usando el sistema, para llamar a la API de
     // pagos como esa persona (docs/api-pagos.md).
-    const tokenDeSesion = async () => {
-      if (!supabase) return null;
-      const { data } = await supabase.auth.getSession();
-      return data?.session?.access_token ?? null;
-    };
+    const tokenDeSesion = async () => sesion?.access_token ?? null;
 
     // Si este recurso ya pasa por la API (el interruptor de api.js). Sólo
     // con Supabase: en el modo de ejemplo no hay sesión ni servidor.

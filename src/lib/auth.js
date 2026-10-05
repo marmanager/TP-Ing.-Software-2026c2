@@ -14,7 +14,16 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, haySupabase, formasDeEntrar } from "./supabase";
 import { errorAlSalirHaciaGoogle, googleActivado, nombreDeLaCuenta, origenDeIngreso } from "./ingreso-google.js";
-import { mandar, quitar, reemplazar, traer, usaLaApi } from "./api.js";
+import { alPedirConSesion, alVencerLaSesion, mandar, quitar, reemplazar, traer, usaLaApi } from "./api.js";
+import {
+  borrar as borrarSesion,
+  guardar as guardarSesion,
+  leer as leerSesion,
+  sesionDeRespuesta,
+  sesionDelFragmento,
+  sesionParaLaApp,
+  tokenVigente,
+} from "./sesion.js";
 
 const LLAVE_DEMO = "marmanager.demo.v1";
 const LLAVE_MAIL = "marmanager.mail-a-confirmar";
@@ -94,6 +103,7 @@ function traducir(error) {
 }
 
 export function AuthProvider({ children }) {
+  const hayCuentas = haySupabase || usaLaApi("auth");
   const [sesion, setSesion] = useState(null);
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -120,6 +130,34 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // Toda llamada autenticada pasa por acá antes de salir. Así usa el token
+  // vigente aunque otra llamada lo haya renovado, y mantiene el estado de
+  // React al día para las rutas internas de Google Calendar.
+  useEffect(() => {
+    if (!usaLaApi("auth")) return;
+    alPedirConSesion(async () => {
+      const token = await tokenVigente();
+      const propia = leerSesion();
+      if (!token || !propia) {
+        setSesion(null);
+        setUsuario(null);
+        return null;
+      }
+      setSesion((actual) => actual?.access_token === token ? actual : sesionParaLaApp(propia));
+      return token;
+    });
+    alVencerLaSesion(() => {
+      borrarSesion();
+      setSesion(null);
+      setUsuario(null);
+      setRecuperando(false);
+    });
+    return () => {
+      alPedirConSesion(null);
+      alVencerLaSesion(null);
+    };
+  }, []);
+
   // Trae (o crea) la fila de `usuario` que liga la cuenta con su negocio.
   async function traerUsuario(user, accessToken = null) {
     if (!user) return null;
@@ -134,7 +172,7 @@ export function AuthProvider({ children }) {
       rol: "duenio",
     };
     if (usaLaApi("auth")) {
-      const token = accessToken ?? (await supabase.auth.getSession()).data?.session?.access_token;
+      const token = accessToken ?? await tokenVigente();
       if (token) {
         const r = await traer("/cuenta", token);
         if (r.ok && r.datos.usuario) return r.datos.usuario;
@@ -171,8 +209,53 @@ export function AuthProvider({ children }) {
       };
     }
 
-    if (!haySupabase) {
+    if (!hayCuentas) {
       setCargando(false);
+      return () => {
+        vivo = false;
+      };
+    }
+
+    if (usaLaApi("auth")) {
+      (async () => {
+        const deLaVuelta = sesionDelFragmento(window.location.hash);
+        if (deLaVuelta) {
+          guardarSesion(null, deLaVuelta);
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+
+        const token = await tokenVigente();
+        if (!vivo) return;
+        if (!token) {
+          setSesion(null);
+          setUsuario(null);
+          setCargando(false);
+          return;
+        }
+
+        const cuenta = await traer("/cuenta", token);
+        if (!vivo) return;
+        if (!cuenta.ok) {
+          if (cuenta.error.codigo === "sesion_vencida") borrarSesion();
+          setSesion(null);
+          setUsuario(null);
+          setCargando(false);
+          return;
+        }
+
+        const guardada = leerSesion();
+        const propia = {
+          ...guardada,
+          auth_usuario: cuenta.datos.auth_usuario,
+          recuperando: deLaVuelta?.recuperando ?? guardada?.recuperando ?? false,
+        };
+        guardarSesion(null, propia);
+        setSesion(sesionParaLaApp(propia));
+        setUsuario(cuenta.datos.usuario ?? null);
+        setRecuperando(Boolean(propia.recuperando));
+        setCargando(false);
+      })();
+
       return () => {
         vivo = false;
       };
@@ -228,16 +311,23 @@ export function AuthProvider({ children }) {
     if (!sesion?.access_token || !usuario?.negocio_id || esDemo) return;
     let activo = true;
     let timer;
-    const headers = { authorization: `Bearer ${sesion.access_token}` };
     (async () => {
       try {
+        const token = usaLaApi("auth") ? await tokenVigente() : sesion.access_token;
+        if (!token) return;
+        const headers = { authorization: `Bearer ${token}` };
         const response = await fetch("/api/google-calendar", { headers });
         const status = await response.json();
         if (!activo || !status.conectado) return;
-        const sincronizar = () => fetch("/api/google-calendar", {
-          method: "POST", headers: { ...headers, "content-type": "application/json" },
-          body: JSON.stringify({ action: "sync" }),
-        }).catch(() => {});
+        const sincronizar = async () => {
+          const vigente = usaLaApi("auth") ? await tokenVigente() : sesion.access_token;
+          if (!vigente) return;
+          return fetch("/api/google-calendar", {
+            method: "POST",
+            headers: { authorization: `Bearer ${vigente}`, "content-type": "application/json" },
+            body: JSON.stringify({ action: "sync" }),
+          }).catch(() => {});
+        };
         await sincronizar();
         if (activo) timer = setInterval(sincronizar, 60_000);
       } catch { /* La agenda funciona aunque Google esté desconectado. */ }
@@ -249,8 +339,12 @@ export function AuthProvider({ children }) {
     () => ({
       // Devuelven { ok: true, ... } o { ok: false, error: "texto ya listo" }.
 
+      async tokenActual() {
+        return usaLaApi("auth") ? await tokenVigente() : sesion?.access_token ?? null;
+      },
+
       async crearCuenta({ nombre, email, telefono, contrasena }) {
-        if (!haySupabase)
+        if (!hayCuentas)
           return {
             ok: false,
             error:
@@ -264,7 +358,10 @@ export function AuthProvider({ children }) {
             return { ok: true, necesitaConfirmar: true, email: email.trim() };
           }
           if (r.datos.token && r.datos.refresh_token) {
-            await supabase.auth.setSession({ access_token: r.datos.token, refresh_token: r.datos.refresh_token });
+            const propia = sesionDeRespuesta(r.datos);
+            guardarSesion(null, propia);
+            setSesion(sesionParaLaApp(propia));
+            setUsuario(r.datos.usuario ?? null);
           }
           return { ok: true, necesitaConfirmar: false };
         }
@@ -302,7 +399,7 @@ export function AuthProvider({ children }) {
       },
 
       async iniciarSesion({ email, contrasena }) {
-        if (!haySupabase)
+        if (!hayCuentas)
           return {
             ok: false,
             error:
@@ -311,11 +408,9 @@ export function AuthProvider({ children }) {
         if (usaLaApi("auth")) {
           const r = await mandar("/sesiones", { email, contrasena });
           if (!r.ok) return { ok: false, error: r.error.mensaje };
-          const { error } = await supabase.auth.setSession({
-            access_token: r.datos.token,
-            refresh_token: r.datos.refresh_token,
-          });
-          if (error) return { ok: false, error: traducir(error) };
+          const propia = sesionDeRespuesta(r.datos);
+          guardarSesion(null, propia);
+          setSesion(sesionParaLaApp(propia));
           setUsuario(r.datos.usuario ?? null);
           return { ok: true };
         }
@@ -336,7 +431,7 @@ export function AuthProvider({ children }) {
       // Pide sólo quién es la persona: NO conecta Google Calendar, que es un
       // permiso aparte (src/lib/google-calendar-server.js).
       async entrarConGoogle() {
-        if (!haySupabase)
+        if (!hayCuentas)
           return {
             ok: false,
             error:
@@ -371,7 +466,8 @@ export function AuthProvider({ children }) {
         if (usaLaApi("auth") && sesion?.access_token) {
           await quitar("/sesiones", sesion.access_token);
         }
-        await supabase.auth.signOut({ scope: "local" });
+        if (usaLaApi("auth")) borrarSesion();
+        else await supabase.auth.signOut({ scope: "local" });
         setSesion(null);
         setUsuario(null);
         setRecuperando(false);
@@ -379,6 +475,7 @@ export function AuthProvider({ children }) {
       },
 
       entrarComoDemo() {
+        if (usaLaApi("auth")) borrarSesion();
         window.localStorage.setItem(LLAVE_DEMO, "1");
         setEsDemo(true);
         setSesion(null);
@@ -388,7 +485,7 @@ export function AuthProvider({ children }) {
       },
 
       async pedirResetContrasena(email) {
-        if (!haySupabase)
+        if (!hayCuentas)
           return { ok: false, error: "Para recuperar la contraseña hace falta conectar la base de Supabase." };
         if (usaLaApi("auth")) {
           await mandar("/sesiones/recuperar", { email });
@@ -402,10 +499,12 @@ export function AuthProvider({ children }) {
       },
 
       async definirContrasena(nueva) {
-        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
         if (usaLaApi("auth")) {
           const r = await mandar("/sesiones/contrasena", { contrasena: nueva }, sesion?.access_token);
           if (!r.ok) return { ok: false, error: r.error.mensaje };
+          const propia = leerSesion();
+          if (propia) guardarSesion(null, { ...propia, recuperando: false });
           setRecuperando(false);
           return { ok: true };
         }
@@ -416,7 +515,7 @@ export function AuthProvider({ children }) {
       },
 
       async reenviarConfirmacion(email) {
-        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
         if (usaLaApi("auth")) {
           const r = await mandar("/cuentas/confirmacion", { email });
           return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
@@ -430,7 +529,7 @@ export function AuthProvider({ children }) {
       // de equipo que tiene. Sin la 038 corrida la función no existe y da
       // ok: false; quien la usa sigue como antes, con el negocio activo.
       async misNegocios() {
-        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
         if (usaLaApi("auth")) {
           const r = await traer("/cuenta/negocios", sesion?.access_token);
           return r.ok ? { ok: true, negocios: r.datos.negocios ?? [] } : { ok: false, error: r.error.mensaje };
@@ -444,7 +543,7 @@ export function AuthProvider({ children }) {
       // ficha ahí y copia el rol de esa ficha (038). Después se vuelve a leer
       // la fila de usuario, y con eso datos.js carga el negocio nuevo.
       async entrarAlNegocio(negocioId) {
-        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
         if (usaLaApi("auth")) {
           const r = await mandar("/cuenta/negocio", { negocio_id: negocioId }, sesion?.access_token);
           if (!r.ok) return { ok: false, error: r.error.mensaje };
@@ -462,7 +561,7 @@ export function AuthProvider({ children }) {
       // El predeterminado y el Inicio rápido: valen para la cuenta, en todos
       // los dispositivos, por eso van a la base y no al navegador.
       async guardarPreferenciasDeEntrada({ predeterminado, inicioRapido }) {
-        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
         if (usaLaApi("auth")) {
           const r = await reemplazar("/cuenta/preferencias", {
             predeterminado: predeterminado ?? null,
@@ -489,7 +588,7 @@ export function AuthProvider({ children }) {
       // el dueño y el historial firma con ella. Después vuelve a leer la fila,
       // así todo lo que muestra el usuario queda al día.
       async guardarPerfil({ nombre, telefono, foto }) {
-        if (!haySupabase) return { ok: false, error: "No hay una sesión de Supabase abierta." };
+        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
         if (usaLaApi("auth")) {
           const r = await reemplazar("/cuenta/perfil", { nombre, telefono, foto: foto ?? null }, sesion?.access_token);
           if (!r.ok) return { ok: false, error: r.error.mensaje };
@@ -524,7 +623,7 @@ export function AuthProvider({ children }) {
 
       // Mira una invitación con sólo el código, sin pertenecer al negocio.
       async verInvitacion(codigo) {
-        if (!haySupabase) {
+        if (!hayCuentas) {
           return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
         }
         if (usaLaApi("auth")) {
@@ -548,7 +647,7 @@ export function AuthProvider({ children }) {
       },
 
       async aceptarInvitacion(codigo, nombre) {
-        if (!haySupabase) {
+        if (!hayCuentas) {
           return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
         }
         if (usaLaApi("auth")) {
@@ -585,7 +684,7 @@ export function AuthProvider({ children }) {
     recuperando,
     cargando,
     necesitaConfirmarMail,
-    haySupabase,
+    haySupabase: hayCuentas,
     hayGoogle,
     ...acciones,
   };
