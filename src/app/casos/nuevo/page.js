@@ -20,7 +20,16 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { preset, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
-import { faltantesDelAlta, motivoDeFaltantes, telefonoValido } from "@/lib/validaciones";
+import {
+  alCambiarElNombre,
+  alElegirCliente,
+  clienteDelAlta,
+  clientesConEseNombre,
+  faltantesDelAlta,
+  motivoDeFaltantes,
+  sugerirClientes,
+  telefonoValido,
+} from "@/lib/validaciones";
 import { horaYMinutos } from "@/lib/fechas";
 import { Boton, BotonPrincipalFijo, Campo, Cargando, MarcaFalta } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
@@ -52,6 +61,14 @@ function Formulario() {
 
   const [nombre, setNombre] = useState(delTurno?.nombre ?? "");
   const [telefono, setTelefono] = useState(delTurno?.telefono ?? "");
+  // El cliente elegido de la lista de sugerencias, que es a quien va el caso
+  // (las reglas están en lib/validaciones.js). El del turno cuenta como
+  // elegido: el turno ya dice de quién es.
+  const [elegido, setElegido] = useState(delTurno ?? null);
+  // La lista de sugerencias: si está abierta y cuál está marcada con las
+  // flechas (-1 es ninguna).
+  const [listaAbierta, setListaAbierta] = useState(false);
+  const [marcada, setMarcada] = useState(-1);
   const [identificador, setIdentificador] = useState("");
   const [servicio, setServicio] = useState(turno?.motivo ?? "");
   const [responsable, setResponsable] = useState("");
@@ -85,9 +102,38 @@ function Formulario() {
 
   const motivos = preset(negocio?.rubro).motivos;
   const comoIdent = comoSeIdentifica(negocio?.rubro);
-  const yaEsCliente = clientes.find(
-    (c) => c.nombre.toLowerCase() === nombre.trim().toLowerCase()
-  );
+  const yaEsCliente = clienteDelAlta({ nombre, telefono, clientes, elegido });
+  const telefonoTraido = elegido && telefono === elegido.telefono;
+  const hayHomonimos = clientesConEseNombre(nombre, clientes).length > 1;
+  const sugeridos = sugerirClientes(nombre, clientes);
+  const mostrarLista = listaAbierta && sugeridos.length > 0;
+
+  function elegirCliente(cliente) {
+    const r = alElegirCliente(cliente, telefono);
+    setNombre(r.nombre);
+    setTelefono(r.telefono);
+    setElegido(r.elegido);
+    setListaAbierta(false);
+    setMarcada(-1);
+  }
+
+  // Las teclas de la lista, como las de cualquier lista de sugerencias:
+  // flechas para moverse, Enter para elegir, Escape para cerrarla.
+  function alTeclado(e) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (!sugeridos.length) return;
+      e.preventDefault();
+      setListaAbierta(true);
+      const paso = e.key === "ArrowDown" ? 1 : -1;
+      setMarcada((m) => (m + paso + sugeridos.length) % sugeridos.length);
+    } else if (e.key === "Enter" && mostrarLista && marcada >= 0) {
+      e.preventDefault();
+      elegirCliente(sugeridos[marcada]);
+    } else if (e.key === "Escape" && mostrarLista) {
+      setListaAbierta(false);
+      setMarcada(-1);
+    }
+  }
 
   const errorTelefono =
     tocado.telefono && telefono.trim() && !telefonoValido(telefono)
@@ -165,22 +211,92 @@ function Formulario() {
       <div className="mb-8" />
 
       <div className="max-w-[560px]">
+        {/* Dos clientes pueden llamarse igual: el teléfono es lo que dice
+            cuál es cuál. Va arriba del nombre, antes de seguir escribiendo. */}
+        {hayHomonimos && (
+          <p
+            role="status"
+            className="mb-3 flex items-start gap-2 rounded-campo border-l-4 border-l-espera bg-espera-fondo p-3 font-bold text-espera"
+          >
+            <Icono nombre="alerta" className="mt-0.5 size-5" />
+            <span>
+              Atención: existen varios clientes con este nombre. Revisá el teléfono para ver si
+              es el correspondiente.
+            </span>
+          </p>
+        )}
+
+        {/* La lista de sugerencias es nuestra y no la del navegador (un
+            <datalist>): ésa devuelve sólo el texto elegido, y con dos
+            clientes del mismo nombre no hay forma de saber cuál se tocó.
+            Ésta muestra nombre y teléfono, y elige al cliente, no al texto. */}
         <Campo
           id="cliente"
           etiqueta="Nombre del cliente"
           falta={marcar("cliente")}
-          ayuda="Como lo vas a buscar después. Ejemplo: Marcela Suárez."
+          ayuda="Como lo vas a buscar después. Si ya vino antes, elegilo de la lista y se trae su teléfono."
           exito={yaEsCliente ? `Ya es cliente. Le vamos a sumar este caso a ${yaEsCliente.nombre}.` : null}
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          list="clientes-conocidos"
-          autoComplete="off"
-        />
-        <datalist id="clientes-conocidos">
-          {clientes.map((c) => (
-            <option key={c.id} value={c.nombre} />
-          ))}
-        </datalist>
+        >
+          <input
+            id="cliente"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={mostrarLista}
+            aria-controls="clientes-sugeridos"
+            aria-activedescendant={
+              mostrarLista && marcada >= 0 ? `cliente-sugerido-${sugeridos[marcada].id}` : undefined
+            }
+            aria-describedby="cliente-ayuda"
+            autoComplete="off"
+            value={nombre}
+            onChange={(e) => {
+              const nuevo = e.target.value;
+              setNombre(nuevo);
+              const r = alCambiarElNombre({ nombre: nuevo, telefono, elegido });
+              setTelefono(r.telefono);
+              setElegido(r.elegido);
+              setListaAbierta(true);
+              setMarcada(-1);
+            }}
+            onFocus={() => setListaAbierta(true)}
+            onBlur={() => setListaAbierta(false)}
+            onKeyDown={alTeclado}
+            className={[
+              "mt-2 block w-full rounded-campo border-2 bg-tarjeta px-4 min-h-12 text-cuerpo",
+              yaEsCliente ? "border-completo" : "border-borde-fuerte",
+            ].join(" ")}
+          />
+          {mostrarLista && (
+            <ul
+              id="clientes-sugeridos"
+              role="listbox"
+              aria-label="Clientes que ya vinieron"
+              className="mt-1 overflow-hidden rounded-campo border-2 border-borde-fuerte bg-tarjeta"
+            >
+              {sugeridos.map((c, i) => (
+                <li
+                  key={c.id}
+                  id={`cliente-sugerido-${c.id}`}
+                  role="option"
+                  aria-selected={i === marcada}
+                  // onMouseDown y no onClick: el clic le saca el foco al
+                  // campo, y al perderlo la lista se cierra antes de elegir.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    elegirCliente(c);
+                  }}
+                  className={[
+                    "flex min-h-12 cursor-pointer flex-wrap items-center gap-x-2 px-4",
+                    i === marcada ? "bg-azul-claro text-azul" : "hover:bg-superficie",
+                  ].join(" ")}
+                >
+                  <span className="font-bold">{c.nombre}</span>
+                  <span className="text-tinta-media">· {c.telefono || "sin teléfono"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Campo>
 
         <Campo
           id="telefono"
@@ -190,9 +306,11 @@ function Formulario() {
           error={errorTelefono}
           ejemplo="341 456 7890"
           exito={
-            telefono.trim() && telefonoValido(telefono)
-              ? "Listo. Le vamos a poder avisar por WhatsApp."
-              : null
+            telefonoTraido && yaEsCliente
+              ? `Es el teléfono que tenemos de ${yaEsCliente.nombre}. Si cambió, corregilo acá.`
+              : telefono.trim() && telefonoValido(telefono)
+                ? "Listo. Le vamos a poder avisar por WhatsApp."
+                : null
           }
           value={telefono}
           onChange={(e) => setTelefono(e.target.value)}

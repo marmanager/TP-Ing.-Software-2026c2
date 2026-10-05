@@ -5,7 +5,9 @@
 // lector de pantalla la lee siempre. Son doce íconos, no hace falta más.
 //
 // Regla de la cartilla: nunca un botón que sea sólo un ícono. Siempre va
-// la palabra al lado, por eso el svg es aria-hidden.
+// la palabra al lado, por eso el svg es aria-hidden. La excepción, decidida
+// en equipo, es abrir y cerrar la barra lateral: el botón lleva aria-label y
+// title, que dicen lo que hace.
 
 const TRAZOS = {
   sol: (
@@ -66,6 +68,14 @@ const TRAZOS = {
   ),
   llave: (
     <path d="M17.5 3.5a5 5 0 0 0-6.3 6.3L4 17l3 3 7.2-7.2a5 5 0 0 0 6.3-6.3l-3 3-2.5-.5-.5-2.5z" />
+  ),
+  // Una ventana con la franja de la izquierda marcada: la barra lateral.
+  // Abre y cierra la barra en la computadora.
+  panel: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9.5 4.5v15" />
+    </>
   ),
   // Cuatro cuadrados: "todas las secciones", el lugar "Más" de la barra del
   // celular. No es el "+", que en el sistema quiere decir "agregar".
