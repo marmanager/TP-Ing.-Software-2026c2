@@ -131,6 +131,17 @@ export function casoPublico({
   };
 }
 
+// Lo que contesta la API, a la forma que ya conoce la pantalla.
+//
+// La API recorta lo mismo que ver_seguimiento() pero le saca "sirve": un
+// código que no sirve es un 404. Cualquier error se ve igual que un código
+// que no sirve, como con la base: contar la diferencia sería contar de más.
+export const seguimientoDeLaApi = (r) => (r.ok ? { ...r.datos, sirve: true } : { sirve: false });
+
+// La respuesta a un paso: { ok, destrabo, quedan } o { ok: false, motivo },
+// con el mensaje de la API, que ya está escrito para el cliente.
+export const respuestaDeLaApi = (r) => (r.ok ? { ok: true, ...r.datos } : { ok: false, motivo: r.error.mensaje });
+
 const primerNombre = (nombre) => (nombre ?? "").trim().split(/\s+/)[0] || null;
 
 const nullSiVacio = (texto) => (texto ?? "").trim() || null;

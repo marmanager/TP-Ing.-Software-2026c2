@@ -27,10 +27,10 @@ import { normalizarInicio } from "./inicio";
 import { nombreInicial } from "./nombres.js";
 import { quienEscribe } from "./permisos";
 import { construirSemilla } from "./semilla";
-import { ESPERA_AL_CLIENTE, casoPublico } from "./seguimiento.js";
+import { ESPERA_AL_CLIENTE, casoPublico, respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi, agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
 import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
-import { mandar, nuevaClave, parchar, quitar, reemplazar, traer, usaLaApi } from "./api.js";
+import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer, usaLaApi } from "./api.js";
 import { turnoParaLaApi } from "./turnos.js";
 import {
   MEDIOS_DEL_LOCAL,
@@ -149,27 +149,25 @@ const codigoAlAzar = () => {
 // navegador— pero tiene que dar lo mismo, o la pantalla mostraría una cosa
 // distinta según dónde corra.
 export async function buscarSeguimiento(codigo) {
-  // Primero la base, si la hay. Si ahí no está, se busca igual en el
-  // navegador: tener credenciales cargadas no quiere decir que quien armó el
-  // link las estuviera usando. El modo de ejemplo se puede estar usando en
+  // Primero la API, si la hay. Si ahí no está, se busca igual en el
+  // navegador: tener la API configurada no quiere decir que quien armó el
+  // link la estuviera usando. El modo de ejemplo se puede estar usando en
   // una instalación conectada —es lo que pasa cuando alguien prueba el
   // sistema antes de crearse la cuenta—, y su link tiene que andar lo mismo.
   //
   // Buscar de más no abre nada: el código del navegador sólo existe en ese
   // navegador, y el de la base no aparece acá.
-  if (haySupabase && supabase) {
-    const { data, error } = await supabase.rpc("ver_seguimiento", { p_codigo: codigo });
-    // Un error se ve igual que un código que no sirve: al cliente no le sirve
-    // saber la diferencia, y contarla sería contar de más.
-    if (!error && data?.sirve) return data;
+  if (API) {
+    const s = seguimientoDeLaApi(await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`));
+    if (s.sirve) return s;
   }
 
   // En el modo de ejemplo la visita NO queda registrada, así que del lado
   // del negocio el caso va a decir siempre "todavía no lo abrió". Es a
   // propósito: el proveedor de datos guarda el estado entero del navegador
   // cada vez que cambia, y escribir la visita desde acá sería escribir sobre
-  // lo mismo desde dos lados. Con la base conectada lo anota la función
-  // ver_seguimiento(), que es donde corresponde.
+  // lo mismo desde dos lados. Con la base conectada la anota la API, que
+  // pasa por ver_seguimiento(), que es donde corresponde.
   try {
     const guardado = window.localStorage.getItem(LLAVE);
     if (!guardado) return { sirve: false };
@@ -188,26 +186,19 @@ export async function buscarSeguimiento(codigo) {
 // Devuelve { ok } o { ok: false, motivo }. El motivo está escrito para el
 // cliente y se muestra tal cual.
 export async function responderDesdeElLink(codigo, pasoId, respuesta) {
-  if (haySupabase && supabase) {
-    const { data, error } = await supabase.rpc("responder_paso_desde_el_link", {
-      p_codigo: codigo,
-      p_paso_id: pasoId,
-      p_respuesta: respuesta,
-    });
-    // "existe: false" es la base diciendo "ese código no es mío". Puede ser
-    // un link del modo de ejemplo abierto en un navegador que además tiene
-    // credenciales: hay que seguir buscando abajo, igual que la búsqueda.
+  if (API) {
+    const r = await mandar(
+      `/publico/seguimiento/${encodeURIComponent(codigo)}/pasos/${encodeURIComponent(pasoId)}/respuesta`,
+      { respuesta }
+    );
+    // "seguimiento_no_encontrado" es la API diciendo "ese código no es mío".
+    // Puede ser un link del modo de ejemplo abierto en un navegador que
+    // además tiene la API: hay que seguir buscando abajo, igual que la
+    // búsqueda.
     //
-    // Cualquier otra respuesta es de la base y manda: si dice que el paso ya
+    // Cualquier otra respuesta es de la API y manda: si dice que el paso ya
     // estaba contestado, se muestra eso y no se busca en ningún otro lado.
-    //
-    // Se mira además el texto porque la versión anterior de la función no
-    // devolvía "existe", y entre que sale esto y que alguien corre la
-    // migración el link del modo de ejemplo tiene que seguir andando.
-    const noEsDeLaBase =
-      data?.existe === false ||
-      String(data?.motivo ?? "").startsWith("Este link ya no sirve");
-    if (!error && data && !noEsDeLaBase) return data;
+    if (r.ok || r.error.codigo !== "seguimiento_no_encontrado") return respuestaDeLaApi(r);
   }
 
   // Modo de ejemplo. Acá sí se escribe en el navegador, a diferencia de la
