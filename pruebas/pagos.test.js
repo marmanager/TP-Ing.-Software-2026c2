@@ -73,11 +73,22 @@ test("pide el pago con la sesión de la persona, no con una clave del servidor",
   const { fetcher, llamadas } = apiFalsa(201, { ok: true, datos: { cobro } });
   const r = await pedirPagoEnLinea({ casoId: "c1", monto: "60000", medio: "link", token: "jwt", api: API, fetcher });
 
-  assert.deepEqual(r, { ok: true, cobro });
+  assert.deepEqual(r, { ok: true, cobro, evento: null });
   assert.equal(llamadas[0].url, `${API}/casos/c1/cobros/en-linea`);
   assert.equal(llamadas[0].method, "POST");
   assert.equal(llamadas[0].headers.Authorization, "Bearer jwt");
   assert.deepEqual(llamadas[0].cuerpo, { monto: 60000, medio: "link" });
+});
+
+// Por /v1 el renglón "Pidieron un pago…" lo escribe la API y lo devuelve. Si
+// el front no lo recibe, lo anota él de nuevo y el historial queda repetido.
+test("devuelve el renglón del historial que anotó la API", async () => {
+  const cobro = { id: "x", estado: "pendiente", link: "https://pago/x" };
+  const evento = { id: "e1", caso_id: "c1", tipo: "plata", titulo: "Pidieron un pago por link" };
+  const { fetcher } = apiFalsa(201, { ok: true, datos: { cobro, evento } });
+  const r = await pedirPagoEnLinea({ casoId: "c1", monto: "60000", medio: "link", token: "jwt", api: API, fetcher });
+
+  assert.deepEqual(r, { ok: true, cobro, evento });
 });
 
 test("lo que contesta la API con palabras llega tal cual", async () => {

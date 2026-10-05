@@ -1247,6 +1247,7 @@ export function DatosProvider({ children }) {
         if (!enLinea.disponible) return { ok: false, error: "Todavía no está conectado el sistema de pagos." };
 
         let nuevo;
+        let eventoDeLaApi = null;
         if (enLinea.simulado) {
           const ahora = new Date();
           nuevo = {
@@ -1270,15 +1271,21 @@ export function DatosProvider({ children }) {
             }, token, { idempotencia: nuevaClave() });
             if (!r.ok) return { ok: false, error: r.error.mensaje };
             nuevo = r.datos.cobro;
+            eventoDeLaApi = r.datos.evento ?? null;
           } else {
             const r = await pedirPagoEnLinea({ casoId, monto, medio, token });
             if (!r.ok) return { ok: false, error: r.error };
             nuevo = r.cobro;
+            eventoDeLaApi = r.evento;
           }
         }
 
         setDatos((d) => ponerCobro(d, nuevo, { nuevoId }));
-        if (!datos.cobros.some((c) => c.id === nuevo.id)) anotar({
+        // Por /v1 el renglón lo anota la API y lo devuelve: anotarlo acá
+        // también lo dejaba repetido en el historial. Sólo el modo de ejemplo,
+        // que no tiene API, lo anota el front.
+        if (eventoDeLaApi) setDatos((d) => ({ ...d, eventos: [eventoDeLaApi, ...d.eventos] }));
+        else if (enLinea.simulado && !datos.cobros.some((c) => c.id === nuevo.id)) anotar({
           casoId,
           tipo: "plata",
           titulo: medio === "qr" ? "Pidieron un pago con QR" : "Pidieron un pago por link",

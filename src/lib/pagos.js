@@ -49,11 +49,14 @@ export function pagosEnLinea({ esDemo = false, api = API } = {}) {
 }
 
 // Pedir un pago: la API arma el link o el QR con el medio de pago, guarda el
-// cobro "pendiente" en la tabla y lo devuelve.
+// cobro "pendiente" en la tabla y lo devuelve. También anota el renglón del
+// historial y lo devuelve en "evento" (null si el cobro ya existía).
 export async function pedirPagoEnLinea({ casoId, monto, medio, token, api = API, fetcher = fetch }) {
   const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/en-linea`,
     { monto: Number(monto), medio }, token, { base: api, fetcher });
-  return r.ok ? { ok: true, cobro: r.datos.cobro } : { ok: false, error: r.error.mensaje };
+  return r.ok
+    ? { ok: true, cobro: r.datos.cobro, evento: r.datos.evento ?? null }
+    : { ok: false, error: r.error.mensaje };
 }
 
 // Anular un pago que todavía no se hizo. Pasa por la API y no por la base
