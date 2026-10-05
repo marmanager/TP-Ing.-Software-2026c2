@@ -334,9 +334,13 @@ export function AuthProvider({ children }) {
         return { ok: true };
       },
 
-      async definirContrasena(nueva) {
+      // "anterior" es la contraseña de ahora, para cambiarla desde Mi perfil:
+      // la API la comprueba. Desde el link del mail de recuperación no hay
+      // anterior, y la API lo reconoce por cómo se abrió la sesión.
+      async definirContrasena(nueva, { anterior } = {}) {
         if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
-        const r = await mandar("/sesiones/contrasena", { contrasena: nueva }, sesion?.access_token);
+        const r = await mandar("/sesiones/contrasena",
+          { contrasena: nueva, ...(anterior ? { contrasena_actual: anterior } : {}) }, sesion?.access_token);
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         const propia = leerSesion();
         if (propia) guardarSesion(null, { ...propia, recuperando: false });

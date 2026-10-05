@@ -5,9 +5,10 @@
 // lector de pantalla la lee siempre. Son doce íconos, no hace falta más.
 //
 // Regla de la cartilla: nunca un botón que sea sólo un ícono. Siempre va
-// la palabra al lado, por eso el svg es aria-hidden. La excepción, decidida
-// en equipo, es abrir y cerrar la barra lateral: el botón lleva aria-label y
-// title, que dicen lo que hace.
+// la palabra al lado, por eso el svg es aria-hidden. Las excepciones,
+// decididas en equipo, son abrir y cerrar la barra lateral y el ojo de los
+// campos de contraseña: esos botones llevan aria-label y title, que dicen lo
+// que hacen.
 
 const TRAZOS = {
   sol: (
@@ -68,6 +69,20 @@ const TRAZOS = {
   ),
   llave: (
     <path d="M17.5 3.5a5 5 0 0 0-6.3 6.3L4 17l3 3 7.2-7.2a5 5 0 0 0 6.3-6.3l-3 3-2.5-.5-.5-2.5z" />
+  ),
+  // Mostrar u ocultar lo que se escribe en un campo de contraseña.
+  ojo: (
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  "ojo-tachado": (
+    <>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.6 3.5M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.8-1.3" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </>
   ),
   // Una ventana con la franja de la izquierda marcada: la barra lateral.
   // Abre y cierra la barra en la computadora.

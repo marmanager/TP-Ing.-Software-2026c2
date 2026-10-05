@@ -9,6 +9,7 @@ import {
   telefonoValido,
   emailValido,
   contrasenaValida,
+  motivoDeContrasenaNueva,
   montoValido,
   montoCobrado,
   cobroValido,
@@ -211,4 +212,15 @@ test("sin teléfono escrito todavía no se reconoce a nadie", () => {
 test("el teléfono se compara sólo por los números", () => {
   assert.equal(soloNumeros("341 456-7890"), "3414567890");
   assert.equal(soloNumeros(null), "");
+});
+
+// ---------------------------------------------------------------
+// La contraseña nueva: en Mi perfil y en la pantalla del link del mail
+// ---------------------------------------------------------------
+
+test("la contraseña nueva necesita 8 caracteres y repetirla igual", () => {
+  assert.equal(motivoDeContrasenaNueva("corta", "corta"), "necesita 8 caracteres o más");
+  assert.equal(motivoDeContrasenaNueva("larguita123", "larguita12"), "repetila igual abajo");
+  assert.equal(motivoDeContrasenaNueva("larguita123", ""), "repetila igual abajo");
+  assert.equal(motivoDeContrasenaNueva("larguita123", "larguita123"), null);
 });

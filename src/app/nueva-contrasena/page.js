@@ -2,9 +2,12 @@
 
 // "Poner una contraseña nueva" (SCRUM-33).
 //
-// Se llega desde el enlace del mail de recuperación, que deja abierta una
-// sesión corta. Si el enlace venció o alguien entra de prendido, no hay
-// sesión y se lo manda a pedir uno nuevo.
+// Se llega desde el enlace del mail de recuperación: el de "Me olvidé la
+// contraseña" y el de "Cambiar contraseña → Por mail" de Mi perfil (el único
+// camino para quien entra sólo con Google). El enlace deja abierta una sesión
+// corta y sirve una sola vez: Supabase lo invalida al usarlo. Si venció, ya
+// se usó o alguien entra de prendido, no hay sesión y se lo manda a pedir uno
+// nuevo. Al guardar, lleva al Inicio.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -12,8 +15,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { contrasenaValida } from "@/lib/validaciones";
-import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
+import { contrasenaValida, motivoDeContrasenaNueva } from "@/lib/validaciones";
+import { Boton, CampoContrasena, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function NuevaContrasena() {
@@ -23,7 +26,7 @@ export default function NuevaContrasena() {
   useTitulo("Poner una contraseña nueva");
 
   const [contrasena, setContrasena] = useState("");
-  const [verContrasena, setVerContrasena] = useState(false);
+  const [repetida, setRepetida] = useState("");
   const [tocado, setTocado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
@@ -33,13 +36,12 @@ export default function NuevaContrasena() {
       ? "La contraseña necesita al menos 8 caracteres."
       : null;
 
+  // Se pide dos veces, como en Mi perfil: se escribe sin verla.
   const motivo = !contrasena
     ? "falta la contraseña"
-    : !contrasenaValida(contrasena)
-      ? "la contraseña es muy corta"
-      : enviando
-        ? "guardando…"
-        : null;
+    : enviando
+      ? "guardando…"
+      : motivoDeContrasenaNueva(contrasena, repetida);
 
   async function guardar() {
     setError(null);
@@ -86,12 +88,11 @@ export default function NuevaContrasena() {
       </TituloPantalla>
 
       <Tarjeta>
-        <Campo
+        <CampoContrasena
           id="contrasena"
           etiqueta="Tu contraseña nueva"
           ayuda="Al menos 8 caracteres."
           error={errorContrasena}
-          type={verContrasena ? "text" : "password"}
           autoComplete="new-password"
           value={contrasena}
           onChange={(e) => {
@@ -100,13 +101,18 @@ export default function NuevaContrasena() {
           }}
           onBlur={() => setTocado(true)}
         />
-        <button
-          type="button"
-          onClick={() => setVerContrasena((v) => !v)}
-          className="-mt-3 mb-6 inline-flex min-h-12 items-center font-bold text-azul"
-        >
-          {verContrasena ? "Ocultar la contraseña" : "Mostrar la contraseña"}
-        </button>
+        <CampoContrasena
+          id="contrasena-repetida"
+          etiqueta="Escribila de nuevo"
+          error={repetida && contrasena !== repetida ? "Las dos no son iguales." : null}
+          exito={repetida && contrasena === repetida ? "Coinciden." : null}
+          autoComplete="new-password"
+          value={repetida}
+          onChange={(e) => {
+            setError(null);
+            setRepetida(e.target.value);
+          }}
+        />
 
         {error && (
           <ErrorGeneral>{error}</ErrorGeneral>
