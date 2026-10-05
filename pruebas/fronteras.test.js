@@ -165,3 +165,23 @@ test("el link público no le habla a Supabase", () => {
     );
   }
 });
+
+// ------------------------------------------------------------
+// 6. La carga de datos no consulta Supabase directo
+// ------------------------------------------------------------
+// Cuando la base deja de mostrar el negocio, el aviso de "otro dispositivo"
+// pregunta en qué negocio está la cuenta y cómo se llama. Eso lo contestan
+// /v1/cuenta y /v1/cuenta/negocios de la API.
+
+test("la carga de datos no consulta Supabase directo", () => {
+  const fuente = leer("src/lib/datos.js");
+
+  assert.ok(
+    !/supabase\s*\.from\(\s*["']usuario["']/.test(fuente),
+    `src/lib/datos.js lee la tabla usuario directo en Supabase; va por /cuenta de la API`
+  );
+  assert.ok(
+    !fuente.includes(`rpc("mis_negocios"`),
+    `src/lib/datos.js llama a mis_negocios() directo en Supabase; va por /cuenta/negocios de la API`
+  );
+});
