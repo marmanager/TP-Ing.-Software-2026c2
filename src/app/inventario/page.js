@@ -18,31 +18,33 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
-import { ejemplosDe, mayuscula, vocabulario } from "@/lib/presets";
+import { mayuscula, vocabulario } from "@/lib/presets";
 import { hijosActivos } from "@/lib/modulos";
 import {
   alternarFiltro,
   buscarEnCategorias,
   buscarIgual,
-  categoriaExistente,
-  categoriasDisponibles,
   cuantosFiltros,
   enTotal,
   filtrarProductos,
   filtrosDisponibles,
   limpiarProducto,
+  motivoDelProducto,
   porCategoria,
   presentacion,
   soloVigentes,
 } from "@/lib/inventario";
 import Icono from "@/componentes/Icono";
 import Pestanas from "@/componentes/Pestanas";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
-
-const PILDORA =
-  "flex min-h-12 cursor-pointer items-center gap-2 rounded-full border-2 px-4 text-etiqueta";
-const PILDORA_SI = "border-azul bg-azul-claro font-bold text-azul";
-const PILDORA_NO = "border-borde bg-tarjeta text-tinta-media hover:bg-superficie";
+import {
+  CamposDeProducto,
+  EdicionDeProducto,
+  PILDORA,
+  PILDORA_NO,
+  PILDORA_SI,
+  PRODUCTO_VACIO,
+} from "@/componentes/Producto";
+import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Inventario() {
   const datos = useDatos();
@@ -371,28 +373,12 @@ function Buscador({ id, etiqueta, ayuda, valor, alCambiar }) {
 // ------------------------------------------------------------
 // El alta de un producto
 // ------------------------------------------------------------
-
-const VACIO = {
-  nombre: "",
-  marca: "",
-  modelo: "",
-  categoria: "",
-  cantidad: "",
-  minimo: "",
-  unidad: "unidad",
-  porCaja: "",
-};
+// Los campos son los de componentes/Producto.js, los mismos que pedir y editar.
 
 function AltaDeProducto({ alCerrar }) {
   const datos = useDatos();
   const { insumos, negocio } = datos;
-  const [form, setForm] = useState(VACIO);
-  // Las categorías recién creadas con "+ Nueva" que todavía no usa ningún
-  // producto. Se guardan de verdad cuando se guarda el producto que las usa.
-  const [agregadas, setAgregadas] = useState([]);
-  const [creando, setCreando] = useState(false);
-  const [nueva, setNueva] = useState("");
-  const [avisoCategoria, setAvisoCategoria] = useState(null);
+  const [form, setForm] = useState(PRODUCTO_VACIO);
   // Mientras la API contesta, el botón no se puede volver a tocar: un
   // segundo toque sería otro pedido y sumaría dos veces.
   const [guardando, setGuardando] = useState(false);
@@ -400,7 +386,6 @@ function AltaDeProducto({ alCerrar }) {
   const { articulo } = vocabulario(negocio?.rubro);
   const cambiar = (que) => setForm((f) => ({ ...f, ...que }));
   const enCaja = form.unidad === "caja";
-  const categorias = categoriasDisponibles(negocio?.rubro, insumos, agregadas);
 
   // Si lo que se está escribiendo ya está en el stock, se avisa ANTES de
   // guardar: se va a sumar ahí. Es lo que pasa con "Ya es cliente" en el alta
@@ -408,33 +393,9 @@ function AltaDeProducto({ alCerrar }) {
   const producto = limpiarProducto(form);
   const igual = producto.nombre ? buscarIgual(insumos, producto) : null;
 
-  const porCajaValido = Number.isInteger(Number(form.porCaja)) && Number(form.porCaja) >= 1;
   const motivo = guardando
     ? "se está guardando"
-    : !form.nombre.trim()
-    ? "falta el nombre"
-    : enCaja && !porCajaValido
-      ? "falta cuántos vienen en cada caja"
-      : igual && producto.cantidad < 1
-        ? "falta cuántos agregás"
-        : null;
-
-  function crearCategoria() {
-    const texto = nueva.trim().replace(/\s+/g, " ");
-    if (!texto) return;
-    // "tornillos" al lado de "Tornillos" es la misma: se elige la que hay.
-    const existente = categoriaExistente(texto, categorias);
-    if (existente) {
-      cambiar({ categoria: existente });
-      setAvisoCategoria(`«${existente}» ya estaba. La dejamos elegida.`);
-    } else {
-      setAgregadas((a) => [...a, texto]);
-      cambiar({ categoria: texto });
-      setAvisoCategoria(`Listo. «${texto}» queda guardada con ${articulo.el()}.`);
-    }
-    setNueva("");
-    setCreando(false);
-  }
+    : (motivoDelProducto(form) ?? (igual && producto.cantidad < 1 ? "falta cuántos agregás" : null));
 
   async function guardar() {
     setGuardando(true);
@@ -457,182 +418,18 @@ function AltaDeProducto({ alCerrar }) {
         {articulo.segun("Nuevo", "Nueva")} {articulo.palabra()}
       </TituloSeccion>
 
-      <Campo
-        id="prod-nombre"
-        etiqueta="Qué es"
-        ayuda={`Con el nombre que usan en el mostrador. Ejemplo: ${ejemplosDe(negocio?.rubro).insumo}.`}
-        value={form.nombre}
-        onChange={(e) => cambiar({ nombre: e.target.value })}
-        list="prod-conocidos"
-        autoComplete="off"
+      {/* Si ya existe, el mínimo es el que ya tiene: lo que se está haciendo
+          es reponer, no volver a configurarlo. */}
+      <CamposDeProducto
+        prefijo="prod"
+        form={form}
+        cambiar={cambiar}
+        etiquetaCantidad={
+          igual ? (enCaja ? "Cuántas cajas agregás" : "Cuántos agregás") : enCaja ? "Cuántas cajas tenés" : "Cuántos tenés"
+        }
+        ayudaCantidad={igual ? "Se suman a los que ya hay." : "El número de ahora."}
+        conMinimo={!igual}
       />
-      {/* Lo que ya hay, para elegirlo en vez de escribirlo de otra manera. */}
-      <datalist id="prod-conocidos">
-        {[...new Set(insumos.filter((i) => i.estado === "en_stock").map((i) => i.nombre))].map(
-          (n) => (
-            <option key={n} value={n} />
-          )
-        )}
-      </datalist>
-
-      <div className="grid gap-x-4 @md:grid-cols-2">
-        <Campo
-          id="prod-marca"
-          etiqueta="Marca"
-          ayuda="Opcional."
-          value={form.marca}
-          onChange={(e) => cambiar({ marca: e.target.value })}
-          autoComplete="off"
-        />
-        <Campo
-          id="prod-modelo"
-          etiqueta="Modelo"
-          ayuda="Opcional."
-          value={form.modelo}
-          onChange={(e) => cambiar({ modelo: e.target.value })}
-          autoComplete="off"
-        />
-      </div>
-
-      {/* La categoría: las del rubro, las que ya usa el negocio, y "+ Nueva"
-          al lado para la que no se nos ocurrió. Se crea ahí mismo, sin salir
-          del alta. */}
-      <div className="mb-6">
-        <label htmlFor={creando ? "prod-categoria-nueva" : "prod-categoria"} className="block font-bold text-cuerpo">
-          Categoría
-        </label>
-        <p id="prod-categoria-ayuda" className="mt-1 text-etiqueta text-tinta-media">
-          Opcional. Sirve para ver el stock agrupado.
-        </p>
-
-        {creando ? (
-          <div className="mt-2 flex flex-wrap gap-2">
-            <input
-              id="prod-categoria-nueva"
-              autoFocus
-              value={nueva}
-              onChange={(e) => setNueva(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") crearCategoria();
-                if (e.key === "Escape") setCreando(false);
-              }}
-              placeholder="Juntas, correas, cables…"
-              className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-azul bg-tarjeta px-4 text-cuerpo"
-            />
-            <Boton
-              icono="check"
-              motivo={!nueva.trim() ? "falta el nombre" : null}
-              onClick={crearCategoria}
-            >
-              Agregar
-            </Boton>
-            <Boton variante="plano" icono="cruz" onClick={() => setCreando(false)}>
-              No
-            </Boton>
-          </div>
-        ) : (
-          <div className="mt-2 flex gap-2">
-            <select
-              id="prod-categoria"
-              aria-describedby="prod-categoria-ayuda"
-              value={form.categoria}
-              onChange={(e) => {
-                cambiar({ categoria: e.target.value });
-                setAvisoCategoria(null);
-              }}
-              className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
-            >
-              <option value="">Sin categoría</option>
-              {categorias.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <Boton
-              icono="mas"
-              className="shrink-0 px-4"
-              onClick={() => {
-                setAvisoCategoria(null);
-                setCreando(true);
-              }}
-            >
-              Nueva
-            </Boton>
-          </div>
-        )}
-        {avisoCategoria && (
-          <p className="mt-2 flex items-start gap-2 font-bold text-completo text-etiqueta">
-            <Icono nombre="listo" className="mt-px size-5" />
-            <span>{avisoCategoria}</span>
-          </p>
-        )}
-      </div>
-
-      {/* Cómo viene. Una caja de cien tornillos se cuenta en cajas, que es
-          como se cuenta en el estante; el total de tornillos sale solo. */}
-      <div className="mb-6">
-        <p className="font-bold text-cuerpo" id="prod-viene">
-          Cómo viene
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="prod-viene">
-          {[
-            ["unidad", "Suelto"],
-            ["caja", "En caja"],
-          ].map(([clave, palabra]) => (
-            <button
-              key={clave}
-              type="button"
-              aria-pressed={form.unidad === clave}
-              onClick={() => cambiar({ unidad: clave })}
-              className={`${PILDORA} ${form.unidad === clave ? PILDORA_SI : PILDORA_NO}`}
-            >
-              {palabra}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {enCaja && (
-        <Campo
-          id="prod-por-caja"
-          etiqueta="Cuántos vienen en cada caja"
-          type="number"
-          min="1"
-          inputMode="numeric"
-          value={form.porCaja}
-          onChange={(e) => cambiar({ porCaja: e.target.value })}
-        />
-      )}
-
-      <div className="grid gap-x-4 @md:grid-cols-2">
-        <Campo
-          id="prod-cantidad"
-          etiqueta={
-            igual ? (enCaja ? "Cuántas cajas agregás" : "Cuántos agregás") : enCaja ? "Cuántas cajas tenés" : "Cuántos tenés"
-          }
-          ayuda={igual ? "Se suman a los que ya hay." : "El número de ahora."}
-          type="number"
-          min="0"
-          inputMode="numeric"
-          value={form.cantidad}
-          onChange={(e) => cambiar({ cantidad: e.target.value })}
-        />
-        {/* Si ya existe, el mínimo es el que ya tiene: lo que se está
-            haciendo es reponer, no volver a configurarlo. */}
-        {!igual && (
-          <Campo
-            id="prod-minimo"
-            etiqueta="Avisame cuando queden"
-            ayuda={enCaja ? "En cajas. Debajo de este número te avisamos." : "Debajo de este número te avisamos."}
-            type="number"
-            min="0"
-            inputMode="numeric"
-            value={form.minimo}
-            onChange={(e) => cambiar({ minimo: e.target.value })}
-          />
-        )}
-      </div>
 
       {/* Dos iguales no son dos filas: se suman. Se avisa acá, antes de
           tocar Guardar, y el botón dice lo que va a pasar. */}
@@ -672,19 +469,14 @@ function AltaDeProducto({ alCerrar }) {
 // La usan las dos vistas, "Productos" y "Categorías": es la misma fila, y
 // copiarla para cada una era garantía de que se despegaran.
 //
-// Cada fila lleva su propio estado de "escribiendo la cantidad" y "¿borrar?".
-// Antes vivían arriba, en la pantalla, con el id de la fila; acá adentro es
-// lo mismo con menos cables.
+// La cantidad se ve pero no se toca desde la lista: el − y el + la cambiaban
+// de un toque sin querer, y el tacho estaba a la vista. Todo se cambia, y se
+// borra, desde "Editar", que pregunta antes de borrar.
 function FilaDeStock({ insumo: i, conCategoria, puedeCargar, conEnCamino }) {
-  const datos = useDatos();
-  const [contando, setContando] = useState(false);
-  const [cuantos, setCuantos] = useState("");
-  const [borrando, setBorrando] = useState(false);
+  const [editando, setEditando] = useState(false);
 
   const bajo = i.cantidad <= i.minimo;
-  const enCaja = i.unidad === "caja";
   const total = enTotal(i);
-  const nombre = i.nombre.toLowerCase();
   const detalle = [i.marca, i.modelo].filter(Boolean).join(" · ");
 
   return (
@@ -703,11 +495,11 @@ function FilaDeStock({ insumo: i, conCategoria, puedeCargar, conEnCamino }) {
           <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-bold text-espera text-etiqueta">
             <Icono nombre="alerta" className="size-5" />
             Quedan {i.cantidad} {presentacion(i, i.cantidad)}. Conviene pedir más.
-            {/* Antes el aviso no llevaba a ningún lado: decía "pedí más" y no
-                había dónde. Llega a "En camino" con el nombre ya puesto. */}
+            {/* Llega a "En camino" con todos los datos de este producto: al
+                llegar, se suma a éste y no queda otra fila. */}
             {conEnCamino && puedeCargar && (
               <Link
-                href={`/inventario/en-camino?pedir=${encodeURIComponent(i.nombre)}`}
+                href={`/inventario/en-camino?reponer=${encodeURIComponent(i.id)}`}
                 className="text-azul underline underline-offset-2"
               >
                 Pedirlo
@@ -717,92 +509,21 @@ function FilaDeStock({ insumo: i, conCategoria, puedeCargar, conEnCamino }) {
         )}
       </div>
 
-      {/* Los botones se ven como un signo, pero el lector de pantalla tiene
-          que oír qué hacen y sobre qué: "menos", solo, no dice menos de qué
-          (auditoría, accesibilidad). En caja se suma y se resta de a una caja,
-          y lo dice. */}
-      <div className="flex items-center gap-2">
-        <Boton
-          className="min-w-12 px-0"
-          aria-label={enCaja ? `Quitar una caja de ${nombre}` : `Quitar uno de ${nombre}`}
-          onClick={() => datos.ajustarCantidad(i.id, -1)}
-          disabled={i.cantidad === 0}
-        >
-          −
-        </Boton>
-        {contando ? (
-          <input
-            autoFocus
-            type="number"
-            min="0"
-            inputMode="numeric"
-            aria-label={`La cantidad de ${nombre}`}
-            value={cuantos}
-            onChange={(e) => setCuantos(e.target.value)}
-            onBlur={() => {
-              datos.fijarCantidad(i.id, cuantos);
-              setContando(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") setContando(false);
-            }}
-            className="w-20 rounded-campo border-2 border-azul bg-tarjeta px-2 py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums"
-          />
-        ) : (
-          /* Tocar el número lo vuelve escribible: después de un inventario
-             físico se pasa de 3 a 40 de una (auditoría, H7). Los botones de a
-             uno siguen para los ajustes chicos de todos los días. */
-          <button
-            type="button"
-            aria-live="polite"
-            aria-label={`Escribir la cantidad de ${nombre}. Ahora hay ${i.cantidad} ${presentacion(i, i.cantidad)}`}
-            onClick={() => {
-              setCuantos(String(i.cantidad));
-              setContando(true);
-            }}
-            className="w-20 cursor-pointer rounded-campo py-1 text-center font-titulo font-extrabold text-subtitulo tabular-nums hover:bg-superficie"
-          >
-            {i.cantidad}
-          </button>
-        )}
-        <Boton
-          className="min-w-12 px-0"
-          aria-label={enCaja ? `Sumar una caja de ${nombre}` : `Sumar uno de ${nombre}`}
-          onClick={() => datos.ajustarCantidad(i.id, 1)}
-        >
-          +
-        </Boton>
+      <p className="flex items-baseline gap-2">
+        <span className="font-titulo font-extrabold text-subtitulo tabular-nums">{i.cantidad}</span>
         <span className="whitespace-nowrap text-apoyo text-tinta-suave">
           {presentacion(i, i.cantidad)}
           {total !== null && <span className="block">{total} en total</span>}
         </span>
-      </div>
+      </p>
 
-      {borrando ? (
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-campo bg-superficie p-3">
-          <p className="flex-1">
-            ¿Querés borrar {nombre} del inventario? Se pierde el número que tenías cargado.
-          </p>
-          <Boton
-            variante="peligro"
-            icono="tacho"
-            onClick={() => {
-              datos.eliminarInsumo(i.id);
-              setBorrando(false);
-            }}
-          >
-            Sí, borrarlo
-          </Boton>
-          <Boton variante="plano" onClick={() => setBorrando(false)}>
-            Dejarlo como está
-          </Boton>
-        </div>
-      ) : (
-        <Boton variante="peligro" icono="tacho" onClick={() => setBorrando(true)}>
-          Borrar
+      {puedeCargar && (
+        <Boton icono="pincel" motivo={editando ? "lo estás editando" : null} onClick={() => setEditando(true)}>
+          Editar
         </Boton>
       )}
+
+      {editando && <EdicionDeProducto insumo={i} alCerrar={() => setEditando(false)} />}
     </li>
   );
 }

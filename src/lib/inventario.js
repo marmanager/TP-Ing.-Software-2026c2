@@ -116,6 +116,38 @@ export function limpiarProducto({
   };
 }
 
+// Al revés que limpiarProducto(): de un producto guardado a lo que muestra el
+// formulario, todo como texto. Lo usan "Editar" y "Pedirlo" desde el aviso
+// de stock bajo; éste pide de a uno, con los mismos datos, para que al
+// llegar se sume a ese mismo producto.
+export const formDeProducto = (i, { cantidad = i.cantidad } = {}) => ({
+  nombre: i.nombre ?? "",
+  marca: i.marca ?? "",
+  modelo: i.modelo ?? "",
+  categoria: i.categoria ?? "",
+  cantidad: String(cantidad ?? ""),
+  minimo: String(i.minimo ?? ""),
+  unidad: i.unidad === "caja" ? "caja" : "unidad",
+  porCaja: i.unidad === "caja" && i.por_caja != null ? String(i.por_caja) : "",
+});
+
+// Por qué no se puede guardar todavía, o null si se puede. Lo dice el botón
+// apagado del alta, del pedido y de "Editar". En el stock puede haber cero;
+// un pedido es de al menos uno (desdeUno).
+const enteroDesde = (v, desde) => Number.isInteger(Number(v)) && Number(v) >= desde;
+export function motivoDelProducto(form, { desdeUno = false } = {}) {
+  if (!String(form.nombre ?? "").trim()) return "falta el nombre";
+  if (form.unidad === "caja" && !enteroDesde(form.porCaja, 1)) return "falta cuántos vienen en cada caja";
+  if (desdeUno && !enteroDesde(form.cantidad, 1)) return "la cantidad va en números, desde 1";
+  return null;
+}
+
+// Si al editar un producto del stock queda igual a otro, ése: al guardar se
+// juntan (la API hace lo mismo). Un pedido no se junta: todavía no está en el
+// estante.
+export const igualAlEditar = (insumos, insumo, form) =>
+  insumo.estado === "en_stock" ? buscarIgual(insumos, { ...limpiarProducto(form), id: insumo.id }) : null;
+
 // ------------------------------------------------------------
 // Las categorías
 // ------------------------------------------------------------

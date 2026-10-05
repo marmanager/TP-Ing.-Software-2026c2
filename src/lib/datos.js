@@ -12,7 +12,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
-import { buscarIgual, limpiarProducto, productoParaLaApi } from "./inventario";
+import { buscarIgual, igualAlEditar, limpiarProducto, productoParaLaApi } from "./inventario";
 import {
   FIRMA_DEL_CLIENTE,
   alLlegarInsumo,
@@ -1605,9 +1605,11 @@ export function DatosProvider({ children }) {
       // Un pedido es un insumo en estado "pedido". Con caso, el caso queda
       // esperándolo (alPedirInsumo, en estados.js, decide cómo). Sin caso es
       // reponer el stock: al llegar pasa a "Lo que tenés".
-      async pedirInsumo({ nombre, cantidad, casoId }) {
+      // Con los mismos datos que el alta de un producto: al llegar se busca
+      // uno igual en el stock por nombre, marca, modelo y cómo viene.
+      async pedirInsumo({ casoId, ...form }) {
         if (porLaApi("casos")) {
-          const r = await llamarCasos("/insumos/pedidos", { nombre, cantidad, caso_id: casoId || null }, { idempotencia: nuevaClave() });
+          const r = await llamarCasos("/insumos/pedidos", { ...productoParaLaApi(form), caso_id: casoId || null }, { idempotencia: nuevaClave() });
           if (!r.ok) { setAviso(r.error.mensaje); return null; }
           setDatos((d) => ({ ...d, insumos: [...d.insumos, r.datos.insumo],
             casos: r.datos.caso ? d.casos.map((c) => c.id === r.datos.caso.id ? r.datos.caso : c) : d.casos,
@@ -1616,14 +1618,13 @@ export function DatosProvider({ children }) {
         }
         const rubro = datos.negocio?.rubro;
         const { articulo } = vocabulario(rubro);
+        const producto = limpiarProducto(form);
         const insumo = {
           id: nuevoId(),
           negocio_id: datos.negocio.id,
-          nombre: nombre.trim(),
           descripcion: null,
-          cantidad: Math.max(1, Math.floor(Number(cantidad) || 1)),
-          minimo: 0,
-          unidad: "unidad",
+          ...producto,
+          cantidad: Math.max(1, producto.cantidad),
           estado: "pedido",
           caso_id: casoId || null,
         };
@@ -1714,38 +1715,47 @@ export function DatosProvider({ children }) {
         return { sumado: false, insumo, antes: null };
       },
 
-      // Escribir la cantidad directo. Después de un inventario físico hay
-      // que pasar de 3 a 40, y de a uno son treinta y siete toques, cada uno
-      // con su escritura a la base (auditoría, H7).
-      fijarCantidad(insumoId, cantidad) {
-        const limpia = Math.max(0, Math.floor(Number(cantidad) || 0));
+      // El "Editar" de cada producto: todos sus datos y la cantidad exacta.
+      // Reemplaza al − y al + de la lista, que cambiaban el stock de un toque
+      // sin querer. Si uno del stock queda igual a otro, se juntan en el que
+      // ya estaba (igualAlEditar); "borrado" dice cuál se fue.
+      //
+      // Espera a la API antes de mostrar: si se juntan, lo decide ella con el
+      // stock de verdad. Devuelve { insumo, borrado }, o null si no se pudo
+      // (el aviso ya se dio).
+      async editarInsumo(insumoId, form) {
+        const actual = datos.insumos.find((i) => i.id === insumoId);
+        if (!actual) return null;
+        let resultado;
+        if (porLaApi("inventario")) {
+          const r = await reemplazar(`/insumos/${insumoId}`, productoParaLaApi(form), await tokenDeSesion());
+          if (!r.ok) {
+            setAviso(r.error.mensaje);
+            return null;
+          }
+          resultado = r.datos;
+        } else {
+          const producto = limpiarProducto(form);
+          const igual = igualAlEditar(datos.insumos, actual, form);
+          resultado = igual
+            ? { insumo: { ...igual, cantidad: igual.cantidad + producto.cantidad }, borrado: insumoId }
+            : {
+                insumo: {
+                  ...actual,
+                  ...producto,
+                  cantidad: actual.estado === "pedido" ? Math.max(1, producto.cantidad) : producto.cantidad,
+                },
+                borrado: null,
+              };
+        }
+        const { insumo, borrado } = resultado;
         setDatos((d) => ({
           ...d,
-          insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad: limpia } : i)),
+          insumos: d.insumos
+            .filter((i) => i.id !== borrado)
+            .map((i) => (i.id === insumo.id ? insumo : i)),
         }));
-        if (porLaApi("inventario")) {
-          enLaApi((token) => parchar(`/insumos/${insumoId}`, { cantidad: limpia }, token));
-          return;
-        }
-        escribir("insumo", { id: insumoId, cantidad: limpia });
-      },
-
-      // Con el inventario por la API se manda cuánto sumar o restar, no el
-      // número final: así dos personas tocando "+" a la vez suman las dos.
-      ajustarCantidad(insumoId, delta) {
-        const insumo = datos.insumos.find((i) => i.id === insumoId);
-        if (!insumo) return;
-        const cantidad = Math.max(0, insumo.cantidad + delta);
-        setDatos((d) => ({
-          ...d,
-          insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad } : i)),
-        }));
-        if (porLaApi("inventario")) {
-          const clave = nuevaClave();
-          enLaApi((token) => mandar(`/insumos/${insumoId}/ajustar`, { delta }, token, { idempotencia: clave }));
-          return;
-        }
-        escribir("insumo", { id: insumoId, cantidad });
+        return resultado;
       },
 
       eliminarInsumo(insumoId) {
