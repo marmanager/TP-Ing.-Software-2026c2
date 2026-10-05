@@ -68,3 +68,21 @@ Las únicas conexiones directas a Supabase que quedan en este repositorio se eje
 - la integración de Google Calendar, que guarda y recupera sus credenciales en el servidor.
 
 Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.test.js). Las fronteras arquitectónicas están en [pruebas/fronteras.test.js](../pruebas/fronteras.test.js).
+
+
+## WhatsApp desde la vista de un caso
+
+- El cambio de estado manda `notificar_cliente` sólo al endpoint `/casos/:id/estado`.
+  La opción es independiente del seguimiento posterior al cierre y requiere un teléfono válido.
+- Al abrir el cierre, se consulta `GET /negocio/seguimiento` y se muestra el texto y la
+  demora actuales. El consentimiento arranca desmarcado en cada entrega.
+- Si se pide seguimiento, el cierre envía `seguimiento: true`, `seguimiento_dias` y
+  `seguimiento_mensaje`. Los días se aplican sólo a ese caso. Desmarcado manda
+  `seguimiento: false`, sin días ni mensaje.
+- Después de confirmar un cierre con seguimiento, si el mensaje utilizado cambió
+  respecto del texto cargado, se guarda con `PATCH /negocio/seguimiento` enviando
+  sólo `mensaje`. Se comparan los textos sin espacios en los extremos. Si ese
+  guardado falla, se muestra un aviso y el cierre sigue confirmado.
+- Si el negocio tiene el seguimiento desactivado, el formulario permite activarlo
+  con `PATCH /negocio/seguimiento` antes de solicitarlo para un caso.
+- Un fallo del envío se muestra aparte del cambio de estado o cierre confirmado.
