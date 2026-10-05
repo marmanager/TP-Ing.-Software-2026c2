@@ -70,8 +70,25 @@ export const buscarIgual = (insumos = [], producto) =>
 // Lo que llega del formulario, con los nombres del contrato de la API
 // (snake_case, como las columnas). La API limpia por su cuenta con la misma
 // regla que limpiarProducto(): acá sólo se traduce, no se decide nada.
+//
+// Traducir incluye cómo se dice "no se dijo": en el contrato es null, no "".
+// La API rechaza un "" donde espera un número, y agregar un producto suelto
+// fallaba con "Cuántos vienen por caja va con números.": ese campo arranca
+// vacío y nadie lo toca. Por lo mismo, un producto suelto no manda cuántos
+// vienen por caja, aunque se haya escrito algo antes de elegir "Suelto".
+const oNulo = (v) => (typeof v === "string" && v.trim() === "" ? null : v);
+
 export function productoParaLaApi({ nombre, marca, modelo, categoria, cantidad, minimo, unidad, porCaja }) {
-  return { nombre, marca, modelo, categoria, cantidad, minimo, unidad, por_caja: porCaja };
+  return {
+    nombre: oNulo(nombre),
+    marca: oNulo(marca),
+    modelo: oNulo(modelo),
+    categoria: oNulo(categoria),
+    cantidad: oNulo(cantidad),
+    minimo: oNulo(minimo),
+    unidad,
+    por_caja: unidad === "caja" ? oNulo(porCaja) : null,
+  };
 }
 
 export function limpiarProducto({

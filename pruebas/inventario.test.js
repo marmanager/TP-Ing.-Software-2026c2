@@ -170,9 +170,25 @@ test("a la API va lo del formulario con los nombres del contrato, sin decidir na
   const form = { nombre: " Tornillo ", marca: "", modelo: "M6", categoria: "Bulones",
     cantidad: "3", minimo: "1", unidad: "caja", porCaja: "100" };
   assert.deepEqual(productoParaLaApi(form), {
-    nombre: " Tornillo ", marca: "", modelo: "M6", categoria: "Bulones",
+    nombre: " Tornillo ", marca: null, modelo: "M6", categoria: "Bulones",
     cantidad: "3", minimo: "1", unidad: "caja", por_caja: "100",
   });
+});
+
+// La API rechaza un "" donde espera un número: agregar un producto suelto
+// fallaba con "Cuántos vienen por caja va con números.", porque el campo de
+// la caja arranca vacío y viajaba como "".
+test("un producto suelto no manda cuántos vienen por caja", () => {
+  assert.equal(productoParaLaApi({ nombre: "x", unidad: "unidad", porCaja: "" }).por_caja, null);
+  // Escrito antes de cambiar a "Suelto": tampoco viaja.
+  assert.equal(productoParaLaApi({ nombre: "x", unidad: "unidad", porCaja: "abc" }).por_caja, null);
+});
+
+test("lo que quedó vacío viaja como null, no como texto vacío", () => {
+  const enviado = productoParaLaApi({ nombre: "x", marca: "  ", cantidad: "", minimo: "", unidad: "unidad" });
+  assert.equal(enviado.marca, null);
+  assert.equal(enviado.cantidad, null);
+  assert.equal(enviado.minimo, null);
 });
 
 test("lo que no es del producto no viaja a la API (ni un negocio_id)", () => {
