@@ -8,20 +8,20 @@ describe("Historia: Asignar trabajo a colaborador", () => {
   });
 
   it("AC1: permite elegir un colaborador y lo muestra como responsable", async () => {
-    await $("button=Asignar").click();
+    await $("button=Asignar a alguien").click();
     await $("button=Diego").click();
     await verTexto("Lo tiene Diego");
   });
 
   it("AC2: conserva la asignación después de recargar", async () => {
-    await $("button=Asignar").click();
+    await $("button=Asignar a alguien").click();
     await $("button=Nico").click();
     await browser.refresh();
     await verTexto("Lo tiene Nico");
   });
 
   it("AC3: registra una sola asignación con el nombre en el historial", async () => {
-    await $("button=Asignar").click();
+    await $("button=Asignar a alguien").click();
     await $("button=Sofía").click();
     await expect($("p=Asignaron el caso")).toBeDisplayed();
     await expect($("p=Lo va a atender Sofía.")).toBeDisplayed();
@@ -29,11 +29,11 @@ describe("Historia: Asignar trabajo a colaborador", () => {
   });
 
   it("AC4: permite reasignar un trabajo ya iniciado", async () => {
-    await $("button=Asignar").click();
+    await $("button=Asignar a alguien").click();
     await $("button=Diego").click();
     await verTexto("Lo tiene Diego");
 
-    await $("button=Cambiar").click();
+    await $("button=Cambiar quién lo atiende").click();
     await $("button=Nico").click();
     await verTexto("Lo tiene Nico");
 

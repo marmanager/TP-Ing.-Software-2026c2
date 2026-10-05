@@ -1,5 +1,5 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { entrarConDatosDePrueba, verTexto } from "./ayudas.js";
+import { entrarConDatosDePrueba, reemplazarTexto, verTexto } from "./ayudas.js";
 
 describe("Historia: Marcar consulta completada", () => {
   beforeEach(async () => {
@@ -9,14 +9,16 @@ describe("Historia: Marcar consulta completada", () => {
 
   async function entregar(monto = "120000") {
     await $("button=Entregar y cerrar").click();
-    await $("#cobro").setValue(monto);
-    const botones = await $$("button=Entregar y cerrar");
-    await botones[botones.length - 1].click();
+    // El monto arranca como confirmación de lo aprobado (b86a1cb); escribirlo
+    // a mano pide un toque más.
+    await $("button=Cobré otra cosa").click();
+    await reemplazarTexto("#cobro", monto);
+    await $("button=Sí, entregar y cerrar").click();
   }
 
   it("AC1: permite entregar y cerrar una consulta abierta", async () => {
     await entregar();
-    await verTexto("Este caso ya se entregó y se cerró");
+    await verTexto("El caso está cerrado");
     await expect($("p=Entregaron el trabajo")).toBeDisplayed();
   });
 
@@ -24,7 +26,7 @@ describe("Historia: Marcar consulta completada", () => {
     await entregar("125000");
     await browser.refresh();
     await verTexto("$125.000");
-    await verTexto("Este caso ya se entregó y se cerró");
+    await verTexto("El caso está cerrado");
   });
 
   it("AC3: no duplica la acción y permite corregir un cierre accidental", async () => {

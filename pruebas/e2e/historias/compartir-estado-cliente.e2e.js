@@ -1,20 +1,26 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrarConDatosDePrueba, noVerTexto, verTexto } from "./ayudas.js";
+import { entrarConDatosDePrueba, noVerTexto, reemplazarTexto, verTexto } from "./ayudas.js";
 
 describe("Historia: Compartir estado del trabajo con el cliente", () => {
-  async function generarLink() {
-    await entrarConDatosDePrueba("/casos/k248");
-    await $("button=Armar el link para Marcela").click();
+  // Compartir se mudó a la pantalla de los pasos, al lado del presupuesto
+  // que se le manda (e9f2ce0).
+  async function abrirElLink() {
+    await $("button=Mandarle los pasos al cliente").click();
     const campo = await $("#link-seguimiento");
     await expect(campo).toBeDisplayed();
     return campo.getValue();
+  }
+
+  async function generarLink() {
+    await entrarConDatosDePrueba("/casos/k248/pasos");
+    return abrirElLink();
   }
 
   it("AC1: genera un enlace estable y compartible", async () => {
     const link = await generarLink();
     expect(link).toMatch(/\/seguimiento\/[a-f0-9]{32}$/);
     await browser.refresh();
-    await expect($("#link-seguimiento")).toHaveValue(link);
+    expect(await abrirElLink()).toBe(link);
   });
 
   it("AC2: el cliente consulta sin cuenta el estado y la identificación", async () => {
@@ -23,7 +29,8 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
     await verTexto("Hola Marcela");
     await verTexto("Patente AB123CD");
     await verTexto("Revisión general");
-    await verTexto("Se está esperando");
+    // La espera dice de quién es la pelota (a5950a4).
+    await verTexto("Estamos esperando tu respuesta al presupuesto");
   });
 
   it("AC3: separa lo aprobado de lo pendiente y no publica lo rechazado", async () => {
@@ -90,7 +97,7 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
   it("AC9: el negocio puede modificar su teléfono y conservarlo", async () => {
     await entrarConDatosDePrueba("/negocio");
     await $("button=Editar").click();
-    await $("#negocio-telefono").setValue("341 444 5566");
+    await reemplazarTexto("#negocio-telefono", "341 444 5566");
     await $("button=Guardar").click();
     await verTexto("Teléfono 341 444 5566");
 
@@ -100,7 +107,8 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
 
   it("AC4: un enlace deshabilitado deja de revelar el caso", async () => {
     const link = await generarLink();
-    await browser.url("/casos/k248");
+    await browser.url("/casos/k248/pasos");
+    await abrirElLink();
     await $("button=Dejar de compartirlo").click();
     await $("button=Sí, dejar de compartirlo").click();
     await browser.url(link);

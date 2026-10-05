@@ -38,6 +38,8 @@ describe("Historia: Cambiar el estado desde el detalle del caso", () => {
     await expect($('[aria-label="Marcar el caso como Entregado"]')).not.toExist();
 
     await $("button=Entregar y cerrar").click();
+    await verTexto("Vas a anotar que cobraste");
+    await $("button=Cobré otra cosa").click();
     await expect($("#cobro")).toBeDisplayed();
     await verTexto("¿Cuánto cobraste?");
     await noVerTexto("Pasar el caso a");
