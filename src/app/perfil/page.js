@@ -22,7 +22,7 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { etiquetaRol } from "@/lib/presets";
-import { motivoDeContrasenaNueva, telefonoValido } from "@/lib/validaciones";
+import { estadoDeLaContrasena, motivoDeContrasenaNueva, telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import FilaNegocio from "@/componentes/FilaNegocio";
 import Icono from "@/componentes/Icono";
@@ -199,12 +199,11 @@ export default function MiPerfil() {
 
   const foto = editando ? borrador.foto : usuario?.foto;
 
-  // Si la cuenta tiene contraseña lo dice la API (tiene_contrasena, 045). Si
-  // todavía no lo sabe, se adivina por los proveedores: quien entra sólo con
-  // Google no tiene. Mostrarle puntos a quien no tiene sería decirle que sí.
-  const proveedores = sesion?.user?.app_metadata?.providers;
-  const soloGoogle = Array.isArray(proveedores) && !proveedores.includes("email");
-  const tieneContrasena = recienCreada || (sesion?.user?.tiene_contrasena ?? !soloGoogle);
+  // "tiene", "no tiene" o "no se sabe" (lib/validaciones.js). Si no se sabe,
+  // no se afirma nada: ni los puntos ni "no tenés una". El botón es "Cambiar
+  // contraseña", y su opción "Por mail" sirve tenga o no.
+  const estadoContrasena = estadoDeLaContrasena(sesion?.user, { recienCreada });
+  const tieneContrasena = estadoContrasena !== "no tiene";
 
   return (
     <>
@@ -410,16 +409,18 @@ export default function MiPerfil() {
                     habría dos azules a la vez. */}
                 <div className="mt-8 border-t border-borde pt-6">
                   <p className="font-bold text-cuerpo">Tu contraseña</p>
-                  <p className="mt-1 text-tinta-media">
-                    {tieneContrasena ? (
-                      <>
-                        <span aria-hidden="true">••••••••</span>
-                        <span className="sr-only">Guardada</span>
-                      </>
-                    ) : (
-                      "Todavía no tenés una: entrás con Google. Si la creás, también vas a poder entrar con tu mail."
-                    )}
-                  </p>
+                  {estadoContrasena === "tiene" && (
+                    <p className="mt-1 text-tinta-media">
+                      <span aria-hidden="true">••••••••</span>
+                      <span className="sr-only">Guardada</span>
+                    </p>
+                  )}
+                  {estadoContrasena === "no tiene" && (
+                    <p className="mt-1 text-tinta-media">
+                      Todavía no tenés una: entrás con Google. Si la creás, también vas a poder entrar
+                      con tu mail.
+                    </p>
+                  )}
 
                   {mailMandado && (
                     <p role="status" className="mt-3 flex items-start gap-2 font-bold text-completo">
@@ -565,13 +566,15 @@ export default function MiPerfil() {
                     <dt className="text-apoyo text-tinta-suave">Contraseña</dt>
                     {/* Sin botón acá afuera: se cambia desde "Editar". */}
                     <dd>
-                      {!tieneContrasena ? (
-                        "Todavía no tenés: entrás con Google"
-                      ) : (
+                      {estadoContrasena === "tiene" ? (
                         <>
                           <span aria-hidden="true">••••••••</span>
                           <span className="sr-only">Guardada</span>
                         </>
+                      ) : estadoContrasena === "no tiene" ? (
+                        "Todavía no tenés: entrás con Google"
+                      ) : (
+                        "Se cambia desde Editar"
                       )}
                     </dd>
                   </div>

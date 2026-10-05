@@ -10,6 +10,7 @@ import {
   emailValido,
   contrasenaValida,
   motivoDeContrasenaNueva,
+  estadoDeLaContrasena,
   montoValido,
   montoCobrado,
   cobroValido,
@@ -223,4 +224,18 @@ test("la contraseña nueva necesita 8 caracteres y repetirla igual", () => {
   assert.equal(motivoDeContrasenaNueva("larguita123", "larguita12"), "repetila igual abajo");
   assert.equal(motivoDeContrasenaNueva("larguita123", ""), "repetila igual abajo");
   assert.equal(motivoDeContrasenaNueva("larguita123", "larguita123"), null);
+});
+
+// Si la cuenta tiene contraseña lo dice la API (tiene_contrasena). Los
+// proveedores no sirven para adivinarlo: una cuenta de Google que creó su
+// contraseña con el link del mail sigue figurando sólo con "google".
+test("la contraseña: lo que dice la API, y si no lo dice, no se sabe", () => {
+  const google = { app_metadata: { providers: ["google"] } };
+  assert.equal(estadoDeLaContrasena({ ...google, tiene_contrasena: true }), "tiene");
+  assert.equal(estadoDeLaContrasena({ ...google, tiene_contrasena: false }), "no tiene");
+  assert.equal(estadoDeLaContrasena(google), "no se sabe");
+  assert.equal(estadoDeLaContrasena({ tiene_contrasena: null }), "no se sabe");
+  assert.equal(estadoDeLaContrasena(null), "no se sabe");
+  // Recién creada en esta pantalla: la sesión todavía no se volvió a leer.
+  assert.equal(estadoDeLaContrasena({ tiene_contrasena: false }, { recienCreada: true }), "tiene");
 });
