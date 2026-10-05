@@ -25,7 +25,8 @@ import {
   sePuedeMarcarHecho,
 } from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { queFaltaPara, comoSeIdentifica, etiquetaEstado, vocabulario } from "@/lib/presets";
+import { queFaltaPara, comoSeIdentifica, vocabulario } from "@/lib/presets";
+import { presentacionEstado } from "@/lib/presentacion-estados";
 import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
@@ -109,6 +110,7 @@ export default function VerCaso() {
   }
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
+  const nombreEstado = (estado) => presentacionEstado(negocio, estado).nombre;
   const puedeNotificar = datos.casosPorApi && telefonoWhatsAppValido(cliente?.telefono);
   const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega))[0];
 
@@ -251,7 +253,7 @@ export default function VerCaso() {
                 )}
                 <SelectorEstado
                   estado={caso.estado}
-                  rubro={negocio?.rubro}
+                  negocio={negocio}
                   sePuedeCambiar={sePuedeEditar && !cambiandoEstado && !cerrando}
                   alElegir={cambiarEstadoDelCaso}
                 />
@@ -404,7 +406,7 @@ export default function VerCaso() {
                 <>
                   <p className="mt-1 max-w-[65ch] text-tinta-media">
                     Al elegir a alguien, el caso pasa a{" "}
-                    {etiquetaEstado(negocio?.rubro, "en_proceso").toLowerCase()}.
+                    {nombreEstado("en_proceso").toLowerCase()}.
                   </p>
                   <ul className="mt-3 flex flex-wrap gap-2.5">
                     {empleados.map((e) => (
@@ -589,7 +591,7 @@ export default function VerCaso() {
                     <span>Quedó trabajo sin hacer</span>
                   </p>
                   <p className="mt-1 max-w-[65ch] text-tinta-media">
-                    El caso figura en {etiquetaEstado(negocio?.rubro, "revision_final")}, pero{" "}
+                    El caso figura en {nombreEstado("revision_final")}, pero{" "}
                     {avance.faltan === 1
                       ? "hay un paso aprobado sin hacer"
                       : `hay ${avance.faltan} pasos aprobados sin hacer`}
@@ -603,7 +605,7 @@ export default function VerCaso() {
                         cambiarEstadoDelCaso("en_proceso", AL_PASAR_A.en_proceso)
                       }
                     >
-                      Volverlo a {etiquetaEstado(negocio?.rubro, "en_proceso")}
+                      Volverlo a {nombreEstado("en_proceso")}
                     </Boton>
                   </div>
                 </div>
@@ -617,7 +619,7 @@ export default function VerCaso() {
                   <p className="font-bold text-cuerpo">Terminaste todo lo aprobado</p>
                   <p className="mt-1 max-w-[65ch] text-tinta-media">
                     Los {avance.aprobados} pasos están hechos. Si ya está para controlar
-                    antes de entregar, pasalo a {etiquetaEstado(negocio?.rubro, "revision_final")}.
+                    antes de entregar, pasalo a {nombreEstado("revision_final")}.
                   </p>
                   <div className="mt-4">
                     <Boton
@@ -627,7 +629,7 @@ export default function VerCaso() {
                         cambiarEstadoDelCaso("revision_final", AL_PASAR_A.revision_final)
                       }
                     >
-                      Pasarlo a {etiquetaEstado(negocio?.rubro, "revision_final")}
+                      Pasarlo a {nombreEstado("revision_final")}
                     </Boton>
                   </div>
                 </div>
@@ -1199,7 +1201,7 @@ function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
     clienteNombre: cliente?.nombre?.split(" ")[0] ?? null,
     identificador: caso.identificador,
     servicio: caso.servicio,
-    estadoEnPalabras: etiquetaEstado(negocio?.rubro, caso.estado),
+    estadoEnPalabras: nombreEstado(caso.estado),
     entregado,
     pasos: aprobados.map((p) => ({ nombre: p.nombre, hecho: Boolean(p.hecho_en) })),
     link,

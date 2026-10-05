@@ -2231,6 +2231,15 @@ export function DatosProvider({ children }) {
         escribir("negocio", { id: datos.negocio?.id, nombrar_casos: modo });
       },
 
+      // Cómo se muestran los cinco estados del flujo. Las claves siguen
+      // siendo las mismas; sólo cambian el nombre y el símbolo visibles.
+      cambiarPresentacionEstados(estados) {
+        setDatos((d) => ({ ...d, negocio: { ...d.negocio, estados } }));
+        if (porLaApi("negocio")) {
+          enLaApi((token) => parchar("/negocio", { estados }, token));
+        }
+      },
+
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
       cambiarModulos(claves) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));

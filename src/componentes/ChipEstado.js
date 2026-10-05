@@ -1,7 +1,6 @@
 "use client";
 
-import { ESTADOS } from "@/lib/estados";
-import { etiquetaEstado } from "@/lib/presets";
+import { presentacionEstado } from "@/lib/presentacion-estados";
 import { useDatos } from "@/lib/datos";
 import Icono from "./Icono";
 
@@ -12,9 +11,12 @@ import Icono from "./Icono";
 // pasen. Se lo pasa la pantalla pública de seguimiento (SCRUM-68): ahí quien
 // mira no tiene negocio propio —no tiene ni cuenta—, y el vocabulario que
 // corresponde es el del negocio que le mandó el link.
-export default function ChipEstado({ estado, rubro, className = "", grande = false }) {
+export default function ChipEstado({ estado, rubro, configuracion, className = "", grande = false }) {
   const { negocio } = useDatos();
-  const e = ESTADOS[estado];
+  const negocioVisual = configuracion
+    ? { rubro: rubro ?? negocio?.rubro, estados: configuracion }
+    : rubro ? { rubro } : negocio;
+  const e = presentacionEstado(negocioVisual, estado);
   if (!e) return null;
 
   return (
@@ -24,7 +26,7 @@ export default function ChipEstado({ estado, rubro, className = "", grande = fal
       } ${e.fondo} ${e.texto} ${className}`}
     >
       <Icono nombre={e.icono} className={grande ? "size-7" : "size-5"} />
-      {etiquetaEstado(rubro ?? negocio?.rubro, estado)}
+      {e.nombre}
     </span>
   );
 }

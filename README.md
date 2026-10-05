@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `044_rubro_personalizable.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `046_presentacion_estados.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.

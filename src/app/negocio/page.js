@@ -14,7 +14,6 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
 import { LISTA_MODULOS, estaPrendido } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
@@ -23,6 +22,7 @@ import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
 import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
+import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function MiNegocio() {
@@ -370,25 +370,7 @@ export default function MiNegocio() {
       )}
 
       <TituloSeccion id="estados">Cómo se llaman los estados en tu rubro</TituloSeccion>
-      <ul className="mb-12 overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-        {ORDEN_ESTADOS.map((estado) => {
-          const e = ESTADOS[estado];
-          return (
-            <li
-              key={estado}
-              className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
-            >
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-etiqueta ${e.fondo} ${e.texto}`}
-              >
-                <Icono nombre={e.icono} className="size-5" />
-                {actual.etiquetas[estado]}
-              </span>
-              <p className="min-w-0 flex-1 text-tinta-media">{e.significado}</p>
-            </li>
-          );
-        })}
-      </ul>
+      <ConfiguracionEstados puedeConfigurar={puedeConfigurar} />
 
       {/* Con qué nombre nace cada caso nuevo (SCRUM-119). Se guarda al
           tocar: sólo cambia los casos que se abran después, así que no hay

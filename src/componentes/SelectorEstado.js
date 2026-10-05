@@ -14,11 +14,12 @@
 // consultorio "En consulta". Es el mismo estado abajo.
 
 import { useEffect, useRef, useState } from "react";
-import { AL_PASAR_A, ESTADOS, estadosAElegir } from "@/lib/estados";
-import { etiquetaEstado, preset } from "@/lib/presets";
+import { AL_PASAR_A, estadosAElegir } from "@/lib/estados";
+import { preset } from "@/lib/presets";
+import { presentacionEstado } from "@/lib/presentacion-estados";
 import Icono from "./Icono";
 
-export default function SelectorEstado({ estado, rubro, sePuedeCambiar, alElegir }) {
+export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar, alElegir }) {
   const [abierto, setAbierto] = useState(false);
   const caja = useRef(null);
 
@@ -40,11 +41,12 @@ export default function SelectorEstado({ estado, rubro, sePuedeCambiar, alElegir
     };
   }, [abierto]);
 
-  const actual = ESTADOS[estado];
+  const negocioVisual = negocio ?? { rubro };
+  const actual = presentacionEstado(negocioVisual, estado);
   if (!actual) return null;
 
-  const palabra = etiquetaEstado(rubro, estado);
-  const explica = preset(rubro).explica ?? {};
+  const palabra = actual.nombre;
+  const explica = preset(negocioVisual?.rubro).explica ?? {};
 
   // Sin permiso para cambiarlo, el chip es un chip y nada más.
   if (!sePuedeCambiar) {
@@ -88,8 +90,8 @@ export default function SelectorEstado({ estado, rubro, sePuedeCambiar, alElegir
           </p>
           <ul>
             {estadosAElegir(estado).map((otro) => {
-              const e = ESTADOS[otro];
-              const suPalabra = etiquetaEstado(rubro, otro);
+              const e = presentacionEstado(negocioVisual, otro);
+              const suPalabra = e.nombre;
               return (
                 <li key={otro} className="border-b border-borde last:border-b-0">
                   <button
