@@ -705,15 +705,37 @@ test("un link que la API no conoce no sirve", () => {
   assert.deepEqual(r, { sirve: false });
 });
 
-// Igual que con la base: al cliente no le sirve saber si fue la red o el
-// código, y contarlo sería contar de más.
-test("si la API no contesta, el link tampoco sirve", () => {
-  const r = seguimientoDeLaApi({
+// CAMBIO DE DECISIÓN. Antes esta prueba pedía lo contrario —«si la API no
+// contesta, el link tampoco sirve»— con el argumento de que distinguirlo
+// sería contar de más.
+//
+// No se sostiene. Lo que no hay que contar es si un link alguna vez fue
+// bueno (criterio 15): por eso «nunca existió» y «lo dieron de baja» siguen
+// siendo el mismo «Este link ya no sirve». Un corte de conexión no dice nada
+// sobre el código: pasa igual con un link bueno que con uno inventado.
+//
+// Y el costo era concreto: el link pasa por la API, y Render se duerme y
+// tarda en despertar más de lo que el front espera. El primer cliente que
+// abría su link después de un rato quieto leía que el link había muerto,
+// cuando sólo tenía que esperar. Es lo mismo que ya hace la agenda pública.
+test("si la API no contesta, se dice eso y no que el link murió", () => {
+  const sinConexion = seguimientoDeLaApi({
     ok: false,
     error: { codigo: "sin_conexion", mensaje: "No pudimos conectarnos. Fijate que tengas internet y volvé a probar." },
   });
+  assert.deepEqual(sinConexion, {
+    sirve: false,
+    problema: "No pudimos conectarnos. Fijate que tengas internet y volvé a probar.",
+  });
 
-  assert.deepEqual(r, { sirve: false });
+  const muchos = seguimientoDeLaApi({
+    ok: false,
+    error: { codigo: "muchos_intentos", mensaje: "Probá de nuevo en un minuto: se hicieron muchos intentos seguidos." },
+  });
+  assert.deepEqual(muchos, {
+    sirve: false,
+    problema: "Probá de nuevo en un minuto: se hicieron muchos intentos seguidos.",
+  });
 });
 
 test("contestar un paso por la API devuelve ok con lo que dice la API", () => {
