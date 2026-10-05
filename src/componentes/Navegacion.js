@@ -3,7 +3,10 @@
 // Navegación principal (cartilla, sección 05).
 //
 // Escritorio: barra lateral, siempre con texto. La lista puede crecer con las
-// secciones que el negocio necesite, siempre con ícono y palabra.
+// secciones que el negocio necesite, siempre con ícono y palabra. Ocupa el alto
+// de la pantalla y no se mueve con la página: arriba lo del trabajo de todos
+// los días, y al pie Mi negocio y Mi perfil, que se usan mucho menos. Se puede
+// cerrar para darle todo el ancho al contenido.
 //
 // Celular: tres destinos abajo —Inicio · Casos · Agenda, lo que se usa todos
 // los días— y un cuarto lugar, "Más", que abre un panel con TODAS las
@@ -70,11 +73,16 @@ const DESTINOS = [
   { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
-  { href: "/negocio", icono: "tienda", palabra: "Mi negocio" },
+  // "alPie": van separados, abajo de todo. Son la configuración, no el
+  // trabajo del día.
+  { href: "/negocio", icono: "tienda", palabra: "Mi negocio", alPie: true },
   // Lo de la persona, aparte de lo del negocio (SCRUM-118): sus datos, su
   // foto, su contraseña y el negocio en el que está.
-  { href: "/perfil", icono: "cuenta", palabra: "Mi perfil" },
+  { href: "/perfil", icono: "cuenta", palabra: "Mi perfil", alPie: true },
 ];
+
+// Las dos partes de la lista: lo del trabajo, arriba, y lo de "alPie".
+const partir = (destinos) => [destinos.filter((d) => !d.alPie), destinos.filter((d) => d.alPie)];
 
 const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(href));
 
@@ -153,35 +161,106 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
   );
 }
 
+// Si la barra está cerrada, en este navegador. Es una comodidad de cada
+// persona en su computadora, no algo del negocio: no va a la base.
+const LLAVE_BARRA = "marmanager.barra-cerrada";
+
 export function BarraLateral() {
   const ruta = usePathname();
   const { negocio } = useDatos();
+  const [arriba, alPie] = partir(conModulo(DESTINOS, negocio));
+  const [cerrada, setCerrada] = useState(false);
+  const boton = useRef(null);
+  const recienTocado = useRef(false);
+
+  // Se lee después de montar: en el servidor no hay localStorage, y leerlo
+  // antes haría que lo de los dos lados no coincida.
+  useEffect(() => {
+    try {
+      setCerrada(window.localStorage.getItem(LLAVE_BARRA) === "1");
+    } catch {
+      // Sin almacenamiento, la barra arranca abierta, como siempre.
+    }
+  }, []);
+
+  // Al abrir o cerrar, el foco pasa al botón que quedó: el de antes ya no
+  // existe, y quien usa teclado no tiene que volver a buscarlo.
+  useEffect(() => {
+    if (!recienTocado.current) return;
+    recienTocado.current = false;
+    boton.current?.focus();
+  }, [cerrada]);
+
+  const cambiar = (valor) => {
+    recienTocado.current = true;
+    setCerrada(valor);
+    try {
+      if (valor) window.localStorage.setItem(LLAVE_BARRA, "1");
+      else window.localStorage.removeItem(LLAVE_BARRA);
+    } catch {
+      // Si no se puede guardar, igual se cierra; sólo no se recuerda.
+    }
+  };
+
+  // Sólo un ícono, sin la palabra, a pedido del equipo: el texto lo dicen
+  // aria-label para el lector de pantalla y title al pasar el mouse.
+  const botonDeBarra = (
+    <button
+      ref={boton}
+      type="button"
+      onClick={() => cambiar(!cerrada)}
+      aria-label={cerrada ? "Abrir el menú" : "Cerrar el menú"}
+      title={cerrada ? "Abrir el menú" : "Cerrar el menú"}
+      aria-expanded={!cerrada}
+      className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
+    >
+      <Icono nombre="panel" />
+    </button>
+  );
+
+  // Cerrada queda sólo el botón para abrirla, quieto arriba a la izquierda.
+  // El contenido se queda con el resto del ancho.
+  if (cerrada) {
+    return (
+      <div className="hidden shrink-0 px-2 py-4 md:block">
+        <div className="sticky top-4">{botonDeBarra}</div>
+      </div>
+    );
+  }
 
   return (
-    <nav
-      aria-label="Secciones"
-      className="hidden w-64 shrink-0 border-r border-borde bg-fondo p-4 md:block"
-    >
-      <div className="mb-6 flex items-center gap-3 px-3">
-        {/* La foto va sin texto alternativo a propósito: el nombre del
-            negocio está al lado, y describirla otra vez haría que un lector
-            de pantalla lo diga dos veces seguidas. */}
-        {negocio?.foto ? (
-          <img
-            src={negocio.foto}
-            alt=""
-            className="size-11 shrink-0 rounded-campo object-cover"
-          />
-        ) : (
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
-            <Icono nombre="tienda" />
+    <nav aria-label="Secciones" className="hidden w-64 shrink-0 border-r border-borde bg-fondo md:block">
+      {/* Del alto de la pantalla y quieta mientras la página se mueve, así el
+          pie queda siempre abajo. Si las secciones no entran, se mueve sólo
+          la lista de arriba y el pie no se tapa. */}
+      <div className="sticky top-0 flex h-dvh flex-col p-4">
+        <div className="mb-6 flex items-center gap-3 pl-3">
+          {/* La foto va sin texto alternativo a propósito: el nombre del
+              negocio está al lado, y describirla otra vez haría que un lector
+              de pantalla lo diga dos veces seguidas. */}
+          {negocio?.foto ? (
+            <img
+              src={negocio.foto}
+              alt=""
+              className="size-11 shrink-0 rounded-campo object-cover"
+            />
+          ) : (
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
+              <Icono nombre="tienda" />
+            </span>
+          )}
+          <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
+            {negocio?.nombre ?? "Mi negocio"}
           </span>
-        )}
-        <span className="font-titulo font-extrabold text-subtitulo leading-tight">
-          {negocio?.nombre ?? "Mi negocio"}
-        </span>
+          {botonDeBarra}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <ListaDeSecciones destinos={arriba} ruta={ruta} />
+        </div>
+        <div className="mt-4 border-t border-borde pt-4">
+          <ListaDeSecciones destinos={alPie} ruta={ruta} />
+        </div>
       </div>
-      <ListaDeSecciones destinos={conModulo(DESTINOS, negocio)} ruta={ruta} />
     </nav>
   );
 }
@@ -358,8 +437,13 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
           Cerrar
         </button>
       </div>
+      {/* Partida igual que la barra de la computadora: Mi negocio y Mi
+          perfil en un grupo aparte, al final. */}
       <nav aria-label="Todas las secciones">
-        <ListaDeSecciones destinos={destinos} ruta={ruta} grande />
+        <ListaDeSecciones destinos={partir(destinos)[0]} ruta={ruta} grande />
+        <div className="mt-4 border-t border-borde pt-4">
+          <ListaDeSecciones destinos={partir(destinos)[1]} ruta={ruta} grande />
+        </div>
       </nav>
     </div>
   );
