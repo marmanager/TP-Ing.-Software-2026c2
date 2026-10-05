@@ -31,6 +31,7 @@ import { agendaDeLaApi, agendaPublica, huecoSigueLibre, normalizarHorarios } fro
 import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
 import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./api.js";
 import { turnoParaLaApi } from "./turnos.js";
+import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -905,13 +906,23 @@ export function DatosProvider({ children }) {
       //
       // Entregar es un cambio de estado, pero en el historial va aparte: es
       // lo que más se quiere contar ("cuándo terminan", dice SCRUM-75).
-      async cambiarEstado(casoId, estado, queFalta, textoHistorial, tambien = {}) {
+      async cambiarEstado(casoId, estado, queFalta, textoHistorial, tambien = {}, { notificarCliente = false } = {}) {
         if (porLaApi("casos") && estado !== "completado") {
           const ruta = datos.casos.find((c) => c.id === casoId)?.estado === "completado"
             ? `/casos/${encodeURIComponent(casoId)}/reabrir` : `/casos/${encodeURIComponent(casoId)}/estado`;
-          const r = await llamarCasos(ruta, ruta.endsWith("/estado") ? { estado } : {});
+          const r = await llamarCasos(ruta, ruta.endsWith("/estado")
+            ? { estado, notificar_cliente: Boolean(notificarCliente) } : {});
           if (!r.ok) return setAviso(r.error.mensaje);
-          incorporarCasoApi(r.datos); return r.datos.caso;
+          incorporarCasoApi(r.datos);
+          if (r.datos.notificacion?.estado === "fallido") {
+            setAviso("El estado se cambió, pero no pudimos enviar el aviso por WhatsApp.");
+          } else if (r.datos.notificacion) {
+            setDeshacerExito(null);
+            setExito(r.datos.notificacion.estado === "enviado"
+              ? "Listo, se cambió el estado y se le avisó al cliente por WhatsApp."
+              : "Listo, se cambió el estado y el aviso por WhatsApp quedó pendiente de envío.");
+          }
+          return r.datos.caso;
         }
         parchearCaso(casoId, { estado, que_falta: queFalta, ...tambien });
         anotar({
@@ -1213,11 +1224,24 @@ export function DatosProvider({ children }) {
       // La API guarda cobro, descuento, cierre e historial en la misma
       // transacción. Esta acción sólo existe en el camino nuevo; el formulario
       // conserva abajo el camino anterior mientras el interruptor esté apagado.
-      async entregarCaso({ casoId, monto, medio, resto }) {
+      async consultarSeguimiento() {
+        const r = await traer("/negocio/seguimiento", await tokenDeSesion());
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+      },
+
+      async configurarSeguimiento(cambios) {
+        const r = await parchar("/negocio/seguimiento", cambios, await tokenDeSesion());
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+      },
+
+      async entregarCaso({ casoId, monto, medio, resto, seguimiento }) {
+        const error = Object.values(erroresSeguimiento(seguimiento))[0];
+        if (error) return { ok: false, error };
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/entregar`, {
           monto: monto == null ? null : Number(monto),
           medio: Number(monto) > 0 ? medio : null,
           resto,
+          ...seguimientoParaLaApi(seguimiento),
         }, await tokenDeSesion(), { idempotencia: nuevaClave() });
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         setDatos((d) => {
@@ -1226,6 +1250,25 @@ export function DatosProvider({ children }) {
           if (r.datos.evento) siguiente = { ...siguiente, eventos: [r.datos.evento, ...siguiente.eventos] };
           return siguiente;
         });
+        const avisos = [];
+        if (seguimiento?.enviar && !r.datos.seguimiento) {
+          avisos.push("El caso se cerró, pero no se programó el mensaje: el seguimiento está desactivado en el negocio.");
+        } else if (r.datos.seguimiento?.estado === "fallido") {
+          avisos.push("El caso se cerró, pero no pudimos enviar el mensaje de seguimiento por WhatsApp.");
+        }
+        // El borrador conserva el texto guardado al abrir el formulario. Sólo
+        // actualizamos el predeterminado después de usarlo en un cierre confirmado.
+        if (seguimiento?.enviar && r.datos.seguimiento
+          && typeof seguimiento.mensajeGuardado === "string"
+          && seguimiento.mensaje.trim() !== seguimiento.mensajeGuardado.trim()) {
+          const actualizado = await parchar("/negocio/seguimiento", {
+            mensaje: seguimiento.mensaje.trim(),
+          }, await tokenDeSesion());
+          if (!actualizado.ok) {
+            avisos.push(`El caso se cerró, pero no pudimos guardar el mensaje para los próximos casos. ${actualizado.error.mensaje}`);
+          }
+        }
+        if (avisos.length) setAviso(avisos.join(" "));
         return { ok: true, ...r.datos };
       },
 

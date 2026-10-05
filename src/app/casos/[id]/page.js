@@ -31,6 +31,8 @@ import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/li
 import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } from "@/lib/cobros";
 import SelectorEstado from "@/componentes/SelectorEstado";
+import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
+import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
 import Icono from "@/componentes/Icono";
 import {
@@ -81,6 +83,15 @@ export default function VerCaso() {
   const [medioEntrega, setMedioEntrega] = useState("efectivo");
   const [errorEntrega, setErrorEntrega] = useState(null);
   const [cerrando, setCerrando] = useState(false);
+  const [notificarCliente, setNotificarCliente] = useState(false);
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [seguimientoEntrega, setSeguimientoEntrega] = useState(SEGUIMIENTO_VACIO);
+
+  useEffect(() => {
+    setNotificarCliente(false);
+    setEntregando(false);
+    setSeguimientoEntrega(SEGUIMIENTO_VACIO);
+  }, [id]);
   // Si cobra menos de lo que falta: ¿el resto lo paga después, o no se le
   // cobra? Sin esta pregunta, todo lo que no se cobra queda como deuda.
   const [elResto, setElResto] = useState("despues");
@@ -98,6 +109,20 @@ export default function VerCaso() {
   }
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
+  const puedeNotificar = datos.casosPorApi && telefonoWhatsAppValido(cliente?.telefono);
+  const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega))[0];
+
+  async function cambiarEstadoDelCaso(nuevo, dice) {
+    if (cambiandoEstado || cerrando) return;
+    setCambiandoEstado(true);
+    try {
+      await datos.cambiarEstado(caso.id, nuevo, queFaltaPara(negocio?.rubro, nuevo), dice, {}, {
+        notificarCliente: notificarCliente && puedeNotificar,
+      });
+    } finally {
+      setCambiandoEstado(false);
+    }
+  }
   const mios = pasos.filter((p) => p.caso_id === caso.id).sort((a, b) => a.orden - b.orden);
   const historial = eventos
     .filter((e) => e.caso_id === caso.id)
@@ -206,19 +231,39 @@ export default function VerCaso() {
                 Sólo mueve el caso entre los estados abiertos: entregar abre
                 el formulario de cobro y tiene su botón, y de un caso cerrado
                 se sale por "Volver a abrirlo". */}
-            <SelectorEstado
-              estado={caso.estado}
-              rubro={negocio?.rubro}
-              sePuedeCambiar={sePuedeEditar}
-              alElegir={(nuevo, dice) =>
-                datos.cambiarEstado(
-                  caso.id,
-                  nuevo,
-                  queFaltaPara(negocio?.rubro, nuevo),
-                  dice
-                )
-              }
-            />
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                {sePuedeEditar && (
+                  <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 font-bold text-etiqueta">
+                    <input
+                      type="checkbox"
+                      checked={notificarCliente && puedeNotificar}
+                      disabled={!puedeNotificar || cambiandoEstado || cerrando}
+                      onChange={(e) => setNotificarCliente(e.target.checked)}
+                      aria-describedby="notificar-estado-ayuda"
+                      className="size-5 accent-azul"
+                    />
+                    <span className="inline-flex items-center gap-1">
+                      <Icono nombre="whatsapp" className="size-6 text-completo" />
+                      <span>Notificar</span>
+                    </span>
+                  </label>
+                )}
+                <SelectorEstado
+                  estado={caso.estado}
+                  rubro={negocio?.rubro}
+                  sePuedeCambiar={sePuedeEditar && !cambiandoEstado && !cerrando}
+                  alElegir={cambiarEstadoDelCaso}
+                />
+              </div>
+              {sePuedeEditar && (
+                <p id="notificar-estado-ayuda" className="mt-1 max-w-[36ch] text-apoyo text-tinta-media">
+                  {!datos.casosPorApi ? "La cuenta de ejemplo no envía mensajes."
+                    : !puedeNotificar ? "Falta un teléfono con código de país."
+                      : "Avisar al cliente al cambiar el estado."}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Editar el caso (SCRUM-119). Guardar va con borde y no azul: esta
@@ -229,7 +274,7 @@ export default function VerCaso() {
               <Campo
                 id="caso-nombre"
                 etiqueta="Nombre del caso"
-                ayuda={`Opcional. Como lo reconocen en el mostrador. Si lo dejás vacío se ve como Caso ${caso.numero}. El cliente no lo ve.`}
+                ayuda={`Opcional. Como lo reconocen en el mostrador. Si lo dejás vacío se ve como Caso ${caso.numero}. Este nombre también se usa al avisarle por WhatsApp.`}
                 maxLength={80}
                 autoComplete="off"
                 value={borradorCaso.nombre}
@@ -553,13 +598,9 @@ export default function VerCaso() {
                   <div className="mt-4">
                     <Boton
                       icono="llave"
+                      motivo={cambiandoEstado || cerrando ? "guardando" : null}
                       onClick={() =>
-                        datos.cambiarEstado(
-                          caso.id,
-                          "en_proceso",
-                          queFaltaPara(negocio?.rubro, "en_proceso"),
-                          AL_PASAR_A.en_proceso
-                        )
+                        cambiarEstadoDelCaso("en_proceso", AL_PASAR_A.en_proceso)
                       }
                     >
                       Volverlo a {etiquetaEstado(negocio?.rubro, "en_proceso")}
@@ -581,13 +622,9 @@ export default function VerCaso() {
                   <div className="mt-4">
                     <Boton
                       icono="nota"
+                      motivo={cambiandoEstado || cerrando ? "guardando" : null}
                       onClick={() =>
-                        datos.cambiarEstado(
-                          caso.id,
-                          "revision_final",
-                          queFaltaPara(negocio?.rubro, "revision_final"),
-                          AL_PASAR_A.revision_final
-                        )
+                        cambiarEstadoDelCaso("revision_final", AL_PASAR_A.revision_final)
                       }
                     >
                       Pasarlo a {etiquetaEstado(negocio?.rubro, "revision_final")}
@@ -717,6 +754,7 @@ export default function VerCaso() {
                       setMedioEntrega("efectivo");
                       setElResto("despues");
                       setErrorEntrega(null);
+                      setSeguimientoEntrega(SEGUIMIENTO_VACIO);
                       setEntregando(true);
                     }}
                   >
@@ -877,6 +915,21 @@ export default function VerCaso() {
                     </fieldset>
                   )}
 
+                {puedeCargar && (datos.casosPorApi ? (
+                  <SeguimientoWhatsApp
+                    key={caso.id}
+                    datos={datos}
+                    telefono={cliente?.telefono}
+                    valor={seguimientoEntrega}
+                    alCambiar={setSeguimientoEntrega}
+                    guardando={cerrando || cambiandoEstado}
+                  />
+                ) : (
+                  <p className="my-6 border-t border-borde pt-6 text-tinta-media">
+                    La cuenta de ejemplo no envía mensajes de seguimiento por WhatsApp.
+                  </p>
+                ))}
+
                 {errorEntrega && (
                   <p role="alert" className="mb-4 flex items-start gap-2 font-bold text-rojo">
                     <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
@@ -888,7 +941,9 @@ export default function VerCaso() {
                   <Boton
                     icono="listo"
                     motivo={
-                      cerrando ? "guardando" : !cobroValido(cobro) ? "revisá el monto" : null
+                      cerrando || cambiandoEstado ? "guardando"
+                        : !cobroValido(cobro) ? "revisá el monto"
+                          : errorSeguimientoEntrega ? "revisá el seguimiento" : null
                     }
                     onClick={async () => {
                       const monto = montoCobrado(cobro);
@@ -901,6 +956,7 @@ export default function VerCaso() {
                           monto,
                           medio: medioEntrega,
                           resto: elResto,
+                          seguimiento: seguimientoEntrega,
                         });
                         setCerrando(false);
                         if (!r.ok) return setErrorEntrega(r.error);
@@ -978,7 +1034,7 @@ export default function VerCaso() {
                   >
                     Sí, entregar y cerrar
                   </Boton>
-                  <Boton variante="plano" onClick={() => setEntregando(false)}>
+                  <Boton variante="plano" motivo={cerrando ? "guardando" : null} onClick={() => setEntregando(false)}>
                     Mejor no
                   </Boton>
                 </div>
