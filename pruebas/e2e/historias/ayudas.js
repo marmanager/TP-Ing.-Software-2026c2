@@ -1,4 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
+import { Key } from "webdriverio";
 
 const iso = (dias = 0, horas = 0) => {
   const fecha = new Date();
@@ -64,12 +65,15 @@ export function datosDePrueba() {
   };
 }
 
-export async function entrarConDatosDePrueba(ruta = "/") {
+export async function entrarConDatosDePrueba(ruta = "/", datos = datosDePrueba()) {
   await browser.url("/iniciar-sesion");
   await browser.execute((fixture) => {
     window.localStorage.setItem("marmanager.demo.v1", "1");
     window.localStorage.setItem("marmanager.datos.v1", JSON.stringify(fixture));
-  }, datosDePrueba());
+    // Esta página arrancó con los datos de la prueba anterior y los vuelve a
+    // guardar si algo cambia antes de irse, pisando el fixture recién puesto.
+    Storage.prototype.setItem = () => {};
+  }, datos);
   await browser.url(ruta);
   // Fuerza un documento nuevo: AuthProvider lee la llave demo únicamente al
   // montarse y una navegación reutilizada podría conservar el valor anterior.
@@ -78,27 +82,26 @@ export async function entrarConDatosDePrueba(ruta = "/") {
 }
 
 export async function entrarComoDemoSinNegocio() {
-  await browser.url("/iniciar-sesion");
-  await browser.execute(() => {
-    window.localStorage.setItem("marmanager.demo.v1", "1");
-    window.localStorage.setItem(
-      "marmanager.datos.v1",
-      JSON.stringify({
-        negocio: null,
-        empleados: [],
-        clientes: [],
-        casos: [],
-        pasos: [],
-        eventos: [],
-        insumos: [],
-        turnos: [],
-        invitaciones: [],
-      })
-    );
+  await entrarConDatosDePrueba("/crear-negocio", {
+    negocio: null,
+    empleados: [],
+    clientes: [],
+    casos: [],
+    pasos: [],
+    eventos: [],
+    insumos: [],
+    turnos: [],
+    invitaciones: [],
   });
-  await browser.url("/crear-negocio");
-  await browser.refresh();
-  await expect($("body")).toBeDisplayed();
+}
+
+// Cambia lo que ya dice un campo como lo haría una persona: lo selecciona
+// entero y escribe encima. setValue a veces borra sin que React se entere, y
+// lo nuevo queda pegado a lo de antes ("341 222 3333341 444 5566").
+export async function reemplazarTexto(selector, texto) {
+  await $(selector).click();
+  await browser.keys([Key.Ctrl, "a"]);
+  await browser.keys(texto);
 }
 
 export async function cargarArchivoEnInput({ nombre, tipo, contenido }) {

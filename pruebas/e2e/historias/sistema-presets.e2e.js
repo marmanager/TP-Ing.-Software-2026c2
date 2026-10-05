@@ -51,13 +51,7 @@ describe("Historia parcial: Sistema de presets", () => {
     fixture.casos = [];
     fixture.pasos = [];
     fixture.eventos = [];
-    await browser.url("/iniciar-sesion");
-    await browser.execute((datos) => {
-      window.localStorage.setItem("marmanager.demo.v1", "1");
-      window.localStorage.setItem("marmanager.datos.v1", JSON.stringify(datos));
-    }, fixture);
-    await browser.url("/negocio");
-    await browser.refresh();
+    await entrarConDatosDePrueba("/negocio", fixture);
 
     await $("button=Cambiar el rubro").click();
     await botonRubro("Service técnico").click();
