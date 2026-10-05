@@ -22,12 +22,13 @@ import { telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
+import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function MiNegocio() {
   const datos = useDatos();
   const { cargando, negocio, casos, clientes, insumos, turnos } = datos;
-  const { usuario } = useAuth();
+  const { usuario, esDemo } = useAuth();
   useTitulo("Mi negocio");
 
   // Cambiar el rubro va en dos pasos: elegir y confirmar.
@@ -360,10 +361,11 @@ export default function MiNegocio() {
         </dl>
       </Tarjeta>
 
-      {["duenio", "encargado"].includes(usuario?.rol) && (
+      {(["duenio", "encargado"].includes(usuario?.rol) || !esDemo) && (
         <>
           <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
-          <ConexionMercadoPago />
+          {["duenio", "encargado"].includes(usuario?.rol) && <ConexionMercadoPago />}
+          {!esDemo && <VincularGoogleCalendar comoIntegracion />}
         </>
       )}
 
