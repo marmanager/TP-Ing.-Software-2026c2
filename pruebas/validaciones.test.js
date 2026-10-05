@@ -13,6 +13,12 @@ import {
   montoCobrado,
   cobroValido,
   faltantesDelAlta,
+  clientesConEseNombre,
+  sugerirClientes,
+  alElegirCliente,
+  alCambiarElNombre,
+  clienteDelAlta,
+  soloNumeros,
   motivoDeFaltantes,
 } from "../src/lib/validaciones.js";
 
@@ -123,4 +129,86 @@ test("un teléfono mal escrito cuenta como faltante", () => {
 test("los espacios solos no cuentan como dato", () => {
   const faltan = faltantesDelAlta({ ...completo, nombre: "   " }, "la patente");
   assert.equal(motivoDeFaltantes(faltan), "falta el nombre");
+});
+
+// ---------------------------------------------------------------
+// El cliente del alta: se elige de la lista, o se reconoce por nombre y
+// teléfono
+// ---------------------------------------------------------------
+
+const MARCELA = { id: "c1", nombre: "Marcela Suárez", telefono: "341 456 7890" };
+const OTRA_MARCELA = { id: "c4", nombre: "Marcela Suárez", telefono: "351 777 8888" };
+const HUGO = { id: "c2", nombre: "Hugo Peralta", telefono: "11 2233 4455" };
+const SIN_TELEFONO = { id: "c3", nombre: "Ana Gómez", telefono: null };
+const CLIENTES = [MARCELA, HUGO, SIN_TELEFONO, OTRA_MARCELA];
+
+test("la lista sugiere los que contienen lo escrito, también los repetidos", () => {
+  assert.deepEqual(sugerirClientes("marce", CLIENTES), [MARCELA, OTRA_MARCELA]);
+  assert.deepEqual(sugerirClientes("PERALTA", CLIENTES), [HUGO]);
+  assert.deepEqual(sugerirClientes("   ", CLIENTES), []);
+});
+
+test("los clientes con ese nombre: sin importar mayúsculas ni espacios de más", () => {
+  assert.deepEqual(clientesConEseNombre("  marcela suárez ", CLIENTES), [MARCELA, OTRA_MARCELA]);
+  assert.deepEqual(clientesConEseNombre("Marcela", CLIENTES), []);
+});
+
+test("elegir un cliente pone su nombre y su teléfono, aunque hubiera otro escrito", () => {
+  assert.deepEqual(alElegirCliente(MARCELA, "351 000 0000"), {
+    nombre: "Marcela Suárez",
+    telefono: "341 456 7890",
+    elegido: MARCELA,
+  });
+});
+
+test("elegir otro, por un toque equivocado, pone el teléfono del otro", () => {
+  assert.equal(alElegirCliente(OTRA_MARCELA, "341 456 7890").telefono, "351 777 8888");
+});
+
+test("un cliente sin teléfono guardado deja el que estaba escrito", () => {
+  assert.equal(alElegirCliente(SIN_TELEFONO, "351 000 0000").telefono, "351 000 0000");
+});
+
+test("escribir el nombre a mano no trae el teléfono", () => {
+  const r = alCambiarElNombre({ nombre: "Marcela Suárez", telefono: "", elegido: null });
+  assert.deepEqual(r, { telefono: "", elegido: null });
+});
+
+test("si el nombre deja de ser el del elegido, se suelta, y el teléfono que se puso solo se va", () => {
+  const r = alCambiarElNombre({ nombre: "Marcela Suárez de", telefono: "341 456 7890", elegido: MARCELA });
+  assert.deepEqual(r, { telefono: "", elegido: null });
+});
+
+test("si el nombre deja de ser el del elegido, un teléfono corregido a mano queda", () => {
+  const r = alCambiarElNombre({ nombre: "Marcela S", telefono: "341 999 9999", elegido: MARCELA });
+  assert.deepEqual(r, { telefono: "341 999 9999", elegido: null });
+});
+
+test("mientras el nombre siga siendo el del elegido, no cambia nada", () => {
+  const r = alCambiarElNombre({ nombre: "marcela suárez", telefono: "341 999 9999", elegido: MARCELA });
+  assert.deepEqual(r, { telefono: "341 999 9999", elegido: MARCELA });
+});
+
+test("el caso va al cliente elegido de la lista, aunque haya otro con el mismo nombre", () => {
+  const r = clienteDelAlta({ nombre: "Marcela Suárez", telefono: "341 456 7890", clientes: CLIENTES, elegido: OTRA_MARCELA });
+  assert.equal(r, OTRA_MARCELA);
+});
+
+test("escrito a mano, el caso va al cliente con el mismo nombre y el mismo teléfono", () => {
+  const r = clienteDelAlta({ nombre: "marcela suárez", telefono: "351-777-8888", clientes: CLIENTES, elegido: null });
+  assert.equal(r, OTRA_MARCELA);
+});
+
+test("escrito a mano con otro teléfono, es un cliente nuevo", () => {
+  const r = clienteDelAlta({ nombre: "Hugo Peralta", telefono: "11 9999 0000", clientes: CLIENTES, elegido: null });
+  assert.equal(r, null);
+});
+
+test("sin teléfono escrito todavía no se reconoce a nadie", () => {
+  assert.equal(clienteDelAlta({ nombre: "Hugo Peralta", telefono: "", clientes: CLIENTES, elegido: null }), null);
+});
+
+test("el teléfono se compara sólo por los números", () => {
+  assert.equal(soloNumeros("341 456-7890"), "3414567890");
+  assert.equal(soloNumeros(null), "");
 });
