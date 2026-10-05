@@ -277,6 +277,16 @@ test("un 401 avisa una vez para que la aplicación cierre la sesión", async () 
   alVencerLaSesion(null);
 });
 
+test("el pedido que renueva la sesión puede no avisar: su 401 lo maneja quien renueva", async () => {
+  let avisos = 0;
+  alVencerLaSesion(() => avisos++);
+  const { fetcher } = apiFalsa(401, { ok: false, error: { codigo: "sesion_vencida", mensaje: "Tu sesión venció." } });
+  const r = await mandar("/sesiones/renovar", { refresh_token: "r" }, null, { base: BASE, fetcher, avisarSiVence: false });
+  assert.equal(r.error.codigo, "sesion_vencida");
+  assert.equal(avisos, 0);
+  alVencerLaSesion(null);
+});
+
 test("sin nadie enganchado, un 401 no explota", async () => {
   const { fetcher } = apiFalsa(401, null);
   const r = await traer("/casos", "t", { base: BASE, fetcher });
