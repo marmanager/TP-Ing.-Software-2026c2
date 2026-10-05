@@ -18,6 +18,7 @@ import {
   hijosActivos,
   hijosDe,
   motivoParaNoApagar,
+  ningunoPrendido,
 } from "../src/lib/modulos.js";
 
 const claves = (lista) => lista.map((m) => m.clave).sort();
@@ -289,4 +290,16 @@ test("una clave que no está en el catálogo se trata como opcional", () => {
   // cualquier módulo que no es de fábrica.
   assert.equal(estaPrendido("loquesea", ["loquesea"]), true);
   assert.equal(estaPrendido("loquesea", []), false);
+});
+
+// ---------- sin ningún módulo: la bienvenida del rubro personalizable ----------
+// El Inicio de un negocio "personalizable" lo manda a elegir módulos mientras
+// no tenga ninguno (SCRUM-95). Clientes e Historial cuentan: vienen prendidos
+// de fábrica en los demás rubros, así que una lista vacía NO es "ninguno".
+
+test("ningunoPrendido: sólo con todo apagado, también los de fábrica", () => {
+  assert.equal(ningunoPrendido(["-clientes", "-historial"]), true);
+  assert.equal(ningunoPrendido([]), false);
+  assert.equal(ningunoPrendido(["-clientes", "-historial", "agenda"]), false);
+  assert.equal(ningunoPrendido(["-clientes"]), false);
 });

@@ -120,6 +120,12 @@ export function estaPrendido(clave, activos = []) {
   return activos.includes(clave);
 }
 
+// Si el negocio no tiene ningún módulo prendido, ni los de fábrica. Es como
+// arranca el rubro "personalizable", y mientras siga así el Inicio lo manda a
+// elegir los suyos (SCRUM-95).
+export const ningunoPrendido = (activos = []) =>
+  LISTA_MODULOS.every((m) => !estaPrendido(m.clave, activos));
+
 // ------------------------------------------------------------
 // Submódulos: las pantallas de adentro de un módulo
 // ------------------------------------------------------------

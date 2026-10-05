@@ -20,7 +20,7 @@
 // castellano no se deduce ("un DNI", "una pieza", "el análisis/los análisis").
 //
 // Sumar una palabra nueva —"cliente" que en un consultorio sea "paciente"—
-// es agregarla acá en los tres rubros y usarla con vocabulario(rubro).cliente.
+// es agregarla acá en todos los rubros y usarla con vocabulario(rubro).cliente.
 
 export const PRESETS = {
   taller: {
@@ -206,6 +206,51 @@ export const PRESETS = {
       insumo: "pasta térmica",
     },
   },
+
+  // SCRUM-95. Para el negocio que no es ninguno de los tres oficios. No sabe
+  // de qué se trata, así que nombra todo con palabras neutras y no sugiere
+  // motivos ni categorías.
+  //
+  // Arranca con todos los módulos apagados, también Clientes e Historial, que
+  // en los demás rubros vienen prendidos de fábrica: si trajera lo básico,
+  // quien lo elige no se enteraría de que hay más. El Inicio le da la
+  // bienvenida y lo manda a Mi negocio → Módulos a elegir lo suyo.
+  //
+  // Sin "seguimiento" a propósito: le habla al cliente con SEGUIMIENTO_GENERICO.
+  personalizable: {
+    clave: "personalizable",
+    nombre: "Personalizable",
+    queEs: "Arranca vacío: prendés sólo las secciones que usa tu negocio.",
+    etiquetas: {
+      nuevo: "Anotado",
+      en_proceso: "En proceso",
+      esperando: "Esperando",
+      revision_final: "Revisión final",
+      completado: "Terminado",
+    },
+    explica: {
+      esperando: "Algo que falta o la respuesta del cliente",
+      revision_final: "Revisión antes de entregar",
+    },
+    espera: { cliente: "tu respuesta al presupuesto", negocio: "algo que falta" },
+    motivos: [],
+    modulos: ["-clientes", "-historial"],
+    identificador: { nombre: "Referencia", enFrase: "la referencia", ejemplo: "Orden 1520" },
+    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Colaborador" },
+    palabras: {
+      articulo: { uno: "producto", varios: "productos", genero: "m" },
+    },
+    categorias: [],
+    ejemplos: {
+      negocio: "Mi Negocio",
+      descripcion: "Qué hacemos, en una línea",
+      servicio: "Lo que pidió el cliente",
+      diagnostico: "Lo que encontramos al revisar.",
+      paso: "Lo que hay que hacer",
+      turno: "una visita",
+      insumo: "un producto",
+    },
+  },
 };
 
 // Los tres roles del equipo son fijos, igual que los cinco estados: la base
@@ -307,10 +352,9 @@ export const mayuscula = (texto) =>
 // "esperando" es el único que no sale de acá: depende de qué se está
 // esperando —un repuesto, el sí del cliente— y lo escribe quien lo produce.
 // Lo que le dice el link de seguimiento al cliente cuando el rubro no trae
-// textos propios. Es el punto de partida del preset "Personalizado", que
-// todavía no existe: cuando exista, el negocio va a poder cambiarlos
-// (sistema-presets.e2e.js, AC5). No nombran ninguna cosa —ni vehículo ni
-// equipo— porque no se sabe de qué oficio es el negocio.
+// textos propios, como "personalizable". Que el negocio los pueda cambiar
+// todavía no existe (sistema-presets.e2e.js, AC5). No nombran ninguna cosa
+// —ni vehículo ni equipo— porque no se sabe de qué oficio es el negocio.
 export const SEGUIMIENTO_GENERICO = {
   nuevo: "Ya quedó anotado. Todavía no empezamos a trabajar.",
   en_proceso: "Estamos trabajando en esto ahora.",
@@ -332,8 +376,9 @@ export const SEGUIMIENTO_GENERICO = {
 // nombrara lo suyo: el vehículo, el equipo, o a la persona.
 //
 // Va a PRESETS directo y no por preset() a propósito: preset() cae en el
-// taller cuando no conoce el rubro, y un negocio "Personalizado" terminaría
-// hablándole al cliente de su vehículo. Tiene test: pruebas/presets.test.js
+// taller cuando no conoce el rubro, y "personalizable", que no trae textos
+// propios, terminaría hablándole al cliente de su vehículo. Tiene test:
+// pruebas/presets.test.js
 export function queSignificaPara(rubro, estado) {
   return (PRESETS[rubro]?.seguimiento ?? SEGUIMIENTO_GENERICO)[estado];
 }

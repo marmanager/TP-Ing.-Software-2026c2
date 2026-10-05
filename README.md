@@ -76,7 +76,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `038_multinegocio.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `044_rubro_personalizable.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
    correr cuantas veces haga falta.
@@ -1007,6 +1007,16 @@ una función de la base que verifica que la cuenta tenga ficha ahí. El dueño
 ahora tiene ficha y aparece en Equipo; a quien creó el negocio otro dueño no lo
 puede bajar ni sacar. A quien ya tenía un negocio no le cambia
 nada: queda como predeterminado, con Inicio rápido prendido.
+
+**El rubro Personalizable** (`044_rubro_personalizable.sql`, SCRUM-95). Para el
+negocio que no es taller, consultorio ni service. Nombra todo con palabras
+neutras —los estados, los roles, "la referencia" que identifica el caso— y le
+habla al cliente con los textos genéricos del seguimiento. Arranca sin ningún
+módulo prendido, también sin Clientes e Historial, que en los demás rubros
+vienen de fábrica: si trajera lo básico, quien lo elige no se enteraría de que
+hay más. Mientras no prenda ninguno, el Inicio le da la bienvenida y lo manda
+a Mi negocio → Módulos. Las palabras viven en `src/lib/presets.js` y, las que
+se guardan en la base, también en `compartido/presets.ts` de la API.
 
 ## Lo que todavía no está
 

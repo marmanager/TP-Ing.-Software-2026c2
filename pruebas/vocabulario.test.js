@@ -114,9 +114,11 @@ test("la mayúscula de algo vacío no rompe", () => {
 // ---------- las categorías de cada rubro ----------
 
 
-test("cada rubro trae categorías para arrancar", () => {
-  for (const r of RUBROS) {
-    assert.ok(categoriasDe(r.clave).length > 0, `${r.clave} no trae categorías`);
+// "personalizable" no sabe qué vende el negocio: arranca sin categorías, y el
+// alta ofrece "Sin categoría" y "Nueva" (SCRUM-95).
+test("los rubros de un oficio traen categorías para arrancar", () => {
+  for (const clave of ["taller", "medicina", "service"]) {
+    assert.ok(categoriasDe(clave).length > 0, `${clave} no trae categorías`);
   }
 });
 

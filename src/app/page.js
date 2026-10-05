@@ -31,7 +31,9 @@ import { casosPorAprobar, casosQueContestoElCliente, estaAbierto, pesos } from "
 import { turnosSinVer } from "@/lib/turnos";
 import { casosConSaldo } from "@/lib/cobros";
 import { diasDesde } from "@/lib/fechas";
-import { estaPrendido, hijosActivos } from "@/lib/modulos";
+import { estaPrendido, hijosActivos, ningunoPrendido } from "@/lib/modulos";
+import { useAuth } from "@/lib/auth";
+import { puede } from "@/lib/permisos";
 import { vocabulario } from "@/lib/presets";
 import { casoEnFrase } from "@/lib/nombres";
 import {
@@ -53,7 +55,7 @@ import {
 } from "@/lib/inicio";
 import Modulo from "@/componentes/inicio/Modulo";
 import Icono from "@/componentes/Icono";
-import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 const FLECHAS = {
   ArrowLeft: [-1, 0],
@@ -80,6 +82,7 @@ export default function Inicio() {
     cambiarInicio,
     avisarExito,
   } = useDatos();
+  const { usuario } = useAuth();
   useTitulo("Inicio");
 
   const [acomodando, setAcomodando] = useState(false);
@@ -375,6 +378,35 @@ export default function Inicio() {
           </div>
         )}
       </div>
+
+      {/* SCRUM-95. El rubro "personalizable" arranca sin ningún módulo, a
+          propósito: si trajera lo básico, quien lo eligió no se enteraría de
+          que hay más. Mientras siga sin ninguno, esto lo manda a elegirlos, y
+          desaparece solo apenas prende el primero. Quien no puede configurar
+          el negocio lee lo mismo, sin un botón que lo llevaría a una pantalla
+          donde no puede tocar nada. */}
+      {!acomodando && negocio?.rubro === "personalizable" && ningunoPrendido(modulosActivos) && (
+        <Tarjeta className="mb-6">
+          <p className="font-titulo font-extrabold text-subtitulo">
+            Te damos la bienvenida a MarManager
+          </p>
+          <p className="mt-2 max-w-[65ch] text-tinta-media">
+            Tu negocio arranca con lo justo: los casos.{" "}
+            {puede(usuario?.rol, "configurarNegocio")
+              ? "Elegí qué más usar —la agenda, los clientes, el inventario, el equipo— desde Mi negocio → Módulos."
+              : "Qué más usar —la agenda, los clientes, el inventario, el equipo— lo elige el dueño desde Mi negocio → Módulos."}
+          </p>
+          {puede(usuario?.rol, "configurarNegocio") && (
+            <Link
+              href="/negocio/modulos"
+              className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
+            >
+              <Icono nombre="tuerca" />
+              Elegir los módulos
+            </Link>
+          )}
+        </Tarjeta>
+      )}
 
       {/* Lo que está trabado, arriba de todo. La cabecera dice la fecha y
           cuántos casos hay abiertos, y ninguno de esos dos números cambia lo

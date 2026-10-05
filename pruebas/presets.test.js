@@ -17,13 +17,13 @@ import {
   queSignificaPara,
   SEGUIMIENTO_GENERICO,
 } from "../src/lib/presets.js";
-import { MODULOS } from "../src/lib/modulos.js";
+import { LISTA_MODULOS, MODULOS, estaPrendido } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
 
-test("hay tres rubros: taller, medicina y service", () => {
+test("hay cuatro rubros: taller, medicina, service y personalizable", () => {
   assert.deepEqual(
     RUBROS.map((r) => r.clave),
-    ["taller", "medicina", "service"]
+    ["taller", "medicina", "service", "personalizable"]
   );
 });
 
@@ -36,13 +36,35 @@ test("cada preset renombra los cinco estados con una palabra no vacía", () => {
   }
 });
 
+// Un "-clientes" en la lista es apagar uno de los que vienen prendidos de
+// fábrica (lib/modulos.js, estaPrendido): sólo tiene sentido con ésos.
 test("los módulos que trae cada preset existen en el catálogo", () => {
   for (const r of RUBROS) {
     assert.ok(Array.isArray(r.modulos), `${r.clave} no tiene lista de módulos`);
-    assert.ok(r.modulos.length > 0, `${r.clave} no trae ningún módulo`);
     for (const m of r.modulos) {
-      assert.ok(MODULOS[m], `${r.clave} trae un módulo desconocido: ${m}`);
+      const clave = m.replace(/^-/, "");
+      assert.ok(MODULOS[clave], `${r.clave} trae un módulo desconocido: ${m}`);
+      if (m.startsWith("-")) assert.ok(MODULOS[clave].deFabrica, `${r.clave} apaga ${clave}, que no viene prendido`);
     }
+  }
+});
+
+test("los rubros de un oficio traen módulos prendidos", () => {
+  for (const clave of ["taller", "medicina", "service"]) {
+    assert.ok(
+      LISTA_MODULOS.some((m) => estaPrendido(m.clave, preset(clave).modulos)),
+      `${clave} no trae ningún módulo`
+    );
+  }
+});
+
+// SCRUM-95. Arranca con todo apagado, también Clientes e Historial, a
+// propósito: si trajera lo básico, quien lo elige no se enteraría de que hay
+// más para prender.
+test("personalizable arranca sin ningún módulo prendido", () => {
+  const activos = preset("personalizable").modulos;
+  for (const m of LISTA_MODULOS) {
+    assert.equal(estaPrendido(m.clave, activos), false, `personalizable trae prendido ${m.clave}`);
   }
 });
 
@@ -163,7 +185,7 @@ test("cada rubro trae sus ejemplos para todos los formularios", () => {
 
 test("un ejemplo de un rubro no aparece en otro: cada oficio tiene los suyos", () => {
   const taller = ejemplosDe("taller");
-  for (const otro of ["medicina", "service"]) {
+  for (const otro of ["medicina", "service", "personalizable"]) {
     for (const [clave, texto] of Object.entries(ejemplosDe(otro))) {
       assert.notEqual(texto, taller[clave], `${otro}.${clave} repite el de taller`);
     }
@@ -205,6 +227,19 @@ test("un rubro sin textos propios usa los genéricos, no los del taller", () => 
     assert.equal(texto, SEGUIMIENTO_GENERICO[estado]);
     assert.doesNotMatch(texto, /vehículo|equipo/);
   }
+});
+
+// Personalizable no sabe de qué oficio es el negocio: le habla al cliente con
+// los genéricos y no nombra ninguna cosa.
+test("personalizable le habla al cliente con los textos genéricos", () => {
+  for (const estado of ORDEN_ESTADOS) {
+    assert.equal(queSignificaPara("personalizable", estado), SEGUIMIENTO_GENERICO[estado]);
+  }
+});
+
+test("personalizable identifica el caso por una referencia", () => {
+  assert.equal(comoSeIdentifica("personalizable").nombre, "Referencia");
+  assert.equal(comoSeIdentifica("personalizable").enFrase, "la referencia");
 });
 
 test("los textos genéricos cubren los cinco estados", () => {

@@ -158,7 +158,18 @@ export default function CrearNegocio() {
           })}
         </ul>
 
-        {elegido && (
+        {/* "Personalizable" no trae módulos: una lista vacía bajo "vas a
+            arrancar con" parecería un error. */}
+        {elegido && modulosDe(elegido.modulos).length === 0 && (
+          <div className="mt-6 rounded-tarjeta bg-superficie p-4">
+            <p className="font-bold text-cuerpo">Arrancás sin secciones extra</p>
+            <p className="mt-2 text-tinta-media">
+              Las prendés desde Mi negocio → Módulos, según lo que use tu negocio.
+            </p>
+          </div>
+        )}
+
+        {elegido && modulosDe(elegido.modulos).length > 0 && (
           <div className="mt-6 rounded-tarjeta bg-superficie p-4">
             <p className="font-bold text-cuerpo">Con «{elegido.nombre}» vas a arrancar con:</p>
             <ul className="mt-2 flex flex-col gap-2">

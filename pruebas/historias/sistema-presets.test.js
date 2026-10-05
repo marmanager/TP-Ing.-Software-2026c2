@@ -19,10 +19,11 @@ describe("Historia: Sistema de presets", () => {
     );
   });
 
+  // "-clientes" apaga uno de los que vienen prendidos de fábrica: es como
+  // "personalizable" arranca sin ningún módulo (SCRUM-95).
   test("AC3: cada rubro define módulos iniciales válidos", () => {
     for (const rubro of RUBROS) {
-      expect(rubro.modulos.length).toBeGreaterThan(0);
-      for (const modulo of rubro.modulos) expect(MODULOS[modulo]).toBeDefined();
+      for (const modulo of rubro.modulos) expect(MODULOS[modulo.replace(/^-/, "")]).toBeDefined();
     }
   });
 
