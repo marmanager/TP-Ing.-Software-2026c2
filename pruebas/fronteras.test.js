@@ -185,3 +185,30 @@ test("la carga de datos no consulta Supabase directo", () => {
     `src/lib/datos.js llama a mis_negocios() directo en Supabase; va por /cuenta/negocios de la API`
   );
 });
+
+// ------------------------------------------------------------
+// 7. Las cuentas reales no tienen un camino alternativo en el navegador
+// ------------------------------------------------------------
+// La API es la única puerta de entrada para sesión y datos. Si reaparece el
+// SDK o el interruptor por recurso, un despliegue podría saltear las reglas,
+// la auditoría y el aislamiento que viven en la API.
+
+test("sesión y datos del navegador pasan siempre por la API", () => {
+  const modulos = ["src/lib/auth.js", "src/lib/datos.js", "src/lib/sesion.js"];
+
+  for (const archivo of modulos) {
+    const fuente = leer(archivo);
+    assert.ok(
+      !/from ["'](?:@\/lib\/|\.\/)supabase(?:\.js)?["']/.test(fuente),
+      `${archivo} importa el cliente de Supabase del navegador`
+    );
+    assert.ok(
+      !/\bsupabase\.(from|rpc|auth|storage)\b/.test(fuente),
+      `${archivo} habla con Supabase directo; debe usar /v1`
+    );
+    assert.ok(
+      !fuente.includes("NEXT_PUBLIC_API_RECURSOS"),
+      `${archivo} todavía permite volver a los caminos anteriores por recurso`
+    );
+  }
+});

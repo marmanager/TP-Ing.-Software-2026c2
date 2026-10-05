@@ -16,9 +16,7 @@ import {
   quitar,
   raizDeLaApi,
   reemplazar,
-  recursosPrendidos,
   traer,
-  usaLaApi,
 } from "../src/lib/api.js";
 
 const BASE = "https://api.ejemplo/v1";
@@ -92,7 +90,7 @@ test("traer, parchar y quitar usan el método que corresponde", async () => {
 });
 
 // ------------------------------------------------------------
-// La dirección y el interruptor
+// La dirección
 // ------------------------------------------------------------
 
 test("la raíz sale igual con /payments, /v1 o con la raíz", () => {
@@ -108,19 +106,6 @@ test("la raíz sale igual con /payments, /v1 o con la raíz", () => {
 test("sin dirección no hay raíz", () => {
   assert.equal(raizDeLaApi(""), null);
   assert.equal(raizDeLaApi(undefined), null);
-});
-
-test("los recursos prendidos se leen de una lista, sin importar mayúsculas ni espacios", () => {
-  assert.deepEqual([...recursosPrendidos(" Inventario , turnos,,")], ["inventario", "turnos"]);
-  assert.equal(recursosPrendidos("").size, 0);
-  assert.equal(recursosPrendidos(undefined).size, 0);
-});
-
-test("un recurso pasa por la API sólo si está prendido y hay dirección", () => {
-  const prendidos = recursosPrendidos("inventario");
-  assert.equal(usaLaApi("inventario", { prendidos, base: BASE }), true);
-  assert.equal(usaLaApi("turnos", { prendidos, base: BASE }), false);
-  assert.equal(usaLaApi("inventario", { prendidos, base: null }), false);
 });
 
 // ------------------------------------------------------------

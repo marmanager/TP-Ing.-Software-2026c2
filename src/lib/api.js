@@ -41,32 +41,6 @@ export const RAIZ = raizDeLaApi(process.env.NEXT_PUBLIC_API_URL);
 // no "/v1/insumos".
 export const API = RAIZ ? `${RAIZ}/v1` : null;
 
-// ------------------------------------------------------------
-// El interruptor
-// ------------------------------------------------------------
-// El front migra a la API de a un recurso por vez. Hasta que se prende un
-// recurso, sus acciones de datos.js siguen hablando con Supabase como
-// siempre; prenderlo o apagarlo es cambiar una variable en Vercel, sin
-// tocar código.
-//
-//   NEXT_PUBLIC_API_RECURSOS=inventario          sólo el inventario
-//   NEXT_PUBLIC_API_RECURSOS=inventario,turnos   los dos
-//   (vacía)                                      nada pasa por la API
-export function recursosPrendidos(valor) {
-  return new Set(
-    String(valor ?? "")
-      .split(",")
-      .map((r) => r.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
-
-const PRENDIDOS = recursosPrendidos(process.env.NEXT_PUBLIC_API_RECURSOS);
-
-// Sin dirección de la API no hay nada que prender.
-export const usaLaApi = (recurso, { prendidos = PRENDIDOS, base = API } = {}) =>
-  Boolean(base) && prendidos.has(recurso);
-
 // Cuánto se espera antes de dar por perdido un pedido. La API duerme cuando
 // no tiene tráfico y el primer pedido tarda, pero una pantalla colgada para
 // siempre es peor que un "no pudimos conectarnos".

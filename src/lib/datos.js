@@ -1,16 +1,15 @@
 "use client";
 
-// Capa de datos con dos backends.
+// Capa de datos con dos modos.
 //
-// Si hay credenciales de Supabase, lee y escribe contra la base.
-// Si no las hay, guarda todo en el navegador (el modo de ejemplo).
+// Las cuentas reales leen y escriben por la API. El modo de ejemplo guarda
+// todo en el navegador.
 // Las pantallas no se enteran de la diferencia: usan siempre estas funciones.
 //
 // Sirve para que los cuatro puedan clonar y levantar el proyecto sin esperar
 // a que alguien reparta las claves, y para que la demo no dependa del wifi.
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { haySupabase, supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
 import { buscarIgual, limpiarProducto, productoParaLaApi } from "./inventario";
@@ -30,7 +29,7 @@ import { construirSemilla } from "./semilla";
 import { ESPERA_AL_CLIENTE, casoPublico, respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi, agendaPublica, huecoSigueLibre, normalizarHorarios } from "./horarios.js";
 import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
-import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer, usaLaApi } from "./api.js";
+import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./api.js";
 import { turnoParaLaApi } from "./turnos.js";
 import {
   MEDIOS_DEL_LOCAL,
@@ -41,10 +40,7 @@ import {
   sePuedeAnular,
 } from "./cobros.js";
 
-// Las columnas que el insumo gana en 031_productos.sql (marca, modelo,
-// por_caja) y 032_categorias.sql (categoria). Van aparte para que una base
-// donde todavía no se corrieron esas migraciones siga guardando productos
-// —sin esos datos— en vez de perderlos: ver escribirConColumnasNuevas.
+// Campos que el modo de ejemplo conserva en localStorage.
 const COLUMNAS_NUEVAS_DE_INSUMO = ["marca", "modelo", "por_caja", "categoria"];
 
 const LLAVE = "marmanager.datos.v1";
@@ -67,58 +63,13 @@ const VACIO = {
 
 const Contexto = createContext(null);
 
-// Por qué no se pudo compartir, en una frase que sirva.
-//
-// El caso más probable no es un permiso: es que la base todavía no tenga
-// corrida la migración. Decir "no se pudo" a secas mandaría a alguien a
-// buscar el problema en el lugar equivocado.
-const porQueNoSePudoCompartir = (error) => {
-  const texto = error?.message ?? "";
-  if (error?.code === "PGRST202" || texto.includes("compartir_caso")) {
-    return "Falta correr 018_seguimiento.sql en Supabase. Hasta entonces no se puede compartir el estado.";
+const datosLocales = () => {
+  try {
+    const guardado = window.localStorage.getItem(LLAVE);
+    return guardado ? JSON.parse(guardado) : null;
+  } catch {
+    return null;
   }
-  // Los mensajes de la función ya están escritos para leerse.
-  return texto || "No se pudo compartir el estado.";
-};
-
-// Lo mismo para marcar un paso: antes que un permiso, lo más probable es
-// que falte la migración.
-const porQueNoSePudoMarcar = (error) => {
-  const texto = error?.message ?? "";
-  if (error?.code === "PGRST202" || texto.includes("marcar_paso_hecho")) {
-    return "Falta correr 021_paso_hecho.sql en Supabase. Hasta entonces no se puede marcar un paso como hecho.";
-  }
-  return texto || "No se pudo marcar el paso.";
-};
-
-// Lo mismo para la agenda: antes que un permiso, lo más probable es que
-// falte la migración.
-const porQueNoSePudoCompartirAgenda = (error) => {
-  const texto = error?.message ?? "";
-  if (error?.code === "PGRST202" || texto.includes("compartir_agenda")) {
-    return "Falta correr 024_pedir_turno.sql en Supabase. Hasta entonces no se puede compartir la agenda.";
-  }
-  return texto || "No se pudo compartir la agenda.";
-};
-
-// Por qué no se pudo anotar o anular un cobro. Lo más probable, antes que un
-// permiso, es que falte la migración.
-const porQueNoSePudoCobrar = (error) => {
-  const texto = error?.message ?? "";
-  if (error?.code === "PGRST202" || texto.includes("registrar_cobro") || texto.includes("anular_cobro")) {
-    return "Falta correr 025_cobros.sql en Supabase. Hasta entonces no se pueden anotar cobros sueltos.";
-  }
-  return texto || "No se pudo guardar el cobro.";
-};
-
-const porQueNoSePudoCompartirCalendario = (error) => {
-  const texto = error?.message ?? "";
-  if (texto.includes("gen_random_bytes"))
-    return "Volvé a correr 027_agenda_ics.sql en Supabase: la versión anterior usa una función que no está disponible en este proyecto.";
-  if (error?.code === "PGRST202" || texto.includes("compartir_ics")) {
-    return "Falta correr 027_agenda_ics.sql en Supabase. Hasta entonces no se puede poner la agenda en el calendario.";
-  }
-  return texto || "No se pudo armar el link del calendario.";
 };
 
 const nuevoId = () =>
@@ -149,21 +100,11 @@ const codigoAlAzar = () => {
 // navegador— pero tiene que dar lo mismo, o la pantalla mostraría una cosa
 // distinta según dónde corra.
 export async function buscarSeguimiento(codigo) {
-  // Primero la API, si la hay. Si ahí no está, se busca igual en el
-  // navegador: tener la API configurada no quiere decir que quien armó el
-  // link la estuviera usando. El modo de ejemplo se puede estar usando en
-  // una instalación conectada —es lo que pasa cuando alguien prueba el
-  // sistema antes de crearse la cuenta—, y su link tiene que andar lo mismo.
+  // Primero el navegador: un link creado en modo de ejemplo no debe esperar
+  // que despierte el servidor para mostrar datos que ya están acá.
   //
   // Buscar de más no abre nada: el código del navegador sólo existe en ese
   // navegador, y el de la base no aparece acá.
-  let problema = null;
-  if (API) {
-    const s = seguimientoDeLaApi(await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`));
-    if (s.sirve) return s;
-    problema = s.problema ?? null;
-  }
-
   // En el modo de ejemplo la visita NO queda registrada, así que del lado
   // del negocio el caso va a decir siempre "todavía no lo abrió". Es a
   // propósito: el proveedor de datos guarda el estado entero del navegador
@@ -173,14 +114,17 @@ export async function buscarSeguimiento(codigo) {
   //
   // Aunque la API no haya contestado se mira igual acá: un link del modo de
   // ejemplo no depende de la API y tiene que abrirse lo mismo.
-  try {
-    const guardado = window.localStorage.getItem(LLAVE);
-    if (guardado) {
-      const local = casoPublico({ codigo, ...JSON.parse(guardado) });
-      if (local.sirve) return local;
-    }
-  } catch {
-    // Sin almacenamiento del navegador, sólo queda lo que dijo la API.
+  const local = datosLocales();
+  if (local) {
+    const seguimiento = casoPublico({ codigo, ...local });
+    if (seguimiento.sirve) return seguimiento;
+  }
+
+  let problema = null;
+  if (API) {
+    const s = seguimientoDeLaApi(await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`));
+    if (s.sirve) return s;
+    problema = s.problema ?? null;
   }
   // Si la API no contestó, se dice eso: el link puede andar en un rato.
   return problema ? { sirve: false, problema } : { sirve: false };
@@ -195,7 +139,9 @@ export async function buscarSeguimiento(codigo) {
 // Devuelve { ok } o { ok: false, motivo }. El motivo está escrito para el
 // cliente y se muestra tal cual.
 export async function responderDesdeElLink(codigo, pasoId, respuesta) {
-  if (API) {
+  const local = datosLocales();
+  const esLocal = local?.casos?.some((c) => c.seguimiento_codigo === codigo);
+  if (!esLocal && API) {
     const r = await mandar(
       `/publico/seguimiento/${encodeURIComponent(codigo)}/pasos/${encodeURIComponent(pasoId)}/respuesta`,
       { respuesta }
@@ -215,9 +161,8 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
   // el proveedor de datos terminó de cargar y guardar. La visita, en cambio,
   // se registraría justo durante esa carga, y los dos se pisarían.
   try {
-    const guardado = window.localStorage.getItem(LLAVE);
-    if (!guardado) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
-    const d = JSON.parse(guardado);
+    if (!local) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
+    const d = local;
 
     const caso = (d.casos ?? []).find((c) => c.seguimiento_codigo === codigo);
     if (!caso) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
@@ -316,23 +261,18 @@ export async function responderDesdeElLink(codigo, pasoId, respuesta) {
 // en el navegador: puede ser un link del modo de ejemplo. Si la API no
 // contesta, se dice eso y no "el link no sirve", que sería mentira.
 export async function buscarAgenda(codigo) {
-  if (usaLaApi("turnos")) {
+  const local = datosLocales();
+  if (local?.negocio?.agenda_codigo === codigo) {
+    return agendaPublica({ codigo, negocio: local.negocio, turnos: local.turnos ?? [] });
+  }
+
+  if (API) {
     const r = await traer(`/publico/agenda/${encodeURIComponent(codigo)}`);
     if (r.ok) return agendaDeLaApi(r.datos);
     if (r.error.codigo !== "agenda_no_encontrada") return { sirve: false, problema: r.error.mensaje };
-  } else if (haySupabase && supabase) {
-    const { data, error } = await supabase.rpc("ver_agenda_publica", { p_codigo: codigo });
-    if (!error && data?.sirve) return data;
   }
 
-  try {
-    const guardado = window.localStorage.getItem(LLAVE);
-    if (!guardado) return { sirve: false };
-    const d = JSON.parse(guardado);
-    return agendaPublica({ codigo, negocio: d.negocio, turnos: d.turnos ?? [] });
-  } catch {
-    return { sirve: false };
-  }
+  return { sirve: false };
 }
 
 // Pedir el turno. Devuelve { ok } o { ok: false, motivo }, con el motivo
@@ -342,7 +282,9 @@ export async function buscarAgenda(codigo) {
 // la API, y sus mensajes son los mismos de siempre. Un código que la API no
 // conoce sigue al modo de ejemplo, igual que con la base.
 export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }) {
-  if (usaLaApi("turnos")) {
+  const local = datosLocales();
+  const esLocal = local?.negocio?.agenda_codigo === codigo;
+  if (!esLocal && API) {
     const r = await mandar(`/publico/agenda/${encodeURIComponent(codigo)}/turnos`, {
       empieza_en: new Date(cuando).toISOString(),
       motivo,
@@ -351,25 +293,13 @@ export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }
     });
     if (r.ok) return { ok: true, cuando: r.datos.cuando, minutos: r.datos.minutos };
     if (r.error.codigo !== "agenda_no_encontrada") return { ok: false, motivo: r.error.mensaje };
-  } else if (haySupabase && supabase) {
-    const { data, error } = await supabase.rpc("reservar_turno", {
-      p_codigo: codigo,
-      p_cuando: new Date(cuando).toISOString(),
-      p_motivo: motivo,
-      p_nombre: nombre,
-      p_telefono: telefono ?? null,
-    });
-    // "existe: false" es la base diciendo "ese código no es mío": puede ser
-    // un link del modo de ejemplo. Cualquier otra respuesta manda.
-    if (!error && data && data.existe !== false) return data;
   }
 
   // Modo de ejemplo. Vuelve a hacer las mismas comprobaciones que la base,
   // porque entre que vio la lista y tocó el botón pudo pasar cualquier cosa.
   try {
-    const guardado = window.localStorage.getItem(LLAVE);
-    if (!guardado) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
-    const d = JSON.parse(guardado);
+    if (!local) return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
+    const d = local;
 
     if (!d.negocio || d.negocio.agenda_codigo !== codigo) {
       return { ok: false, motivo: "Este link ya no sirve. Pedile uno nuevo al negocio." };
@@ -429,63 +359,6 @@ const conModulos = (negocio) =>
     ? { ...negocio, modulos_activos: preset(negocio.rubro).modulos ?? [] }
     : negocio;
 
-// Lee sólo lo del negocio del usuario. El filtro por negocio_id es para no
-// traer de más: el aislamiento de verdad lo hacen las políticas RLS
-// (supabase/005_rls.sql), que ya no devolverían nada de otro negocio aunque
-// acá pidiéramos todo.
-async function leerDeSupabase(negocioId) {
-  const [negocio, empleados, clientes, casos, insumos, turnos, invitaciones, cobros, fotosEquipo] =
-    await Promise.all([
-      supabase.from("negocio").select("*").eq("id", negocioId).maybeSingle(),
-      supabase.from("empleado").select("*").eq("negocio_id", negocioId),
-      supabase.from("cliente").select("*").eq("negocio_id", negocioId),
-      supabase.from("caso").select("*").eq("negocio_id", negocioId),
-      supabase.from("insumo").select("*").eq("negocio_id", negocioId),
-      supabase.from("turno").select("*").eq("negocio_id", negocioId),
-      supabase.from("invitacion").select("*").eq("negocio_id", negocioId),
-      supabase.from("cobro").select("*").eq("negocio_id", negocioId),
-      // Por función y no por la tabla: la tabla usuario sólo deja ver la
-      // fila propia, y abrirla mostraría también el mail y el teléfono.
-      supabase.rpc("fotos_del_equipo"),
-    ]);
-
-  const conError = [negocio, empleados, clientes, casos, insumos, turnos].find((r) => r.error);
-  if (conError) throw conError.error;
-
-  // "paso" y "evento" cuelgan del caso, no del negocio.
-  const idsCaso = (casos.data ?? []).map((c) => c.id);
-  let pasos = [];
-  let eventos = [];
-  if (idsCaso.length) {
-    const [p, ev] = await Promise.all([
-      supabase.from("paso").select("*").in("caso_id", idsCaso),
-      supabase.from("evento").select("*").in("caso_id", idsCaso),
-    ]);
-    if (p.error) throw p.error;
-    if (ev.error) throw ev.error;
-    pasos = p.data ?? [];
-    eventos = ev.data ?? [];
-  }
-
-  return {
-    negocio: conModulos(negocio.data ?? null),
-    empleados: empleados.data ?? [],
-    clientes: clientes.data ?? [],
-    casos: casos.data ?? [],
-    pasos,
-    eventos,
-    insumos: insumos.data ?? [],
-    turnos: turnos.data ?? [],
-    // Si la migración de invitaciones todavía no corrió, el resto anda igual.
-    invitaciones: invitaciones.error ? [] : (invitaciones.data ?? []),
-    // Lo mismo con los cobros: sin 025 corrida, cada caso sigue con su
-    // número único de 012 y nada se rompe.
-    cobros: cobros.error ? [] : (cobros.data ?? []),
-    // Y con las fotos: sin 034 corrida, Equipo muestra el ícono como antes.
-    fotosEquipo: fotosEquipo.error ? [] : (fotosEquipo.data ?? []),
-  };
-}
-
 export function DatosProvider({ children }) {
   const { esDemo, usuario, sesion, cargando: authCargando } = useAuth();
   const [datos, setDatos] = useState(VACIO);
@@ -512,7 +385,7 @@ export function DatosProvider({ children }) {
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
   // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
-  // la sesión resuelva y carga según el modo (ejemplo o Supabase).
+  // la sesión resuelva y carga según el modo (ejemplo o API).
   useEffect(() => {
     let vivo = true;
     if (authCargando) {
@@ -554,27 +427,23 @@ export function DatosProvider({ children }) {
         cargadoDe.current = null;
         setOtroNegocio(null);
         setDatos(VACIO);
-        setFuente("supabase");
+        setFuente("api");
         setCargando(false);
         return;
       }
 
-      // Cuenta real con negocio: se lee de Supabase, sólo lo de ese negocio.
+      // Cuenta real con negocio: se lee de la API, sólo lo de ese negocio.
       if (cargadoDe.current !== usuario.negocio_id) setCargando(true);
       try {
-        const traido = usaLaApi("datos")
-          ? await (async () => {
-              const r = await traer("/datos", sesion?.access_token);
-              if (!r.ok) throw new Error(r.error.mensaje);
-              return { ...r.datos, negocio: conModulos(r.datos.negocio) };
-            })()
-          : await leerDeSupabase(usuario.negocio_id);
+        const r = await traer("/datos", sesion?.access_token);
+        if (!r.ok) throw new Error(r.error.mensaje);
+        const traido = { ...r.datos, negocio: conModulos(r.datos.negocio) };
         if (!vivo) return;
         if (traido.negocio) {
           cargadoDe.current = usuario.negocio_id;
           setOtroNegocio(null);
           setDatos(traido);
-          setFuente("supabase");
+          setFuente("api");
           setCargando(false);
           return;
         }
@@ -606,15 +475,15 @@ export function DatosProvider({ children }) {
           "Tu negocio todavía no aparece en la base. Esperá unos segundos y volvé a entrar."
         );
         setDatos(VACIO);
-        setFuente("supabase");
+        setFuente("api");
         setCargando(false);
       } catch (e) {
         if (!vivo) return;
         setAviso(
-          "No se pudo leer la base de Supabase. Fijate la conexión y volvé a entrar."
+          "No se pudo leer el servidor. Fijate la conexión y volvé a entrar."
         );
         setDatos(VACIO);
-        setFuente("supabase");
+        setFuente("api");
         setCargando(false);
       }
     })();
@@ -659,34 +528,19 @@ export function DatosProvider({ children }) {
   }, [datos, cargando, fuente]);
 
   const acciones = useMemo(() => {
-    const enSupabase = () => fuente === "supabase" && supabase;
+    const enServidor = () => fuente === "api";
 
-    // Aplica el cambio en pantalla ya, y lo manda a la base si la hay.
-    const escribir = async (tabla, fila, { insertar = false } = {}) => {
-      if (!enSupabase()) return;
-      const q = supabase.from(tabla);
-      // Al modificar, el id dice qué fila y no va entre lo que cambia: nadie
-      // reescribe una clave. Además, en las tablas con permisos por columna
-      // (035, 037) la base rechaza la modificación entera si nombra una
-      // columna sin permiso, aunque el valor sea el mismo.
-      const { id, ...cambios } = fila;
-      const { error } = insertar ? await q.insert(fila) : await q.update(cambios).eq("id", id);
-      if (error) setAviso("No se pudo guardar en la base: " + error.message);
-    };
-
-    const borrar = async (tabla, id) => {
-      if (!enSupabase()) return;
-      const { error } = await supabase.from(tabla).delete().eq("id", id);
-      if (error) setAviso("No se pudo borrar en la base: " + error.message);
-    };
+    // En el modo de ejemplo alcanza con el cambio optimista: el efecto de
+    // arriba lo guarda en localStorage. En una cuenta real cada acción usa su
+    // endpoint de la API.
+    const escribir = () => {};
+    const borrar = () => {};
 
     // La sesión de quien está usando el sistema, para llamar a la API de
     // pagos como esa persona (docs/api-pagos.md).
     const tokenDeSesion = async () => sesion?.access_token ?? null;
 
-    // Si este recurso ya pasa por la API (el interruptor de api.js). Sólo
-    // con Supabase: en el modo de ejemplo no hay sesión ni servidor.
-    const porLaApi = (recurso) => enSupabase() && usaLaApi(recurso);
+    const porLaApi = () => enServidor();
 
     // Para los cambios que ya se ven en pantalla antes de que conteste la API
     // (sumar uno, escribir la cantidad, borrar): se mandan por atrás, y si la
@@ -702,36 +556,7 @@ export function DatosProvider({ children }) {
     // Quién firma el historial. La regla vive en permisos.js y tiene test.
     const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
 
-    // Escribe una fila que trae columnas agregadas por una migración nueva.
-    // Si la base todavía no tiene esas columnas, la fila se guarda igual sin
-    // ellas: que falte correr una migración no puede dejar un caso sin
-    // historial, ni perder la respuesta de un cliente. Así se hizo también
-    // con las invitaciones.
-    const escribirConColumnasNuevas = async (tabla, fila, columnas, { insertar = false } = {}) => {
-      if (!enSupabase()) return;
-      const mandar = (f) =>
-        insertar
-          ? supabase.from(tabla).insert(f)
-          : supabase.from(tabla).update(f).eq("id", f.id);
-
-      const { error } = await mandar(fila);
-      if (!error) return;
-
-      const faltaColumna =
-        error.code === "PGRST204" ||
-        error.code === "42703" ||
-        columnas.some((c) => (error.message ?? "").includes(c));
-      if (!faltaColumna) {
-        setAviso("No se pudo guardar en la base: " + error.message);
-        return;
-      }
-
-      const sinColumnasNuevas = Object.fromEntries(
-        Object.entries(fila).filter(([clave]) => !columnas.includes(clave))
-      );
-      const reintento = await mandar(sinColumnasNuevas);
-      if (reintento.error) setAviso("No se pudo guardar en la base: " + reintento.error.message);
-    };
+    const escribirConColumnasNuevas = () => {};
 
     // tipo y monto nacen en 014_evento_tipo.sql; estado, en 018_seguimiento.sql.
     const escribirEvento = (evento) =>
@@ -1127,16 +952,6 @@ export function DatosProvider({ children }) {
           if (!r.ok) return { ok: false, error: r.error.mensaje };
           nuevo = r.datos.cobro ?? r.datos;
           eventoDeLaApi = r.datos.evento ?? null;
-        } else if (enSupabase()) {
-          const { data, error } = await supabase.rpc("registrar_cobro", {
-            p_caso_id: casoId,
-            p_monto: Number(monto),
-            p_medio: medio,
-            p_nota: nota,
-          });
-          if (error) return { ok: false, error: porQueNoSePudoCobrar(error) };
-          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo anotar el cobro." };
-          nuevo = data.cobro;
         } else {
           const ahora = new Date().toISOString();
           nuevo = {
@@ -1152,7 +967,7 @@ export function DatosProvider({ children }) {
           };
         }
 
-        setDatos((d) => ponerCobro(d, nuevo, { adoptarLoViejo: !enSupabase(), nuevoId }));
+        setDatos((d) => ponerCobro(d, nuevo, { adoptarLoViejo: !enServidor(), nuevoId }));
         if (eventoDeLaApi) setDatos((d) => ({ ...d, eventos: [eventoDeLaApi, ...d.eventos] }));
         else if (!porLaApi("casos")) anotar({
           casoId,
@@ -1325,37 +1140,16 @@ export function DatosProvider({ children }) {
       // (un pago que entró por link) no llega solo. Devuelve los que pasaron
       // a pagado desde la última vez, para que la pantalla lo pueda contar.
       async refrescarCobros(casoId) {
-        if (!enSupabase()) return { ok: true, pagados: [] };
-        if (porLaApi("casos")) {
-          const r = await traer(`/casos/${encodeURIComponent(casoId)}/cobros`, await tokenDeSesion());
-          if (!r.ok) return { ok: false, pagados: [] };
-          const nuevos = r.datos ?? [];
-          const antes = new Map(datos.cobros.filter((c) => c.caso_id === casoId).map((c) => [c.id, c.estado]));
-          const pagados = nuevos.filter((c) => c.estado === "pagado" && antes.get(c.id) === "pendiente");
-          setDatos((d) => nuevos.reduce(
-            (actual, cobro) => ponerCobro(actual, cobro, { nuevoId }),
-            { ...d, cobros: d.cobros.filter((c) => c.caso_id !== casoId) }
-          ));
-          return { ok: true, pagados };
-        }
-        const [cobros, caso] = await Promise.all([
-          supabase.from("cobro").select("*").eq("caso_id", casoId),
-          supabase.from("caso").select("id, cobrado, cobrado_en").eq("id", casoId).maybeSingle(),
-        ]);
-        if (cobros.error || caso.error) return { ok: false, pagados: [] };
-
+        if (!enServidor()) return { ok: true, pagados: [] };
+        const r = await traer(`/casos/${encodeURIComponent(casoId)}/cobros`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, pagados: [] };
+        const nuevos = r.datos ?? [];
         const antes = new Map(datos.cobros.filter((c) => c.caso_id === casoId).map((c) => [c.id, c.estado]));
-        const pagados = (cobros.data ?? []).filter((c) => c.estado === "pagado" && antes.get(c.id) === "pendiente");
-
-        setDatos((d) => ({
-          ...d,
-          cobros: [...d.cobros.filter((c) => c.caso_id !== casoId), ...(cobros.data ?? [])],
-          casos: d.casos.map((c) =>
-            c.id === casoId && caso.data
-              ? { ...c, cobrado: caso.data.cobrado, cobrado_en: caso.data.cobrado_en }
-              : c
-          ),
-        }));
+        const pagados = nuevos.filter((c) => c.estado === "pagado" && antes.get(c.id) === "pendiente");
+        setDatos((d) => nuevos.reduce(
+          (actual, cobro) => ponerCobro(actual, cobro, { nuevoId }),
+          { ...d, cobros: d.cobros.filter((c) => c.caso_id !== casoId) }
+        ));
         return { ok: true, pagados };
       },
 
@@ -1392,14 +1186,6 @@ export function DatosProvider({ children }) {
           const r = await anularPagoEnLinea({ cobroId, motivo, token });
           if (!r.ok) return { ok: false, error: r.error };
           anulado = r.cobro;
-        } else if (enSupabase()) {
-          const { data, error } = await supabase.rpc("anular_cobro", {
-            p_cobro_id: cobroId,
-            p_motivo: motivo,
-          });
-          if (error) return { ok: false, error: porQueNoSePudoCobrar(error) };
-          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo anular el cobro." };
-          anulado = data.cobro;
         } else {
           anulado = {
             ...cobro,
@@ -1487,24 +1273,10 @@ export function DatosProvider({ children }) {
           return { ok: true, cambio: r.datos.cambio };
         }
 
-        if (enSupabase()) {
-          const { data, error } = await supabase.rpc("marcar_paso_hecho", {
-            p_paso_id: pasoId,
-            p_hecho: Boolean(hecho),
-          });
-          if (error) return { ok: false, error: porQueNoSePudoMarcar(error) };
-          if (!data?.ok) return { ok: false, error: data?.motivo ?? "No se pudo marcar el paso." };
-          cuando = data.hecho_en ?? null;
-          setDatos((d) => ({
-            ...d,
-            pasos: d.pasos.map((x) => (x.id === pasoId ? { ...x, hecho_en: cuando } : x)),
-          }));
-        } else {
-          setDatos((d) => ({
-            ...d,
-            pasos: d.pasos.map((x) => (x.id === pasoId ? { ...x, hecho_en: cuando } : x)),
-          }));
-        }
+        setDatos((d) => ({
+          ...d,
+          pasos: d.pasos.map((x) => (x.id === pasoId ? { ...x, hecho_en: cuando } : x)),
+        }));
 
         anotar({
           casoId: paso.caso_id,
@@ -1573,19 +1345,6 @@ export function DatosProvider({ children }) {
           });
         };
 
-        if (enSupabase()) {
-          const { data, error } = await supabase.rpc("compartir_caso", { p_caso_id: casoId });
-          if (error) return { ok: false, error: porQueNoSePudoCompartir(error) };
-          setDatos((d) => ({
-            ...d,
-            casos: d.casos.map((c) =>
-              c.id === casoId ? { ...c, seguimiento_codigo: data, seguimiento_visto_en: null } : c
-            ),
-          }));
-          pasarAEsperando();
-          return { ok: true, codigo: data, quedaEsperando };
-        }
-
         const codigo = codigoAlAzar();
         parchearCaso(casoId, { seguimiento_codigo: codigo, seguimiento_visto_en: null });
         pasarAEsperando();
@@ -1602,18 +1361,6 @@ export function DatosProvider({ children }) {
             ? { ...c, seguimiento_codigo: null, seguimiento_visto_en: null } : c) }));
           return { ok: true };
         }
-        if (enSupabase()) {
-          const { error } = await supabase.rpc("dejar_de_compartir_caso", { p_caso_id: casoId });
-          if (error) return { ok: false, error: porQueNoSePudoCompartir(error) };
-          setDatos((d) => ({
-            ...d,
-            casos: d.casos.map((c) =>
-              c.id === casoId ? { ...c, seguimiento_codigo: null, seguimiento_visto_en: null } : c
-            ),
-          }));
-          return { ok: true };
-        }
-
         parchearCaso(casoId, { seguimiento_codigo: null, seguimiento_visto_en: null });
         return { ok: true };
       },
@@ -2041,51 +1788,28 @@ export function DatosProvider({ children }) {
       // El código lo genera la base, no el navegador: tiene que ser difícil
       // de adivinar y no depender de lo que corra en la máquina de nadie.
       async crearInvitacion({ rol, usosMaximos, dias }) {
-        if (!enSupabase()) {
+        if (!enServidor()) {
           return {
             ok: false,
-            error: "Para invitar a alguien hace falta conectar la base de Supabase.",
+            error: "Las invitaciones no están disponibles en el modo de ejemplo.",
           };
         }
         const vence = new Date();
         vence.setDate(vence.getDate() + (Number(dias) || 7));
 
-        if (porLaApi("equipo")) {
-          const r = await mandar(
-            "/invitaciones",
-            {
-              rol: rol || "tecnico",
-              usos_maximos: Number(usosMaximos) || 1,
-              vence_en: vence.toISOString(),
-            },
-            await tokenDeSesion(),
-            { idempotencia: nuevaClave() }
-          );
-          if (!r.ok) return { ok: false, error: r.error.mensaje };
-          setDatos((d) => ({ ...d, invitaciones: [r.datos.invitacion, ...d.invitaciones] }));
-          return { ok: true, invitacion: r.datos.invitacion };
-        }
-
-        const { data, error } = await supabase
-          .from("invitacion")
-          .insert({
-            negocio_id: datos.negocio.id,
+        const r = await mandar(
+          "/invitaciones",
+          {
             rol: rol || "tecnico",
             usos_maximos: Number(usosMaximos) || 1,
             vence_en: vence.toISOString(),
-          })
-          .select("*")
-          .single();
-
-        if (error) {
-          return {
-            ok: false,
-            error:
-              "No se pudo crear la invitación. Sólo el dueño del negocio puede invitar gente.",
-          };
-        }
-        setDatos((d) => ({ ...d, invitaciones: [data, ...d.invitaciones] }));
-        return { ok: true, invitacion: data };
+          },
+          await tokenDeSesion(),
+          { idempotencia: nuevaClave() }
+        );
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        setDatos((d) => ({ ...d, invitaciones: [r.datos.invitacion, ...d.invitaciones] }));
+        return { ok: true, invitacion: r.datos.invitacion };
       },
 
       // No se borra: se anula, así queda el rastro de a quién se invitó.
@@ -2280,7 +2004,7 @@ export function DatosProvider({ children }) {
         // En modo de ejemplo el negocio se arma en el navegador. Es el mismo
         // paso que con una cuenta real: sin negocio no hay dónde colgar los
         // casos, los clientes ni el inventario.
-        if (!enSupabase()) {
+        if (!enServidor()) {
           const negocio = {
             id: nuevoId(),
             nombre,
@@ -2290,23 +2014,14 @@ export function DatosProvider({ children }) {
           setDatos((d) => ({ ...d, negocio }));
           return { ok: true, id: negocio.id };
         }
-        if (porLaApi("negocio")) {
-          const r = await mandar(
-            "/negocios",
-            { nombre, rubro, modulos: preset(rubro).modulos ?? [] },
-            await tokenDeSesion(),
-            { idempotencia: nuevaClave() }
-          );
-          if (!r.ok) return { ok: false, error: r.error.mensaje };
-          return { ok: true, id: r.datos.id };
-        }
-        const { data, error } = await supabase.rpc("crear_mi_negocio", {
-          p_nombre: nombre,
-          p_rubro: rubro,
-          p_modulos: preset(rubro).modulos ?? [],
-        });
-        if (error) return { ok: false, error: "No se pudo crear el negocio: " + error.message };
-        return { ok: true, id: data };
+        const r = await mandar(
+          "/negocios",
+          { nombre, rubro, modulos: preset(rubro).modulos ?? [] },
+          await tokenDeSesion(),
+          { idempotencia: nuevaClave() }
+        );
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        return { ok: true, id: r.datos.id };
       },
 
       // El rubro se cambia sólo mientras el negocio no tiene casos (SCRUM-90):
@@ -2367,13 +2082,6 @@ export function DatosProvider({ children }) {
           return { ok: true, codigo: r.datos.codigo };
         }
 
-        if (enSupabase()) {
-          const { data, error } = await supabase.rpc("compartir_agenda");
-          if (error) return { ok: false, error: porQueNoSePudoCompartirAgenda(error) };
-          setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: data } }));
-          return { ok: true, codigo: data };
-        }
-
         const codigo = codigoAlAzar();
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: codigo } }));
         return { ok: true, codigo };
@@ -2383,9 +2091,6 @@ export function DatosProvider({ children }) {
         if (porLaApi("negocio")) {
           const r = await mandar("/negocio/agenda/dejar-de-compartir", {}, await tokenDeSesion());
           if (!r.ok) return { ok: false, error: r.error.mensaje };
-        } else if (enSupabase()) {
-          const { error } = await supabase.rpc("dejar_de_compartir_agenda");
-          if (error) return { ok: false, error: porQueNoSePudoCompartirAgenda(error) };
         }
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: null } }));
         return { ok: true };
@@ -2396,8 +2101,8 @@ export function DatosProvider({ children }) {
       // sólo horarios ocupados para cualquiera, éste los turnos con nombre y
       // teléfono para el dueño.
       async compartirCalendario() {
-        if (!enSupabase())
-          return { ok: false, error: "Para generar un link que Google pueda leer, iniciá sesión con una cuenta conectada a Supabase." };
+        if (!enServidor())
+          return { ok: false, error: "Para generar un link que Google pueda leer, iniciá sesión con una cuenta." };
         if (datos.negocio?.ics_codigo)
           return { ok: true, codigo: datos.negocio.ics_codigo };
 
@@ -2408,25 +2113,13 @@ export function DatosProvider({ children }) {
           return { ok: true, codigo: r.datos.codigo };
         }
 
-        if (enSupabase()) {
-          const { data, error } = await supabase.rpc("compartir_ics");
-          if (error) return { ok: false, error: porQueNoSePudoCompartirCalendario(error) };
-          setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: data } }));
-          return { ok: true, codigo: data };
-        }
-
-        const codigo = codigoAlAzar();
-        setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: codigo } }));
-        return { ok: true, codigo };
+        return { ok: false, error: "No se pudo generar el link del calendario." };
       },
 
       async dejarDeCompartirCalendario() {
         if (porLaApi("negocio")) {
           const r = await mandar("/negocio/calendario/dejar-de-compartir", {}, await tokenDeSesion());
           if (!r.ok) return { ok: false, error: r.error.mensaje };
-        } else if (enSupabase()) {
-          const { error } = await supabase.rpc("dejar_de_compartir_ics");
-          if (error) return { ok: false, error: porQueNoSePudoCompartirCalendario(error) };
         }
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: null } }));
         return { ok: true };
