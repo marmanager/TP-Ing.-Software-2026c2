@@ -31,6 +31,7 @@ import { agendaDeLaApi, agendaPublica, huecoSigueLibre, normalizarHorarios } fro
 import { anularPagoEnLinea, pagosEnLinea, pedirPagoEnLinea } from "./pagos.js";
 import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./api.js";
 import { turnoParaLaApi } from "./turnos.js";
+import { reemplazarUnicoPorId, unicosPorId } from "./listas.js";
 import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
 import {
   MEDIOS_DEL_LOCAL,
@@ -416,7 +417,7 @@ export function DatosProvider({ children }) {
         const local = guardado
           ? { ...VACIO, ...JSON.parse(guardado) }
           : construirSemilla();
-        setDatos({ ...local, negocio: conModulos(local.negocio) });
+        setDatos({ ...local, casos: unicosPorId(local.casos), negocio: conModulos(local.negocio) });
         setFuente("local");
         setCargando(false);
         return;
@@ -438,7 +439,11 @@ export function DatosProvider({ children }) {
       try {
         const r = await traer("/datos", sesion?.access_token);
         if (!r.ok) throw new Error(r.error.mensaje);
-        const traido = { ...r.datos, negocio: conModulos(r.datos.negocio) };
+        const traido = {
+          ...r.datos,
+          casos: unicosPorId(r.datos.casos),
+          negocio: conModulos(r.datos.negocio),
+        };
         if (!vivo) return;
         if (traido.negocio) {
           cargadoDe.current = usuario.negocio_id;
@@ -608,17 +613,18 @@ export function DatosProvider({ children }) {
     // "descuento" nace en 025_cobros.sql: si la base todavía no lo tiene,
     // el resto del cambio (cerrar el caso, por ejemplo) se guarda igual.
     const parchearCaso = (casoId, cambios) => {
-      setDatos((d) => ({
-        ...d,
-        casos: d.casos.map((c) => (c.id === casoId ? { ...c, ...cambios } : c)),
-      }));
+      setDatos((d) => {
+        const actual = d.casos.find((c) => c.id === casoId);
+        return actual
+          ? { ...d, casos: reemplazarUnicoPorId(d.casos, { ...actual, ...cambios }) }
+          : d;
+      });
       escribirConColumnasNuevas("caso", { id: casoId, ...cambios }, ["descuento"]);
     };
 
     const incorporarCasoApi = ({ caso, cliente, turno, evento, eventos = [] }) => setDatos((d) => ({
       ...d,
-      casos: caso ? (d.casos.some((x) => x.id === caso.id)
-        ? d.casos.map((x) => x.id === caso.id ? caso : x) : [caso, ...d.casos]) : d.casos,
+      casos: caso ? reemplazarUnicoPorId(d.casos, caso) : unicosPorId(d.casos),
       clientes: cliente ? (d.clientes.some((x) => x.id === cliente.id)
         ? d.clientes.map((x) => x.id === cliente.id ? cliente : x) : [...d.clientes, cliente]) : d.clientes,
       turnos: turno ? d.turnos.map((x) => x.id === turno.id ? turno : x) : d.turnos,

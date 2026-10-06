@@ -14,7 +14,7 @@
 //
 // Sigue dentro de la regla general de la sección 05: nunca más de seis campos.
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
@@ -74,6 +74,8 @@ function Formulario() {
   const [responsable, setResponsable] = useState("");
   const [tocado, setTocado] = useState({});
   const [saliendo, setSaliendo] = useState(false);
+  const guardandoRef = useRef(false);
+  const [guardando, setGuardando] = useState(false);
 
   // Lo que había al entrar: si el caso sale de un turno, los datos del turno
   // no cuentan como "escrito", porque siguen estando en el turno.
@@ -148,18 +150,26 @@ function Formulario() {
   const marcar = (campo) => faltan.length > 1 && faltan.some((f) => f.campo === campo);
 
   async function guardar() {
-    const caso = await abrirCaso({
-      clienteId: yaEsCliente?.id ?? null,
-      nombreCliente: nombre.trim(),
-      telefono: telefono.trim(),
-      servicio: servicio.trim(),
-      identificador: identificador.trim(),
-      responsableId: responsable || null,
-      turnoId: turno?.id ?? null,
-    });
-    if (!caso) return;
-    avisarExito(`Listo. El caso de ${nombre.trim()} ya está en la lista de hoy.`);
-    router.push(`/casos/${caso.id}`);
+    if (guardandoRef.current) return;
+    guardandoRef.current = true;
+    setGuardando(true);
+    try {
+      const caso = await abrirCaso({
+        clienteId: yaEsCliente?.id ?? null,
+        nombreCliente: nombre.trim(),
+        telefono: telefono.trim(),
+        servicio: servicio.trim(),
+        identificador: identificador.trim(),
+        responsableId: responsable || null,
+        turnoId: turno?.id ?? null,
+      });
+      if (!caso) return;
+      avisarExito(`Listo. El caso de ${nombre.trim()} ya está en la lista de hoy.`);
+      router.push(`/casos/${caso.id}`);
+    } finally {
+      guardandoRef.current = false;
+      setGuardando(false);
+    }
   }
 
   return (
@@ -391,7 +401,7 @@ function Formulario() {
           letra agrandada y la pantalla sin scrollear, el formulario empezaba
           tan abajo que el botón no llegaba a despegarse de la barra de
           secciones y quedaba tapado. Acá su contenedor es la página entera. */}
-      <BotonPrincipalFijo icono="check" motivo={motivoApagado} onClick={guardar}>
+      <BotonPrincipalFijo icono="check" motivo={guardando ? "guardando" : motivoApagado} onClick={guardar}>
         Guardar el caso
       </BotonPrincipalFijo>
     </>
