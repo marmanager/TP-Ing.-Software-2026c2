@@ -1201,7 +1201,7 @@ function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
     clienteNombre: cliente?.nombre?.split(" ")[0] ?? null,
     identificador: caso.identificador,
     servicio: caso.servicio,
-    estadoEnPalabras: nombreEstado(caso.estado),
+    estadoEnPalabras: presentacionEstado(negocio, caso.estado).nombre,
     entregado,
     pasos: aprobados.map((p) => ({ nombre: p.nombre, hecho: Boolean(p.hecho_en) })),
     link,
