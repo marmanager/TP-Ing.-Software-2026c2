@@ -758,7 +758,7 @@ function SeccionPago({ pago, completado, principal }) {
                   </a>
                 ) : (
                   <p className="mt-2 text-tinta-suave">
-                    Simulación: acá aparece el botón para pagar con el medio de pago.
+                    El link todavía no está listo. Pedíselo al negocio.
                   </p>
                 )}
                 {x.vence_en && (

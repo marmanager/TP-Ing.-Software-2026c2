@@ -50,33 +50,3 @@ export function pagosEnLinea({ api = API } = {}) {
   return { disponible: false, motivo: "todavía no está conectado el sistema de pagos" };
 }
 
-// Pagar desde el link de seguimiento, cuando el negocio todavía no le mandó
-// un link de pago. Es la única llamada SIN sesión: la hace el cliente, que
-// no tiene cuenta. Por eso no manda monto: la API calcula lo que falta con
-// la misma cuenta que ver_seguimiento() y arma el link por eso, y nada más.
-// El código del seguimiento es lo único que identifica el caso.
-export async function pagarDesdeSeguimiento({ codigo, api = API, fetcher = fetch } = {}) {
-  const base = api;
-  if (!base) return { ok: false, error: "Por ahora no se puede pagar desde acá. Podés pagarlo en el local." };
-  let respuesta;
-  try {
-    respuesta = await fetcher(`${base}/publico/seguimiento/${encodeURIComponent(codigo)}/pagos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-  } catch {
-    return { ok: false, error: "No pudimos conectarnos para el pago. Probá de nuevo en un rato." };
-  }
-  let datos = null;
-  try {
-    datos = await respuesta.json();
-  } catch {
-    // Sin cuerpo: se decide por el código.
-  }
-  const link = datos?.datos?.cobro?.link;
-  if (!respuesta.ok || !datos?.ok || !link) {
-    return { ok: false, error: datos?.error?.mensaje ?? datos?.motivo ?? "No pudimos armar el pago. Probá de nuevo o pagalo en el local." };
-  }
-  return { ok: true, link };
-}

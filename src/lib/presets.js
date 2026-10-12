@@ -383,23 +383,3 @@ export function queSignificaPara(rubro, estado) {
   return (PRESETS[rubro]?.seguimiento ?? SEGUIMIENTO_GENERICO)[estado];
 }
 
-export function queFaltaPara(rubro, estado) {
-  const p = preset(rubro);
-  switch (estado) {
-    case "nuevo":
-      return "Asignar a alguien del equipo";
-    case "en_proceso":
-      return p.etiquetas.en_proceso;
-    case "revision_final":
-      return p.explica.revision_final;
-    case "esperando":
-      // Quien sabe qué se está esperando lo escribe más preciso —el flujo del
-      // insumo pone "El repuesto llega mañana"—, pero desde el desplegable no
-      // hay quién, así que vale lo genérico del rubro antes que un hueco.
-      return p.explica.esperando;
-    case "completado":
-      return "Nada, el caso está cerrado.";
-    default:
-      return "";
-  }
-}

@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
-import Icono from "@/componentes/Icono";
 import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
 
 export default function IniciarSesion() {

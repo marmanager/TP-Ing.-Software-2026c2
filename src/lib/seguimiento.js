@@ -151,19 +151,6 @@ export const totalAprobado = (pasos = []) =>
 export const linkDeSeguimiento = (origen, codigo) =>
   `${(origen ?? "").replace(/\/$/, "")}/seguimiento/${codigo}`;
 
-// El mensaje que sale escrito en WhatsApp. Lo puede borrar y escribir lo que
-// quiera: es un punto de partida, no un formulario.
-//
-// Dice de parte de quién es y qué es el link, porque del otro lado alguien
-// recibe una dirección de internet de un número que quizás no tiene agendado.
-export function mensajeDeWhatsApp({ negocioNombre, identificador, servicio, link }) {
-  const cosa = identificador || servicio || "tu trabajo";
-  return (
-    `Hola, te escribimos de ${negocioNombre}. ` +
-    `Podés ver cómo viene ${cosa} acá, sin instalar nada: ${link}`
-  );
-}
-
 // El aviso de que el trabajo está listo (flujo, punto 9).
 //
 // Es el hermano del mensaje del presupuesto: mismo patrón, mismo link, otro

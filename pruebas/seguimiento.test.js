@@ -15,7 +15,6 @@ import {
   linkDeWhatsAppA,
   mensajeDeConsulta,
   mensajeDeLoHecho,
-  mensajeDeWhatsApp,
   respuestaDeLaApi,
   seguimientoDeLaApi,
   totalAprobado,
@@ -116,30 +115,6 @@ test("el link se arma con el origen del navegador, sin barra doble", () => {
     linkDeSeguimiento("http://localhost:3000/", CODIGO),
     `http://localhost:3000/seguimiento/${CODIGO}`
   );
-});
-
-test("el mensaje de WhatsApp dice de parte de quién es y qué es el link", () => {
-  const link = linkDeSeguimiento("http://localhost:3000", CODIGO);
-  const mensaje = mensajeDeWhatsApp({
-    negocioNombre: "Taller Sur",
-    identificador: "AB 123 CD",
-    servicio: "Un ruido raro cuando frena",
-    link,
-  });
-
-  assert.ok(mensaje.includes("Taller Sur"), "dice de qué negocio es");
-  assert.ok(mensaje.includes("AB 123 CD"), "dice de qué auto habla");
-  assert.ok(mensaje.includes(link), "lleva el link");
-});
-
-test("sin identificador, el mensaje habla de lo que pidió", () => {
-  const mensaje = mensajeDeWhatsApp({
-    negocioNombre: "Consultorio Belgrano",
-    identificador: null,
-    servicio: "Dolor de cabeza",
-    link: "x",
-  });
-  assert.ok(mensaje.includes("Dolor de cabeza"));
 });
 
 // ------------------------------------------------------------

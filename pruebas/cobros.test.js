@@ -14,7 +14,6 @@ import {
   cobrosConLoDeAntes,
   saldoDelCaso,
   cobrosDelCaso,
-  cobrosPendientes,
   conCobro,
   cuentaDelCaso,
   descuentoDelCaso,
@@ -188,15 +187,6 @@ test("los cobros de un caso vienen en el orden en que pasaron", () => {
     "c1"
   );
   assert.deepEqual(lista.map((c) => c.id), ["a", "b"]);
-});
-
-test("para Inicio sólo cuentan los que esperan un pago", () => {
-  const lista = cobrosPendientes([
-    cobro({ estado: "pendiente", medio: "link" }),
-    cobro(),
-    cobro({ estado: "vencido", medio: "link" }),
-  ]);
-  assert.equal(lista.length, 1);
 });
 
 // ------------------------------------------------------------
