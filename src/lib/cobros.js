@@ -214,9 +214,6 @@ export function cobrosConLoDeAntes(cobrosDeEseCaso = [], caso) {
   ];
 }
 
-// Los casos con cobros esperando: para el aviso de Inicio.
-export const cobrosPendientes = (cobros = []) => cobros.filter((c) => c.estado === "pendiente");
-
 // ------------------------------------------------------------
 // El estado de la aplicación
 // ------------------------------------------------------------

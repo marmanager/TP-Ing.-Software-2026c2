@@ -10,10 +10,6 @@
 //
 // Tiene test: pruebas/nombres.test.js
 
-// Cómo nacen los nombres. "numero" es el de siempre, y el que tienen todos
-// los negocios de antes de esta opción.
-export const MODOS_DE_NOMBRE = ["numero", "cliente", "identificador", "servicio"];
-
 // Lo que se lee primero: el nombre, o "Caso 271" si no tiene.
 export function tituloDelCaso(caso) {
   return caso?.nombre?.trim() || `Caso ${caso?.numero}`;

@@ -144,13 +144,6 @@ export const AL_PASAR_A = {
   },
 };
 
-// Los estados a los que se puede pasar desde uno dado: todos menos ése.
-//
-// Salen siempre en el orden del ciclo de vida, no reordenados según dónde
-// estés parado: así el encargado aprende dónde está cada opción y deja de
-// leer la lista.
-export const otrosEstados = (actual) => ORDEN_ESTADOS.filter((e) => e !== actual);
-
 // Los estados que ofrece el desplegable de la pantalla del caso.
 //
 // Son los otros abiertos, y nunca "completado". Entregar no es un pasaje

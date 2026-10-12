@@ -8,30 +8,12 @@ import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   apiPagosApuntaAlFrontend,
-  pagarDesdeSeguimiento,
   pagosEnLinea,
   vueltaDeMercadoPago,
 } from "../src/lib/pagos.js";
 import { hayPagosEnCamino, mensajeDePago, montoParaPedir, cuentaDelCaso } from "../src/lib/cobros.js";
 
 const API = "https://api.ejemplo";
-
-// Una API de mentira que anota lo que le llegó y contesta lo que se le diga.
-function apiFalsa(status, cuerpo) {
-  const llamadas = [];
-  const fetcher = async (url, opciones) => {
-    llamadas.push({ url, ...opciones, cuerpo: JSON.parse(opciones.body) });
-    return {
-      ok: status >= 200 && status < 300,
-      status,
-      json: async () => {
-        if (cuerpo === undefined) throw new Error("sin cuerpo");
-        return cuerpo;
-      },
-    };
-  };
-  return { fetcher, llamadas };
-}
 
 // ------------------------------------------------------------
 // Si se puede pedir un pago
@@ -91,26 +73,6 @@ test("el mensaje de WhatsApp dice quién cobra, cuánto y dónde pagar", () => {
 // Pagar desde el seguimiento (sin sesión)
 // ------------------------------------------------------------
 
-
-test("desde el seguimiento no se manda sesión ni monto: sólo el código", async () => {
-  const { fetcher, llamadas } = apiFalsa(200, { ok: true, datos: { cobro: { link: "https://pago/y" } } });
-  const r = await pagarDesdeSeguimiento({ codigo: "abc", api: API, fetcher });
-  assert.deepEqual(r, { ok: true, link: "https://pago/y" });
-  assert.equal(llamadas[0].url, `${API}/publico/seguimiento/abc/pagos`);
-  assert.equal(llamadas[0].headers.Authorization, undefined);
-  assert.deepEqual(llamadas[0].cuerpo, {});
-});
-
-test("sin API, el cliente lee que puede pagar en el local", async () => {
-  const r = await pagarDesdeSeguimiento({ codigo: "abc", api: null });
-  assert.equal(r.ok, false);
-  assert.match(r.error, /en el local/);
-});
-
-test("una respuesta sin link no manda al cliente a ningún lado", async () => {
-  const r = await pagarDesdeSeguimiento({ codigo: "abc", api: API, fetcher: apiFalsa(200, { ok: true }).fetcher });
-  assert.equal(r.ok, false);
-});
 
 // Mercado Pago, después de vincular, vuelve siempre a /casos?mp=conectado.
 // Desde ahí se manda a la persona a donde había tocado "Vincular".

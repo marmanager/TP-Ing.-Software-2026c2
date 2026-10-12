@@ -17,8 +17,6 @@
 // Las clases de Tailwind van escritas enteras, igual que en estados.js: el
 // escáner lee el código fuente y un `text-${x}` no generaría nada.
 
-export const ORDEN_ESTADOS_TURNO = ["agendado", "confirmado", "cancelado", "atendido"];
-
 export const ESTADOS_TURNO = {
   agendado: {
     clave: "agendado",

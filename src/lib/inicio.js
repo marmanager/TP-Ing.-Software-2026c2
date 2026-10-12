@@ -389,7 +389,3 @@ export const quitar = (layout, clave) => layout.filter((m) => m.clave !== clave)
 export const cambiarFiltro = (layout, clave, filtro) =>
   layout.map((m) => (m.clave === clave ? { ...m, filtro } : m));
 
-// Cuántas filas de alto tiene la grilla, para saber hasta dónde se puede
-// arrastrar sin irse al infinito.
-export const filasDeLaGrilla = (layout) =>
-  layout.reduce((max, m) => Math.max(max, m.y + m.alto), 0);
