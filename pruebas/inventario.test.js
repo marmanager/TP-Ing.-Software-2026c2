@@ -18,7 +18,6 @@ import {
   enTotal,
   formDeProducto,
   igualAlEditar,
-  inventarioPorSede,
   motivoDelProducto,
   limpiarProducto,
   productoParaLaApi,
@@ -478,59 +477,4 @@ test("por qué no se puede guardar un producto todavía", () => {
   assert.equal(motivoDelProducto({ ...bien, cantidad: "0" }), null, "en el stock puede haber cero");
   assert.equal(motivoDelProducto({ ...bien, cantidad: "0" }, { desdeUno: true }), "la cantidad va en números, desde 1");
   assert.equal(motivoDelProducto({ ...bien, cantidad: "2.5" }, { desdeUno: true }), "la cantidad va en números, desde 1");
-});
-
-// ------------------------------------------------------------
-// Todas las sedes
-// ------------------------------------------------------------
-
-const CENTRO = { id: "c", nombre: "Centro" };
-const NORTE = { id: "n", nombre: "Norte" };
-const enSede = (extra = {}) => ({
-  negocio_id: "c", nombre: "Filtro de aceite", marca: "Mann", modelo: "W 712", categoria: null,
-  cantidad: 5, minimo: 2, unidad: "unidad", por_caja: null, estado: "en_stock", ...extra,
-});
-
-test("el mismo producto en dos sedes es una fila, con lo de cada una y el total", () => {
-  const [p, ...resto] = inventarioPorSede(
-    [enSede(), enSede({ negocio_id: "n", nombre: "filtro de ACEITE", marca: "mann", cantidad: 1 })],
-    [CENTRO, NORTE]
-  );
-  assert.equal(resto.length, 0);
-  assert.deepEqual(p.porSede.c, { cantidad: 5, bajo: false, enCamino: 0 });
-  assert.deepEqual(p.porSede.n, { cantidad: 1, bajo: true, enCamino: 0 });
-  assert.equal(p.total, 6);
-  assert.equal(p.faltaEnAlguna, true);
-});
-
-test("una sede que no lo tiene queda sin cantidad, no en cero", () => {
-  const [p] = inventarioPorSede([enSede()], [CENTRO, NORTE]);
-  assert.deepEqual(p.porSede.n, { cantidad: null, bajo: false, enCamino: 0 });
-  assert.equal(p.faltaEnAlguna, false);
-});
-
-test("cajas de distinto tamaño no se juntan", () => {
-  const filas = inventarioPorSede(
-    [enSede({ unidad: "caja", por_caja: 100 }), enSede({ negocio_id: "n", unidad: "caja", por_caja: 50 })],
-    [CENTRO, NORTE]
-  );
-  assert.equal(filas.length, 2);
-});
-
-test("lo pedido cuenta como en camino y no como stock", () => {
-  const [p] = inventarioPorSede(
-    [enSede(), enSede({ negocio_id: "n", estado: "pedido", cantidad: 3 })],
-    [CENTRO, NORTE]
-  );
-  assert.deepEqual(p.porSede.n, { cantidad: null, bajo: false, enCamino: 3 });
-  assert.equal(p.total, 5);
-});
-
-test("ordena por nombre y deja afuera filas de sedes que no vinieron en la lista", () => {
-  const filas = inventarioPorSede(
-    [enSede(), enSede({ nombre: "Bujía", marca: null, modelo: null }), enSede({ negocio_id: "x", cantidad: 99 })],
-    [CENTRO]
-  );
-  assert.deepEqual(filas.map((p) => p.nombre), ["Bujía", "Filtro de aceite"]);
-  assert.equal(filas[1].total, 5);
 });

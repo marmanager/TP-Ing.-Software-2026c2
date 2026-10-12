@@ -45,6 +45,12 @@ setDatos((d) => ponerInsumo(d, r.datos.insumo));
 return { ok: true };
 ```
 
+## Dos personas editando lo mismo
+
+Las ediciones de un caso, un cliente, la ficha del negocio, el rol de una ficha, un producto y el estado de un turno mandan el `actualizado_en` que se ve en pantalla. Si otro cambió esa fila mientras tanto, la API contesta 409 `choque` y no pisa lo del otro: `datos.js` muestra el aviso y vuelve a leer todo.
+
+Para que un cambio propio no choque contra el anterior, cada acción guarda la fila que devuelve la API (con su `actualizado_en` nuevo). Lo que cambia el negocio sin devolverlo entero (compartir la agenda o el calendario, los horarios) deja su versión vacía: el próximo cambio va sin ella, y la API escribe como siempre.
+
 ## La dirección
 
 Sale de `NEXT_PUBLIC_API_URL`. `api.js` acepta la raíz, la dirección anterior terminada en `/payments` y la nueva terminada en `/v1`; normaliza cualquiera de las tres antes de armar las rutas.
