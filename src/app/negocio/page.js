@@ -29,7 +29,7 @@ import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui
 export default function MiNegocio() {
   const datos = useDatos();
   const { cargando, negocio, casos, clientes, insumos, turnos } = datos;
-  const { usuario, esDemo } = useAuth();
+  const { usuario } = useAuth();
   useTitulo("Mi negocio");
 
   // Cambiar el rubro va en dos pasos: elegir y confirmar.
@@ -362,13 +362,9 @@ export default function MiNegocio() {
         </dl>
       </Tarjeta>
 
-      {(["duenio", "encargado"].includes(usuario?.rol) || !esDemo) && (
-        <>
-          <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
-          {["duenio", "encargado"].includes(usuario?.rol) && <ConexionMercadoPago />}
-          {!esDemo && <VincularGoogleCalendar comoIntegracion />}
-        </>
-      )}
+      <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
+      {["duenio", "encargado"].includes(usuario?.rol) && <ConexionMercadoPago />}
+      <VincularGoogleCalendar comoIntegracion />
 
       {/* La red de sedes (docs/red-de-sedes.md): con el submódulo prendido. */}
       {hijosActivos("inventario", modulosActivos).some((h) => h.clave === "sedes") && (

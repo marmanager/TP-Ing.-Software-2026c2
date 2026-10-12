@@ -60,7 +60,7 @@ Mientras esté vacía, cualquier llamada devuelve un error con código `sin_api`
 
 Las cuentas reales usan siempre `/v1`: sesión, carga inicial y los ocho recursos de la aplicación pasan por la API. Ya no existe un interruptor por recurso ni un camino alternativo desde el navegador hacia Supabase.
 
-El modo de ejemplo sigue siendo local y no usa servidor. Se conserva hasta que producto decida retirarlo y se reemplacen las pruebas de recorrido que lo usan.
+El modo de ejemplo ("Probá sin cuenta", todo en el navegador) se sacó: obligaba a tener una copia de las reglas en el front. Las e2e entran con una cuenta sembrada por la API (`POST /v1/pruebas/semilla`), y para mostrar el sistema se usa `npm run sembrar` en la API.
 
 Las únicas conexiones directas a Supabase que quedan en este repositorio se ejecutan del lado del servidor de Next:
 

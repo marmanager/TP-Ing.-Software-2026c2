@@ -156,7 +156,7 @@ export default function Equipo() {
             // 037)—, y un botón que no funciona no se muestra.
             const esVos = Boolean(e.usuario_id) && e.usuario_id === usuario?.id;
             // Quien creó el negocio: nadie le cambia el rol ni lo saca —la
-            // base lo rechaza (038)—. En el modo de ejemplo no hay creado_por.
+            // base lo rechaza (038)—.
             const esFundador = Boolean(e.usuario_id) && e.usuario_id === negocio?.creado_por;
             const intocable = esVos || esFundador;
             return (

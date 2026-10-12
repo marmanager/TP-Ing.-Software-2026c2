@@ -14,19 +14,6 @@
 // los negocios de antes de esta opción.
 export const MODOS_DE_NOMBRE = ["numero", "cliente", "identificador", "servicio"];
 
-// Con qué nombre nace un caso, según lo elegido en Mi negocio.
-//
-// Devuelve null cuando no hay nombre que poner —por número, o porque el dato
-// elegido vino vacío—, y entonces el caso se ve con su número. Nunca un nombre
-// en blanco: un título vacío en la lista de casos no se puede tocar ni leer.
-export function nombreInicial(modo, { cliente, identificador, servicio } = {}) {
-  const fuentes = { cliente, identificador, servicio };
-  // Un modo que no es ninguno de estos —un negocio guardado antes de que
-  // existiera la opción, o un valor roto— se trata como "por número".
-  if (!Object.hasOwn(fuentes, modo)) return null;
-  return fuentes[modo]?.trim() || null;
-}
-
 // Lo que se lee primero: el nombre, o "Caso 271" si no tiene.
 export function tituloDelCaso(caso) {
   return caso?.nombre?.trim() || `Caso ${caso?.numero}`;

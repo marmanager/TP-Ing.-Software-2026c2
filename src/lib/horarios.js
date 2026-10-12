@@ -256,33 +256,6 @@ export function huecosLibres({
   return porDia;
 }
 
-// Lo que ve quien abre el link de la agenda.
-//
-// Es el mismo recorte que hace ver_agenda_publica() en
-// supabase/024_pedir_turno.sql, para el modo de ejemplo. Del lado del
-// negocio se publican los horarios; de los turnos tomados viajan el instante
-// y cuánto duran, y nada más: quien entre va a saber que el martes a las 10
-// no hay lugar —que es lo que necesita saber— y nada sobre quién lo tomó.
-export function agendaPublica({ codigo, negocio, turnos = [] }) {
-  if (!codigo || !negocio || negocio.agenda_codigo !== codigo) return { sirve: false };
-
-  const ayer = Date.now() - 86400000;
-
-  return {
-    sirve: true,
-    negocio_nombre: negocio.nombre ?? null,
-    negocio_telefono: (negocio.telefono ?? "").trim() || null,
-    rubro: negocio.rubro ?? null,
-    horarios: negocio.horarios ?? null,
-    ocupados: turnos
-      .filter((t) => t.estado !== "cancelado" && new Date(t.empieza_en).getTime() >= ayer)
-      .map((t) => ({
-        empieza_en: t.empieza_en,
-        minutos_reservados: t.minutos_reservados ?? null,
-      })),
-  };
-}
-
 // Lo que contesta la API (GET /v1/publico/agenda/:codigo), con la forma que
 // ya usa la página pública: la misma que agendaPublica() más los días ya
 // armados. Con la API prendida, los huecos los calcula la API y la página no
@@ -307,45 +280,6 @@ export function agendaDeLaApi(datos) {
       huecos: (d.huecos ?? []).map((h) => new Date(h)),
     })),
   };
-}
-
-// El primer instante que ya queda afuera del tope: la medianoche del día
-// siguiente al último que se ofrece. Hoy cuenta como el día 1.
-function ultimoDiaQueSePide(h, ahora) {
-  const tope = new Date(ahora);
-  tope.setHours(0, 0, 0, 0);
-  tope.setDate(tope.getDate() + h.horizonteDias);
-  return tope;
-}
-
-// Si ese horario exacto sigue libre. Lo usa la reserva antes de escribir:
-// entre que el cliente vio la lista y tocó el botón pudo haber pasado
-// cualquier cosa, incluida otra persona reservando lo mismo.
-export function huecoSigueLibre({ cuando, horarios, turnos = [], ahora = new Date() } = {}) {
-  const h = normalizarHorarios(horarios);
-  if (!h || !horariosListos(h)) return false;
-
-  const momento = new Date(cuando);
-  if (Number.isNaN(momento.getTime())) return false;
-  if (momento.getTime() < ahora.getTime() + h.anticipacionHoras * 3600000) return false;
-  if (momento.getTime() >= ultimoDiaQueSePide(h, ahora).getTime()) return false;
-
-  // Tiene que ser uno de los huecos que el negocio ofrece, no una hora
-  // cualquiera: si no, alguien podría reservar a las 3 de la mañana mandando
-  // el dato a mano.
-  const delDia = huecosDelDia(momento, h);
-  if (!delDia.some((x) => x.getTime() === momento.getTime())) return false;
-
-  return !turnos
-    .filter((t) => t.estado !== "cancelado")
-    .some((t) =>
-      sePisan(
-        momento.getTime(),
-        h.minutos,
-        new Date(t.empieza_en).getTime(),
-        Number(t.minutos_reservados) > 0 ? Number(t.minutos_reservados) : h.minutos
-      )
-    );
 }
 
 // ------------------------------------------------------------

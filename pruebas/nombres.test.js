@@ -12,44 +12,9 @@ import assert from "node:assert/strict";
 import {
   casoEnFrase,
   lineaDelCaso,
-  nombreInicial,
   subtituloDelCaso,
   tituloDelCaso,
 } from "../src/lib/nombres.js";
-import { casoPublico } from "../src/lib/seguimiento.js";
-
-const alta = { cliente: "Hugo Peralta", identificador: "AB 123 CD", servicio: "Frenos" };
-
-// ---------------------------------------------------------------
-// Con qué nombre nace el caso
-// ---------------------------------------------------------------
-
-test("por número, el caso nace sin nombre y se ve con su número", () => {
-  assert.equal(nombreInicial("numero", alta), null);
-});
-
-test("por cliente, por patente o por motivo, nace con ese dato", () => {
-  assert.equal(nombreInicial("cliente", alta), "Hugo Peralta");
-  assert.equal(nombreInicial("identificador", alta), "AB 123 CD");
-  assert.equal(nombreInicial("servicio", alta), "Frenos");
-});
-
-test("se recortan los espacios de lo que escribió el mostrador", () => {
-  assert.equal(nombreInicial("cliente", { cliente: "  Hugo Peralta  " }), "Hugo Peralta");
-});
-
-test("si el dato elegido está vacío, nace sin nombre en vez de con uno en blanco", () => {
-  assert.equal(nombreInicial("identificador", { ...alta, identificador: "" }), null);
-  assert.equal(nombreInicial("identificador", { ...alta, identificador: "   " }), null);
-  assert.equal(nombreInicial("cliente", {}), null);
-});
-
-test("un negocio de antes de esta opción, sin nada elegido, sigue como siempre", () => {
-  // La columna nace con "numero" por defecto, pero un negocio del modo de
-  // ejemplo guardado antes no la tiene: llega undefined.
-  assert.equal(nombreInicial(undefined, alta), null);
-  assert.equal(nombreInicial("cualquier-cosa", alta), null);
-});
 
 // ---------------------------------------------------------------
 // Cómo se muestra
@@ -77,38 +42,6 @@ test("un caso de antes de esta opción, sin la clave nombre, se ve con su númer
   const caso = { numero: 271 };
   assert.equal(tituloDelCaso(caso), "Caso 271");
   assert.equal(subtituloDelCaso(caso), null);
-});
-
-// ---------------------------------------------------------------
-// El nombre es interno: el cliente no lo ve
-// ---------------------------------------------------------------
-
-test("el link de seguimiento no le muestra al cliente el nombre del caso", () => {
-  // Alguien del negocio le puede poner al caso un nombre que no es para el
-  // cliente. Lo que sale en el link es una lista cerrada de campos
-  // (CAMPOS_PUBLICOS), y el nombre no está: sigue viendo "Caso 271".
-  const publico = casoPublico({
-    codigo: "abc123",
-    negocio: { id: "n1", nombre: "Taller Sur", rubro: "taller" },
-    casos: [
-      {
-        id: "c1",
-        negocio_id: "n1",
-        numero: 271,
-        nombre: "El cliente que nunca paga",
-        cliente_id: "k1",
-        servicio: "Frenos",
-        estado: "en_proceso",
-        seguimiento_codigo: "abc123",
-      },
-    ],
-    clientes: [{ id: "k1", nombre: "Hugo Peralta" }],
-  });
-
-  assert.equal(publico.sirve, true);
-  assert.equal(publico.numero, 271);
-  assert.equal("nombre" in publico, false);
-  assert.equal(JSON.stringify(publico).includes("El cliente que nunca paga"), false);
 });
 
 // ---------------------------------------------------------------

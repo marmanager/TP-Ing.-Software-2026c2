@@ -7,11 +7,9 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
-  anularPagoEnLinea,
   apiPagosApuntaAlFrontend,
   pagarDesdeSeguimiento,
   pagosEnLinea,
-  pedirPagoEnLinea,
   vueltaDeMercadoPago,
 } from "../src/lib/pagos.js";
 import { hayPagosEnCamino, mensajeDePago, montoParaPedir, cuentaDelCaso } from "../src/lib/cobros.js";
@@ -39,16 +37,15 @@ function apiFalsa(status, cuerpo) {
 // Si se puede pedir un pago
 // ------------------------------------------------------------
 
-test("sin API y con Supabase, no se puede, y se dice por qué", () => {
-  const r = pagosEnLinea({ esDemo: false, api: null });
+test("sin API no se puede, y se dice por qué", () => {
+  const r = pagosEnLinea({ api: null });
   assert.equal(r.disponible, false);
   assert.ok(r.motivo);
 });
 
 test("con la API configurada, es de verdad", () => {
-  assert.deepEqual(pagosEnLinea({ esDemo: false, api: API }), {
+  assert.deepEqual(pagosEnLinea({ api: API }), {
     disponible: true,
-    simulado: false,
     motivo: null,
   });
 });
@@ -58,80 +55,6 @@ test("una URL de Vercel de la app no se toma por la API de pagos", () => {
   assert.equal(apiPagosApuntaAlFrontend(equivocada), true);
   assert.equal(pagosEnLinea({ api: equivocada }).disponible, false);
   assert.equal(apiPagosApuntaAlFrontend("https://tp-ingesoft-api.onrender.com/payments"), false);
-});
-
-test("en el modo de ejemplo se simula, aunque haya API", () => {
-  assert.equal(pagosEnLinea({ esDemo: true, api: API }).simulado, true);
-  assert.equal(pagosEnLinea({ esDemo: true, api: null }).disponible, true);
-});
-
-// ------------------------------------------------------------
-// Pedir un pago
-// ------------------------------------------------------------
-
-test("pide el pago con la sesión de la persona, no con una clave del servidor", async () => {
-  const cobro = { id: "x", estado: "pendiente", link: "https://pago/x" };
-  const { fetcher, llamadas } = apiFalsa(201, { ok: true, datos: { cobro } });
-  const r = await pedirPagoEnLinea({ casoId: "c1", monto: "60000", medio: "link", token: "jwt", api: API, fetcher });
-
-  assert.deepEqual(r, { ok: true, cobro, evento: null });
-  assert.equal(llamadas[0].url, `${API}/casos/c1/cobros/en-linea`);
-  assert.equal(llamadas[0].method, "POST");
-  assert.equal(llamadas[0].headers.Authorization, "Bearer jwt");
-  assert.deepEqual(llamadas[0].cuerpo, { monto: 60000, medio: "link" });
-});
-
-// Por /v1 el renglón "Pidieron un pago…" lo escribe la API y lo devuelve. Si
-// el front no lo recibe, lo anota él de nuevo y el historial queda repetido.
-test("devuelve el renglón del historial que anotó la API", async () => {
-  const cobro = { id: "x", estado: "pendiente", link: "https://pago/x" };
-  const evento = { id: "e1", caso_id: "c1", tipo: "plata", titulo: "Pidieron un pago por link" };
-  const { fetcher } = apiFalsa(201, { ok: true, datos: { cobro, evento } });
-  const r = await pedirPagoEnLinea({ casoId: "c1", monto: "60000", medio: "link", token: "jwt", api: API, fetcher });
-
-  assert.deepEqual(r, { ok: true, cobro, evento });
-});
-
-test("lo que contesta la API con palabras llega tal cual", async () => {
-  const { fetcher } = apiFalsa(422, { ok: false, error: { codigo: "SALDO_AGOTADO", mensaje: "Ese caso ya está cobrado." } });
-  const r = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "link", token: "t", api: API, fetcher });
-  assert.deepEqual(r, { ok: false, error: "Ese caso ya está cobrado." });
-});
-
-test("sesión vencida o sin permiso: una frase que diga qué hacer", async () => {
-  const vencida = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "link", token: "t", api: API, fetcher: apiFalsa(401).fetcher });
-  assert.match(vencida.error, /sesión venció/);
-  const sinPermiso = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "link", token: "t", api: API, fetcher: apiFalsa(403).fetcher });
-  assert.match(sinPermiso.error, /permiso/);
-});
-
-test("si la API no contesta, no explota", async () => {
-  const caida = async () => {
-    throw new Error("red");
-  };
-  const r = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "qr", token: "t", api: API, fetcher: caida });
-  assert.equal(r.ok, false);
-  assert.match(r.error, /conectarnos/);
-});
-
-test("un 200 que no dice ok no cuenta como pedido", async () => {
-  const r = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "qr", token: "t", api: API, fetcher: apiFalsa(200, {}).fetcher });
-  assert.equal(r.ok, false);
-});
-
-test("sin API no se llama a nada", async () => {
-  const { fetcher, llamadas } = apiFalsa(200, { ok: true });
-  const r = await pedirPagoEnLinea({ casoId: "c1", monto: 1, medio: "link", token: "t", api: null, fetcher });
-  assert.equal(r.ok, false);
-  assert.equal(llamadas.length, 0);
-});
-
-test("anular un pedido va a la API, para que el link deje de servir", async () => {
-  const { fetcher, llamadas } = apiFalsa(200, { ok: true, datos: { cobro: { id: "x/1", estado: "anulado" } } });
-  const r = await anularPagoEnLinea({ cobroId: "x/1", motivo: "Pagó en efectivo", token: "t", api: API, fetcher });
-  assert.equal(r.ok, true);
-  assert.equal(llamadas[0].url, `${API}/cobros/x%2F1/anular`);
-  assert.deepEqual(llamadas[0].cuerpo, { motivo: "Pagó en efectivo" });
 });
 
 // ------------------------------------------------------------

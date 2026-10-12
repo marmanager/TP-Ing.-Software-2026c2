@@ -21,7 +21,7 @@ import Icono from "@/componentes/Icono";
 export default function Unirme() {
   const { codigo } = useParams();
   const router = useRouter();
-  const { sesion, esDemo, cargando, verInvitacion, aceptarInvitacion } = useAuth();
+  const { sesion, cargando, verInvitacion, aceptarInvitacion } = useAuth();
   useTitulo("Sumarte a un negocio");
 
   const [mirando, setMirando] = useState(true);
@@ -121,21 +121,6 @@ export default function Unirme() {
               Ya tengo cuenta
             </Link>
           </div>
-        </Tarjeta>
-      </>
-    );
-  }
-
-  // Modo de ejemplo: no hay cuenta de verdad a la que atar nada.
-  if (esDemo) {
-    return (
-      <>
-        {cabecera}
-        <Tarjeta>
-          <p className="max-w-[65ch] text-tinta-media">
-            Estás en el modo de ejemplo. Para sumarte a un negocio de verdad hace falta
-            salir y entrar con tu propia cuenta.
-          </p>
         </Tarjeta>
       </>
     );

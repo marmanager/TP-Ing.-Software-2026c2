@@ -1,12 +1,10 @@
 "use client";
 
-// Sesión y cuentas (SCRUM-5).
+// Sesión y cuentas (SCRUM-5). Todo pasa por la API: entrar, crear la
+// cuenta, renovar la sesión. La sesión la guarda el front (src/lib/sesion.js).
 //
-// Dos modos, igual que la capa de datos:
-//   - Con credenciales de Supabase: cuentas reales (email + contraseña).
-//   - Sin credenciales: el modo de ejemplo, que entra sin contraseña y guarda
-//     todo en el navegador. Así el equipo clona y levanta el proyecto sin
-//     esperar a que alguien reparta las claves (ver README).
+// Para probar el sistema sin crear una cuenta a mano, la API siembra una con
+// datos listos (npm run sembrar, en la API).
 //
 // La tabla `usuario` liga la cuenta con su negocio, y de ahí cuelgan todas
 // las políticas de Row Level Security (supabase/005_rls.sql y 008_permisos.sql).
@@ -24,7 +22,6 @@ import {
   tokenVigente,
 } from "./sesion.js";
 
-const LLAVE_DEMO = "marmanager.demo.v1";
 const LLAVE_MAIL = "marmanager.mail-a-confirmar";
 const LLAVE_INVITACION = "marmanager.invitacion";
 const Contexto = createContext(null);
@@ -86,7 +83,6 @@ export function AuthProvider({ children }) {
   const [sesion, setSesion] = useState(null);
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
-  const [esDemo, setEsDemo] = useState(false);
   // Se prende cuando la persona entró por el enlace de "recuperar contraseña",
   // para dejarla llegar a /nueva-contrasena aunque ya tenga sesión y negocio.
   const [recuperando, setRecuperando] = useState(false);
@@ -145,17 +141,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let vivo = true;
 
-    // Modo de ejemplo: no necesita Supabase.
-    const demo =
-      typeof window !== "undefined" && window.localStorage.getItem(LLAVE_DEMO) === "1";
-    if (demo) {
-      setEsDemo(true);
-      setCargando(false);
-      return () => {
-        vivo = false;
-      };
-    }
-
     if (!hayCuentas) {
       setCargando(false);
       return () => {
@@ -208,7 +193,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!sesion?.access_token || !usuario?.negocio_id || esDemo) return;
+    if (!sesion?.access_token || !usuario?.negocio_id) return;
     let activo = true;
     let timer;
     (async () => {
@@ -233,7 +218,7 @@ export function AuthProvider({ children }) {
       } catch { /* La agenda funciona aunque Google esté desconectado. */ }
     })();
     return () => { activo = false; clearInterval(timer); };
-  }, [sesion?.access_token, usuario?.negocio_id, esDemo]);
+  }, [sesion?.access_token, usuario?.negocio_id]);
 
   const acciones = useMemo(
     () => ({
@@ -248,7 +233,7 @@ export function AuthProvider({ children }) {
           return {
             ok: false,
             error:
-              "Para crear una cuenta hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
+              "Para crear una cuenta hace falta que el sistema esté conectado a la API.",
           };
         const r = await mandar("/cuentas", { nombre, email, telefono, contrasena });
         if (!r.ok) return { ok: false, error: r.error.mensaje };
@@ -270,7 +255,7 @@ export function AuthProvider({ children }) {
           return {
             ok: false,
             error:
-              "Para iniciar sesión hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
+              "Para iniciar sesión hace falta que el sistema esté conectado a la API.",
           };
         const r = await mandar("/sesiones", { email, contrasena });
         if (!r.ok) return { ok: false, error: r.error.mensaje };
@@ -294,9 +279,8 @@ export function AuthProvider({ children }) {
           return {
             ok: false,
             error:
-              "Para entrar con Google hace falta conectar la base de Supabase. Mientras tanto podés entrar sin cuenta y probar el sistema.",
+              "Para entrar con Google hace falta que el sistema esté conectado a la API.",
           };
-        window.localStorage.removeItem(LLAVE_DEMO);
         const r = await mandar("/sesiones/google", {});
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         window.location.assign(r.datos.url);
@@ -304,11 +288,6 @@ export function AuthProvider({ children }) {
       },
 
       async cerrarSesion() {
-        if (esDemo) {
-          window.localStorage.removeItem(LLAVE_DEMO);
-          setEsDemo(false);
-          return { ok: true };
-        }
         if (sesion?.access_token) await quitar("/sesiones", sesion.access_token);
         borrarSesion();
         setSesion(null);
@@ -317,19 +296,9 @@ export function AuthProvider({ children }) {
         return { ok: true };
       },
 
-      entrarComoDemo() {
-        borrarSesion();
-        window.localStorage.setItem(LLAVE_DEMO, "1");
-        setEsDemo(true);
-        setSesion(null);
-        setUsuario(null);
-        setCargando(false);
-        return { ok: true };
-      },
-
       async pedirResetContrasena(email) {
         if (!hayCuentas)
-          return { ok: false, error: "Para recuperar la contraseña hace falta conectar la base de Supabase." };
+          return { ok: false, error: "Para recuperar la contraseña hace falta que el sistema esté conectado a la API." };
         await mandar("/sesiones/recuperar", { email });
         return { ok: true };
       },
@@ -413,7 +382,7 @@ export function AuthProvider({ children }) {
       // Mira una invitación con sólo el código, sin pertenecer al negocio.
       async verInvitacion(codigo) {
         if (!hayCuentas) {
-          return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
+          return { ok: false, error: "Para usar una invitación hace falta que el sistema esté conectado a la API." };
         }
         const r = await traer(`/publico/invitaciones/${encodeURIComponent(codigo)}`);
         if (!r.ok) return { ok: false, error: r.error.mensaje };
@@ -430,7 +399,7 @@ export function AuthProvider({ children }) {
 
       async aceptarInvitacion(codigo, nombre) {
         if (!hayCuentas) {
-          return { ok: false, error: "Para usar una invitación hace falta conectar la base de Supabase." };
+          return { ok: false, error: "Para usar una invitación hace falta que el sistema esté conectado a la API." };
         }
         const r = await mandar(`/invitaciones/${encodeURIComponent(codigo)}/aceptar`, { nombre: nombre ?? null }, sesion?.access_token);
         if (!r.ok) return { ok: false, error: r.error.mensaje };
@@ -440,17 +409,16 @@ export function AuthProvider({ children }) {
         return { ok: true };
       },
     }),
-    [esDemo, sesion]
+    [sesion]
   );
 
   const necesitaConfirmarMail = Boolean(
-    !esDemo && sesion?.user && !sesion.user.email_confirmed_at && !sesion.user.confirmed_at
+    sesion?.user && !sesion.user.email_confirmed_at && !sesion.user.confirmed_at
   );
 
   const valor = {
     sesion,
     usuario,
-    esDemo,
     recuperando,
     cargando,
     necesitaConfirmarMail,

@@ -13,13 +13,11 @@
 //     como pagado algo que no pagó.
 //   · No decide el monto final: la API lo vuelve a validar contra el caso.
 //
-// Si la API no está configurada:
-//   · En el modo de ejemplo se SIMULA: el cobro queda "esperando el pago" y
-//     la pantalla ofrece simular que se pagó o que venció. Sirve para armar
-//     y probar las pantallas; no es un pago.
-//   · Con Supabase y sin API, el botón aparece apagado y dice por qué.
+// Si la API no está configurada, el botón aparece apagado y dice por qué.
+// Pedir y anular pagos van por las acciones de datos.js; acá queda lo que
+// decide si se ofrece el botón y el pago desde el link del cliente.
 
-import { API, mandar } from "./api.js";
+import { API } from "./api.js";
 
 export function apiPagosApuntaAlFrontend(api) {
   if (!api) return false;
@@ -42,39 +40,14 @@ export function vueltaDeMercadoPago(desde) {
   return null;
 }
 
-// Si se puede pedir un pago en línea, y si es de verdad o simulado.
-export function pagosEnLinea({ esDemo = false, api = API } = {}) {
-  if (esDemo) return { disponible: true, simulado: true, motivo: null };
+// Si se puede pedir un pago en línea, y si no, por qué.
+export function pagosEnLinea({ api = API } = {}) {
   if (apiPagosApuntaAlFrontend(api)) return {
     disponible: false,
-    simulado: false,
     motivo: "la dirección de pagos apunta a la app; corregí NEXT_PUBLIC_API_URL en Vercel",
   };
-  if (api) return { disponible: true, simulado: false, motivo: null };
-  return {
-    disponible: false,
-    simulado: false,
-    motivo: "todavía no está conectado el sistema de pagos",
-  };
-}
-
-// Pedir un pago: la API arma el link o el QR con el medio de pago, guarda el
-// cobro "pendiente" en la tabla y lo devuelve. También anota el renglón del
-// historial y lo devuelve en "evento" (null si el cobro ya existía).
-export async function pedirPagoEnLinea({ casoId, monto, medio, token, api = API, fetcher = fetch }) {
-  const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/en-linea`,
-    { monto: Number(monto), medio }, token, { base: api, fetcher });
-  return r.ok
-    ? { ok: true, cobro: r.datos.cobro, evento: r.datos.evento ?? null }
-    : { ok: false, error: r.error.mensaje };
-}
-
-// Anular un pago que todavía no se hizo. Pasa por la API y no por la base
-// directo, porque además hay que dar de baja el link en el medio de pago: si
-// no, el cliente todavía podría pagarlo.
-export async function anularPagoEnLinea({ cobroId, motivo, token, api = API, fetcher = fetch }) {
-  const r = await mandar(`/cobros/${encodeURIComponent(cobroId)}/anular`, { motivo }, token, { base: api, fetcher });
-  return r.ok ? { ok: true, cobro: r.datos.cobro } : { ok: false, error: r.error.mensaje };
+  if (api) return { disponible: true, motivo: null };
+  return { disponible: false, motivo: "todavía no está conectado el sistema de pagos" };
 }
 
 // Pagar desde el link de seguimiento, cuando el negocio todavía no le mandó

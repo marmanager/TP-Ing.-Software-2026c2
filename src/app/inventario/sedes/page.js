@@ -22,7 +22,7 @@ import { PILDORA, PILDORA_NO, PILDORA_SI } from "@/componentes/Producto";
 import { Cargando, ErrorGeneral, Vacio } from "@/componentes/ui";
 
 export default function TodasLasSedes() {
-  const { esDemo, usuario, sesion } = useAuth();
+  const { usuario, sesion } = useAuth();
   const { negocio } = useDatos();
   const token = sesion?.access_token;
   const [respuesta, setRespuesta] = useState(null);
@@ -31,7 +31,6 @@ export default function TodasLasSedes() {
   useTitulo("Todas las sedes");
 
   useEffect(() => {
-    if (esDemo) return;
     let vivo = true;
     inventarioDeSedes(token).then((r) => {
       if (vivo) setRespuesta(r);
@@ -39,18 +38,12 @@ export default function TodasLasSedes() {
     return () => {
       vivo = false;
     };
-  }, [esDemo, token, negocio?.id]);
+  }, [token, negocio?.id]);
 
   const { articulo } = vocabulario(negocio?.rubro);
 
   let cuerpo;
-  if (esDemo) {
-    cuerpo = (
-      <Vacio icono="tienda" titulo="En el modo de ejemplo hay una sola sede">
-        Con una cuenta, vinculás tus sedes desde Mi negocio y acá ves el stock de todas juntas.
-      </Vacio>
-    );
-  } else if (!respuesta) {
+  if (!respuesta) {
     cuerpo = <Cargando />;
   } else if (!respuesta.ok) {
     cuerpo = <ErrorGeneral>{respuesta.error}</ErrorGeneral>;

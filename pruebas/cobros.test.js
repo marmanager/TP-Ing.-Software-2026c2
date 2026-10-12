@@ -12,7 +12,6 @@ import {
   cobradoDelCaso,
   casosConSaldo,
   cobrosConLoDeAntes,
-  pagoPublico,
   saldoDelCaso,
   cobrosDelCaso,
   cobrosPendientes,
@@ -204,48 +203,25 @@ test("para Inicio sólo cuentan los que esperan un pago", () => {
 // El estado de la aplicación: lo mismo que hace la base
 // ------------------------------------------------------------
 
-let n = 0;
-const nuevoId = () => `id-${++n}`;
 const estado = (caso, cobros = []) => ({ casos: [{ id: "c1", negocio_id: "n1", ...caso }], cobros });
 
 test("un cobro nuevo actualiza lo cobrado del caso", () => {
-  const d = conCobro(estado({ cobrado: null }), cobro({ id: "x", monto: 20000 }), { nuevoId });
+  const d = conCobro(estado({ cobrado: null }), cobro({ id: "x", monto: 20000 }));
   assert.equal(d.cobros.length, 1);
   assert.equal(d.casos[0].cobrado, 20000);
 });
 
 test("una seña y el resto se suman", () => {
-  let d = conCobro(estado({}), cobro({ id: "x", monto: 20000 }), { nuevoId });
-  d = conCobro(d, cobro({ id: "y", monto: 60000, pagado_en: "2026-09-22T10:00:00.000Z" }), { nuevoId });
+  let d = conCobro(estado({}), cobro({ id: "x", monto: 20000 }));
+  d = conCobro(d, cobro({ id: "y", monto: 60000, pagado_en: "2026-09-22T10:00:00.000Z" }));
   assert.equal(d.casos[0].cobrado, 80000);
   assert.equal(d.casos[0].cobrado_en, "2026-09-22T10:00:00.000Z");
 });
 
-test("un caso con un cobro de antes (012) no pierde lo que tenía al sumar uno nuevo", () => {
-  const viejo = estado({ cobrado: 50000, cobrado_en: "2026-09-01T10:00:00.000Z" });
-  const d = conCobro(viejo, cobro({ id: "x", monto: 10000 }), { adoptarLoViejo: true, nuevoId });
-  assert.equal(d.cobros.length, 2);
-  assert.equal(d.cobros[0].medio, "sin_dato");
-  assert.equal(d.casos[0].cobrado, 60000);
-});
-
-test("lo de antes se adopta una sola vez", () => {
-  let d = conCobro(estado({ cobrado: 50000 }), cobro({ id: "x", monto: 10000 }), { adoptarLoViejo: true, nuevoId });
-  d = conCobro(d, cobro({ id: "y", monto: 5000 }), { adoptarLoViejo: true, nuevoId });
-  assert.equal(d.cobros.filter((c) => c.medio === "sin_dato").length, 1);
-  assert.equal(d.casos[0].cobrado, 65000);
-});
-
-test("el cero de 'se entregó sin cobrar' no se convierte en un cobro", () => {
-  const d = conCobro(estado({ cobrado: 0 }), cobro({ id: "x", monto: 10000 }), { adoptarLoViejo: true, nuevoId });
-  assert.equal(d.cobros.length, 1);
-  assert.equal(d.casos[0].cobrado, 10000);
-});
-
 test("anular reemplaza el cobro y resta", () => {
-  let d = conCobro(estado({}), cobro({ id: "x", monto: 20000 }), { nuevoId });
-  d = conCobro(d, cobro({ id: "y", monto: 5000 }), { nuevoId });
-  d = conCobro(d, cobro({ id: "y", monto: 5000, estado: "anulado" }), { nuevoId });
+  let d = conCobro(estado({}), cobro({ id: "x", monto: 20000 }));
+  d = conCobro(d, cobro({ id: "y", monto: 5000 }));
+  d = conCobro(d, cobro({ id: "y", monto: 5000, estado: "anulado" }));
   assert.equal(d.cobros.length, 2);
   assert.equal(d.casos[0].cobrado, 20000);
 });
@@ -346,52 +322,4 @@ test("Inicio: sólo los entregados que deben", () => {
   const lista = casosConSaldo({ casos, pasos, cobros });
   assert.deepEqual(lista.map((x) => x.caso.id), ["debe"]);
   assert.equal(lista[0].cuenta.falta, 30000);
-});
-
-test("el cliente ve cuánto pagó, cuánto falta y sus links, y nada más", () => {
-  const caso = { id: "c1", estado: "completado", descuento: 5000 };
-  const cobros = [
-    cobro({ monto: 20000, nota: "Seña" }),
-    cobro({ monto: 30000, medio: "link", estado: "pendiente", link: "https://pago/x", vence_en: "2026-09-24T00:00:00.000Z" }),
-    cobro({ monto: 99999, medio: "qr", estado: "pendiente" }),
-    cobro({ monto: 99999, estado: "anulado", motivo_anulacion: "interno" }),
-  ];
-  const p = pagoPublico({ caso, pasos: pasosDe("c1", 80000), cobros });
-  assert.deepEqual(p, {
-    pagado: 20000,
-    falta: 0,
-    pendientes: [{ monto: 30000, link: "https://pago/x", vence_en: "2026-09-24T00:00:00.000Z" }],
-  });
-  const texto = JSON.stringify(p);
-  for (const interno of ["Seña", "efectivo", "interno", "5000", "descuento", "qr"]) {
-    assert.ok(!texto.includes(interno), `no viaja: ${interno}`);
-  }
-});
-
-test("antes de que esté listo no se habla de plata, salvo que le hayan mandado un link", () => {
-  const caso = { id: "c1", estado: "en_proceso" };
-  assert.equal(pagoPublico({ caso, pasos: pasosDe("c1", 80000), cobros: [] }), null);
-  const conLink = pagoPublico({
-    caso,
-    pasos: pasosDe("c1", 80000),
-    cobros: [cobro({ monto: 20000, medio: "link", estado: "pendiente", link: "l" })],
-  });
-  assert.equal(conLink.pendientes.length, 1);
-});
-
-test("listo para retirar: cuánto falta", () => {
-  const caso = { id: "c1", estado: "revision_final" };
-  assert.deepEqual(pagoPublico({ caso, pasos: pasosDe("c1", 80000), cobros: [cobro({ monto: 20000 })] }), {
-    pagado: 20000,
-    falta: 60000,
-    pendientes: [],
-  });
-});
-
-test("sin presupuesto aprobado, o sin saber si debe, no se dice nada", () => {
-  assert.equal(pagoPublico({ caso: { id: "c1", estado: "completado", descuento: 0 }, pasos: [], cobros: [] }), null);
-  assert.equal(
-    pagoPublico({ caso: { id: "c1", estado: "completado", cobrado: null, descuento: null }, pasos: pasosDe("c1", 5), cobros: [] }),
-    null
-  );
 });
