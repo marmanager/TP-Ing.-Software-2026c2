@@ -13,7 +13,7 @@ import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { vocabulario } from "@/lib/presets";
-import { filtrarProductos, inventarioPorSede, presentacion } from "@/lib/inventario";
+import { filtrarProductos, presentacion } from "@/lib/inventario";
 import { inventarioDeSedes } from "@/lib/sedes";
 import Buscador from "@/componentes/Buscador";
 import Icono from "@/componentes/Icono";
@@ -66,8 +66,10 @@ export default function TodasLasSedes() {
     );
   } else {
     const { sedes } = respuesta;
-    const visibles = filtrarProductos(inventarioPorSede(respuesta.insumos, sedes), { texto }).filter(
-      (p) => !soloFaltantes || p.faltaEnAlguna
+    // Los productos ya vienen agrupados por la API (qué es "el mismo
+    // producto" lo decide ella, con la misma regla que el stock).
+    const visibles = filtrarProductos(respuesta.productos, { texto }).filter(
+      (p) => !soloFaltantes || p.falta_en_alguna
     );
     const nombreDe = (s) => (s.id === negocio?.id ? `${s.nombre} (ésta)` : s.nombre);
 
@@ -117,7 +119,7 @@ export default function TodasLasSedes() {
                     </th>
                     {sedes.map((s) => (
                       <td key={s.id} className="p-4">
-                        <Celda celda={p.porSede[s.id]} />
+                        <Celda celda={p.por_sede[s.id]} />
                       </td>
                     ))}
                     <td className="p-4 font-bold tabular-nums">
@@ -138,7 +140,7 @@ export default function TodasLasSedes() {
                       <div key={s.id} className="flex flex-wrap gap-x-2">
                         <dt className="text-tinta-media">{nombreDe(s)}:</dt>
                         <dd>
-                          <Celda celda={p.porSede[s.id]} />
+                          <Celda celda={p.por_sede[s.id]} />
                         </dd>
                       </div>
                     ))}
@@ -193,7 +195,7 @@ function Celda({ celda }) {
           bajo
         </span>
       )}
-      {celda.enCamino > 0 && <span className="text-tinta-media">+{celda.enCamino} en camino</span>}
+      {celda.en_camino > 0 && <span className="text-tinta-media">+{celda.en_camino} en camino</span>}
     </span>
   );
 }

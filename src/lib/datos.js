@@ -270,13 +270,29 @@ export function DatosProvider({ children }) {
     // Para los cambios que ya se ven en pantalla antes de que conteste la API
     // (sumar uno, escribir la cantidad, borrar): se mandan por atrás, y si la
     // API dice que no, se avisa con su mensaje y se vuelve a leer todo, para
-    // que la pantalla no quede mostrando algo que no pasó.
-    const enLaApi = async (pedir) => {
+    // que la pantalla no quede mostrando algo que no pasó. Un 409 "choque"
+    // (otro lo cambió mientras tanto) es eso mismo: aviso y lo último.
+    //
+    // "alSalir" recibe lo que contestó la API: la fila como quedó, con su
+    // actualizado_en nuevo, para que el próximo cambio no choque contra uno
+    // propio.
+    const enLaApi = async (pedir, alSalir) => {
       const r = await pedir(await tokenDeSesion());
-      if (r.ok) return;
+      if (r.ok) return alSalir?.(r.datos);
       setAviso(r.error.mensaje);
       setRefresco((n) => n + 1);
     };
+
+    // La versión que se ve en pantalla (actualizado_en). Con ella la API sabe
+    // si otro cambió la fila mientras tanto (409); sin ella, escribe igual.
+    const version = (lista, id) => lista.find((x) => x.id === id)?.actualizado_en;
+    const ponerFila = (lista, fila) => lista.map((x) => (x.id === fila.id ? fila : x));
+    const ponerNegocio = (negocio) => setDatos((d) => ({ ...d, negocio: conModulos(negocio) }));
+    // La base cambió el negocio (un código, los horarios) y la API no lo
+    // devuelve entero: no se sabe su actualizado_en nuevo, así que el próximo
+    // cambio va sin versión en vez de chocar contra uno propio.
+    const sinVersionDelNegocio = (cambios) =>
+      setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios, actualizado_en: undefined } }));
 
     const incorporarCasoApi = ({ caso, cliente, turno, evento, eventos = [] }) => setDatos((d) => ({
       ...d,
@@ -799,9 +815,11 @@ export function DatosProvider({ children }) {
       async editarInsumo(insumoId, form) {
         const actual = datos.insumos.find((i) => i.id === insumoId);
         if (!actual) return null;
-        const r = await reemplazar(`/insumos/${insumoId}`, productoParaLaApi(form), await tokenDeSesion());
+        const r = await reemplazar(`/insumos/${insumoId}`,
+          { ...productoParaLaApi(form), actualizado_en: actual.actualizado_en }, await tokenDeSesion());
         if (!r.ok) {
           setAviso(r.error.mensaje);
+          if (r.error.codigo === "choque") setRefresco((n) => n + 1);
           return null;
         }
         const resultado = r.datos;
@@ -863,7 +881,8 @@ export function DatosProvider({ children }) {
           ...d,
           empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol } : e)),
         }));
-        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol }, token));
+        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol, actualizado_en: version(datos.empleados, empleadoId) }, token),
+          ({ empleado }) => setDatos((d) => ({ ...d, empleados: ponerFila(d.empleados, empleado) })));
         return;
       },
 
@@ -949,7 +968,8 @@ export function DatosProvider({ children }) {
           ...d,
           clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono } : c)),
         }));
-        enLaApi((token) => parchar(`/clientes/${clienteId}`, { telefono }, token));
+        enLaApi((token) => parchar(`/clientes/${clienteId}`, { telefono, actualizado_en: version(datos.clientes, clienteId) }, token),
+          ({ cliente }) => setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, cliente) })));
         return;
       },
 
@@ -997,7 +1017,7 @@ export function DatosProvider({ children }) {
             t.id === turnoId ? { ...t, estado: "atendido", caso_id: casoId } : t
           ),
         }));
-        enLaApi((token) => mandar(`/turnos/${turnoId}/atender`, { caso_id: casoId }, token));
+        enLaApi((token) => mandar(`/turnos/${turnoId}/atender`, { caso_id: casoId }, token), (turno) => setDatos((d) => ({ ...d, turnos: ponerFila(d.turnos, turno) })));
         return;
       },
 
@@ -1010,7 +1030,7 @@ export function DatosProvider({ children }) {
             t.id === turnoId ? { ...t, estado: "confirmado", caso_id: null } : t
           ),
         }));
-        enLaApi((token) => mandar(`/turnos/${turnoId}/desatender`, {}, token));
+        enLaApi((token) => mandar(`/turnos/${turnoId}/desatender`, {}, token), (turno) => setDatos((d) => ({ ...d, turnos: ponerFila(d.turnos, turno) })));
         return;
       },
 
@@ -1022,7 +1042,8 @@ export function DatosProvider({ children }) {
           ...d,
           turnos: d.turnos.map((t) => (t.id === turnoId ? { ...t, estado } : t)),
         }));
-        enLaApi((token) => parchar(`/turnos/${turnoId}`, { estado }, token));
+        enLaApi((token) => parchar(`/turnos/${turnoId}`, { estado, actualizado_en: version(datos.turnos, turnoId) }, token),
+          (turno) => setDatos((d) => ({ ...d, turnos: ponerFila(d.turnos, turno) })));
         return;
       },
 
@@ -1047,7 +1068,7 @@ export function DatosProvider({ children }) {
       cambiarRubro(rubro) {
         if (datos.casos.length > 0) return false;
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, rubro } }));
-        enLaApi((token) => parchar("/negocio", { rubro }, token));
+        enLaApi((token) => parchar("/negocio", { rubro, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
         return true;
       },
 
@@ -1071,7 +1092,7 @@ export function DatosProvider({ children }) {
           telefono: (telefono ?? "").trim() || null,
         };
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
-        enLaApi((token) => parchar("/negocio", cambios, token));
+        enLaApi((token) => parchar("/negocio", { ...cambios, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
         return;
       },
 
@@ -1084,14 +1105,14 @@ export function DatosProvider({ children }) {
 
         const r = await mandar("/negocio/agenda/compartir", {}, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
-        setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: r.datos.codigo } }));
+        sinVersionDelNegocio({ agenda_codigo: r.datos.codigo });
         return { ok: true, codigo: r.datos.codigo };
       },
 
       async dejarDeCompartirAgenda() {
         const r = await mandar("/negocio/agenda/dejar-de-compartir", {}, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
-        setDatos((d) => ({ ...d, negocio: { ...d.negocio, agenda_codigo: null } }));
+        sinVersionDelNegocio({ agenda_codigo: null });
         return { ok: true };
       },
 
@@ -1105,14 +1126,14 @@ export function DatosProvider({ children }) {
 
         const r = await mandar("/negocio/calendario/compartir", {}, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
-        setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: r.datos.codigo } }));
+        sinVersionDelNegocio({ ics_codigo: r.datos.codigo });
         return { ok: true, codigo: r.datos.codigo };
       },
 
       async dejarDeCompartirCalendario() {
         const r = await mandar("/negocio/calendario/dejar-de-compartir", {}, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
-        setDatos((d) => ({ ...d, negocio: { ...d.negocio, ics_codigo: null } }));
+        sinVersionDelNegocio({ ics_codigo: null });
         return { ok: true };
       },
 
@@ -1131,7 +1152,7 @@ export function DatosProvider({ children }) {
             setRefresco((n) => n + 1);
             return;
           }
-          setDatos((d) => ({ ...d, negocio: { ...d.negocio, horarios: r.datos.horarios } }));
+          sinVersionDelNegocio({ horarios: r.datos.horarios });
         })();
         return;
       },
@@ -1157,7 +1178,7 @@ export function DatosProvider({ children }) {
       // que ya existen: esos se editan de a uno desde el caso.
       cambiarNombrarCasos(modo) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, nombrar_casos: modo } }));
-        enLaApi((token) => parchar("/negocio", { nombrar_casos: modo }, token));
+        enLaApi((token) => parchar("/negocio", { nombrar_casos: modo, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
         return;
       },
 
@@ -1165,13 +1186,13 @@ export function DatosProvider({ children }) {
       // siendo las mismas; sólo cambian el nombre y el símbolo visibles.
       cambiarPresentacionEstados(estados) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, estados } }));
-        enLaApi((token) => parchar("/negocio", { estados }, token));
+        enLaApi((token) => parchar("/negocio", { estados, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
       },
 
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
       cambiarModulos(claves) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));
-        enLaApi((token) => reemplazar("/negocio/modulos", { valor: claves }, token));
+        enLaApi((token) => reemplazar("/negocio/modulos", { valor: claves }, token), ({ negocio }) => negocio && ponerNegocio(negocio));
         return;
       },
 
@@ -1180,7 +1201,7 @@ export function DatosProvider({ children }) {
       // qué filtro.
       cambiarInicio(config) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, inicio: config } }));
-        enLaApi((token) => reemplazar("/negocio/inicio", { valor: config }, token));
+        enLaApi((token) => reemplazar("/negocio/inicio", { valor: config }, token), ({ negocio }) => negocio && ponerNegocio(negocio));
         return;
       },
 
