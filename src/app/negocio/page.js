@@ -15,12 +15,13 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
-import { LISTA_MODULOS, estaPrendido } from "@/lib/modulos";
+import { LISTA_MODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
 import { telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
+import SedesVinculadas from "@/componentes/SedesVinculadas";
 import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
@@ -366,6 +367,14 @@ export default function MiNegocio() {
           <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
           {["duenio", "encargado"].includes(usuario?.rol) && <ConexionMercadoPago />}
           {!esDemo && <VincularGoogleCalendar comoIntegracion />}
+        </>
+      )}
+
+      {/* La red de sedes (docs/red-de-sedes.md): con el submódulo prendido. */}
+      {hijosActivos("inventario", modulosActivos).some((h) => h.clave === "sedes") && (
+        <>
+          <TituloSeccion id="sedes">Sedes vinculadas</TituloSeccion>
+          <SedesVinculadas />
         </>
       )}
 

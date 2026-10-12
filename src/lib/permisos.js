@@ -14,18 +14,21 @@ export const PERMISOS = {
     manejarEquipo: true,
     verTodosLosCasos: true,
     cargarDatos: true,
+    vincularSedes: true,
   },
   encargado: {
     configurarNegocio: false,
     manejarEquipo: false,
     verTodosLosCasos: true,
     cargarDatos: true,
+    vincularSedes: false,
   },
   tecnico: {
     configurarNegocio: false,
     manejarEquipo: false,
     verTodosLosCasos: false,
     cargarDatos: false,
+    vincularSedes: false,
   },
 };
 
@@ -69,6 +72,7 @@ export const QUIEN_PUEDE = {
   configurarNegocio: "Esto lo cambia el dueño del negocio.",
   manejarEquipo: "Sumar y sacar gente lo hace el dueño del negocio.",
   cargarDatos: "Esto lo cargan el dueño y el encargado.",
+  vincularSedes: "Vincular sedes lo hace el dueño del negocio.",
   // Ninguna pantalla la consulta: de esta se encarga sola la base, que no le
   // manda al técnico los casos que no son suyos. Está para que las cuatro
   // acciones se puedan explicar con las mismas palabras si hace falta.
@@ -82,6 +86,7 @@ const QUE_ES = {
   manejarEquipo: "sumar y sacar gente del equipo",
   verTodosLosCasos: "ver todos los casos, no sólo los suyos",
   cargarDatos: "cargar y cambiar casos, presupuestos, clientes, agenda e inventario",
+  vincularSedes: "vincular este negocio con sus otras sedes",
 };
 
 // Qué gana y qué pierde alguien al pasar de un rol a otro.

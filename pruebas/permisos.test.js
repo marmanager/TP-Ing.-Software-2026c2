@@ -138,3 +138,14 @@ test("cada permiso que existe tiene su frase: si se suma uno, no queda callado",
 test("el mismo rol no cambia nada", () => {
   assert.deepEqual(queCambiaConElRol("encargado", "encargado"), { gana: [], pierde: [] });
 });
+
+test("vincular sedes lo hace sólo el dueño", () => {
+  assert.equal(puede("duenio", "vincularSedes"), true);
+  assert.equal(puede("encargado", "vincularSedes"), false);
+  assert.equal(puede("tecnico", "vincularSedes"), false);
+});
+
+test("pasar de encargado a dueño dice que gana vincular las sedes", () => {
+  const { gana } = queCambiaConElRol("encargado", "duenio");
+  assert.ok(gana.some((t) => /sedes/.test(t)));
+});
