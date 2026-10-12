@@ -23,7 +23,7 @@ import { Boton, Campo, Cargando, Tarjeta, TituloPantalla, TituloSeccion, Vacio }
 export default function Invitaciones() {
   const datos = useDatos();
   const { cargando, negocio, invitaciones, avisarExito } = datos;
-  const { esDemo, usuario } = useAuth();
+  const { usuario } = useAuth();
   useTitulo("Invitar a alguien");
 
   const [rol, setRol] = useState("tecnico");
@@ -89,21 +89,6 @@ export default function Invitaciones() {
       Volver al equipo
     </Link>
   );
-
-  if (esDemo) {
-    return (
-      <>
-        {volver}
-        <TituloPantalla>Invitar a alguien</TituloPantalla>
-        <Tarjeta>
-          <p className="max-w-[65ch] text-tinta-media">
-            En el modo de ejemplo no se puede invitar: hace falta que las dos personas
-            tengan una cuenta de verdad.
-          </p>
-        </Tarjeta>
-      </>
-    );
-  }
 
   if (!esDuenio) {
     return (

@@ -202,8 +202,8 @@ export default function PedirTurno() {
   }
 
   // Con los turnos por la API, los huecos ya vienen calculados por la API
-  // (que es la que después decide si se puede reservar). Sin la API, o en el
-  // modo de ejemplo, se calculan acá como siempre.
+  // (que es la que después decide si se puede reservar). Si no vinieran, se
+  // calculan acá como siempre.
   const dias =
     agenda.dias ??
     huecosLibres({

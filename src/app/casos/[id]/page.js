@@ -25,7 +25,7 @@ import {
   sePuedeMarcarHecho,
 } from "@/lib/estados";
 import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { queFaltaPara, comoSeIdentifica, vocabulario } from "@/lib/presets";
+import { comoSeIdentifica, vocabulario } from "@/lib/presets";
 import { presentacionEstado } from "@/lib/presentacion-estados";
 import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -111,14 +111,14 @@ export default function VerCaso() {
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const nombreEstado = (estado) => presentacionEstado(negocio, estado).nombre;
-  const puedeNotificar = datos.casosPorApi && telefonoWhatsAppValido(cliente?.telefono);
+  const puedeNotificar = telefonoWhatsAppValido(cliente?.telefono);
   const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega))[0];
 
-  async function cambiarEstadoDelCaso(nuevo, dice) {
+  async function cambiarEstadoDelCaso(nuevo) {
     if (cambiandoEstado || cerrando) return;
     setCambiandoEstado(true);
     try {
-      await datos.cambiarEstado(caso.id, nuevo, queFaltaPara(negocio?.rubro, nuevo), dice, {}, {
+      await datos.cambiarEstado(caso.id, nuevo, {
         notificarCliente: notificarCliente && puedeNotificar,
       });
     } finally {
@@ -260,9 +260,8 @@ export default function VerCaso() {
               </div>
               {sePuedeEditar && (
                 <p id="notificar-estado-ayuda" className="mt-1 max-w-[36ch] text-apoyo text-tinta-media">
-                  {!datos.casosPorApi ? "La cuenta de ejemplo no envía mensajes."
-                    : !puedeNotificar ? "Falta un teléfono con código de país."
-                      : "Avisar al cliente al cambiar el estado."}
+                  {!puedeNotificar ? "Falta un teléfono con código de país."
+                    : "Avisar al cliente al cambiar el estado."}
                 </p>
               )}
             </div>
@@ -917,7 +916,7 @@ export default function VerCaso() {
                     </fieldset>
                   )}
 
-                {puedeCargar && (datos.casosPorApi ? (
+                {puedeCargar && (
                   <SeguimientoWhatsApp
                     key={caso.id}
                     datos={datos}
@@ -926,11 +925,7 @@ export default function VerCaso() {
                     alCambiar={setSeguimientoEntrega}
                     guardando={cerrando || cambiandoEstado}
                   />
-                ) : (
-                  <p className="my-6 border-t border-borde pt-6 text-tinta-media">
-                    La cuenta de ejemplo no envía mensajes de seguimiento por WhatsApp.
-                  </p>
-                ))}
+                )}
 
                 {errorEntrega && (
                   <p role="alert" className="mb-4 flex items-start gap-2 font-bold text-rojo">
@@ -951,82 +946,19 @@ export default function VerCaso() {
                       const monto = montoCobrado(cobro);
                       setErrorEntrega(null);
 
-                      if (datos.casosPorApi) {
-                        setCerrando(true);
-                        const r = await datos.entregarCaso({
-                          casoId: caso.id,
-                          monto,
-                          medio: medioEntrega,
-                          resto: elResto,
-                          seguimiento: seguimientoEntrega,
-                        });
-                        setCerrando(false);
-                        if (!r.ok) return setErrorEntrega(r.error);
-                        datos.avisarExito(
-                          r.falta > 0
-                            ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
-                            : monto > 0
-                              ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
-                              : `Listo. El ${casoEnFrase(caso)} quedó entregado.`
-                        );
-                        setEntregando(false);
-                        return;
-                      }
-
-                      // Primero el cobro, después el cierre: si el cobro no
-                      // se pudo anotar, el caso no se cierra como si se
-                      // hubiera cobrado.
-                      if (monto > 0) {
-                        setCerrando(true);
-                        const r = await datos.registrarCobro({
-                          casoId: caso.id,
-                          monto,
-                          medio: medioEntrega,
-                        });
-                        setCerrando(false);
-                        if (!r.ok) return setErrorEntrega(r.error);
-                      }
-
-                      // Lo que queda después de lo que se cobra hoy. Si se
-                      // eligió no cobrarlo, pasa a descuento y no se debe.
-                      const restoAntes = Math.max(0, cuenta.falta - (monto > 0 ? monto : 0));
-                      const descuenta = monto != null && restoAntes > 0 && elResto === "no_se_cobra";
-                      const resto = descuenta ? 0 : restoAntes;
-
-                      // El 0 de SCRUM-74: se entregó sin cobrar nada. Sólo
-                      // tiene sentido en un caso sin cobros; con una seña,
-                      // "0 hoy" no es "no se cobró nada".
-                      const sinCobrarNada = monto === 0 && cobrosDeEste.length === 0;
-
-                      datos.cambiarEstado(
-                        caso.id,
-                        "completado",
-                        queFaltaPara(negocio?.rubro, "completado"),
-                        {
-                          titulo: "Entregaron el trabajo",
-                          detalle:
-                            "El caso queda cerrado." +
-                            (monto > 0 ? ` Cobraron ${pesos(monto)}.` : "") +
-                            (sinCobrarNada && descuenta ? " No se cobró nada." : "") +
-                            (descuenta && !sinCobrarNada ? ` No le cobran ${pesos(restoAntes)}.` : "") +
-                            (resto > 0 ? ` Falta cobrar ${pesos(resto)}.` : ""),
-                          icono: "listo",
-                        },
-                        {
-                          ...(sinCobrarNada && descuenta
-                            ? { cobrado: 0, cobrado_en: new Date().toISOString() }
-                            : {}),
-                          // El descuento se escribe siempre, aunque sea 0: es
-                          // la marca de que se cerró sabiendo cuánto quedaba
-                          // (saldoConocido en lib/cobros.js). Sin ella, un
-                          // caso cerrado "me paga después" no se distinguiría
-                          // de uno viejo cobrado por afuera.
-                          descuento: descuenta ? cuenta.descuento + restoAntes : cuenta.descuento,
-                        }
-                      );
+                      setCerrando(true);
+                      const r = await datos.entregarCaso({
+                        casoId: caso.id,
+                        monto,
+                        medio: medioEntrega,
+                        resto: elResto,
+                        seguimiento: seguimientoEntrega,
+                      });
+                      setCerrando(false);
+                      if (!r.ok) return setErrorEntrega(r.error);
                       datos.avisarExito(
-                        resto > 0
-                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(resto)}.`
+                        r.falta > 0
+                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
                           : monto > 0
                             ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
                             : `Listo. El ${casoEnFrase(caso)} quedó entregado.`
@@ -1070,16 +1002,7 @@ export default function VerCaso() {
                   variante="neutro"
                   icono="deshacer"
                   onClick={() =>
-                    datos.cambiarEstado(
-                      caso.id,
-                      "en_proceso",
-                      queFaltaPara(negocio?.rubro, "en_proceso"),
-                      {
-                        titulo: "Volvieron a abrir el caso",
-                        detalle: "Se había cerrado antes de tiempo.",
-                        icono: "deshacer",
-                      }
-                    )
+                    datos.cambiarEstado(caso.id, "en_proceso")
                   }
                 >
                   Volver a abrirlo

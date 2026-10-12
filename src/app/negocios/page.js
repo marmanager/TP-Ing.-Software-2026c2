@@ -10,8 +10,6 @@
 //
 // Sin ningún negocio va a "Crear tu negocio", que es donde viven el aviso de
 // mail recién confirmado y el de invitación pendiente.
-//
-// El modo de ejemplo tiene un negocio solo y no pasa por acá.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -25,7 +23,7 @@ import { Boton, Cargando, ErrorGeneral, Tarjeta, TituloPantalla } from "@/compon
 
 export default function Negocios() {
   const router = useRouter();
-  const { esDemo, usuario, misNegocios, entrarAlNegocio } = useAuth();
+  const { usuario, misNegocios, entrarAlNegocio } = useAuth();
   useTitulo("Tus negocios");
 
   const [negocios, setNegocios] = useState(null);
@@ -50,10 +48,6 @@ export default function Negocios() {
   }
 
   useEffect(() => {
-    if (esDemo) {
-      router.replace("/");
-      return;
-    }
     let vivo = true;
     (async () => {
       const r = await misNegocios();

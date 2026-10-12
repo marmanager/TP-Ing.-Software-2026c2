@@ -19,7 +19,7 @@ import Icono from "@/componentes/Icono";
 
 export default function CrearNegocio() {
   const router = useRouter();
-  const { esDemo, usuario, refrescarUsuario } = useAuth();
+  const { usuario, refrescarUsuario } = useAuth();
   const { crearNegocio } = useDatos();
   useTitulo("Crear tu negocio");
 
@@ -210,7 +210,7 @@ export default function CrearNegocio() {
 
       {/* Quien ya está en un negocio llega acá desde "Nuevo negocio", y puede
           arrepentirse. */}
-      {!esDemo && usuario?.negocio_id && (
+      {usuario?.negocio_id && (
         <div className="mt-6">
           <Link href="/" className="inline-flex min-h-12 items-center gap-2 font-bold text-azul">
             <Icono nombre="volver" />

@@ -739,8 +739,7 @@ function SeccionPago({ pago, completado, principal }) {
               </>
             )}
 
-            {/* Los links que le mandó el negocio. En el modo de ejemplo no
-                hay link de verdad, y se dice. */}
+            {/* Los links que le mandó el negocio. */}
             {pendientes.map((x, i) => (
               <div key={i} className="mt-4 rounded-campo bg-superficie p-4">
                 <p className="text-tinta-media">

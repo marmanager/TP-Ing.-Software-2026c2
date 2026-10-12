@@ -107,12 +107,12 @@ export const LISTA_MODULOS = Object.values(MODULOS);
 // POR QUÉ NO UNA MIGRACIÓN. Agregarlos a la lista de cada negocio con SQL
 // parece lo directo, pero las migraciones de este repo se pueden volver a
 // correr, y volver a correr ésa prendería de nuevo lo que un dueño apagó.
-// Taparlo pedía una columna de versión, repetir lo mismo para el modo de
-// ejemplo, y dejaba un caso donde la elección de alguien se deshace sola.
+// Taparlo pedía una columna de versión, y dejaba un caso donde la elección
+// de alguien se deshace sola.
 //
 // LO QUE SE HACE. Los "deFabrica" están prendidos salvo que alguien los haya
 // apagado, y apagarlos se anota explícito como "-clientes". Nada que migrar,
-// igual en Supabase y en el modo de ejemplo, y ningún negocio pierde nada.
+// y ningún negocio pierde nada.
 const apagado = (clave) => `-${clave}`;
 
 export function estaPrendido(clave, activos = []) {

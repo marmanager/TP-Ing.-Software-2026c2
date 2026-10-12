@@ -2,8 +2,8 @@
 //
 // Sin React y sin Supabase, para que se pueda probar con Jest
 // (pruebas/cobros.test.js). La tabla y las reglas de quién puede qué están
-// en supabase/025_cobros.sql; esto es lo que la pantalla necesita para
-// mostrarlo, y lo que el modo de ejemplo necesita para comportarse igual.
+// en la API y en supabase/025_cobros.sql; esto es lo que la pantalla
+// necesita para mostrarlo.
 //
 // UN CASO, VARIOS COBROS:
 // Una seña al dejar el auto y el resto al retirarlo. Un pago en efectivo y
@@ -107,8 +107,8 @@ export const cobrosDelCaso = (cobros = [], casoId) =>
 const suma = (lista) => lista.reduce((s, c) => s + Number(c.monto), 0);
 
 // Lo que va a caso.cobrado. Es la misma cuenta que hace el trigger de
-// 025_cobros.sql, para que el modo de ejemplo quede igual que la base:
-// la suma de lo pagado, o null si todavía no se pagó nada.
+// 025_cobros.sql, para que lo que se ve en pantalla quede igual que la base
+// sin volver a leerla: la suma de lo pagado, o null si no se pagó nada.
 //
 // Sólo se usa para un caso que TIENE cobros en la tabla. Uno que no tiene
 // conserva lo que ya tenía, incluido el 0 de "se entregó sin cobrar".
@@ -191,10 +191,9 @@ export function sePuedeAnular(cobro) {
 }
 
 // Los cobros de un caso para mostrar, contando lo que se anotó antes de que
-// existiera la tabla. En la base, 025 ya lo pasó a la tabla; en el modo de
-// ejemplo puede quedar un caso con el número de 012 y ninguna fila. Sin
-// esto, la cuenta diría que falta todo, y al entregar se volvería a cobrar
-// lo que ya se cobró.
+// existiera la tabla. En la base, 025 ya lo pasó a la tabla, pero un caso
+// con el número de 012 y ninguna fila haría que la cuenta diga que falta
+// todo, y al entregar se volvería a cobrar lo que ya se cobró.
 //
 // La fila que se agrega es sólo para mirar ("deAntes"): no se anula, porque
 // no existe. El primer cobro nuevo la vuelve de verdad (conCobro).
@@ -224,36 +223,11 @@ export const cobrosPendientes = (cobros = []) => cobros.filter((c) => c.estado =
 
 // Pone un cobro nuevo (o su nueva versión) en el estado y recalcula
 // caso.cobrado con la misma cuenta que el trigger de 025_cobros.sql.
-//
-// "adoptarLoViejo" es el modo de ejemplo haciendo lo que la migración hizo
-// en la base: un caso que tenía un cobro anotado con 012, y ninguno en la
-// lista, primero pasa ese número a la lista (medio "sin dato"). Si no, el
-// primer cobro nuevo pisaría lo que ya estaba en vez de sumarse.
-export function conCobro(d, cobro, { adoptarLoViejo = false, nuevoId } = {}) {
-  let cobros = d.cobros ?? [];
-  const caso = d.casos.find((c) => c.id === cobro.caso_id);
-
-  if (adoptarLoViejo && caso && Number(caso.cobrado) > 0 && !cobros.some((c) => c.caso_id === caso.id)) {
-    const cuando = caso.cobrado_en ?? caso.actualizado_en ?? caso.abierto_en ?? new Date().toISOString();
-    cobros = [
-      ...cobros,
-      {
-        id: nuevoId(),
-        negocio_id: caso.negocio_id,
-        caso_id: caso.id,
-        monto: Number(caso.cobrado),
-        medio: "sin_dato",
-        estado: "pagado",
-        nota: null,
-        creado_en: cuando,
-        pagado_en: cuando,
-      },
-    ];
-  }
-
-  cobros = cobros.some((c) => c.id === cobro.id)
-    ? cobros.map((c) => (c.id === cobro.id ? cobro : c))
-    : [...cobros, cobro];
+export function conCobro(d, cobro) {
+  const anteriores = d.cobros ?? [];
+  const cobros = anteriores.some((c) => c.id === cobro.id)
+    ? anteriores.map((c) => (c.id === cobro.id ? cobro : c))
+    : [...anteriores, cobro];
 
   const { cobrado, cobrado_en } = cobradoDelCaso(cobrosDelCaso(cobros, cobro.caso_id));
   return {
@@ -327,28 +301,3 @@ export function casosConSaldo({ casos = [], pasos = [], cobros = [] }) {
     .filter(({ cuenta }) => cuenta && cuenta.falta > 0);
 }
 
-// Lo que ve el cliente en su link de seguimiento sobre el pago. Es el mismo
-// recorte que hace ver_seguimiento() en 026_pago_en_el_seguimiento.sql:
-// cuánto pagó, cuánto falta y los links de pago que le mandaron y todavía
-// no pagó. Nada de cómo pagó cada cosa ni de descuentos: eso es de adentro.
-//
-// null cuando no hay nada que decir: antes de que el trabajo esté listo
-// (el total todavía puede cambiar) salvo que ya le hayan mandado un link,
-// o cuando no se sabe si debe.
-export function pagoPublico({ caso, pasos = [], cobros = [] }) {
-  if (!caso) return null;
-  const deEste = cobrosDelCaso(cobros, caso.id);
-  const links = deEste
-    .filter((c) => c.estado === "pendiente" && c.medio === "link")
-    .map((c) => ({ monto: Number(c.monto), link: c.link ?? null, vence_en: c.vence_en ?? null }));
-
-  const cuenta = saldoDelCaso({ caso, pasos, cobros });
-  const listo = caso.estado === "revision_final" || caso.estado === "completado";
-
-  if (links.length === 0 && !(listo && cuenta && cuenta.total > 0)) return null;
-  return {
-    pagado: cuenta?.pagado ?? 0,
-    falta: cuenta?.falta ?? 0,
-    pendientes: links,
-  };
-}

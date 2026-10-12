@@ -15,7 +15,7 @@ import FilaNegocio from "./FilaNegocio";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
 export default function SedesVinculadas() {
-  const { esDemo, usuario, sesion, misNegocios } = useAuth();
+  const { usuario, sesion, misNegocios } = useAuth();
   const { negocio, avisarExito } = useDatos();
   const token = sesion?.access_token;
   const puedeVincular = puede(usuario?.rol, "vincularSedes");
@@ -26,7 +26,6 @@ export default function SedesVinculadas() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (esDemo) return;
     let vivo = true;
     misSedes(token).then((r) => {
       if (!vivo) return;
@@ -36,15 +35,7 @@ export default function SedesVinculadas() {
     return () => {
       vivo = false;
     };
-  }, [esDemo, token, negocio?.id]);
-
-  if (esDemo) {
-    return (
-      <Tarjeta className="mb-12">
-        <p className="text-tinta-media">En el modo de ejemplo hay una sola sede.</p>
-      </Tarjeta>
-    );
-  }
+  }, [token, negocio?.id]);
 
   async function abrirCandidatos() {
     setError(null);
