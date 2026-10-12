@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrarConDatosDePrueba, noVerTexto, reemplazarTexto, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, reemplazarTexto, ruta, verTexto } from "./ayudas.js";
 
 describe("Historia: Compartir estado del trabajo con el cliente", () => {
   // Compartir se mudó a la pantalla de los pasos, al lado del presupuesto
@@ -12,7 +12,7 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
   }
 
   async function generarLink() {
-    await entrarConDatosDePrueba("/casos/k248/pasos");
+    await entrar("/casos/{k248}/pasos");
     return abrirElLink();
   }
 
@@ -60,7 +60,7 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
     await noVerTexto("Falta que contestes");
     await verTexto("$96.000");
 
-    await browser.url("/casos/k248");
+    await browser.url(ruta("/casos/{k248}"));
     await browser.refresh();
     await verTexto("Lo aprobó el cliente desde el link");
     await verTexto("El cliente");
@@ -95,7 +95,7 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
   });
 
   it("AC9: el negocio puede modificar su teléfono y conservarlo", async () => {
-    await entrarConDatosDePrueba("/negocio");
+    await entrar("/negocio");
     await $("button=Editar").click();
     await reemplazarTexto("#negocio-telefono", "341 444 5566");
     await $("button=Guardar").click();
@@ -107,7 +107,7 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
 
   it("AC4: un enlace deshabilitado deja de revelar el caso", async () => {
     const link = await generarLink();
-    await browser.url("/casos/k248/pasos");
+    await browser.url(ruta("/casos/{k248}/pasos"));
     await abrirElLink();
     await $("button=Dejar de compartirlo").click();
     await $("button=Sí, dejar de compartirlo").click();
@@ -116,7 +116,7 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
   });
 
   it("AC5: un código inexistente no revela si alguna vez fue válido", async () => {
-    await entrarConDatosDePrueba("/seguimiento/codigo-inexistente");
+    await entrar("/seguimiento/codigo-inexistente");
     await verTexto("Este link ya no sirve");
   });
 });

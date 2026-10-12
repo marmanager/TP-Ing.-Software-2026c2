@@ -55,10 +55,25 @@ En WebdriverIO, el test abre una URL, busca controles como los ve el usuario,
 interactúa con ellos y verifica la pantalla siguiente:
 
 ```js
-await browser.url("/iniciar-sesion");
-await $("button=Entrar con los datos de ejemplo").click();
-await expect($("h1=Inicio")).toBeDisplayed();
+await entrar("/casos/{k248}");               // una cuenta sembrada, en el caso 248
+await $("button=Entregar y cerrar").click();
+await verTexto("El caso está cerrado");
 ```
+
+Las e2e entran con una **cuenta de verdad que siembra la API** (en la base de
+pruebas) y la borran al terminar: `entrar(ruta, escenario)` en
+`pruebas/e2e/historias/ayudas.js`. Los escenarios (`taller-completo`,
+`taller-sin-casos`, `sin-negocio`) están en la API, en
+`src/modulos/semilla/escenarios.ts`. Para correrlas:
+
+1. La API, en otra terminal, con `SEMILLA_CLAVE` en su `.env` y en el puerto 4000:
+   `PORT=4000 npm run dev` (en PowerShell: `$env:PORT=4000; npm run dev`). Si el
+   front va a hablar con esa API, su `ORIGENES_PERMITIDOS` tiene que incluir
+   `http://localhost:3000`.
+2. En el `.env.local` del front: `E2E_API_URL=http://localhost:4000` y
+   `E2E_SEMILLA_CLAVE=` la misma clave. `NEXT_PUBLIC_API_URL` puede apuntar a esa
+   API o a Render: las dos usan la misma base.
+3. `npm run test:e2e`.
 
 Conviene reservar Jest para reglas, cálculos y validaciones, y WebdriverIO para
 unos pocos caminos críticos (iniciar sesión, crear un caso, aprobar un presupuesto
