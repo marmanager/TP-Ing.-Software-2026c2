@@ -1,98 +1,48 @@
 import { $, browser, expect } from "@wdio/globals";
 import { Key } from "webdriverio";
 
-const iso = (dias = 0, horas = 0) => {
-  const fecha = new Date();
-  fecha.setDate(fecha.getDate() + dias);
-  fecha.setHours(fecha.getHours() + horas);
-  return fecha.toISOString();
-};
+import { sembrar } from "../siembra.js";
 
-// La rama development ya no trae datos ficticios. Estas pruebas cargan un
-// fixture propio para ser repetibles y no depender de una cuenta de Supabase.
-export function datosDePrueba() {
-  return {
-    negocio: {
-      id: "n1", nombre: "Taller Sur", descripcion: "Mecánica integral",
-      rubro: "taller", foto: null, telefono: "341 222 3333",
-      modulos_activos: ["equipo", "presupuesto", "clientes", "historial"],
-    },
-    empleados: [
-      { id: "e1", negocio_id: "n1", nombre: "Diego", rol: "tecnico" },
-      { id: "e2", negocio_id: "n1", nombre: "Nico", rol: "tecnico" },
-      { id: "e3", negocio_id: "n1", nombre: "Sofía", rol: "encargado" },
-    ],
-    clientes: [
-      { id: "c1", negocio_id: "n1", nombre: "Marcela Suárez", telefono: "341 456 7890", confirmado: true },
-      { id: "c2", negocio_id: "n1", nombre: "Lucía Ferreyra", telefono: "341 555 1111", confirmado: true },
-      { id: "c3", negocio_id: "n1", nombre: "Ana Sin Casos", telefono: "341 555 2222", confirmado: true },
-    ],
-    casos: [
-      { id: "k248", negocio_id: "n1", cliente_id: "c1", numero: 248,
-        identificador: "AB123CD", servicio: "Revisión general", estado: "esperando",
-        que_falta: "la respuesta del cliente", responsable_id: "e1",
-        abierto_en: iso(-2), actualizado_en: iso(-1), seguimiento_codigo: null },
-      { id: "k239", negocio_id: "n1", cliente_id: "c1", numero: 239,
-        identificador: "AA000AA", servicio: "Reparación de motor", estado: "revision_final",
-        que_falta: "el control final", responsable_id: "e2",
-        abierto_en: iso(-20), actualizado_en: iso(0, -2), seguimiento_codigo: null },
-      { id: "k253", negocio_id: "n1", cliente_id: "c2", numero: 253,
-        identificador: "AC456EF", servicio: "Cambio de aceite", estado: "nuevo",
-        que_falta: "asignar responsable", responsable_id: null,
-        abierto_en: iso(0, -3), actualizado_en: iso(0, -3), seguimiento_codigo: null },
-      { id: "k210", negocio_id: "n1", cliente_id: "c1", numero: 210,
-        identificador: "ZZ999ZZ", servicio: "Frenos", estado: "completado",
-        que_falta: null, responsable_id: "e1", cobrado: 50000, cobrado_en: iso(-45),
-        abierto_en: iso(-50), actualizado_en: iso(-45), seguimiento_codigo: null },
-    ],
-    pasos: [
-      { id: "p1", caso_id: "k248", nombre: "Revisión completa", monto: 74000, estado: "aprobado", orden: 1, aprobado_en: iso(-1) },
-      { id: "p2", caso_id: "k248", nombre: "Cambio de pieza", descripcion: "La pieza actual está desgastada.", monto: 22000, estado: "esperando", orden: 2, creado_en: iso(-1) },
-      { id: "p4", caso_id: "k248", nombre: "Trabajo descartado", monto: 18000, estado: "rechazado", orden: 3, creado_en: iso(-1) },
-      { id: "p3", caso_id: "k239", nombre: "Reparación", monto: 120000, estado: "aprobado", orden: 1, aprobado_en: iso(0, -4) },
-    ],
-    eventos: [
-      { id: "v1", caso_id: "k248", titulo: "Caso abierto", detalle: "Ingresó al taller.", tipo: "entro", estado: "nuevo", icono: "carpeta", autor: "Diego", ocurrido_en: iso(-2) },
-      { id: "v2", caso_id: "k248", titulo: "Empezó el trabajo", detalle: "Lo atiende Diego.", tipo: "estado", estado: "en_proceso", icono: "llave", autor: "Diego", ocurrido_en: iso(-1, -3) },
-      { id: "v3", caso_id: "k248", titulo: "Aprobó Revisión completa", detalle: "Marcela dio el visto bueno.", tipo: "plata", monto: 74000, icono: "listo", autor: "Marcela", ocurrido_en: iso(-1) },
-      { id: "v4", caso_id: "k248", titulo: "Quedó esperando", detalle: "Falta que el cliente conteste.", tipo: "estado", estado: "esperando", icono: "reloj", autor: "Diego", ocurrido_en: iso(0, -6) },
-      { id: "v5", caso_id: "k239", titulo: "Caso abierto", detalle: "Ingresó al taller.", tipo: "entro", estado: "nuevo", icono: "carpeta", autor: "Nico", ocurrido_en: iso(-20) },
-      { id: "v6", caso_id: "k239", titulo: "Terminó el trabajo", detalle: "Pasa al control final.", tipo: "estado", estado: "revision_final", icono: "nota", autor: "Nico", ocurrido_en: iso(0, -2) },
-      { id: "v7", caso_id: "k253", titulo: "Caso abierto", detalle: "Ingresó al taller.", tipo: "entro", estado: "nuevo", icono: "carpeta", autor: "Sofía", ocurrido_en: iso(0, -3) },
-      { id: "v8", caso_id: "k210", titulo: "Entregaron el trabajo", detalle: "El caso quedó cerrado.", tipo: "entrega", estado: "completado", icono: "listo", autor: "Diego", ocurrido_en: iso(-45) },
-    ],
-    insumos: [], turnos: [], invitaciones: [],
-  };
-}
+// Cada prueba entra con una cuenta nueva sembrada por la API (../siembra.js):
+// datos de verdad, en la base de pruebas, que la prueba puede cambiar sin
+// pisar a la siguiente. Los escenarios están en la API
+// (src/modulos/semilla/escenarios.ts): "taller-completo" es Taller Sur, con
+// Diego, Nico y Sofía, Marcela, Lucía y Ana, y los casos 248, 239, 253 y 210.
 
-export async function entrarConDatosDePrueba(ruta = "/", datos = datosDePrueba()) {
-  await browser.url("/iniciar-sesion");
-  await browser.execute((fixture) => {
-    window.localStorage.setItem("marmanager.demo.v1", "1");
-    window.localStorage.setItem("marmanager.datos.v1", JSON.stringify(fixture));
-    // Esta página arrancó con los datos de la prueba anterior y los vuelve a
-    // guardar si algo cambia antes de irse, pisando el fixture recién puesto.
-    Storage.prototype.setItem = () => {};
-  }, datos);
-  await browser.url(ruta);
-  // Fuerza un documento nuevo: AuthProvider lee la llave demo únicamente al
-  // montarse y una navegación reutilizada podría conservar el valor anterior.
-  await browser.refresh();
-  await expect($("body")).toBeDisplayed();
-}
+// Donde el front guarda la sesión: LLAVE en src/lib/sesion.js.
+const LLAVE_SESION = "marmanager.sesion.v1";
 
-export async function entrarComoDemoSinNegocio() {
-  await entrarConDatosDePrueba("/crear-negocio", {
-    negocio: null,
-    empleados: [],
-    clientes: [],
-    casos: [],
-    pasos: [],
-    eventos: [],
-    insumos: [],
-    turnos: [],
-    invitaciones: [],
+// El uuid de cada clave del último escenario sembrado ("k248", "c1").
+let ids = {};
+
+// "/casos/{k248}" → "/casos/<uuid del caso 248>".
+export const ruta = (plantilla) =>
+  plantilla.replace(/\{(\w+)\}/g, (_, clave) => {
+    if (!ids[clave]) throw new Error(`El escenario sembrado no tiene «${clave}»`);
+    return ids[clave];
   });
+
+// Siembra el escenario, deja su sesión guardada como la deja entrar
+// (src/lib/sesion.js) y abre la ruta. Devuelve los ids.
+export async function entrar(destino = "/", escenario = "taller-completo") {
+  const datos = await sembrar(escenario);
+  ids = datos.ids;
+  const sesion = {
+    token: datos.token,
+    refresh_token: datos.refresh_token,
+    vence_en: Number(datos.vence_en),
+    auth_usuario: datos.auth_usuario,
+    recuperando: false,
+  };
+  await browser.url("/iniciar-sesion");
+  await browser.execute((llave, valor) => {
+    window.localStorage.clear();
+    window.localStorage.setItem(llave, valor);
+  }, LLAVE_SESION, JSON.stringify(sesion));
+  // Un documento nuevo: la sesión se lee al montar la app.
+  await browser.url(ruta(destino));
+  await expect($("body")).toBeDisplayed();
+  return ids;
 }
 
 // Cambia lo que ya dice un campo como lo haría una persona: lo selecciona

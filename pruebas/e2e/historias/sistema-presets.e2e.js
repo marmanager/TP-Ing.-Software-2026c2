@@ -1,18 +1,12 @@
 import { $, browser, expect } from "@wdio/globals";
-import {
-  datosDePrueba,
-  entrarComoDemoSinNegocio,
-  entrarConDatosDePrueba,
-  noVerTexto,
-  verTexto,
-} from "./ayudas.js";
+import { entrar, noVerTexto, verTexto } from "./ayudas.js";
 
 const botonRubro = (nombre) =>
   $(`//button[.//span[normalize-space()="${nombre}"]]`);
 
 describe("Historia parcial: Sistema de presets", () => {
   it("AC1-AC3: permite elegir entre varios rubros y anticipa sus módulos", async () => {
-    await entrarComoDemoSinNegocio();
+    await entrar("/crear-negocio", "sin-negocio");
 
     await expect(botonRubro("Taller mecánico")).toBeDisplayed();
     await expect(botonRubro("Medicina")).toBeDisplayed();
@@ -28,7 +22,7 @@ describe("Historia parcial: Sistema de presets", () => {
   });
 
   it("AC4 y AC6: aplica el preset elegido y lo conserva al recargar", async () => {
-    await entrarComoDemoSinNegocio();
+    await entrar("/crear-negocio", "sin-negocio");
     await $("#nombre").setValue("Consultorio Norte");
     await botonRubro("Medicina").click();
     await $("button=Crear el negocio").click();
@@ -47,11 +41,7 @@ describe("Historia parcial: Sistema de presets", () => {
   });
 
   it("AC7: permite cambiar el rubro antes de abrir el primer caso", async () => {
-    const fixture = datosDePrueba();
-    fixture.casos = [];
-    fixture.pasos = [];
-    fixture.eventos = [];
-    await entrarConDatosDePrueba("/negocio", fixture);
+    await entrar("/negocio", "taller-sin-casos");
 
     await $("button=Cambiar el rubro").click();
     await botonRubro("Service técnico").click();
@@ -64,7 +54,7 @@ describe("Historia parcial: Sistema de presets", () => {
   });
 
   it("AC8: bloquea el cambio de rubro después del primer caso", async () => {
-    await entrarConDatosDePrueba("/negocio");
+    await entrar("/negocio");
     await verTexto("Queda fijo desde que abriste el primer caso");
     await noVerTexto("Cambiar el rubro");
   });

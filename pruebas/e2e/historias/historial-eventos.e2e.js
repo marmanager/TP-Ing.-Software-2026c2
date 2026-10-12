@@ -1,9 +1,9 @@
 import { $, $$, expect } from "@wdio/globals";
-import { entrarConDatosDePrueba, noVerTexto, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, ruta, verTexto } from "./ayudas.js";
 
 describe("Historia: Historial global de eventos", () => {
   beforeEach(async () => {
-    await entrarConDatosDePrueba("/historial");
+    await entrar("/historial");
     await expect($("h1=Historial")).toBeDisplayed();
   });
 
@@ -28,6 +28,6 @@ describe("Historia: Historial global de eventos", () => {
     await $('[aria-label="Ver sólo lo del caso 248"]').click();
     await verTexto("Mostrando sólo el caso 248 de Marcela Suárez");
     await noVerTexto("Caso 253 de Lucía Ferreyra");
-    await expect(await $$("a[href='/casos/k248']")).toBeElementsArrayOfSize(4);
+    await expect(await $$(`a[href='${ruta("/casos/{k248}")}']`)).toBeElementsArrayOfSize(4);
   });
 });
