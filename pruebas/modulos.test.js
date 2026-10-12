@@ -66,9 +66,8 @@ test("la Agenda tiene Turnos y Calendario", () => {
   assert.deepEqual(claves(hijosDe("agenda")), ["calendario", "turnos"]);
 });
 
-test("el Inventario tiene En stock y En camino", () => {
-  // SCRUM-113.
-  assert.deepEqual(claves(hijosDe("inventario")), ["en_camino", "stock"]);
+test("el Inventario tiene En stock, En camino y Todas las sedes", () => {
+  assert.deepEqual(claves(hijosDe("inventario")), ["en_camino", "sedes", "stock"]);
 });
 
 test("un negocio de antes con el Inventario prendido tiene las dos pantallas", () => {
@@ -309,4 +308,26 @@ test("ningunoPrendido: sólo con todo apagado, también los de fábrica", () => 
   assert.equal(ningunoPrendido([]), false);
   assert.equal(ningunoPrendido(["-clientes", "-historial", "agenda"]), false);
   assert.equal(ningunoPrendido(["-clientes"]), false);
+});
+
+// ---------- Todas las sedes: a pedido ----------
+// La mayoría de los negocios tiene una sola sede. "Todas las sedes" no viene
+// prendido, no lo prende Inventario y no entra en la regla de compatibilidad.
+
+test("Todas las sedes no entra en la compatibilidad: un Inventario de antes sigue igual", () => {
+  assert.deepEqual(claves(hijosActivos("inventario", ["inventario"])), ["en_camino", "stock"]);
+});
+
+test("prender Inventario no prende Todas las sedes", () => {
+  assert.deepEqual(claves(hijosActivos("inventario", alternarModulo("inventario", []))), ["en_camino", "stock"]);
+});
+
+test("prender Todas las sedes deja escritos a sus hermanos, y apagarlo los deja", () => {
+  const con = alternarModulo("sedes", ["inventario"]);
+  assert.deepEqual(claves(hijosActivos("inventario", con)), ["en_camino", "sedes", "stock"]);
+  assert.deepEqual(claves(hijosActivos("inventario", alternarModulo("sedes", con))), ["en_camino", "stock"]);
+});
+
+test("apagar Inventario se lleva también Todas las sedes", () => {
+  assert.deepEqual(alternarModulo("inventario", alternarModulo("sedes", ["inventario"])), []);
 });

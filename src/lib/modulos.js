@@ -187,6 +187,21 @@ export const SUBMODULOS = {
     queHace:
       "Lo que pediste y todavía no llegó, con el caso que lo está esperando. Pedís desde acá o desde el caso, el caso queda esperando, y cuando marcás que llegó se destraba solo.",
   },
+  // Ver el inventario de varias sedes de una vez (docs/red-de-sedes.md). A
+  // pedido: la mayoría de los negocios tiene una sola sede, así que no viene
+  // prendido, no lo prende Inventario y no entra en la regla de
+  // compatibilidad de hijosActivos().
+  sedes: {
+    clave: "sedes",
+    padre: "inventario",
+    nombre: "Todas las sedes",
+    icono: "tienda",
+    ruta: "/inventario/sedes",
+    aPedido: true,
+    descripcion: "El inventario de tus sedes vinculadas, junto.",
+    queHace:
+      "Cuánto hay de cada producto en cada una de tus sedes vinculadas, el total, y qué falta dónde. Las sedes se vinculan desde Mi negocio.",
+  },
 };
 
 export const LISTA_SUBMODULOS = Object.values(SUBMODULOS);
@@ -207,7 +222,7 @@ export function hijosActivos(clave, activos = []) {
   if (!estaPrendido(clave, activos)) return [];
   const hijos = hijosDe(clave);
   const escritos = hijos.filter((h) => activos.includes(h.clave));
-  return escritos.length ? escritos : hijos;
+  return escritos.length ? escritos : hijos.filter((h) => !h.aPedido);
 }
 
 // Prender o apagar, devolviendo la lista nueva. Es una función suelta y no
@@ -231,7 +246,7 @@ export function alternarModulo(clave, activos = []) {
   if (hijos.length) {
     return activos.includes(clave)
       ? activos.filter((c) => c !== clave && !hijos.includes(c))
-      : [...activos, clave, ...hijos];
+      : [...activos, clave, ...hijosDe(clave).filter((h) => !h.aPedido).map((h) => h.clave)];
   }
 
   const def = SUBMODULOS[clave];
