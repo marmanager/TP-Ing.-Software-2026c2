@@ -644,7 +644,8 @@ export function DatosProvider({ children }) {
           volver_en: volverEnParaLaApi(volverEn),
           ...seguimientoParaLaApi(seguimiento),
         }, await tokenDeSesion(), { idempotencia: nuevaClave() });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        // El campo dice en qué paso de la entrega mostrar el error.
+        if (!r.ok) return { ok: false, error: r.error.mensaje, campo: r.error.campo };
         setDatos((d) => {
           let siguiente = { ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso : c) };
           if (r.datos.cobro) siguiente = ponerCobro(siguiente, r.datos.cobro);
