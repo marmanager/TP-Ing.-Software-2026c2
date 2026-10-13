@@ -24,8 +24,9 @@ import {
   quienLoTieneEnPalabras,
   sePuedeMarcarHecho,
 } from "@/lib/estados";
-import { cuando, cuantoHace, haceCuanto } from "@/lib/fechas";
-import { comoSeIdentifica, vocabulario } from "@/lib/presets";
+import { cuando, cuantoHace, diaDeArgentina, diaEnPalabras, haceCuanto } from "@/lib/fechas";
+import { cadaCuantoVuelve, comoSeIdentifica, vocabulario } from "@/lib/presets";
+import { errorDeVolverEn, fechaSugerida, intervaloDeducido } from "@/lib/recordatorios";
 import { presentacionEstado } from "@/lib/presentacion-estados";
 import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -33,6 +34,7 @@ import { cobroValido, montoCobrado } from "@/lib/validaciones";
 import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } from "@/lib/cobros";
 import SelectorEstado from "@/componentes/SelectorEstado";
 import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
+import CuandoVuelve from "@/componentes/CuandoVuelve";
 import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
 import Icono from "@/componentes/Icono";
@@ -52,6 +54,10 @@ import {
 } from "@/lib/seguimiento";
 
 const EVENTOS_A_LA_VISTA = 5;
+
+// Los campos de la entrega que se cargan en el primer paso, el del cobro: si
+// la API rechaza uno, el error se muestra ahí.
+const CAMPOS_DEL_COBRO = ["monto", "medio", "resto"];
 
 export default function VerCaso() {
   const { id } = useParams();
@@ -87,11 +93,25 @@ export default function VerCaso() {
   const [notificarCliente, setNotificarCliente] = useState(false);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [seguimientoEntrega, setSeguimientoEntrega] = useState(SEGUIMIENTO_VACIO);
+  // Cuándo le toca volver (R-1b): al entregar, y para corregirlo después.
+  const [volverEn, setVolverEn] = useState("");
+  const [corrigiendoVolver, setCorrigiendoVolver] = useState(false);
+  const [guardandoVolver, setGuardandoVolver] = useState(false);
+  const [errorVolver, setErrorVolver] = useState(null);
+  // La entrega va en dos pasos: 1 el cobro, 2 lo que pasa después.
+  const [pasoEntrega, setPasoEntrega] = useState(1);
+
+  // Al cambiar de paso, el foco va al título del paso nuevo: con teclado o
+  // lector de pantalla, si no, se queda en un botón que ya no se ve.
+  useEffect(() => {
+    document.getElementById(`paso-entrega-${pasoEntrega}`)?.focus();
+  }, [pasoEntrega]);
 
   useEffect(() => {
     setNotificarCliente(false);
     setEntregando(false);
     setSeguimientoEntrega(SEGUIMIENTO_VACIO);
+    setCorrigiendoVolver(false);
   }, [id]);
   // Si cobra menos de lo que falta: ¿el resto lo paga después, o no se le
   // cobra? Sin esta pregunta, todo lo que no se cobra queda como deuda.
@@ -113,6 +133,19 @@ export default function VerCaso() {
   const nombreEstado = (estado) => presentacionEstado(negocio, estado).nombre;
   const puedeNotificar = telefonoWhatsAppValido(cliente?.telefono);
   const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega))[0];
+
+  // El día de hoy en Argentina, el mismo que usa la API para decidir si una
+  // fecha ya pasó. Las fechas de volver son días, no instantes.
+  const hoy = diaDeArgentina();
+  const motivoVolver = errorDeVolverEn(volverEn, hoy);
+  // Sólo para un rubro sin intervalo típico: si el cliente ya vino tres
+  // veces o más con un ritmo parejo, se le ofrece esa fecha.
+  const sugerenciaVolver = cadaCuantoVuelve(negocio?.rubro)
+    ? null
+    : intervaloDeducido(
+        casos.filter((c) => c.cliente_id === caso.cliente_id && c.id !== caso.id).map((c) => diaDeArgentina(c.abierto_en)),
+        hoy
+      );
 
   async function cambiarEstadoDelCaso(nuevo) {
     if (cambiandoEstado || cerrando) return;
@@ -756,6 +789,10 @@ export default function VerCaso() {
                       setElResto("despues");
                       setErrorEntrega(null);
                       setSeguimientoEntrega(SEGUIMIENTO_VACIO);
+                      // Ya cargada con la fecha típica del rubro: casi
+                      // siempre es la que le acaban de decir al cliente.
+                      setVolverEn(fechaSugerida({ rubro: negocio?.rubro, hoy }) ?? "");
+                      setPasoEntrega(1);
                       setEntregando(true);
                     }}
                   >
@@ -768,8 +805,24 @@ export default function VerCaso() {
                  entregar y cobrar son un solo momento en el mostrador, y es
                  el único en que alguien tiene el número delante. Se puede
                  entregar sin cobrar —te paga después, o es una garantía—, y
-                 por eso el campo vacío también cierra el caso. */
+                 por eso el campo vacío también cierra el caso.
+
+                 Va en dos pasos —el cobro, y lo que pasa después de
+                 entregar— porque junto pasaba los seis campos por pantalla de
+                 la cartilla (sección 05). Nada se guarda hasta el final: el
+                 segundo paso manda todo en una sola entrega, como pide la API
+                 (cobro, cierre y cuándo vuelve en la misma operación). Los
+                 dos pasos quedan montados y se esconde el que no se ve, así
+                 volver al cobro no borra lo que se escribió. */
               <>
+              <div hidden={pasoEntrega !== 1}>
+                <p
+                  id="paso-entrega-1"
+                  tabIndex={-1}
+                  className="mb-4 font-bold text-etiqueta text-tinta-media outline-none"
+                >
+                  Paso 1 de 2 · El cobro
+                </p>
                 <p className="flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
                   <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                   <span>
@@ -916,6 +969,48 @@ export default function VerCaso() {
                     </fieldset>
                   )}
 
+                {errorEntrega && (
+                  <p role="alert" className="mb-4 flex items-start gap-2 font-bold text-rojo">
+                    <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                    <span>{errorEntrega}</span>
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-3">
+                  <Boton
+                    icono="flecha"
+                    motivo={!cobroValido(cobro) ? "revisá el monto" : null}
+                    onClick={() => {
+                      setErrorEntrega(null);
+                      setPasoEntrega(2);
+                    }}
+                  >
+                    Siguiente
+                  </Boton>
+                  <Boton variante="plano" onClick={() => setEntregando(false)}>
+                    Mejor no
+                  </Boton>
+                </div>
+              </div>
+
+              <div hidden={pasoEntrega !== 2}>
+                <p
+                  id="paso-entrega-2"
+                  tabIndex={-1}
+                  className="mb-4 font-bold text-etiqueta text-tinta-media outline-none"
+                >
+                  Paso 2 de 2 · Después de entregar
+                </p>
+
+                <CuandoVuelve
+                  valor={volverEn}
+                  alCambiar={setVolverEn}
+                  hoy={hoy}
+                  sugerencia={sugerenciaVolver}
+                  error={motivoVolver}
+                  disabled={cerrando || cambiandoEstado}
+                />
+
                 {puedeCargar && (
                   <SeguimientoWhatsApp
                     key={caso.id}
@@ -940,7 +1035,8 @@ export default function VerCaso() {
                     motivo={
                       cerrando || cambiandoEstado ? "guardando"
                         : !cobroValido(cobro) ? "revisá el monto"
-                          : errorSeguimientoEntrega ? "revisá el seguimiento" : null
+                          : motivoVolver ? motivoVolver
+                            : errorSeguimientoEntrega ? "revisá el seguimiento" : null
                     }
                     onClick={async () => {
                       const monto = montoCobrado(cobro);
@@ -953,9 +1049,15 @@ export default function VerCaso() {
                         medio: medioEntrega,
                         resto: elResto,
                         seguimiento: seguimientoEntrega,
+                        volverEn,
                       });
                       setCerrando(false);
-                      if (!r.ok) return setErrorEntrega(r.error);
+                      if (!r.ok) {
+                        // Un error del cobro se muestra en el paso del
+                        // cobro, al lado de lo que hay que corregir.
+                        if (CAMPOS_DEL_COBRO.includes(r.campo)) setPasoEntrega(1);
+                        return setErrorEntrega(r.error);
+                      }
                       datos.avisarExito(
                         r.falta > 0
                           ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
@@ -968,10 +1070,19 @@ export default function VerCaso() {
                   >
                     Sí, entregar y cerrar
                   </Boton>
-                  <Boton variante="plano" motivo={cerrando ? "guardando" : null} onClick={() => setEntregando(false)}>
-                    Mejor no
+                  <Boton
+                    variante="plano"
+                    icono="volver"
+                    motivo={cerrando ? "guardando" : null}
+                    onClick={() => {
+                      setErrorEntrega(null);
+                      setPasoEntrega(1);
+                    }}
+                  >
+                    Volver al cobro
                   </Boton>
                 </div>
+              </div>
               </>
             )}
           </Tarjeta>
@@ -996,6 +1107,88 @@ export default function VerCaso() {
             {/* Nada es definitivo: se puede haber cerrado de más. Es la única
                 acción que queda en un caso cerrado, así que se ve como un
                 botón y no como un enlace perdido al final. */}
+            {/* Cuándo le toca volver (R-1b): se anota al entregar y se
+                corrige acá, con el caso cerrado. Es lo único que la API deja
+                cambiar en un caso entregado. */}
+            <div className="mt-6 border-t border-borde pt-6">
+              {!corrigiendoVolver ? (
+                <>
+                  <p className="text-cuerpo">
+                    {caso.volver_en ? (
+                      <>
+                        Le toca volver el{" "}
+                        <span className="font-bold">{diaEnPalabras(caso.volver_en)}</span>.
+                      </>
+                    ) : (
+                      "No anotaste cuándo le toca volver."
+                    )}
+                  </p>
+                  {puedeCargar && (
+                    <div className="mt-3">
+                      <Boton
+                        variante="borde"
+                        icono="calendario"
+                        onClick={() => {
+                          setVolverEn(caso.volver_en ?? "");
+                          setErrorVolver(null);
+                          setCorrigiendoVolver(true);
+                        }}
+                      >
+                        {caso.volver_en ? "Cambiar la fecha" : "Anotar cuándo vuelve"}
+                      </Boton>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <CuandoVuelve
+                    id="volver-en-cerrado"
+                    valor={volverEn}
+                    alCambiar={setVolverEn}
+                    hoy={hoy}
+                    sugerencia={sugerenciaVolver}
+                    error={motivoVolver}
+                    disabled={guardandoVolver}
+                  />
+                  {errorVolver && (
+                    <p role="alert" className="mb-4 flex items-start gap-2 font-bold text-rojo">
+                      <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
+                      <span>{errorVolver}</span>
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    <Boton
+                      variante="borde"
+                      icono="listo"
+                      motivo={guardandoVolver ? "guardando" : motivoVolver}
+                      onClick={async () => {
+                        setErrorVolver(null);
+                        setGuardandoVolver(true);
+                        const r = await datos.corregirVolverEn(caso.id, volverEn);
+                        setGuardandoVolver(false);
+                        if (!r.ok) return setErrorVolver(r.error);
+                        datos.avisarExito(
+                          r.caso.volver_en
+                            ? `Listo. Le toca volver el ${diaEnPalabras(r.caso.volver_en)}.`
+                            : "Listo. Sacaste la fecha para volver."
+                        );
+                        setCorrigiendoVolver(false);
+                      }}
+                    >
+                      Guardar la fecha
+                    </Boton>
+                    <Boton
+                      variante="plano"
+                      motivo={guardandoVolver ? "guardando" : null}
+                      onClick={() => setCorrigiendoVolver(false)}
+                    >
+                      Mejor no
+                    </Boton>
+                  </div>
+                </>
+              )}
+            </div>
+
             {puedeCargar && (
               <div className="mt-4">
                 <Boton

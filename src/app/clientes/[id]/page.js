@@ -16,7 +16,8 @@ import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto, pesos } from "@/lib/estados";
 import { comoSeIdentifica } from "@/lib/presets";
-import { diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
+import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
+import { proximaVisita } from "@/lib/recordatorios";
 import { telefonoValido } from "@/lib/validaciones";
 import { saldoDelCaso } from "@/lib/cobros";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -70,6 +71,14 @@ export default function FichaDeCliente() {
   const debe = suyos
     .filter((c) => c.estado === "completado")
     .reduce((s, c) => s + (saldos.get(c.id)?.falta ?? 0), 0);
+
+  // Se calcula con los casos que ya están en memoria: no hace falta pedir
+  // nada más a la API.
+  const diaDeVolver = proximaVisita(suyos, diaDeArgentina());
+  const proximaVuelta = diaDeVolver && {
+    dia: diaDeVolver,
+    caso: suyos.find((c) => c.volver_en === diaDeVolver),
+  };
 
   const proximos = turnos
     .filter((t) => t.cliente_id === cliente.id && t.estado !== "cancelado")
@@ -225,6 +234,25 @@ export default function FichaDeCliente() {
               </li>
             ))}
           </ul>
+        </>
+      )}
+
+      {/* Cuándo le toca volver (R-1b): la más cercana que no pasó, de entre
+          sus casos. Un cliente sin fecha no tiene sección: una vacía no
+          dice nada que sirva. */}
+      {proximaVuelta && (
+        <>
+          <TituloSeccion>Le toca volver</TituloSeccion>
+          <Link
+            href={`/casos/${proximaVuelta.caso.id}`}
+            className="mb-12 flex min-h-14 items-center gap-3 rounded-tarjeta border border-borde bg-tarjeta px-4 hover:bg-superficie"
+          >
+            <Icono nombre="calendario" className="size-5 text-tinta-media" />
+            <span className="flex-1">
+              <span className="font-bold">El {diaEnPalabras(proximaVuelta.dia)}</span>{" "}
+              · {tituloDelCaso(proximaVuelta.caso)}
+            </span>
+          </Link>
         </>
       )}
 

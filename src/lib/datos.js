@@ -19,6 +19,7 @@ import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./a
 import { turnoParaLaApi } from "./turnos.js";
 import { reemplazarUnicoPorId, unicosPorId } from "./listas.js";
 import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
+import { volverEnParaLaApi } from "./recordatorios.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -417,6 +418,24 @@ export function DatosProvider({ children }) {
         incorporarCasoApi(r.datos); return r.datos.caso;
       },
 
+      // Corregir cuándo le toca volver, también con el caso cerrado (R-1b).
+      // La API sólo acepta este dato en un caso entregado, y lo valida igual
+      // que al entregar. Devuelve el error para mostrarlo debajo del campo;
+      // si otro cambió el caso mientras tanto (409), además vuelve a leer.
+      async corregirVolverEn(casoId, volverEn) {
+        const caso = datos.casos.find((c) => c.id === casoId);
+        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, {
+          volver_en: volverEnParaLaApi(volverEn), actualizado_en: caso.actualizado_en,
+        }, { metodo: "PATCH" });
+        if (!r.ok) {
+          if (r.error.codigo === "choque") setRefresco((n) => n + 1);
+          return { ok: false, error: r.error.mensaje };
+        }
+        incorporarCasoApi(r.datos);
+        return { ok: true, caso: r.datos.caso };
+      },
+
       // Una nota suelta en el historial (SCRUM-52). No pisa nada: el
       // historial se agrega, nunca se reescribe.
       async anotarNota(casoId, texto) {
@@ -613,16 +632,20 @@ export function DatosProvider({ children }) {
 
       // Entregar: cobrar y cerrar en un gesto. La API guarda cobro,
       // descuento, cierre e historial en la misma transacción.
-      async entregarCaso({ casoId, monto, medio, resto, seguimiento }) {
+      // Cuándo le toca volver (R-1b) viaja en la misma entrega: la API lo
+      // guarda en la misma operación que el cierre y el cobro.
+      async entregarCaso({ casoId, monto, medio, resto, seguimiento, volverEn }) {
         const error = Object.values(erroresSeguimiento(seguimiento))[0];
         if (error) return { ok: false, error };
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/entregar`, {
           monto: monto == null ? null : Number(monto),
           medio: Number(monto) > 0 ? medio : null,
           resto,
+          volver_en: volverEnParaLaApi(volverEn),
           ...seguimientoParaLaApi(seguimiento),
         }, await tokenDeSesion(), { idempotencia: nuevaClave() });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        // El campo dice en qué paso de la entrega mostrar el error.
+        if (!r.ok) return { ok: false, error: r.error.mensaje, campo: r.error.campo };
         setDatos((d) => {
           let siguiente = { ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso : c) };
           if (r.datos.cobro) siguiente = ponerCobro(siguiente, r.datos.cobro);

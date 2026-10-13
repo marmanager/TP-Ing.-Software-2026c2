@@ -13,6 +13,8 @@ describe("Historia: Marcar consulta completada", () => {
     // a mano pide un toque más.
     await $("button=Cobré otra cosa").click();
     await reemplazarTexto("#cobro", monto);
+    // La entrega va en dos pasos: el cobro y lo que pasa después.
+    await $("button=Siguiente").click();
     await $("button=Sí, entregar y cerrar").click();
   }
 
@@ -23,9 +25,13 @@ describe("Historia: Marcar consulta completada", () => {
   });
 
   it("AC2: registra el cobro y conserva el cierre al recargar", async () => {
-    await entregar("125000");
+    // Menos de lo aprobado: la API no deja anotar más de lo que falta.
+    await entregar("100000");
+    // Recargar recién cuando la API contestó: si no, la recarga corta la
+    // entrega en el camino y el caso sigue abierto.
+    await verTexto("El caso está cerrado");
     await browser.refresh();
-    await verTexto("$125.000");
+    await verTexto("$100.000");
     await verTexto("El caso está cerrado");
   });
 
