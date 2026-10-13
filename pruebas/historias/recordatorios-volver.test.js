@@ -16,8 +16,10 @@ import {
   fechaSugerida,
   intervaloDeducido,
   proximaVisita,
+  volverEnParaLaApi,
 } from "../../src/lib/recordatorios.js";
 import { cadaCuantoVuelve } from "../../src/lib/presets.js";
+import { diaDeArgentina, diaEnPalabras } from "../../src/lib/fechas.js";
 
 const HOY = "2026-10-13";
 
@@ -111,5 +113,33 @@ describe("Historia: anotar cuándo le toca volver", () => {
   test("no deduce intervalo si los casos están espaciados muy distinto", () => {
     // Un mes y después siete: no hay un ritmo que sugerir.
     expect(intervaloDeducido(["2026-01-10", "2026-02-10", "2026-09-10"], HOY)).toBeNull();
+  });
+
+  // ------------------------------------------------------------
+  // Lo que viaja a la API
+  // ------------------------------------------------------------
+
+  test("borrar la fecha viaja como null, que la API entiende como \"sin fecha\"", () => {
+    expect(volverEnParaLaApi("")).toBeNull();
+    expect(volverEnParaLaApi("  ")).toBeNull();
+    expect(volverEnParaLaApi(null)).toBeNull();
+    expect(volverEnParaLaApi("2027-04-13")).toBe("2027-04-13");
+  });
+
+  // ------------------------------------------------------------
+  // De la pantalla a los días del calendario
+  // ------------------------------------------------------------
+
+  test("una entrega de la noche cuenta en el día de Argentina, no en el de Greenwich", () => {
+    // 22:30 del 13 en Argentina son las 01:30 del 14 en UTC: toISOString()
+    // diría "2026-10-14".
+    expect(diaDeArgentina("2026-10-14T01:30:00.000Z")).toBe("2026-10-13");
+    expect(diaDeArgentina("2026-10-13T12:00:00.000Z")).toBe("2026-10-13");
+  });
+
+  test("el día se escribe como se dice, sin pasar por Date", () => {
+    expect(diaEnPalabras("2027-04-13")).toBe("13 de abril de 2027");
+    expect(diaEnPalabras("2026-12-01")).toBe("1 de diciembre de 2026");
+    expect(diaEnPalabras(null)).toBe("");
   });
 });

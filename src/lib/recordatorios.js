@@ -137,3 +137,8 @@ export function intervaloDeducido(visitas = [], hoy) {
   const dias = Math.round(promedio);
   return { dias, fecha: sumarDias(hoy, dias) };
 }
+
+// Lo que viaja a la API (R-1a): el día tal cual, o null cuando el campo
+// quedó vacío. null es "sin fecha" —al entregar, y borra una que había al
+// corregir—; un string vacío la API lo rechazaría como fecha que no es.
+export const volverEnParaLaApi = (valor) => (valor ?? "").trim() || null;
