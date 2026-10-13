@@ -26,6 +26,7 @@ import {
   montoDeCobroValido,
   sePuedeAnular,
 } from "./cobros.js";
+import { mismaExpresion, nuevaEcuacion } from "./ecuaciones.js";
 
 const VACIO = {
   negocio: null,
@@ -42,6 +43,7 @@ const VACIO = {
   // La foto de cada compañero de negocio que cargó una (034), como
   // [{ usuario_id, foto }]. Se cruza con empleado.usuario_id en Equipo.
   fotosEquipo: [],
+  ecuaciones: [],
 };
 
 const Contexto = createContext(null);
@@ -312,6 +314,25 @@ export function DatosProvider({ children }) {
     };
 
     return {
+      ecuaciones: datos.ecuaciones ?? [],
+      async crearEcuacion(form) {
+        const creada = nuevaEcuacion(form);
+        if (creada.error) return { ok: false, error: creada.error, campo: creada.campo };
+        const duplicada = datos.ecuaciones?.find((e) => mismaExpresion(e.formula, creada.ecuacion.formula));
+        if (duplicada && !form.confirmarVariante) {
+          return { ok: false, duplicada: true };
+        }
+        const r = await mandar("/ecuaciones", {
+          ...creada.ecuacion,
+          confirmar_variante: Boolean(form.confirmarVariante),
+        }, await tokenDeSesion(), { idempotencia: nuevaClave() });
+        if (!r.ok) {
+          if (r.error.codigo === "ecuacion_duplicada") return { ok: false, duplicada: true };
+          return { ok: false, error: r.error.mensaje, campo: r.error.campo };
+        }
+        setDatos((d) => ({ ...d, ecuaciones: [r.datos.ecuacion, ...(d.ecuaciones ?? [])] }));
+        return { ok: true, ecuacion: r.datos.ecuacion };
+      },
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
       async abrirCaso({
