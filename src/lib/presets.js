@@ -54,6 +54,12 @@ export const PRESETS = {
     // que abre el link hay que decirle cuál de las dos es: si la pelota es
     // suya y la pantalla no se lo dice, no contesta nunca.
     espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
+    // Cada cuánto le toca volver al cliente (Recordatorios, R-1b): lo que el
+    // mecánico le dice en voz alta al entregar. Se usa para sugerir la fecha
+    // en el formulario de entrega; la API no lo necesita, así que vive sólo
+    // acá. En meses porque así se dice: "volvé en seis meses". null es "no
+    // hay un intervalo típico" y el campo queda vacío.
+    volver: { meses: 6 },
     motivos: [
       "Ruido raro",
       "Service de rutina",
@@ -120,6 +126,8 @@ export const PRESETS = {
       completado: "Te dimos el alta.",
     },
     espera: { cliente: "tu respuesta", negocio: "un estudio o un turno con el especialista" },
+    // El control anual.
+    volver: { meses: 12 },
     motivos: [
       "Primera consulta",
       "Control",
@@ -173,6 +181,8 @@ export const PRESETS = {
       completado: "Tu equipo está reparado y entregado.",
     },
     espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
+    // Un equipo vuelve cuando se rompe: no hay un "volvé en tanto".
+    volver: null,
     motivos: [
       "No enciende",
       "Pantalla rota",
@@ -233,6 +243,7 @@ export const PRESETS = {
       revision_final: "Revisión antes de entregar",
     },
     espera: { cliente: "tu respuesta al presupuesto", negocio: "algo que falta" },
+    volver: null,
     motivos: [],
     modulos: ["-clientes", "-historial"],
     identificador: { nombre: "Referencia", enFrase: "la referencia", ejemplo: "Orden 1520" },
@@ -288,6 +299,9 @@ export const ejemplosDe = (rubro) => preset(rubro).ejemplos;
 // frenado: la respuesta del cliente, o algo que tiene que conseguir el
 // negocio. Un taller espera un repuesto y un consultorio, un estudio.
 export const comoSeEspera = (rubro) => preset(rubro).espera;
+
+// Cada cuánto le toca volver al cliente en este rubro: { meses } o null.
+export const cadaCuantoVuelve = (rubro) => preset(rubro).volver ?? null;
 
 // ------------------------------------------------------------
 // El vocabulario del rubro

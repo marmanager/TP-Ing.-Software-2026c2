@@ -127,6 +127,7 @@ const PUROS = [
   "src/lib/nombres.js",
   "src/lib/modulos.js",
   "src/lib/fechas.js",
+  "src/lib/recordatorios.js",
 ];
 
 for (const archivo of PUROS) {

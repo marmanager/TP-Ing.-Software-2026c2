@@ -95,3 +95,32 @@ export function cuantoHace(iso) {
 
 // Cuántos días pasaron, para decidir si algo se está atrasando.
 export const diasDesde = (iso) => Math.floor((Date.now() - new Date(iso)) / 86400000);
+
+// ------------------------------------------------------------
+// Días del calendario ("2026-10-13"), para cuándo le toca volver
+// ------------------------------------------------------------
+// Un día del calendario no es un instante: no se pasa por toISOString(),
+// que lo corre a UTC y manda lo de las 22 h al día siguiente. El día es el
+// de Argentina, el mismo que usa la API para decidir qué es "hoy".
+
+const DIA_ARGENTINA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+// El día de un instante de la API (abierto_en), o de ahora si no se pasa nada.
+export const diaDeArgentina = (iso = Date.now()) => DIA_ARGENTINA.format(new Date(iso));
+
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+// "2027-04-13" → "13 de abril de 2027". Con el string, sin Date: así no hay
+// huso que corra el día.
+export function diaEnPalabras(dia) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dia ?? "");
+  return m ? `${Number(m[3])} de ${MESES[Number(m[2]) - 1]} de ${m[1]}` : "";
+}
