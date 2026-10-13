@@ -351,7 +351,12 @@ export function DatosProvider({ children }) {
       },
       async eliminarEcuacion(id) {
         const r = await quitar(`/ecuaciones/${encodeURIComponent(id)}`, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return {
+          ok: false,
+          error: r.error.mensaje,
+          codigo: r.error.codigo,
+          dependientes: r.error.detalles?.filter((d) => d.campo === "dependencias").map((d) => d.mensaje) ?? [],
+        };
         setDatos((d) => ({ ...d, ecuaciones: (d.ecuaciones ?? []).filter((e) => e.id !== id) }));
         return { ok: true };
       },

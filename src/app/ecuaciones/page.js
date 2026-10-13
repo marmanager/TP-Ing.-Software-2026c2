@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { errorDeVariables, filtrarEcuaciones, resolverEcuacion } from "@/lib/ecuaciones";
+import {
+  entradasDeEcuacionEncadenada, errorDeVariables, filtrarEcuaciones,
+  nombreParaDependencia, ordenarEcuaciones, resolverEcuacionEncadenada,
+} from "@/lib/ecuaciones";
 import { Boton, Campo, Cargando, ErrorGeneral, Tarjeta, TituloPantalla, TituloSeccion, Vacio } from "@/componentes/ui";
 
-const vacia = () => ({ nombre: "", formula: "", descripcion: "", categoria: "", unidad_resultado: "", variables: [] });
+const vacia = () => ({ nombre: "", formula: "", descripcion: "", categoria: "", unidad_resultado: "", variables: [], dependencias: [] });
 const idNuevo = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 const CLASE_ENTRADA = "mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 py-3";
 
@@ -17,6 +20,7 @@ export default function Ecuaciones() {
   const [categoria, setCategoria] = useState("");
   const [orden, setOrden] = useState("nombre");
   const [borrando, setBorrando] = useState(null);
+  const [errorBorrado, setErrorBorrado] = useState(null);
   useTitulo("Ecuaciones personalizadas");
 
   if (datos.cargando) return <Cargando />;
@@ -41,12 +45,15 @@ export default function Ecuaciones() {
     const resultado = await datos.eliminarEcuacion(ecuacion.id);
     if (resultado.ok) {
       setBorrando(null);
+      setErrorBorrado(null);
       datos.avisarExito("La ecuación fue eliminada.");
+    } else {
+      setErrorBorrado({ id: ecuacion.id, mensaje: resultado.error, dependientes: resultado.dependientes });
     }
   }
 
-  if (pantalla?.tipo === "resolver") return <Resolver ecuacion={pantalla.ecuacion} alCerrar={cerrar} />;
-  if (pantalla) return <Editor inicial={pantalla.ecuacion} titulo={pantalla.tipo === "editar" ? "Editar ecuación" : "Crear una ecuación"} alGuardar={guardar} alCancelar={cerrar} />;
+  if (pantalla?.tipo === "resolver") return <Resolver ecuacion={pantalla.ecuacion} ecuaciones={ecuaciones} alCerrar={cerrar} />;
+  if (pantalla) return <Editor inicial={pantalla.ecuacion} ecuaciones={ecuaciones} titulo={pantalla.tipo === "editar" ? "Editar ecuación" : "Crear una ecuación"} alGuardar={guardar} alCancelar={cerrar} />;
 
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-8">
@@ -93,11 +100,15 @@ export default function Ecuaciones() {
                         ...ecuacion, id: undefined, nombre: `${ecuacion.nombre} (copia)`,
                         variables: (ecuacion.variables ?? []).map((v) => ({ ...v, id: idNuevo() })),
                       } })}>Duplicar</Boton>
-                      <Boton variante="peligro" onClick={() => setBorrando(ecuacion.id)}>Eliminar</Boton>
+                      <Boton variante="peligro" onClick={() => { setBorrando(ecuacion.id); setErrorBorrado(null); }}>Eliminar</Boton>
                     </div>
                     {borrando === ecuacion.id && (
                       <div className="mt-4 rounded-campo bg-superficie p-4">
                         <p>¿Querés eliminar “{ecuacion.nombre}”?</p>
+                        {errorBorrado?.id === ecuacion.id && <div role="alert" className="mt-3 rounded-campo bg-rojo/5 p-3 text-rojo">
+                          <p>{errorBorrado.mensaje}</p>
+                          {!!errorBorrado.dependientes?.length && <p className="mt-1">Primero quitá la dependencia en: {errorBorrado.dependientes.join(", ")}.</p>}
+                        </div>}
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Boton variante="peligro" onClick={() => eliminar(ecuacion)}>Sí, eliminarla</Boton>
                           <Boton variante="plano" onClick={() => setBorrando(null)}>Dejarla como está</Boton>
@@ -115,12 +126,13 @@ export default function Ecuaciones() {
   );
 }
 
-function Editor({ inicial, titulo, alGuardar, alCancelar }) {
-  const [form, setForm] = useState({ ...vacia(), ...inicial, variables: inicial?.variables ?? [] });
+function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
+  const [form, setForm] = useState({ ...vacia(), ...inicial, variables: inicial?.variables ?? [], dependencias: inicial?.dependencias ?? [] });
   const [errores, setErrores] = useState({});
   const [duplicada, setDuplicada] = useState(false);
   const [editandoVariable, setEditandoVariable] = useState(null);
   const [variable, setVariable] = useState({ tipo: "variable", nombre: "", descripcion: "", valor: "", unidad: "" });
+  const [ecuacionElegida, setEcuacionElegida] = useState("");
 
   const cambiar = (campo, valor) => { setForm((f) => ({ ...f, [campo]: valor })); setErrores((e) => ({ ...e, [campo]: null, general: null })); setDuplicada(false); };
   const insertar = (texto) => cambiar("formula", `${form.formula}${texto}`);
@@ -145,6 +157,18 @@ function Editor({ inicial, titulo, alGuardar, alCancelar }) {
     if (error) return setErrores((e) => ({ ...e, variables: error }));
     cambiar("variables", lista);
     setEditandoVariable(null);
+  }
+
+  function agregarDependencia() {
+    const elegida = ecuaciones.find((e) => e.id === ecuacionElegida);
+    if (!elegida) return;
+    const ocupados = [...form.variables, ...form.dependencias].map((item) => item.nombre);
+    cambiar("dependencias", [...form.dependencias, {
+      ecuacion_id: elegida.id,
+      nombre: nombreParaDependencia(elegida, ocupados),
+    }]);
+    setEcuacionElegida("");
+    setErrores((e) => ({ ...e, dependencias: null }));
   }
 
   const teclas = ["7", "8", "9", "/", "4", "5", "6", "*", "1", "2", "3", "-", "0", ".", "^", "+", "(", ")", "sqrt("];
@@ -206,6 +230,32 @@ function Editor({ inicial, titulo, alGuardar, alCancelar }) {
                 </li>)}
               </ul>
             )}
+            <div className="mt-6 border-t border-borde pt-5">
+              <TituloSeccion>Ecuaciones calculadas</TituloSeccion>
+              <p className="mb-3 text-etiqueta text-tinta-media">Usá el resultado de otra ecuación como parte de esta fórmula.</p>
+              {errores.dependencias && <ErrorGeneral>{errores.dependencias}</ErrorGeneral>}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <select aria-label="Ecuación para utilizar" className={CLASE_ENTRADA} value={ecuacionElegida} onChange={(e) => setEcuacionElegida(e.target.value)}>
+                  <option value="">Elegí una ecuación</option>
+                  {ecuaciones.filter((e) => e.id !== inicial?.id && !form.dependencias.some((d) => d.ecuacion_id === e.id))
+                    .map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+                <Boton variante="borde" onClick={agregarDependencia} disabled={!ecuacionElegida}>Agregar</Boton>
+              </div>
+              {!!form.dependencias.length && <ul className="mt-3 space-y-2">
+                {form.dependencias.map((dependencia) => {
+                  const origen = ecuaciones.find((e) => e.id === dependencia.ecuacion_id);
+                  return <li key={dependencia.ecuacion_id} className="rounded-campo border-2 border-azul bg-azul-claro p-3">
+                    <p className="font-bold">{origen?.nombre ?? "Ecuación no disponible"} <span className="font-normal text-azul">· Ecuación calculada</span></p>
+                    <p className="text-etiqueta text-tinta-media">Se usa en la fórmula como <code>{dependencia.nombre}</code>.</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Boton variante="plano" onClick={() => insertar(dependencia.nombre)}>Insertar</Boton>
+                      <Boton variante="peligro" onClick={() => cambiar("dependencias", form.dependencias.filter((d) => d.ecuacion_id !== dependencia.ecuacion_id))}>Eliminar</Boton>
+                    </div>
+                  </li>;
+                })}
+              </ul>}
+            </div>
           </Tarjeta>
         </div>
 
@@ -217,21 +267,28 @@ function Editor({ inicial, titulo, alGuardar, alCancelar }) {
   );
 }
 
-function Resolver({ ecuacion, alCerrar }) {
-  const variables = ecuacion.variables ?? [];
-  const iniciales = Object.fromEntries(variables.filter((v) => v.tipo !== "constante").map((v) => [v.id, v.valor ?? ""]));
+function Resolver({ ecuacion, ecuaciones, alCerrar }) {
+  const preparacion = entradasDeEcuacionEncadenada(ecuacion, ecuaciones);
+  const variables = preparacion.entradas ?? [];
+  const cadena = ordenarEcuaciones(ecuacion, ecuaciones);
+  const constantes = (cadena.orden ?? [ecuacion]).flatMap((actual) =>
+    (actual.variables ?? [])
+      .filter((variable) => variable.tipo === "constante")
+      .map((variable) => ({ ...variable, ecuacion: actual.nombre })),
+  );
+  const iniciales = Object.fromEntries(variables.map((v) => [v.id, v.valor ?? ""]));
   const [entradas, setEntradas] = useState(iniciales);
   const [salida, setSalida] = useState(null);
   const [mostrarErrores, setMostrarErrores] = useState(false);
 
   const calcular = (valores = entradas, mostrar = true) => {
-    const resultado = resolverEcuacion(ecuacion, valores);
+    const resultado = preparacion.error ? preparacion : resolverEcuacionEncadenada(ecuacion, ecuaciones, valores);
     setSalida(resultado);
     if (mostrar) setMostrarErrores(true);
   };
 
   useEffect(() => {
-    const completas = variables.filter((v) => v.tipo !== "constante").every((v) => entradas[v.id] !== "");
+    const completas = variables.every((v) => entradas[v.id] !== "");
     if (completas) calcular(entradas, false); else setSalida(null);
   }, [entradas]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -240,12 +297,20 @@ function Resolver({ ecuacion, alCerrar }) {
       <TituloPantalla apoyo={ecuacion.formula}>{ecuacion.nombre}</TituloPantalla>
       <Tarjeta>
         <TituloSeccion>Valores</TituloSeccion>
-        {variables.filter((v) => v.tipo === "constante").map((v) => <p key={v.id} className="mb-3"><strong>{v.nombre}:</strong> {v.valor}{v.unidad ? ` ${v.unidad}` : ""}</p>)}
-        {variables.filter((v) => v.tipo !== "constante").map((v) => (
-          <Campo key={v.id} id={`resolver-${v.id}`} etiqueta={`${v.nombre}${v.unidad ? ` (${v.unidad})` : ""}`} ayuda={v.descripcion || undefined} type="number" step="any" value={entradas[v.id]} onChange={(e) => { setMostrarErrores(true); setEntradas((actual) => ({ ...actual, [v.id]: e.target.value })); }} error={mostrarErrores && salida?.campo === v.id ? salida.error : undefined} />
+        {constantes.map((v) => (
+          <p key={`${v.ecuacion}-${v.id}`} className="mb-3 rounded-campo bg-superficie p-3">
+            <strong>{v.nombre}</strong>: {v.valor}{v.unidad ? ` ${v.unidad}` : ""} <span className="text-tinta-media">· Constante de {v.ecuacion}</span>
+          </p>
+        ))}
+        {variables.map((v) => (
+          <Campo key={v.id} id={`resolver-${v.id}`} etiqueta={`${v.nombre}${v.unidad ? ` (${v.unidad})` : ""}`} ayuda={v.descripcion || `Entrada de ${v.ecuacion}.`} type="number" step="any" value={entradas[v.id]} onChange={(e) => { setMostrarErrores(true); setEntradas((actual) => ({ ...actual, [v.id]: e.target.value })); }} error={mostrarErrores && salida?.campo === v.id ? salida.error : undefined} />
         ))}
         {mostrarErrores && salida?.error && !salida.campo && <ErrorGeneral>{salida.error}</ErrorGeneral>}
         {salida && !salida.error && <div aria-live="polite" className="mb-6 rounded-tarjeta bg-azul-claro p-5"><p className="text-etiqueta text-tinta-media">Resultado</p><p className="mt-1 text-pantalla text-azul">{new Intl.NumberFormat("es-AR", { maximumFractionDigits: 10 }).format(salida.resultado)}{ecuacion.unidad_resultado ? ` ${ecuacion.unidad_resultado}` : ""}</p></div>}
+        {!!salida?.intermedios?.length && <div className="mb-6">
+          <TituloSeccion>Resultados intermedios</TituloSeccion>
+          <ul className="space-y-2">{salida.intermedios.map((intermedio) => <li key={intermedio.id} className="rounded-campo bg-superficie p-3"><strong>{intermedio.nombre}:</strong> {new Intl.NumberFormat("es-AR", { maximumFractionDigits: 10 }).format(intermedio.resultado)}{intermedio.unidad ? ` ${intermedio.unidad}` : ""}</li>)}</ul>
+        </div>}
         <div className="flex flex-wrap gap-2"><Boton variante="principal" onClick={() => calcular()}>Calcular</Boton><Boton onClick={alCerrar}>Volver al listado</Boton></div>
       </Tarjeta>
     </main>
