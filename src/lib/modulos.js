@@ -50,6 +50,15 @@ export const MODULOS = {
     queHace:
       "Qué tenés, qué se está por acabar y qué pediste que todavía no llegó. Cuando marcás que llegó algo que un caso estaba esperando, ese caso se destraba solo.",
   },
+  ecuaciones: {
+    clave: "ecuaciones",
+    nombre: "Ecuaciones personalizadas",
+    icono: "nota",
+    ruta: "/ecuaciones",
+    descripcion: "Tus fórmulas, guardadas para volver a usarlas.",
+    queHace:
+      "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
+  },
   // SCRUM-121. La clave sigue siendo "presupuesto" y no "aprobar": está
   // escrita en la lista de módulos de cada negocio que existe y en cada preset,
   // y cambiarla obligaba a migrar todo eso para decir lo mismo.

@@ -333,6 +333,28 @@ export function DatosProvider({ children }) {
         setDatos((d) => ({ ...d, ecuaciones: [r.datos.ecuacion, ...(d.ecuaciones ?? [])] }));
         return { ok: true, ecuacion: r.datos.ecuacion };
       },
+      async editarEcuacion(id, form) {
+        const editada = nuevaEcuacion(form);
+        if (editada.error) return { ok: false, error: editada.error, campo: editada.campo };
+        const duplicada = datos.ecuaciones?.find((e) => e.id !== id && mismaExpresion(e.formula, editada.ecuacion.formula));
+        if (duplicada && !form.confirmarVariante) return { ok: false, duplicada: true };
+        const r = await parchar(`/ecuaciones/${encodeURIComponent(id)}`, {
+          ...editada.ecuacion,
+          confirmar_variante: Boolean(form.confirmarVariante),
+        }, await tokenDeSesion());
+        if (!r.ok) {
+          if (r.error.codigo === "ecuacion_duplicada") return { ok: false, duplicada: true };
+          return { ok: false, error: r.error.mensaje, campo: r.error.campo };
+        }
+        setDatos((d) => ({ ...d, ecuaciones: ponerFila(d.ecuaciones ?? [], r.datos.ecuacion) }));
+        return { ok: true, ecuacion: r.datos.ecuacion };
+      },
+      async eliminarEcuacion(id) {
+        const r = await quitar(`/ecuaciones/${encodeURIComponent(id)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        setDatos((d) => ({ ...d, ecuaciones: (d.ecuaciones ?? []).filter((e) => e.id !== id) }));
+        return { ok: true };
+      },
       // ---------- casos ----------
       // Devuelve el caso creado para que la pantalla de alta pueda navegar a él.
       async abrirCaso({
