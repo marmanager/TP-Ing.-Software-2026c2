@@ -6,7 +6,8 @@
 -- desplegar la API que programa recordatorios y lee la configuración por tipo.
 --
 -- La cola de WhatsApp (seguimiento_whatsapp) y su configuración
--- (negocio_seguimiento) se crearon desde el panel, sin migración. Esta suma
+-- (negocio_seguimiento) se crearon desde el panel, sin migración; los
+-- nombres de sus constraints y políticas salen de pg_constraint y pg_policies. Esta suma
 -- un segundo tipo de aviso: el recordatorio de turno, que cuelga de un turno
 -- y no de un caso.
 --
@@ -40,26 +41,14 @@ alter table seguimiento_whatsapp drop constraint if exists seguimiento_whatsapp_
 alter table seguimiento_whatsapp add constraint seguimiento_whatsapp_cerrado_con_caso
   check (caso_id is null or cerrado_en is not null);
 
--- El tipo: si ya había un check sobre tipo (de cuando se sumó 'estado'), se
--- reemplaza por uno que incluya 'turno'. Se busca por lo que dice y no por
--- su nombre, porque la tabla se creó desde el panel.
-do $$
-declare
-  viejo record;
-begin
-  for viejo in
-    select conname from pg_constraint
-    where conrelid = 'seguimiento_whatsapp'::regclass and contype = 'c'
-      and conname <> 'seguimiento_whatsapp_tipo'
-      and pg_get_constraintdef(oid) ~ '\mtipo\M'
-  loop
-    execute format('alter table seguimiento_whatsapp drop constraint %I', viejo.conname);
-  end loop;
-end;
-$$;
-alter table seguimiento_whatsapp drop constraint if exists seguimiento_whatsapp_tipo;
-alter table seguimiento_whatsapp add constraint seguimiento_whatsapp_tipo
+-- El tipo: el check de cuando se sumó 'estado' no deja entrar 'turno'.
+alter table seguimiento_whatsapp drop constraint if exists seguimiento_whatsapp_tipo_check;
+alter table seguimiento_whatsapp add constraint seguimiento_whatsapp_tipo_check
   check (tipo in ('cierre', 'estado', 'turno'));
+
+-- unique (caso_id, cerrado_en), check (enviar_en >= cerrado_en) y
+-- unique (id, caso_id, negocio_id) siguen como están: con caso_id y
+-- cerrado_en en null no chocan ni fallan.
 
 -- Un turno nunca tiene dos recordatorios pendientes del mismo tipo. La API
 -- lo cuida, y esto la respalda si llegan dos pedidos a la vez: el segundo
@@ -70,41 +59,38 @@ create unique index if not exists seguimiento_whatsapp_un_pendiente_por_turno
 -- ------------------------------------------------------------
 -- 2. La RLS de la cola para los avisos de turno
 -- ------------------------------------------------------------
--- Las políticas de antes miran el caso, y un aviso de turno no tiene. Estas
--- se suman a ellas (las permisivas se combinan con OR) y sólo valen para
--- tipo = 'turno': ven los del negocio; programan, reprograman y cancelan el
--- dueño y el encargado, como los turnos (008).
-drop policy if exists seguimiento_turno_ver on seguimiento_whatsapp;
-create policy seguimiento_turno_ver on seguimiento_whatsapp
-  for select to authenticated
-  using (tipo = 'turno' and negocio_id = mi_negocio());
-
+-- seguimiento_whatsapp_ver no mira el caso: ya deja ver los de turno al
+-- dueño y al encargado. Pero seguimiento_whatsapp_crear y _cancelar piden
+-- que el caso exista, así que un aviso de turno no pasa por ellas. Estas se
+-- suman (las permisivas se combinan con OR), sólo para tipo = 'turno', con
+-- las mismas condiciones que las de caso: entra pendiente y sin resultado,
+-- y del turno de un negocio que es el de quien llama. La clave foránea no
+-- mira la RLS: sin el exists, alguien de A podría colgar un aviso a su
+-- nombre del turno de B. Con el check "caso o turno", una fila que entra por
+-- las políticas de caso no puede traer turno.
 drop policy if exists seguimiento_turno_programar on seguimiento_whatsapp;
 create policy seguimiento_turno_programar on seguimiento_whatsapp
   for insert to authenticated
-  with check (tipo = 'turno' and negocio_id = mi_negocio() and puedo_cargar());
+  with check (
+    tipo = 'turno' and negocio_id = mi_negocio() and puedo_cargar()
+    and estado = 'pendiente' and mensaje_id is null and error is null and procesado_en is null
+    and exists (select 1 from turno t
+                where t.id = seguimiento_whatsapp.turno_id and t.negocio_id = seguimiento_whatsapp.negocio_id
+                  and t.estado in ('agendado', 'confirmado'))
+  );
 
+-- Reprogramar (sigue pendiente) y cancelar. Sólo lo pendiente: lo que el
+-- procesador tomó o mandó no se toca.
 drop policy if exists seguimiento_turno_cambiar on seguimiento_whatsapp;
 create policy seguimiento_turno_cambiar on seguimiento_whatsapp
   for update to authenticated
-  using (tipo = 'turno' and negocio_id = mi_negocio() and puedo_cargar())
-  with check (tipo = 'turno' and negocio_id = mi_negocio() and puedo_cargar());
-
--- La clave foránea no mira la RLS: sin esto, alguien de A podría colgar un
--- aviso a nombre de A del turno de B. Restrictiva: se suma con AND a todas
--- las demás, también a las de antes.
-drop policy if exists seguimiento_turno_del_negocio on seguimiento_whatsapp;
-create policy seguimiento_turno_del_negocio on seguimiento_whatsapp
-  as restrictive for insert to authenticated
-  with check (seguimiento_whatsapp.turno_id is null or exists (
-    select 1 from turno t where t.id = seguimiento_whatsapp.turno_id and t.negocio_id = seguimiento_whatsapp.negocio_id));
-
-drop policy if exists seguimiento_turno_del_negocio_al_cambiar on seguimiento_whatsapp;
-create policy seguimiento_turno_del_negocio_al_cambiar on seguimiento_whatsapp
-  as restrictive for update to authenticated
-  using (true)
-  with check (seguimiento_whatsapp.turno_id is null or exists (
-    select 1 from turno t where t.id = seguimiento_whatsapp.turno_id and t.negocio_id = seguimiento_whatsapp.negocio_id));
+  using (tipo = 'turno' and negocio_id = mi_negocio() and puedo_cargar() and estado = 'pendiente')
+  with check (
+    tipo = 'turno' and negocio_id = mi_negocio() and puedo_cargar()
+    and estado in ('pendiente', 'cancelado') and mensaje_id is null
+    and exists (select 1 from turno t
+                where t.id = seguimiento_whatsapp.turno_id and t.negocio_id = seguimiento_whatsapp.negocio_id)
+  );
 
 -- ------------------------------------------------------------
 -- 3. La configuración, por tipo
@@ -118,24 +104,8 @@ alter table negocio_seguimiento add column if not exists horas integer;
 alter table negocio_seguimiento alter column dias drop not null;
 alter table negocio_seguimiento alter column dias drop default;
 
--- La clave era negocio_id solo (primaria o única): se busca por sus columnas
--- y se reemplaza por (negocio_id, tipo).
-do $$
-declare
-  vieja record;
-begin
-  for vieja in
-    select c.conname from pg_constraint c
-    where c.conrelid = 'negocio_seguimiento'::regclass and c.contype in ('p', 'u')
-      and c.conname <> 'negocio_seguimiento_pkey_tipo'
-      and c.conkey = array[(select attnum from pg_attribute
-                            where attrelid = 'negocio_seguimiento'::regclass and attname = 'negocio_id')]::smallint[]
-  loop
-    execute format('alter table negocio_seguimiento drop constraint %I', vieja.conname);
-  end loop;
-end;
-$$;
-
+-- La clave era negocio_id solo: pasa a (negocio_id, tipo).
+alter table negocio_seguimiento drop constraint if exists negocio_seguimiento_pkey;
 do $$
 begin
   if not exists (select 1 from pg_constraint
@@ -144,6 +114,9 @@ begin
   end if;
 end;
 $$;
+
+-- Las políticas de negocio_seguimiento (ver, crear, editar) miran negocio_id
+-- y puedo_cargar(): valen igual para la fila de cada tipo.
 
 -- Cada tipo con su plazo: el de cierre en días, el de turno en horas (hasta
 -- una semana). Los rangos que ve la persona los valida la API.
