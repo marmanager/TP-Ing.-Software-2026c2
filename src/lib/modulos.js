@@ -50,6 +50,15 @@ export const MODULOS = {
     queHace:
       "Qué tenés, qué se está por acabar y qué pediste que todavía no llegó. Cuando marcás que llegó algo que un caso estaba esperando, ese caso se destraba solo.",
   },
+  ecuaciones: {
+    clave: "ecuaciones",
+    nombre: "Ecuaciones personalizadas",
+    icono: "nota",
+    ruta: "/ecuaciones",
+    descripcion: "Tus fórmulas, guardadas para volver a usarlas.",
+    queHace:
+      "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
+  },
   // SCRUM-121. La clave sigue siendo "presupuesto" y no "aprobar": está
   // escrita en la lista de módulos de cada negocio que existe y en cada preset,
   // y cambiarla obligaba a migrar todo eso para decir lo mismo.
@@ -107,12 +116,12 @@ export const LISTA_MODULOS = Object.values(MODULOS);
 // POR QUÉ NO UNA MIGRACIÓN. Agregarlos a la lista de cada negocio con SQL
 // parece lo directo, pero las migraciones de este repo se pueden volver a
 // correr, y volver a correr ésa prendería de nuevo lo que un dueño apagó.
-// Taparlo pedía una columna de versión, repetir lo mismo para el modo de
-// ejemplo, y dejaba un caso donde la elección de alguien se deshace sola.
+// Taparlo pedía una columna de versión, y dejaba un caso donde la elección
+// de alguien se deshace sola.
 //
 // LO QUE SE HACE. Los "deFabrica" están prendidos salvo que alguien los haya
 // apagado, y apagarlos se anota explícito como "-clientes". Nada que migrar,
-// igual en Supabase y en el modo de ejemplo, y ningún negocio pierde nada.
+// y ningún negocio pierde nada.
 const apagado = (clave) => `-${clave}`;
 
 export function estaPrendido(clave, activos = []) {

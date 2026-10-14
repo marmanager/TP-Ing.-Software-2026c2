@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth, invitacionPendiente, mailAConfirmar, olvidarMail } from "@/lib/auth";
+import { misPedidos } from "@/lib/equipo";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
@@ -19,7 +20,7 @@ import Icono from "@/componentes/Icono";
 
 export default function CrearNegocio() {
   const router = useRouter();
-  const { esDemo, usuario, refrescarUsuario } = useAuth();
+  const { usuario, sesion, refrescarUsuario } = useAuth();
   const { crearNegocio } = useDatos();
   useTitulo("Crear tu negocio");
 
@@ -34,6 +35,8 @@ export default function CrearNegocio() {
   // esperando entrar y le aparece otro formulario. Sin esto parece que algo
   // salió mal, cuando en realidad falta un paso.
   const [reciénConfirmado, setReciénConfirmado] = useState(false);
+  // Negocios a los que ya pidió entrar y todavía no lo aceptaron.
+  const [esperando, setEsperando] = useState([]);
 
   useEffect(() => {
     setInvitacion(invitacionPendiente());
@@ -41,6 +44,15 @@ export default function CrearNegocio() {
       setReciénConfirmado(true);
       olvidarMail();
     }
+    let vivo = true;
+    misPedidos(sesion?.access_token).then((r) => {
+      if (vivo) setEsperando(r.ok ? r.pedidos : []);
+    });
+    return () => {
+      vivo = false;
+    };
+    // Una vez, al llegar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const elegido = rubro ? preset(rubro) : null;
@@ -62,8 +74,7 @@ export default function CrearNegocio() {
       return;
     }
     // La base ya dejó la cuenta adentro, como dueña (038). Se vuelve a leer
-    // la fila entera y no sólo el negocio: el rol también cambió. En el modo
-    // de ejemplo no hay cuenta y no hace nada.
+    // la fila entera y no sólo el negocio: el rol también cambió.
     await refrescarUsuario();
     router.replace("/");
   }
@@ -82,6 +93,18 @@ export default function CrearNegocio() {
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
             Falta un solo paso: contarnos de qué es tu negocio. Después entrás.
+          </p>
+        </Tarjeta>
+      )}
+
+      {esperando.length > 0 && (
+        <Tarjeta className="mb-6">
+          <p className="flex items-start gap-2 font-bold text-cuerpo">
+            <Icono nombre="reloj" className="mt-0.5 size-6" />
+            <span>Esperando que te acepten: {esperando.map((p) => p.negocio_nombre).join(", ")}</span>
+          </p>
+          <p className="mt-2 max-w-[65ch] text-tinta-media">
+            Mientras tanto, podés crear tu propio negocio.
           </p>
         </Tarjeta>
       )}
@@ -210,7 +233,7 @@ export default function CrearNegocio() {
 
       {/* Quien ya está en un negocio llega acá desde "Nuevo negocio", y puede
           arrepentirse. */}
-      {!esDemo && usuario?.negocio_id && (
+      {usuario?.negocio_id && (
         <div className="mt-6">
           <Link href="/" className="inline-flex min-h-12 items-center gap-2 font-bold text-azul">
             <Icono nombre="volver" />

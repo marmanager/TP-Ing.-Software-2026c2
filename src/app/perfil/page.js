@@ -16,7 +16,6 @@
 // confirmación a la dirección nueva, y ese ida y vuelta es otro trabajo.
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
@@ -24,7 +23,6 @@ import { useTitulo } from "@/lib/useTitulo";
 import { etiquetaRol } from "@/lib/presets";
 import { estadoDeLaContrasena, motivoDeContrasenaNueva, telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
-import FilaNegocio from "@/componentes/FilaNegocio";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import TusNegocios from "./TusNegocios";
@@ -33,7 +31,7 @@ export default function MiPerfil() {
   const router = useRouter();
   const datos = useDatos();
   const { cargando, negocio } = datos;
-  const { esDemo, sesion, usuario, cerrarSesion, definirContrasena, guardarPerfil, pedirResetContrasena } =
+  const { sesion, usuario, cerrarSesion, definirContrasena, guardarPerfil, pedirResetContrasena } =
     useAuth();
   useTitulo("Mi perfil");
 
@@ -68,9 +66,6 @@ export default function MiPerfil() {
   const [guardandoContrasena, setGuardandoContrasena] = useState(false);
   const [mailMandado, setMailMandado] = useState(null);
   const [mandandoMail, setMandandoMail] = useState(false);
-
-  // Sólo en el modo de ejemplo.
-  const [borrandoTodo, setBorrandoTodo] = useState(false);
 
   if (cargando) return <Cargando />;
 
@@ -212,54 +207,7 @@ export default function MiPerfil() {
         Lo tuyo, aparte de lo del negocio: tus datos, tu foto y tu contraseña.
       </p>
 
-      {esDemo ? (
-        <Tarjeta className="mb-12">
-          <p className="flex items-center gap-2 font-bold text-espera">
-            <Icono nombre="alerta" className="size-6" />
-            Estás en el modo de ejemplo
-          </p>
-          <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Acá no hay una cuenta: lo que cargues vive sólo en este navegador y no lo ve
-            nadie más. Al salir volvés a la pantalla de entrada.
-          </p>
-          {/* Borrar todo dice qué se pierde antes de hacerlo (auditoría, H5). */}
-          {borrandoTodo ? (
-            <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-              <p className="font-bold text-cuerpo">¿Borrar todo lo que cargaste?</p>
-              <p className="mt-1 max-w-[65ch] text-tinta-media">
-                Se pierden el negocio, los casos, los clientes, la agenda y el inventario
-                de este navegador, y volvés a empezar desde crear el negocio. No se puede
-                deshacer.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Boton
-                  variante="peligro"
-                  icono="tacho"
-                  onClick={() => {
-                    setBorrandoTodo(false);
-                    datos.reiniciar();
-                  }}
-                >
-                  Sí, borrar todo
-                </Boton>
-                <Boton variante="plano" onClick={() => setBorrandoTodo(false)}>
-                  Dejarlo como está
-                </Boton>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Boton icono="salir" onClick={salir}>
-                Salir del modo de ejemplo
-              </Boton>
-              <Boton variante="plano" icono="tacho" onClick={() => setBorrandoTodo(true)}>
-                Borrar todo y empezar de nuevo
-              </Boton>
-            </div>
-          )}
-        </Tarjeta>
-      ) : (
-        <>
+      <>
           <TituloSeccion id="cuenta">Tu cuenta</TituloSeccion>
           <Tarjeta className="mb-12">
             {/* El input vive afuera de los dos modos: si se desmontara al
@@ -582,30 +530,15 @@ export default function MiPerfil() {
               </>
             )}
           </Tarjeta>
-        </>
-      )}
+      </>
 
-      {/* Con cuenta, todos sus negocios (docs/multinegocio.md). En el modo de
-          ejemplo hay uno solo y no hay cuenta a la que atar otro. */}
-      <TituloSeccion id="negocios">{esDemo ? "Tu negocio" : "Tus negocios"}</TituloSeccion>
-      {esDemo ? (
-        negocio && (
-          <Link href="/negocio" className="mb-12 block">
-            <Tarjeta className="flex items-center gap-3 hover:bg-superficie">
-              <FilaNegocio negocio={negocio} />
-              <span className="font-bold text-azul">Ir a Mi negocio</span>
-            </Tarjeta>
-          </Link>
-        )
-      ) : (
-        <TusNegocios />
-      )}
+      {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
+      <TituloSeccion id="negocios">Tus negocios</TituloSeccion>
+      <TusNegocios />
 
-      {!esDemo && (
-        <Boton icono="salir" onClick={salir}>
-          Cerrar sesión
-        </Boton>
-      )}
+      <Boton icono="salir" onClick={salir}>
+        Cerrar sesión
+      </Boton>
     </>
   );
 }

@@ -148,47 +148,6 @@ export function motivoDelProducto(form, { desdeUno = false } = {}) {
 export const igualAlEditar = (insumos, insumo, form) =>
   insumo.estado === "en_stock" ? buscarIgual(insumos, { ...limpiarProducto(form), id: insumo.id }) : null;
 
-// El inventario de varias sedes, por producto (docs/red-de-sedes.md). El mismo
-// producto en dos sedes se reconoce como en el stock (mismoProducto): una caja
-// de 100 y una de 50 no se juntan. Por sede: cuánto hay (null si esa sede no
-// lo tiene, que no es lo mismo que haberse acabado), si está por debajo de SU
-// mínimo, y cuánto viene en camino. El total es sólo lo que está en stock.
-//
-// ponytail: cada fila se compara con los productos ya armados (n²). Con
-// cientos de productos por sede alcanza; si crece, agrupar por una clave
-// hecha con normalizar().
-export function inventarioPorSede(insumos = [], sedes = []) {
-  const productos = [];
-  for (const fila of insumos) {
-    if (!sedes.some((s) => s.id === fila.negocio_id)) continue;
-    let p = productos.find((x) => mismoProducto(x, fila));
-    if (!p) {
-      p = {
-        nombre: fila.nombre,
-        marca: fila.marca ?? null,
-        modelo: fila.modelo ?? null,
-        categoria: fila.categoria ?? null,
-        unidad: fila.unidad,
-        por_caja: fila.por_caja ?? null,
-        porSede: Object.fromEntries(sedes.map((s) => [s.id, { cantidad: null, bajo: false, enCamino: 0 }])),
-        total: 0,
-      };
-      productos.push(p);
-    }
-    const celda = p.porSede[fila.negocio_id];
-    if (fila.estado === "pedido") {
-      celda.enCamino += fila.cantidad;
-    } else {
-      celda.cantidad = (celda.cantidad ?? 0) + fila.cantidad;
-      celda.bajo = celda.cantidad <= fila.minimo;
-      p.total += fila.cantidad;
-    }
-  }
-  return productos
-    .map((p) => ({ ...p, faltaEnAlguna: Object.values(p.porSede).some((c) => c.bajo) }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-}
-
 // ------------------------------------------------------------
 // Las categorías
 // ------------------------------------------------------------

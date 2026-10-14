@@ -9,7 +9,6 @@ import {
   PRESETS,
   RUBROS,
   preset,
-  queFaltaPara,
   ORDEN_ROLES,
   etiquetaRol,
   comoSeIdentifica,
@@ -76,48 +75,6 @@ test("un rubro desconocido o vacío cae en taller", () => {
 
 test("ya no existe el preset veterinaria", () => {
   assert.equal(PRESETS.veterinaria, undefined);
-});
-
-// "Qué falta" queda guardado en el caso: si sale con las palabras del taller,
-// un consultorio termina con casos que dicen "Está en el taller".
-test("el 'qué falta' que se guarda sale en las palabras del rubro", () => {
-  assert.equal(queFaltaPara("taller", "en_proceso"), "Está en el taller");
-  assert.equal(queFaltaPara("medicina", "en_proceso"), "En consulta");
-  assert.equal(queFaltaPara("service", "en_proceso"), "En reparación");
-
-  assert.equal(queFaltaPara("taller", "revision_final"), "Control antes de entregar");
-  assert.equal(queFaltaPara("medicina", "revision_final"), "Control antes del alta");
-  assert.equal(queFaltaPara("service", "revision_final"), "Prueba antes de entregar");
-});
-
-test("un caso sin responsable dice lo mismo en todos los rubros", () => {
-  for (const r of RUBROS) {
-    assert.equal(queFaltaPara(r.clave, "nuevo"), "Asignar a alguien del equipo");
-  }
-});
-
-// CAMBIO DE CRITERIO. Antes esto devolvía "" a propósito: qué se está
-// esperando depende del caso —un repuesto, el sí del cliente— y lo escribía
-// quien lo producía. Ese razonamiento valía cuando cada botón de "Cómo sigue"
-// traía su texto a mano.
-//
-// Con el estado en un desplegable, pasar a esperando ya no pasa por ningún
-// botón que sepa qué se espera, y el "" dejaba la tarjeta del caso con un
-// "Qué falta:" vacío colgando. Ahora hay un texto genérico del rubro, y quien
-// sabe más lo sigue pisando: el flujo del insumo escribe "El repuesto llega
-// mañana", que es más preciso y le gana a esto.
-test("esperando cae en lo genérico del rubro, que es mejor que un hueco", () => {
-  assert.equal(queFaltaPara("taller", "esperando"), "El repuesto o el sí del cliente");
-
-  for (const r of RUBROS) {
-    assert.ok(queFaltaPara(r.clave, "esperando").trim(), `${r.clave} lo deja vacío`);
-  }
-});
-
-test("un caso cerrado no tiene nada pendiente, en ningún rubro", () => {
-  for (const r of RUBROS) {
-    assert.equal(queFaltaPara(r.clave, "completado"), "Nada, el caso está cerrado.");
-  }
 });
 
 // Mismo criterio que los estados: los tres roles son fijos porque la base no

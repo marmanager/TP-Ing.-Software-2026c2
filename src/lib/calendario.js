@@ -104,8 +104,8 @@ export const minutosDelDia = (fecha) => {
 };
 
 // Cuánto ocupa un turno. Si no tiene reservado propio, ocupa lo que el
-// negocio da por turno. Es la misma cuenta que ya hacen huecosLibres() y
-// agendaPublica() en horarios.js.
+// negocio da por turno. Es la misma cuenta que hace huecosLibres() en
+// horarios.js.
 export const duracionDe = (turno, porDefecto = 30) =>
   Number(turno?.minutos_reservados) > 0 ? Number(turno.minutos_reservados) : porDefecto;
 

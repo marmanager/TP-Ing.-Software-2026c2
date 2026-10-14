@@ -1,16 +1,15 @@
 import { $, browser, expect } from "@wdio/globals";
-import { cargarArchivoEnInput, entrarConDatosDePrueba, verTexto } from "./ayudas.js";
+import { cargarArchivoEnInput, entrar, verTexto } from "./ayudas.js";
 
-// Hay dos fotos: la de la ficha del negocio (SCRUM-30), que se prueba acá en el
-// modo de ejemplo, y la personal de cada usuario (SCRUM-118, en Mi perfil).
-// La personal necesita una cuenta de verdad —en el modo de ejemplo no hay
-// cuenta—, así que sus dos criterios quedan salteados como integración con
-// Supabase y no como "no implementada". Los hace cumplir la base: guardar pasa
-// por guardar_mi_perfil() (034) y editar la foto de otro lo impide la política
+// Hay dos fotos: la de la ficha del negocio (SCRUM-30), que se prueba acá, y
+// la personal de cada usuario (SCRUM-118, en Mi perfil). Los dos criterios de
+// la personal siguen salteados: ahora las e2e entran con una cuenta sembrada,
+// así que se pueden escribir. Los hace cumplir la base: guardar pasa por
+// guardar_mi_perfil() (034) y editar la foto de otro lo impide la política
 // usuario_edita_lo_suyo (005).
 describe("Historia: Foto del negocio y foto personal", () => {
   beforeEach(async () => {
-    await entrarConDatosDePrueba("/negocio");
+    await entrar("/negocio");
     await $("button=Editar").click();
   });
 

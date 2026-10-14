@@ -2,134 +2,18 @@
 //
 // Es la pantalla más expuesta del sistema: la abre gente que nunca vio la
 // aplicación, desde un link de WhatsApp, sin nadie al lado para explicarle.
-// Este archivo decide DOS cosas, y las dos importan:
+// Qué se le muestra lo decide la API (ver_seguimiento(), 018 y 026: una
+// lista cerrada de campos). Este archivo decide cómo se cuenta: el estado se
+// dice con la palabra del rubro, y la línea de tiempo se arma con los cinco
+// estados del núcleo, no con los títulos del historial, que están escritos
+// para adentro del negocio.
 //
-//   1. Qué se le muestra y qué no. La lista de campos está escrita a mano,
-//      una por una. Es un permiso, no un filtro: si mañana alguien le agrega
-//      una columna a "caso", esa columna no aparece acá y no se publica.
-//      Hay un test que falla si eso deja de ser cierto.
-//
-//   2. Cómo se cuenta. El estado se dice con la palabra del rubro, y la
-//      línea de tiempo se arma con los cinco estados del núcleo, no con los
-//      títulos del historial, que están escritos para adentro del negocio.
-//
-// No tiene React ni Supabase adentro a propósito: así lo corre Jest
-// y así lo usan las dos fuentes de datos, la base y el modo de ejemplo.
+// No tiene React adentro a propósito: así lo corre Jest.
 
 // Con la extensión puesta: el resto del sistema la omite porque lo arma
 // Next, pero este archivo también lo importa Jest sobre Node, que sigue el
 // estándar y no adivina el ".js".
 import { ORDEN_ESTADOS } from "./estados.js";
-import { pagoPublico } from "./cobros.js";
-
-// Lo único que sale del negocio hacia afuera. El mismo recorte que hace
-// ver_seguimiento(), que nació en supabase/018_seguimiento.sql y hoy vive en
-// 026_pago_en_el_seguimiento.sql: si se cambia uno, se cambian los dos.
-export const CAMPOS_PUBLICOS = [
-  "sirve",
-  "negocio_nombre",
-  "negocio_telefono",
-  "rubro",
-  "cliente_nombre",
-  "numero",
-  "identificador",
-  "servicio",
-  "estado",
-  "que_falta",
-  "abierto_en",
-  "actualizado_en",
-  "pasos",
-  "por_responder",
-  "linea",
-  // Cuánto pagó, cuánto falta y los links de pago que le mandaron (026).
-  "pago",
-];
-
-// De cada paso aprobado: el nombre, el monto y si ya se hizo. Lo que el
-// cliente aprobó, y cuánto de eso está listo.
-//
-// Va el booleano y no la fecha: al cliente le sirve saber que está hecho, y
-// la hora exacta en que el mecánico tocó el botón es un dato de adentro del
-// taller.
-export const CAMPOS_PASO = ["nombre", "monto", "hecho"];
-
-// De cada paso que espera su respuesta, además el porqué —lo escribió el
-// negocio para explicárselo a él— y el id, que es lo único que se expone de
-// más en todo el recorte: hace falta para poder decir "este". Es un uuid al
-// azar, no sirve sin el código, y la base comprueba igual que el paso sea
-// del caso de ese código (019_aprobar_desde_el_link.sql).
-const CAMPOS_PASO_POR_RESPONDER = ["id", "nombre", "descripcion", "monto"];
-
-// Arma el objeto público a partir de los datos completos del negocio.
-//
-// Lo usa el modo de ejemplo, donde no hay servidor que recorte nada y todo
-// está en el navegador. Con Supabase el recorte lo hace la base y esto no
-// llega a correr, pero el resultado tiene que ser el mismo objeto: la
-// pantalla es una sola.
-//
-// Devuelve { sirve: false } cuando el código no sirve, sin decir por qué:
-// que no exista, que lo hayan revocado o que el caso ya no esté se ven
-// exactamente igual desde afuera.
-export function casoPublico({
-  codigo,
-  negocio,
-  casos = [],
-  clientes = [],
-  pasos = [],
-  eventos = [],
-  cobros = [],
-}) {
-  if (!codigo) return { sirve: false };
-
-  const caso = casos.find((c) => c.seguimiento_codigo && c.seguimiento_codigo === codigo);
-  if (!caso || !negocio) return { sirve: false };
-
-  const cliente = clientes.find((c) => c.id === caso.cliente_id) ?? null;
-
-  return {
-    sirve: true,
-    negocio_nombre: negocio.nombre ?? null,
-    // Para que el cliente pueda preguntar antes de decidir. Nulo si el
-    // negocio no lo cargó: la pantalla no inventa un botón que no lleva a
-    // ningún lado.
-    negocio_telefono: nullSiVacio(negocio.telefono),
-    rubro: negocio.rubro ?? null,
-    // Sólo el nombre de pila: alcanza para reconocer que el link es el suyo.
-    cliente_nombre: primerNombre(cliente?.nombre),
-    numero: caso.numero ?? null,
-    identificador: caso.identificador ?? null,
-    servicio: caso.servicio ?? null,
-    estado: caso.estado ?? null,
-    // "Qué falta" sólo cuando está frenado. En los otros estados es una
-    // instrucción para adentro ("Asignar a alguien del equipo"), no la
-    // respuesta a "¿por qué tarda?".
-    que_falta: caso.estado === "esperando" ? (caso.que_falta ?? null) : null,
-    abierto_en: caso.abierto_en ?? null,
-    actualizado_en: caso.actualizado_en ?? null,
-    pasos: pasos
-      .filter((p) => p.caso_id === caso.id && p.estado === "aprobado")
-      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-      .map((p) => ({ ...soloEstos(p, ["nombre", "monto"]), hecho: Boolean(p.hecho_en) })),
-    // Lo que espera su respuesta. Un caso entregado no lleva ninguno: sobre
-    // un trabajo terminado no hay nada que decidir, y ofrecerlo sería
-    // ofrecer una puerta que no abre.
-    //
-    // Los rechazados tampoco están: ya los contestó, y volver a ofrecerlos
-    // es del negocio, no del cliente.
-    por_responder:
-      caso.estado === "completado"
-        ? []
-        : pasos
-            .filter((p) => p.caso_id === caso.id && p.estado === "esperando")
-            .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-            .map((p) => soloEstos(p, CAMPOS_PASO_POR_RESPONDER)),
-    linea: eventos
-      .filter((e) => e.caso_id === caso.id && e.estado)
-      .map((e) => ({ estado: e.estado, ocurrido_en: e.ocurrido_en ?? null }))
-      .sort((a, b) => new Date(a.ocurrido_en) - new Date(b.ocurrido_en)),
-    pago: pagoPublico({ caso, pasos, cobros }),
-  };
-}
 
 // Lo que contesta la API, a la forma que ya conoce la pantalla.
 //
@@ -150,19 +34,12 @@ export const seguimientoDeLaApi = (r) =>
 // con el mensaje de la API, que ya está escrito para el cliente.
 export const respuestaDeLaApi = (r) => (r.ok ? { ok: true, ...r.datos } : { ok: false, motivo: r.error.mensaje });
 
-const primerNombre = (nombre) => (nombre ?? "").trim().split(/\s+/)[0] || null;
-
-const nullSiVacio = (texto) => (texto ?? "").trim() || null;
-
-const soloEstos = (objeto, campos) =>
-  Object.fromEntries(campos.map((campo) => [campo, objeto?.[campo] ?? null]));
-
 // Lo que el negocio escribe en "qué falta" cuando comparte el link: de ahí
 // en más la pelota es del cliente. Es una constante porque la escribe la
 // capa de datos y la lee esta pantalla, y si dejaran de coincidir el cliente
 // leería "estamos esperando la respuesta del cliente", hablando de él en
 // tercera persona en su propia pantalla.
-export const ESPERA_AL_CLIENTE = "la respuesta del cliente";
+const ESPERA_AL_CLIENTE = "la respuesta del cliente";
 
 // A quién se está esperando, dicho para el que abre el link.
 //
@@ -273,19 +150,6 @@ export const totalAprobado = (pasos = []) =>
 // igual en localhost, en la compu de al lado y el día que esto se publique.
 export const linkDeSeguimiento = (origen, codigo) =>
   `${(origen ?? "").replace(/\/$/, "")}/seguimiento/${codigo}`;
-
-// El mensaje que sale escrito en WhatsApp. Lo puede borrar y escribir lo que
-// quiera: es un punto de partida, no un formulario.
-//
-// Dice de parte de quién es y qué es el link, porque del otro lado alguien
-// recibe una dirección de internet de un número que quizás no tiene agendado.
-export function mensajeDeWhatsApp({ negocioNombre, identificador, servicio, link }) {
-  const cosa = identificador || servicio || "tu trabajo";
-  return (
-    `Hola, te escribimos de ${negocioNombre}. ` +
-    `Podés ver cómo viene ${cosa} acá, sin instalar nada: ${link}`
-  );
-}
 
 // El aviso de que el trabajo está listo (flujo, punto 9).
 //

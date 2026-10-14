@@ -6,103 +6,20 @@
 // nada: el caso se quedaba esperando hasta que alguien se acordara de mirar.
 // La pelota quedaba en el aire.
 //
-// La misma cuenta la hace la base en 022_el_cliente_destraba.sql. Estos
-// tests son de la versión en JavaScript, que es la que corre en el modo de
-// ejemplo, pero las dos tienen que decir lo mismo.
+// Soltar el caso lo hace la base (022_el_cliente_destraba.sql) cuando el
+// cliente contesta desde el link. Acá queda lo que mira la pantalla: el aviso
+// en el Inicio y el camino de vuelta desde control final.
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import {
   FIRMA_DEL_CLIENTE,
   casosQueContestoElCliente,
-  elClienteDestraba,
-  elClienteVolvioADarTrabajo,
   quedoTrabajoPendiente,
 } from "../src/lib/estados.js";
 
 const caso = (estado = "esperando", extra = {}) => ({ id: "k1", numero: 1, estado, ...extra });
 const paso = (estado, caso_id = "k1") => ({ caso_id, estado });
-const insumo = (estado, caso_id = "k1") => ({ caso_id, estado });
-
-// ------------------------------------------------------------
-// Cuándo se suelta
-// ------------------------------------------------------------
-
-test("contestado lo último que faltaba, el caso se suelta", () => {
-  assert.equal(
-    elClienteDestraba(caso(), { pasos: [paso("aprobado"), paso("rechazado")] }),
-    true
-  );
-});
-
-test("si todavía queda algo por contestar, sigue esperando", () => {
-  // Con tres pasos en la mesa el cliente puede aprobar uno hoy y pensar los
-  // otros dos. El caso sigue esperando, porque sigue esperando.
-  assert.equal(
-    elClienteDestraba(caso(), { pasos: [paso("aprobado"), paso("esperando")] }),
-    false
-  );
-});
-
-test("rechazar destraba igual que aprobar", () => {
-  // Un "no" es una respuesta. Si no destrabara, un paso rechazado dejaría el
-  // caso trabado para siempre.
-  assert.equal(elClienteDestraba(caso(), { pasos: [paso("rechazado")] }), true);
-});
-
-test("si lo que traba es un repuesto, contestar no lo suelta", () => {
-  // El cliente ya dijo que sí, pero el auto sigue sin poder salir.
-  assert.equal(
-    elClienteDestraba(caso(), {
-      pasos: [paso("aprobado")],
-      insumos: [insumo("pedido")],
-    }),
-    false
-  );
-});
-
-test("un insumo que ya llegó no traba nada", () => {
-  assert.equal(
-    elClienteDestraba(caso(), {
-      pasos: [paso("aprobado")],
-      insumos: [insumo("en_stock")],
-    }),
-    true
-  );
-});
-
-test("los pasos y los insumos de otro caso no cuentan", () => {
-  assert.equal(
-    elClienteDestraba(caso(), {
-      pasos: [paso("aprobado"), paso("esperando", "k2")],
-      insumos: [insumo("pedido", "k2")],
-    }),
-    true
-  );
-});
-
-test("un caso que no está esperando no se toca", () => {
-  // Si ya está en el taller, o en control final, contestar un paso suelto no
-  // tiene por qué moverlo de donde está.
-  for (const estado of ["nuevo", "en_proceso", "revision_final", "completado"]) {
-    assert.equal(
-      elClienteDestraba(caso(estado), { pasos: [paso("aprobado")] }),
-      false,
-      estado
-    );
-  }
-});
-
-test("sin caso no se decide nada", () => {
-  assert.equal(elClienteDestraba(null, { pasos: [] }), false);
-  assert.equal(elClienteDestraba(undefined), false);
-});
-
-test("un caso sin pasos no se suelta por las dudas", () => {
-  // No hay nada esperando respuesta, pero tampoco hubo respuesta: el caso
-  // quedó esperando por otra cosa que nadie escribió. Moverlo sería inventar.
-  assert.equal(elClienteDestraba(caso(), { pasos: [] }), true);
-});
 
 // ------------------------------------------------------------
 // El aviso en el Inicio
@@ -208,18 +125,4 @@ test("un paso sin contestar no cuenta como trabajo sin hacer", () => {
     quedoTrabajoPendiente(caso("revision_final"), [paso("esperando"), paso("rechazado")]),
     false
   );
-});
-
-test("aprobar desde el link saca al caso de control final", () => {
-  assert.equal(elClienteVolvioADarTrabajo(caso("revision_final"), "aprobado"), true);
-});
-
-test("rechazar no lo saca: un «no» no agrega trabajo", () => {
-  assert.equal(elClienteVolvioADarTrabajo(caso("revision_final"), "rechazado"), false);
-});
-
-test("desde cualquier otro estado, aprobar no mueve el caso por este camino", () => {
-  for (const estado of ["nuevo", "en_proceso", "esperando"]) {
-    assert.equal(elClienteVolvioADarTrabajo(caso(estado), "aprobado"), false, estado);
-  }
 });

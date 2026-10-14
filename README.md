@@ -55,23 +55,36 @@ En WebdriverIO, el test abre una URL, busca controles como los ve el usuario,
 interactúa con ellos y verifica la pantalla siguiente:
 
 ```js
-await browser.url("/iniciar-sesion");
-await $("button=Entrar con los datos de ejemplo").click();
-await expect($("h1=Inicio")).toBeDisplayed();
+await entrar("/casos/{k248}");               // una cuenta sembrada, en el caso 248
+await $("button=Entregar y cerrar").click();
+await verTexto("El caso está cerrado");
 ```
+
+Las e2e entran con una **cuenta de verdad que siembra la API** (en la base de
+pruebas) y la borran al terminar: `entrar(ruta, escenario)` en
+`pruebas/e2e/historias/ayudas.js`. Los escenarios (`taller-completo`,
+`taller-sin-casos`, `sin-negocio`) están en la API, en
+`src/modulos/semilla/escenarios.ts`. Para correrlas:
+
+1. La API, en otra terminal, con `SEMILLA_CLAVE` en su `.env` y en el puerto 4000:
+   `PORT=4000 npm run dev` (en PowerShell: `$env:PORT=4000; npm run dev`). Si el
+   front va a hablar con esa API, su `ORIGENES_PERMITIDOS` tiene que incluir
+   `http://localhost:3000`.
+2. En el `.env.local` del front: `E2E_API_URL=http://localhost:4000` y
+   `E2E_SEMILLA_CLAVE=` la misma clave. `NEXT_PUBLIC_API_URL` puede apuntar a esa
+   API o a Render: las dos usan la misma base.
+3. `npm run test:e2e`.
 
 Conviene reservar Jest para reglas, cálculos y validaciones, y WebdriverIO para
 unos pocos caminos críticos (iniciar sesión, crear un caso, aprobar un presupuesto
 y cobrar). Los tests E2E son más lentos y más sensibles a cambios visuales.
 
-**No hace falta configurar nada para que ande.** Sin credenciales de Supabase, la
-pantalla de entrada ofrece **"Probar sin cuenta"**: creás tu negocio, elegís el
-rubro y usás el sistema entero —abrir casos, hacerlos avanzar, armar
-presupuestos, cargar inventario, anotar turnos—, todo guardado en tu navegador.
-No viene ningún dato inventado: arrancás vacío, como una cuenta nueva de verdad.
-
-Lo único que no se puede sin Supabase es invitar colaboradores, que necesita
-cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
+**Para usar el sistema hace falta la API** (`NEXT_PUBLIC_API_URL`): el front
+no guarda nada por su cuenta y todo pasa por ahí. Para mostrarlo sin cargar
+datos a mano, la API siembra una cuenta con un taller listo (casos, pasos,
+clientes, equipo e historial): `npm run sembrar` en el repo de la API imprime el
+mail y la contraseña para entrar. Antes había un "Probá sin cuenta" que guardaba
+todo en el navegador; se fue porque obligaba a tener las reglas copiadas acá.
 
 ## Conectar la base de Supabase
 
@@ -103,9 +116,7 @@ cuentas reales. Para salir, "Mi negocio" → "Salir del modo de ejemplo".
    de *Project Settings → API*.
 4. Reiniciar `npm run dev`.
 
-Con las claves cargadas, la pantalla de entrada pide mail y contraseña. Sin ellas
-sólo queda el modo de ejemplo. La aplicación no dice en pantalla de dónde salen
-los datos: es información de desarrollo, no del negocio.
+Con la API conectada, la pantalla de entrada pide mail y contraseña.
 
 ## Cómo está armado
 
@@ -121,9 +132,8 @@ src/
 ├── componentes/            piezas base: botones, campos, chips, íconos
 │   └── inicio/             el marco y el contenido de cada módulo del Inicio
 └── lib/
-    ├── auth.js             sesión: cuentas de Supabase o modo de ejemplo
-    ├── datos.js            capa de datos: Supabase si hay claves, si no local
-    ├── semilla.js          el estado inicial del modo de ejemplo: vacío
+    ├── auth.js             sesión y cuentas, por la API (sesion.js la guarda)
+    ├── datos.js            capa de datos: lo que leen y cambian las pantallas, por la API
     ├── estados.js          los cinco estados del caso y sus reglas
     ├── turnos.js           los cuatro estados de un turno de la agenda
     ├── horarios.js         cuándo atiende el negocio y qué huecos quedan
@@ -269,8 +279,8 @@ de ejemplo, y dejaba un caso donde la elección de alguien se deshace sola.
 
 Así que esos dos llevan `deFabrica: true` en `src/lib/modulos.js`: están
 prendidos salvo que alguien los haya apagado, y apagarlos se anota explícito en
-la lista como `-clientes` o `-historial`. Nada que migrar, igual en Supabase y en
-el modo de ejemplo. `pruebas/modulos.test.js` recorre las listas de los negocios
+la lista como `-clientes` o `-historial`. Nada que migrar.
+`pruebas/modulos.test.js` recorre las listas de los negocios
 de hoy y comprueba que ninguno pierda nada.
 
 **Nadie pregunta `activos.includes(...)` a mano.** Se pregunta `estaPrendido()`,
@@ -635,9 +645,6 @@ El `UID` de cada evento es el id del turno y no cambia entre lecturas: si
 cambiara, el calendario borraría y recrearía el evento cada vez que relee, y se
 perderían los recordatorios que la persona le puso.
 
-En el modo de ejemplo los turnos viven en el navegador y no hay servidor que los
-publique; la pantalla lo dice y el link queda armado para cuando haya base.
-
 ### El calendario cambia según cómo esté el teléfono
 
 En la computadora y **con el teléfono acostado** se ve el mes o la semana, con
@@ -684,8 +691,7 @@ esté al día. Un reloj que pregunta cada tanto gastaría pedidos toda la tarde 
 la pestaña de fondo y seguiría llegando tarde justo cuando la persona vuelve.
 
 Si alguna vez hace falta que el turno aparezca sin tocar nada, el camino es
-Supabase Realtime sobre la tabla `turno` —que no anda en el modo de ejemplo,
-donde no hay servidor—. Queda anotado con un comentario `ponytail:` en el código.
+Supabase Realtime sobre la tabla `turno`. Queda anotado con un comentario `ponytail:` en el código.
 
 ### Abrir el alta y salir de ella no son el mismo botón
 
@@ -804,9 +810,8 @@ la tarjeta. El pincel es el único botón sin palabra al lado en todo el sistema
 Sin foto queda el ícono de local, que es lo que había.
 
 La foto **se achica en el navegador** a 256 píxeles de lado y se guarda como
-texto en una columna, no en un bucket de archivos. Esa es la decisión que la
-hace andar igual con Supabase y en el modo de ejemplo, donde no hay servidor
-que reciba nada. Pesa unos 20 KB.
+texto en una columna, no en un bucket de archivos: viaja por la API como
+cualquier otro dato. Pesa unos 20 KB.
 
 Sale en WebP porque mantiene la transparencia: un logo con fondo transparente
 pasado a JPEG queda con un recuadro negro. Un navegador que no lo soporte
@@ -820,8 +825,7 @@ bucket y sus políticas, no subirle el número al máximo.
 
 La entrada al sistema es del Sprint 1: crear cuenta (mail + teléfono + contraseña),
 verificar el mail, iniciar sesión, recuperar la contraseña, crear el negocio y
-elegir el preset del rubro, y cerrar sesión. El modo de ejemplo entra sin cuenta
-y hace ese mismo recorrido desde "crear el negocio", pero contra el navegador.
+elegir el preset del rubro, y cerrar sesión. Todo pasa por la API.
 
 Con la sesión abierta, la contraseña se cambia desde "Mi negocio" → "Tu cuenta"
 (SCRUM-32). No pide la contraseña vieja porque Supabase no la pide: lo que
@@ -939,21 +943,15 @@ el diagnóstico interno, ni los pasos que ya rechazó, ni las notas, ni quién l
 está atendiendo, ni nada del inventario, ni ningún otro caso, ni el nombre que
 el negocio le puso al caso.
 
-Eso está escrito en dos lugares que tienen que decir lo mismo: la función
-`ver_seguimiento()`, que nació en `supabase/018_seguimiento.sql` y hoy vive en
-`026_pago_en_el_seguimiento.sql`, y `src/lib/seguimiento.js`, que hace el mismo
-recorte para el modo de ejemplo. `pruebas/seguimiento.test.js` está escrito al revés de lo habitual:
-comprueba que **no hay ningún campo de más**, así que falla si mañana alguien le
-agrega una columna a `caso` sin acordarse de esta pantalla.
+Eso está escrito en un solo lugar: la función `ver_seguimiento()`, que nació
+en `supabase/018_seguimiento.sql` y hoy vive en `026_pago_en_el_seguimiento.sql`,
+y que la API llama para el link (`GET /v1/publico/seguimiento/:codigo`). Es una
+lista cerrada de campos: una columna nueva en `caso` no se publica sola.
 
 **No hay política de RLS para el rol anónimo.** Una política tendría que abrirle
 `select` sobre `caso`, y con eso las columnas internas viajarían igual. La
 función `security definer` es la única puerta y el código es la llave, el mismo
 patrón que las invitaciones.
-
-En el modo de ejemplo el link anda en ese mismo navegador, que es donde viven
-los datos. Lo único que no funciona ahí es el registro de la última visita: eso
-lo anota la base.
 
 ## Aislamiento por negocio
 

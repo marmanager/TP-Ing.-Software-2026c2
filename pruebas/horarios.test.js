@@ -18,12 +18,10 @@ import {
   mesesConLugar,
   semanasDelMes,
   DIAS,
-  agendaPublica,
   HORARIOS_DE_FABRICA,
   HORIZONTE_DE_FABRICA,
   HORIZONTES,
   diaDe,
-  huecoSigueLibre,
   huecosDelDia,
   huecosLibres,
   horariosListos,
@@ -281,148 +279,6 @@ test("sin horarios configurados no se ofrece nada", () => {
 });
 
 // ------------------------------------------------------------
-// El último chequeo, el de antes de escribir
-// ------------------------------------------------------------
-
-test("un hueco libre sigue libre", () => {
-  assert.equal(
-    huecoSigueLibre({
-      cuando: enElDia(10, 0),
-      horarios: config(),
-      turnos: [],
-      ahora: new Date(2026, 8, 18),
-    }),
-    true
-  );
-});
-
-test("entre que lo vio y lo tocó, alguien se lo llevó", () => {
-  assert.equal(
-    huecoSigueLibre({
-      cuando: enElDia(10, 0),
-      horarios: config(),
-      turnos: [turno(enElDia(10, 0))],
-      ahora: new Date(2026, 8, 18),
-    }),
-    false
-  );
-});
-
-test("no se puede reservar una hora que el negocio no ofrece", () => {
-  // Mandando el dato a mano se podría intentar pedir a las 3 de la mañana, o
-  // a las 13:30, que cae justo en el corte del mediodía.
-  const base = { horarios: config(), turnos: [], ahora: new Date(2026, 8, 18) };
-  assert.equal(huecoSigueLibre({ ...base, cuando: enElDia(3, 0) }), false);
-  assert.equal(huecoSigueLibre({ ...base, cuando: enElDia(13, 30) }), false);
-  assert.equal(huecoSigueLibre({ ...base, cuando: enElDia(10, 7) }), false, "ni a una hora partida");
-});
-
-test("no se puede reservar un domingo si no se atiende los domingos", () => {
-  assert.equal(
-    huecoSigueLibre({
-      cuando: new Date(2026, 8, 20, 10, 0),
-      horarios: config(),
-      turnos: [],
-      ahora: new Date(2026, 8, 18),
-    }),
-    false
-  );
-});
-
-test("no se puede reservar para atrás ni contra la anticipación", () => {
-  const base = { cuando: enElDia(10, 0), horarios: config(), turnos: [] };
-  assert.equal(huecoSigueLibre({ ...base, ahora: new Date(2026, 8, 21, 11, 0) }), false);
-  assert.equal(huecoSigueLibre({ ...base, ahora: new Date(2026, 8, 21, 9, 30) }), false);
-});
-
-test("una fecha que no es una fecha no reserva nada", () => {
-  assert.equal(
-    huecoSigueLibre({ cuando: "cuando quieras", horarios: config(), turnos: [] }),
-    false
-  );
-});
-
-// ------------------------------------------------------------
-// Lo que ve quien abre el link de la agenda
-// ------------------------------------------------------------
-
-const negocio = {
-  id: "n1",
-  nombre: "Taller Sur",
-  rubro: "taller",
-  telefono: "341 222 3333",
-  agenda_codigo: "a".repeat(32),
-  horarios: HORARIOS_DE_FABRICA,
-};
-
-test("publica los horarios y cuándo está ocupado", () => {
-  const manana = new Date(Date.now() + 86400000);
-  const a = agendaPublica({
-    codigo: negocio.agenda_codigo,
-    negocio,
-    turnos: [{ empieza_en: manana.toISOString(), estado: "agendado", minutos_reservados: 30 }],
-  });
-
-  assert.equal(a.sirve, true);
-  assert.equal(a.negocio_nombre, "Taller Sur");
-  assert.deepEqual(a.horarios, HORARIOS_DE_FABRICA);
-  assert.equal(a.ocupados.length, 1);
-});
-
-test("de los turnos tomados no viaja quién los tomó", () => {
-  const manana = new Date(Date.now() + 86400000).toISOString();
-  const a = agendaPublica({
-    codigo: negocio.agenda_codigo,
-    negocio,
-    turnos: [
-      {
-        empieza_en: manana,
-        estado: "agendado",
-        minutos_reservados: 30,
-        motivo: "Ruido raro en el motor",
-        cliente_id: "c1",
-        caso_id: "k1",
-      },
-    ],
-  });
-
-  const texto = JSON.stringify(a);
-  assert.ok(!texto.includes("Ruido raro"), "ni por qué vino");
-  assert.ok(!texto.includes("c1"), "ni quién es");
-  assert.ok(!texto.includes("k1"), "ni de qué caso");
-  assert.deepEqual(Object.keys(a.ocupados[0]).sort(), ["empieza_en", "minutos_reservados"]);
-});
-
-test("un turno cancelado no aparece como ocupado", () => {
-  const manana = new Date(Date.now() + 86400000).toISOString();
-  const a = agendaPublica({
-    codigo: negocio.agenda_codigo,
-    negocio,
-    turnos: [{ empieza_en: manana, estado: "cancelado" }],
-  });
-  assert.deepEqual(a.ocupados, []);
-});
-
-test("los turnos viejos no se mandan: nadie puede pedir para atrás", () => {
-  const hace3dias = new Date(Date.now() - 3 * 86400000).toISOString();
-  const a = agendaPublica({
-    codigo: negocio.agenda_codigo,
-    negocio,
-    turnos: [{ empieza_en: hace3dias, estado: "agendado" }],
-  });
-  assert.deepEqual(a.ocupados, []);
-});
-
-test("un código que no es el del negocio no abre nada", () => {
-  assert.deepEqual(agendaPublica({ codigo: "b".repeat(32), negocio, turnos: [] }), { sirve: false });
-  assert.deepEqual(agendaPublica({ codigo: null, negocio, turnos: [] }), { sirve: false });
-  assert.deepEqual(
-    agendaPublica({ codigo: "x", negocio: { ...negocio, agenda_codigo: null }, turnos: [] }),
-    { sirve: false }
-  );
-});
-
-// ------------------------------------------------------------
 // La pantalla pública: el calendario y las franjas
 // ------------------------------------------------------------
 
@@ -510,15 +366,6 @@ test("un negocio que guardó sus horarios antes del tope recibe el de fábrica",
   assert.equal(normalizarHorarios(viejo).horizonteDias, HORIZONTE_DE_FABRICA);
   assert.equal(normalizarHorarios({ ...viejo, horizonteDias: 7 }).horizonteDias, HORIZONTE_DE_FABRICA);
   assert.ok(HORIZONTES.some((x) => x.dias === HORIZONTE_DE_FABRICA));
-});
-
-test("un horario más allá del tope no se puede reservar aunque esté libre", () => {
-  const ahora = new Date(2026, 8, 21, 8, 0); // lunes
-  const horarios = { ...HORARIOS_DE_FABRICA, horizonteDias: 14 };
-  // Viernes 2 de octubre: día 12, adentro.
-  assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 2, 10, 0), horarios, ahora }), true);
-  // Lunes 5 de octubre: día 15, afuera.
-  assert.equal(huecoSigueLibre({ cuando: new Date(2026, 9, 5, 10, 0), horarios, ahora }), false);
 });
 
 // ------------------------------------------------------------

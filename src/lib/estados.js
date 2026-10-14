@@ -8,7 +8,7 @@
 
 // La extensión va escrita: Next la perdona, pero `node --test` corre con el
 // ESM de Node, que la pide. Sin ella los tests no encuentran el módulo.
-import { preset, queFaltaPara } from "./presets.js";
+import { preset } from "./presets.js";
 
 export const ORDEN_ESTADOS = [
   "nuevo",
@@ -144,13 +144,6 @@ export const AL_PASAR_A = {
   },
 };
 
-// Los estados a los que se puede pasar desde uno dado: todos menos ése.
-//
-// Salen siempre en el orden del ciclo de vida, no reordenados según dónde
-// estés parado: así el encargado aprende dónde está cada opción y deja de
-// leer la lista.
-export const otrosEstados = (actual) => ORDEN_ESTADOS.filter((e) => e !== actual);
-
 // Los estados que ofrece el desplegable de la pantalla del caso.
 //
 // Son los otros abiertos, y nunca "completado". Entregar no es un pasaje
@@ -261,43 +254,12 @@ export const pesos = (n) =>
 
 // Con qué firma el historial lo que contestó el cliente desde su link.
 //
-// Es una constante y no un texto suelto porque la usan tres lugares que
+// Es una constante y no un texto suelto porque la usan dos lugares que
 // tienen que coincidir: lo que escribe la base al recibir la respuesta
-// (022_el_cliente_destraba.sql), lo que escribe el modo de ejemplo, y lo que
-// el Inicio busca para avisar que hay novedades. Si dejaran de coincidir, el
-// aviso no aparecería nunca y nadie se enteraría de por qué.
+// (022_el_cliente_destraba.sql) y lo que el Inicio busca para avisar que hay
+// novedades. Si dejaran de coincidir, el aviso no aparecería nunca y nadie
+// se enteraría de por qué.
 export const FIRMA_DEL_CLIENTE = "El cliente";
-
-// Si contestar ese paso suelta el caso.
-//
-// Pasa cuando ya no queda nada esperando su respuesta Y lo único que lo
-// trababa era él. Dos cosas, y las dos importan:
-//
-//   Con tres pasos en la mesa, el cliente puede aprobar uno hoy y pensar los
-//   otros dos. El caso sigue esperando, porque sigue esperando.
-//
-//   Un caso puede estar frenado por un repuesto que no llegó, y ahí la
-//   respuesta del cliente no destraba nada: el auto sigue sin poder salir.
-//
-// Rechazar destraba igual que aprobar: un "no" es una respuesta. El taller
-// sigue con lo aprobado y, si hace falta, propone otra cosa. Un paso
-// rechazado no puede dejar un caso trabado para siempre.
-//
-// La base hace exactamente esta cuenta en SQL. Si se cambia una, se cambia
-// la otra.
-export function elClienteDestraba(caso, { pasos = [], insumos = [] } = {}) {
-  if (!caso || caso.estado !== "esperando") return false;
-
-  const sinContestar = pasos.some(
-    (p) => p.caso_id === caso.id && p.estado === "esperando"
-  );
-  if (sinContestar) return false;
-
-  const trabado = insumos.some(
-    (i) => i.caso_id === caso.id && i.estado !== "en_stock"
-  );
-  return !trabado;
-}
 
 // Un caso que figura controlado pero tiene trabajo sin hacer.
 //
@@ -312,18 +274,6 @@ export function quedoTrabajoPendiente(caso, pasosDelCaso = []) {
   if (caso?.estado !== "revision_final") return false;
   return avanceDePasos(pasosDelCaso).faltan > 0;
 }
-
-// Cuando la respuesta del cliente vuelve a dar trabajo.
-//
-// Aprobar algo nuevo sobre un caso que ya estaba controlado lo saca de
-// control final: ese control se hizo sobre otro trabajo, y el caso ya no
-// está listo para entregar. Acá sí se corrige solo, y por el mismo motivo
-// que en elClienteDestraba(): del otro lado no hay nadie del negocio para
-// darse cuenta.
-//
-// Rechazar no mueve nada: un "no" no agrega trabajo.
-export const elClienteVolvioADarTrabajo = (caso, respuesta) =>
-  caso?.estado === "revision_final" && respuesta === "aprobado";
 
 // Los casos donde el cliente contestó algo hace poco.
 //
@@ -407,74 +357,5 @@ export function totalesDeCaso(pasosDelCaso) {
     esperando,
     todo: aprobado + esperando,
     cuantosEsperan: pasosDelCaso.filter((p) => p.estado === "esperando").length,
-  };
-}
-
-// ------------------------------------------------------------
-// Los repuestos en camino (SCRUM-113)
-// ------------------------------------------------------------
-// Qué le pasa a un caso cuando se pide algo para él, y cuando ese algo llega.
-//
-// Todo lo que viene DESPUÉS de pedir ya estaba construido: queFalta() dice
-// "Que llegue «…»", accionDeFila() ofrece "Marcar que llegó", y
-// elClienteDestraba() no deja que el cliente destrabe un caso al que le falta
-// una pieza. Lo que nunca existió es la manera de pedir. Estas dos funciones
-// son esa mitad, y viven acá y no en datos.js porque tienen ramas —¿ya espera
-// al cliente? ¿falta otra pieza? ¿está cerrado?— y esas ramas tienen prueba.
-//
-// Las dos devuelven qué hacer con el caso, o null si no hay que tocarlo.
-// "insumos" es la lista como queda DESPUÉS del cambio: con el pedido nuevo
-// adentro, o con el que llegó ya fuera de "pedido".
-
-// Pedir algo para un caso lo deja esperándolo.
-//
-// Si el caso ya esperaba otra cosa —la respuesta del cliente, otra pieza—
-// sigue esperando, y qué le falta lo decide queFalta(), que ya sabe el orden:
-// primero lo que tiene que contestar el cliente, después lo que tiene que
-// llegar. Así un pedido nuevo no tapa que el cliente todavía no contestó.
-export function alPedirInsumo(caso, { rubro, pasos = [], insumos = [], cliente } = {}) {
-  // Un caso cerrado no espera nada: pedirle algo no lo reabre.
-  if (!caso || !estaAbierto(caso)) return null;
-
-  const esperando = { ...caso, estado: "esperando" };
-  return {
-    estado: "esperando",
-    que_falta: queFalta(esperando, { rubro, pasos, insumos, cliente }),
-    cambiaEstado: caso.estado !== "esperando",
-  };
-}
-
-// Cuando llega lo que se pidió, el caso vuelve a moverse SÓLO si ya no le
-// falta nada.
-//
-// Antes de esto, que llegara un insumo pasaba el caso a "en proceso" siempre:
-// aunque faltara otra pieza, aunque el cliente no hubiera contestado, y aunque
-// el caso estuviera cerrado. Con un solo pedido que nadie podía hacer no se
-// notaba; con pedidos de verdad, la primera pieza de dos destrababa un caso
-// que seguía sin poder avanzar.
-//
-// "Ya no le falta nada" es exactamente lo que responde elClienteDestraba():
-// está esperando, no tiene pasos sin contestar y no le falta ninguna pieza.
-// Se llama así porque nació para la respuesta del cliente, pero la pregunta
-// es la misma.
-export function alLlegarInsumo(caso, { rubro, pasos = [], insumos = [], cliente } = {}) {
-  // Sólo se destraba lo que estaba trabado. Un caso cerrado o en control
-  // final no se mueve porque llegó una pieza.
-  if (!caso || caso.estado !== "esperando") return null;
-
-  if (elClienteDestraba(caso, { pasos, insumos })) {
-    return {
-      estado: "en_proceso",
-      que_falta: queFaltaPara(rubro, "en_proceso"),
-      cambiaEstado: true,
-    };
-  }
-
-  // Sigue esperando otra cosa: se reescribe qué le falta, que ya no es lo
-  // que acaba de llegar.
-  return {
-    estado: "esperando",
-    que_falta: queFalta(caso, { rubro, pasos, insumos, cliente }),
-    cambiaEstado: false,
   };
 }

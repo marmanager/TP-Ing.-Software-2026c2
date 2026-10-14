@@ -13,7 +13,7 @@ import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { vocabulario } from "@/lib/presets";
-import { filtrarProductos, inventarioPorSede, presentacion } from "@/lib/inventario";
+import { filtrarProductos, presentacion } from "@/lib/inventario";
 import { inventarioDeSedes } from "@/lib/sedes";
 import Buscador from "@/componentes/Buscador";
 import Icono from "@/componentes/Icono";
@@ -22,7 +22,7 @@ import { PILDORA, PILDORA_NO, PILDORA_SI } from "@/componentes/Producto";
 import { Cargando, ErrorGeneral, Vacio } from "@/componentes/ui";
 
 export default function TodasLasSedes() {
-  const { esDemo, usuario, sesion } = useAuth();
+  const { usuario, sesion } = useAuth();
   const { negocio } = useDatos();
   const token = sesion?.access_token;
   const [respuesta, setRespuesta] = useState(null);
@@ -31,7 +31,6 @@ export default function TodasLasSedes() {
   useTitulo("Todas las sedes");
 
   useEffect(() => {
-    if (esDemo) return;
     let vivo = true;
     inventarioDeSedes(token).then((r) => {
       if (vivo) setRespuesta(r);
@@ -39,18 +38,12 @@ export default function TodasLasSedes() {
     return () => {
       vivo = false;
     };
-  }, [esDemo, token, negocio?.id]);
+  }, [token, negocio?.id]);
 
   const { articulo } = vocabulario(negocio?.rubro);
 
   let cuerpo;
-  if (esDemo) {
-    cuerpo = (
-      <Vacio icono="tienda" titulo="En el modo de ejemplo hay una sola sede">
-        Con una cuenta, vinculás tus sedes desde Mi negocio y acá ves el stock de todas juntas.
-      </Vacio>
-    );
-  } else if (!respuesta) {
+  if (!respuesta) {
     cuerpo = <Cargando />;
   } else if (!respuesta.ok) {
     cuerpo = <ErrorGeneral>{respuesta.error}</ErrorGeneral>;
@@ -73,8 +66,10 @@ export default function TodasLasSedes() {
     );
   } else {
     const { sedes } = respuesta;
-    const visibles = filtrarProductos(inventarioPorSede(respuesta.insumos, sedes), { texto }).filter(
-      (p) => !soloFaltantes || p.faltaEnAlguna
+    // Los productos ya vienen agrupados por la API (qué es "el mismo
+    // producto" lo decide ella, con la misma regla que el stock).
+    const visibles = filtrarProductos(respuesta.productos, { texto }).filter(
+      (p) => !soloFaltantes || p.falta_en_alguna
     );
     const nombreDe = (s) => (s.id === negocio?.id ? `${s.nombre} (ésta)` : s.nombre);
 
@@ -124,7 +119,7 @@ export default function TodasLasSedes() {
                     </th>
                     {sedes.map((s) => (
                       <td key={s.id} className="p-4">
-                        <Celda celda={p.porSede[s.id]} />
+                        <Celda celda={p.por_sede[s.id]} />
                       </td>
                     ))}
                     <td className="p-4 font-bold tabular-nums">
@@ -145,7 +140,7 @@ export default function TodasLasSedes() {
                       <div key={s.id} className="flex flex-wrap gap-x-2">
                         <dt className="text-tinta-media">{nombreDe(s)}:</dt>
                         <dd>
-                          <Celda celda={p.porSede[s.id]} />
+                          <Celda celda={p.por_sede[s.id]} />
                         </dd>
                       </div>
                     ))}
@@ -200,7 +195,7 @@ function Celda({ celda }) {
           bajo
         </span>
       )}
-      {celda.enCamino > 0 && <span className="text-tinta-media">+{celda.enCamino} en camino</span>}
+      {celda.en_camino > 0 && <span className="text-tinta-media">+{celda.en_camino} en camino</span>}
     </span>
   );
 }

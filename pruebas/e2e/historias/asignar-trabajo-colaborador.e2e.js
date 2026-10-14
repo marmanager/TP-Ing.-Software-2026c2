@@ -1,9 +1,9 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { entrarConDatosDePrueba, verTexto } from "./ayudas.js";
+import { entrar, verTexto } from "./ayudas.js";
 
 describe("Historia: Asignar trabajo a colaborador", () => {
   beforeEach(async () => {
-    await entrarConDatosDePrueba("/casos/k253");
+    await entrar("/casos/{k253}");
     await expect($("h1")).toHaveText(expect.stringContaining("Caso 253"));
   });
 

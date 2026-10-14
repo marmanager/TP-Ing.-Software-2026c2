@@ -1,7 +1,9 @@
 -- ============================================================
--- pruebas/multinegocio.sql — prueba la 035..038 contra la base de verdad
+-- pruebas/multinegocio.sql — prueba la 035..038 y la 051 contra la base de verdad
 --
--- Correr entero en el SQL Editor de Supabase, DESPUÉS de la 038.
+-- Correr entero en el SQL Editor de Supabase, DESPUÉS de la 038 y de la 051.
+-- Antes de la 051 tiene que fallar en los pasos que sumar gente al equipo
+-- (pedir_entrar() y los pedidos de ingreso no existen).
 --
 -- Cubre también que el primer negocio de una cuenta queda de predeterminado,
 -- y que otro dueño no baja, no saca ni reemplaza a quien creó el negocio.
@@ -110,33 +112,28 @@ begin
       raise exception 'FALLÓ 5: se prendió Inicio rápido sin predeterminado.';
     end if;
 
-    -- ---- 6. Ana invita a Caro (técnica, dos usos) y a Beto (encargado) ----
-    insert into invitacion (negocio_id, rol, usos_maximos, vence_en)
-    values (neg_a, 'tecnico', 2, now() + interval '1 day')
-    returning codigo into inv_caro;
-    insert into invitacion (negocio_id, rol, vence_en)
-    values (neg_a, 'encargado', now() + interval '1 day')
-    returning codigo into inv_beto;
+    -- ---- 6. Ana arma el link del equipo; Caro y Beto piden entrar ----
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_a);
+    select codigo into inv_caro from cambiar_link_de_equipo(1);
+    inv_beto := inv_caro;
 
-    -- ---- 7. Caro acepta y entra a A como técnica; una segunda vez, no ----
+    -- ---- 7. Caro pide, Ana la aprueba como técnica; queda adentro ----
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
-    perform aceptar_invitacion(inv_caro, 'Caro');
+    perform pedir_entrar(inv_caro, 'Caro');
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), 'tecnico');
+    perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
     select * into fila from usuario where id = caro;
     if fila.negocio_id is distinct from neg_a or fila.rol <> 'tecnico' then
-      raise exception 'FALLÓ 7: aceptar la invitación no dejó a la cuenta adentro con su rol.';
+      raise exception 'FALLÓ 7: aprobar el pedido no dejó a la cuenta adentro con su rol.';
     end if;
     if fila.negocio_predeterminado is distinct from neg_a or not fila.inicio_rapido then
       raise exception 'FALLÓ 7: el primer negocio al que se sumó no quedó de predeterminado.';
     end if;
-
-    frenado := false;
-    begin
-      perform aceptar_invitacion(inv_caro, 'Caro');
-    exception when raise_exception then
-      frenado := sqlerrm = 'Ya estás en ese negocio.';
-    end;
-    if not frenado then
-      raise exception 'FALLÓ 7: se pudo entrar dos veces al mismo negocio.';
+    select * into fila from pedir_entrar(inv_caro, 'Caro');
+    if fila.estado <> 'ya_estas' then
+      raise exception 'FALLÓ 7: pedir entrar a un negocio donde ya está no dijo "ya_estas".';
     end if;
 
     -- ---- 8. Nadie se cambia el negocio ni el rol a mano (035) ----
@@ -160,12 +157,15 @@ begin
       raise exception 'FALLÓ 8: una cuenta se pudo cambiar de negocio a mano.';
     end if;
 
-    -- ---- 9. Beto, estando en B, acepta la invitación a A; un rol por negocio ----
+    -- ---- 9. Beto, estando en B, pide entrar a A; Ana lo aprueba como encargado ----
     perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
-    perform aceptar_invitacion(inv_beto, 'Beto');
+    perform pedir_entrar(inv_beto, 'Beto');
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Beto'), 'encargado');
+    perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
     select * into fila from usuario where id = beto;
-    if fila.negocio_id is distinct from neg_a or fila.rol <> 'encargado' then
-      raise exception 'FALLÓ 9: aceptar una invitación estando en otro negocio no funcionó.';
+    if fila.negocio_id is distinct from neg_b then
+      raise exception 'FALLÓ 9: que lo aprueben en otro negocio le cambió el negocio activo.';
     end if;
     if fila.negocio_predeterminado is distinct from neg_b then
       raise exception 'FALLÓ 9: sumarse a otro negocio le cambió el predeterminado.';
@@ -173,6 +173,11 @@ begin
     select count(*) into n from mis_negocios() m where m.id in (neg_a, neg_b);
     if n <> 2 then
       raise exception 'FALLÓ 9: mis_negocios() no trae los dos negocios de la cuenta.';
+    end if;
+    perform entrar_al_negocio(neg_a);
+    select * into fila from usuario where id = beto;
+    if fila.negocio_id is distinct from neg_a or fila.rol <> 'encargado' then
+      raise exception 'FALLÓ 9: al entrar a A no tiene el rol con que lo aprobaron.';
     end if;
 
     perform entrar_al_negocio(neg_b);

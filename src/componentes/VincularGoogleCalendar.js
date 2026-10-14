@@ -6,7 +6,7 @@ import Icono from "./Icono";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
 export default function VincularGoogleCalendar({ comoIntegracion = false }) {
-  const { sesion, esDemo, tokenActual } = useAuth();
+  const { sesion, tokenActual } = useAuth();
   const [estado, setEstado] = useState(null);
   const [error, setError] = useState(null);
   const [ocupado, setOcupado] = useState(false);
@@ -14,7 +14,7 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
   const [mensaje, setMensaje] = useState(null);
 
   useEffect(() => {
-    if (!sesion || esDemo) return;
+    if (!sesion) return;
     let activo = true;
     tokenActual()
       .then((token) => {
@@ -28,9 +28,9 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
       .then(data => { if (activo) setEstado(data); })
       .catch(e => { if (activo) setError(e.message); });
     return () => { activo = false; };
-  }, [sesion?.access_token, esDemo, tokenActual]);
+  }, [sesion?.access_token, tokenActual]);
 
-  if (!sesion || esDemo) return null;
+  if (!sesion) return null;
 
   async function pedir(method, action) {
     setOcupado(true);

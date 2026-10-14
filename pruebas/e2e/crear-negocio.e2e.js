@@ -1,12 +1,13 @@
 import { $, browser, expect } from "@wdio/globals";
+import { entrar } from "./historias/ayudas.js";
 
-describe("modo de ejemplo", () => {
-  it("permite entrar y abrir el formulario de un caso nuevo", async () => {
-    await browser.url("/iniciar-sesion");
+// Antes era "modo de ejemplo": entrar sin cuenta y crear un negocio en el
+// navegador. Ese modo se fue; lo que sigue valiendo es que una cuenta recién
+// hecha, sin negocio, lo crea y puede abrir su primer caso.
+describe("crear el negocio", () => {
+  it("una cuenta sin negocio lo crea y llega a abrir un caso", async () => {
+    await entrar("/", "sin-negocio");
 
-    await $("button=Probá sin cuenta").click();
-
-    // El modo de ejemplo arranca vacío (01dab40): primero se crea el negocio.
     await expect(browser).toHaveUrl(expect.stringContaining("/crear-negocio"));
     await expect($("h1=Crear tu negocio")).toBeDisplayed();
     await $("#nombre").setValue("Taller de prueba");

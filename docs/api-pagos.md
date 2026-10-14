@@ -23,7 +23,7 @@ En `.env.local` del front:
 NEXT_PUBLIC_API_URL=https://la-api.ejemplo
 ```
 
-Es pública, como la URL de Supabase. Mientras esté vacía, con Supabase el botón "Pedir un pago por link o QR" aparece apagado con el motivo, y en el modo de ejemplo el pago se simula.
+Es pública, como la URL de Supabase. Mientras esté vacía, el botón "Pedir un pago por link o QR" aparece apagado con el motivo.
 
 **Las claves del medio de pago y la `service_role` de Supabase viven sólo en el servidor de la API.** Nunca en el repo del front ni en el navegador.
 

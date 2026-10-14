@@ -26,7 +26,7 @@ export async function desvincularSede(token) {
 
 export async function inventarioDeSedes(token) {
   const r = await traer("/inventario/sedes", token);
-  return r.ok ? { ok: true, sedes: r.datos.sedes, insumos: r.datos.insumos } : conError(r);
+  return r.ok ? { ok: true, sedes: r.datos.sedes, productos: r.datos.productos ?? [] } : conError(r);
 }
 
 // Los negocios de la cuenta (mis_negocios, con su rol en cada uno) que se

@@ -30,6 +30,7 @@ test("los submódulos no ensucian la lista de módulos", () => {
   assert.deepEqual(claves(LISTA_MODULOS), [
     "agenda",
     "clientes",
+    "ecuaciones",
     "equipo",
     "historial",
     "inventario",
@@ -45,8 +46,14 @@ test("los módulos van en el orden de la barra lateral", () => {
   // lugar.
   assert.deepEqual(
     LISTA_MODULOS.map((m) => m.clave),
-    ["agenda", "clientes", "inventario", "presupuesto", "equipo", "historial"]
+    ["agenda", "clientes", "inventario", "ecuaciones", "presupuesto", "equipo", "historial"]
   );
+});
+
+test("Ecuaciones personalizadas apunta a su pantalla y empieza apagado", () => {
+  assert.equal(MODULOS.ecuaciones.nombre, "Ecuaciones personalizadas");
+  assert.equal(MODULOS.ecuaciones.ruta, "/ecuaciones");
+  assert.equal(estaPrendido("ecuaciones", []), false);
 });
 
 test("el módulo de /aprobar se llama como en el menú", () => {
@@ -79,7 +86,7 @@ test("un negocio de antes con el Inventario prendido tiene las dos pantallas", (
 });
 
 test("los otros módulos no tienen hijos", () => {
-  for (const clave of ["equipo", "presupuesto", "clientes", "historial"]) {
+  for (const clave of ["equipo", "presupuesto", "clientes", "historial", "ecuaciones"]) {
     assert.deepEqual(hijosDe(clave), []);
   }
 });
@@ -142,6 +149,13 @@ test("prender y apagar un módulo sin hijos no toca a los demás", () => {
   // desde SCRUM-113.
   assert.deepEqual(alternarModulo("equipo", ["agenda"]).sort(), ["agenda", "equipo"]);
   assert.deepEqual(alternarModulo("equipo", ["agenda", "equipo"]), ["agenda"]);
+});
+
+test("Ecuaciones personalizadas se prende y apaga sin tocar otros módulos", () => {
+  const prendido = alternarModulo("ecuaciones", ["agenda"]);
+  assert.deepEqual(prendido, ["agenda", "ecuaciones"]);
+  assert.equal(estaPrendido("ecuaciones", prendido), true);
+  assert.deepEqual(alternarModulo("ecuaciones", prendido), ["agenda"]);
 });
 
 test("prender el Inventario prende sus dos pantallas, y apagarlo se las lleva", () => {
