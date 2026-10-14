@@ -53,7 +53,9 @@ export default function AltaDeTurno({
     // Si no se pudo (por ejemplo, ya hay un turno a esa hora), el aviso ya lo
     // dio datos.js y el formulario queda con lo escrito, para cambiar la hora.
     if (!r) return;
-    datos.avisarExito(`Listo. El turno de ${form.motivo.trim()} quedó anotado.`);
+    datos.avisarExito(
+      [`Listo. El turno de ${form.motivo.trim()} quedó anotado.`, r.avisoDelRecordatorio].filter(Boolean).join(" ")
+    );
     setForm({ ...VACIO, empiezaEn: cuandoSugerido });
     alGuardar?.();
   }

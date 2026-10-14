@@ -1,9 +1,10 @@
 // Recordatorios: avisarle al cliente lo que le sirve, con datos que el
 // sistema ya tiene (../Modulo-recordatorios.md).
 //
-// Esta es la primera pieza (R-1b): cuándo le toca volver. Se anota al
-// entregar el caso, con la fecha típica del rubro ya cargada, y la ficha del
-// cliente muestra la próxima. De acá van a colgar las reglas de R-4 a R-6.
+// La primera pieza (R-1b) es cuándo le toca volver: se anota al entregar el
+// caso, con la fecha típica del rubro ya cargada, y la ficha del cliente
+// muestra la próxima. La segunda (R-4b) es el recordatorio de turno por
+// WhatsApp: cuándo sale y cómo se cuenta en el turno lo que pasó con él.
 //
 // Dos reglas que valen para todo el archivo:
 //
@@ -20,7 +21,8 @@
 // No tiene React ni red adentro, como lib/seguimiento.js: así lo corre Jest
 // y lo vigila pruebas/fronteras.test.js.
 
-import { cadaCuantoVuelve } from "./presets.js";
+import { cadaCuantoVuelve, mayuscula, vocabulario } from "./presets.js";
+import { telefonoWhatsAppValido } from "./seguimiento-whatsapp.js";
 
 // ------------------------------------------------------------
 // Días del calendario
@@ -142,3 +144,207 @@ export function intervaloDeducido(visitas = [], hoy) {
 // quedó vacío. null es "sin fecha" —al entregar, y borra una que había al
 // corregir—; un string vacío la API lo rechazaría como fecha que no es.
 export const volverEnParaLaApi = (valor) => (valor ?? "").trim() || null;
+
+// ------------------------------------------------------------
+// El recordatorio de turno (R-4b)
+// ------------------------------------------------------------
+// Cuándo programarlo, correrlo o cancelarlo lo decide la API (R-4a,
+// seguimiento/reglas-turno.ts), y también el texto sugerido según el rubro:
+// acá no hay copia de esas reglas. Lo que vive acá es lo que la pantalla
+// dice: cuándo sale, en palabras, y qué pasó con el aviso de cada turno.
+//
+// El turno sí es un instante ("2026-10-15T13:00:00+00:00"), y el aviso
+// también. Se resta en milisegundos y se lee con la hora de Argentina; nunca
+// se pasa por toISOString() para después cortarlo, que daría el día de
+// Greenwich: el aviso de un turno de las 21 h caería un día corrido.
+
+const HORA = 3_600_000;
+
+const RELOJ_ARGENTINA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+// El día y la hora de un instante, como se leen en Argentina:
+// { dia: "2026-10-14", hora: "21:00" }.
+function enArgentina(instante) {
+  const ms = typeof instante === "number" ? instante : Date.parse(instante ?? "");
+  if (Number.isNaN(ms)) return null;
+  const p = Object.fromEntries(RELOJ_ARGENTINA.formatToParts(ms).map((x) => [x.type, x.value]));
+  return { dia: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}` };
+}
+
+// Cuándo sale el aviso de un turno que empieza a "empiezaEn", con "horas" de
+// anticipación. Es lo que la pantalla muestra antes de que conteste la API.
+export function cuandoSaleElAviso({ empiezaEn, horas }) {
+  const empieza = Date.parse(empiezaEn ?? "");
+  if (Number.isNaN(empieza) || !Number.isFinite(Number(horas))) return null;
+  return enArgentina(empieza - Number(horas) * HORA);
+}
+
+// Los números chicos se escriben con letras: "dos horas antes", no "2 horas".
+const NUMEROS = ["cero", "un", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce"];
+const enLetras = (n) => NUMEROS[n] ?? String(n);
+
+// La anticipación del recordatorio de turno, como se dice en el mostrador.
+export function anticipacionEnPalabras(horas) {
+  const h = Number(horas);
+  if (h === 24) return "el día anterior";
+  if (h === 168) return "una semana antes";
+  if (h % 24 === 0 && h / 24 <= 6) return `${enLetras(h / 24)} días antes`;
+  if (h === 1) return "una hora antes";
+  return `${enLetras(h)} horas antes`;
+}
+
+// La frase que explica, sin jerga, cuándo le llega cada mensaje al cliente.
+// "tipo" es el de la API: "cierre" (el posventa, en días) o "turno" (en
+// horas). En un consultorio el turno es una consulta.
+export function cuandoSaleEnPalabras({ tipo, plazo, rubro }) {
+  const n = Number(plazo);
+  if (tipo === "turno") {
+    const { cita } = vocabulario(rubro);
+    const su = `su ${cita.palabra()}`;
+    return n === 24
+      ? `Le llega al cliente el día anterior a ${su}, a la misma hora.`
+      : `Le llega al cliente ${anticipacionEnPalabras(n)} de ${su}.`;
+  }
+  if (n === 0) return "Le llega al cliente apenas entregás el caso.";
+  return `Le llega al cliente ${n === 1 ? "un día" : `${enLetras(n)} días`} después de que entregás el caso.`;
+}
+
+// Lo que falta para poder guardar un recordatorio, por campo. El plazo va
+// en su unidad: el de turno en horas (1 a 168, como valida la API), el
+// posventa en días (0 a 3650).
+export function erroresDelRecordatorio({ tipo, plazo, mensaje }) {
+  const valor = String(plazo ?? "").trim();
+  const entero = /^\d+$/.test(valor) ? Number(valor) : null;
+  const plazoMal = tipo === "turno"
+    ? (entero === null || entero < 1 || entero > 168) && "Elegí una cantidad de horas enteras entre 1 y 168 horas."
+    : (entero === null || entero > 3650) && "Elegí una cantidad de días enteros entre 0 y 3650.";
+  const texto = String(mensaje ?? "").trim();
+  const mensajeMal = !texto
+    ? "Escribí el mensaje que va a recibir el cliente."
+    : texto.length > 3000 && "El mensaje no puede superar 3000 caracteres.";
+  return {
+    ...(plazoMal ? { plazo: plazoMal } : {}),
+    ...(mensajeMal ? { mensaje: mensajeMal } : {}),
+  };
+}
+
+// Por qué un turno no va a tener recordatorio, cuando se ve desde el
+// turno: { motivo, frase }, o null si no hay nada que lo impida. Es lo que
+// se señala en vez de dejar un hueco (y, si falta el teléfono, se ofrece
+// completarlo).
+export function porQueNoHayAviso({ turno, cliente, rubro }) {
+  const { cita } = vocabulario(rubro);
+  if (!turno?.cliente_id) {
+    return { motivo: "sin_cliente", frase: `${mayuscula(cita.el())} no tiene cliente, así que no le llega recordatorio.` };
+  }
+  if (!telefonoWhatsAppValido(cliente?.telefono)) {
+    return { motivo: "sin_telefono", frase: "Falta el teléfono del cliente, con código de país, para mandarle el recordatorio." };
+  }
+  return null;
+}
+
+// "hoy a las 10:00", "mañana a las 10:00", "el 19 de octubre a las 21:30".
+function momentoEnPalabras(instante, ahora) {
+  const cuando = enArgentina(instante);
+  if (!cuando) return "";
+  const hoy = enArgentina(ahora).dia;
+  const dia = cuando.dia === hoy
+    ? "hoy"
+    : cuando.dia === sumarDias(hoy, 1)
+      ? "mañana"
+      : `el ${diaEnPalabrasSinAño(cuando.dia)}`;
+  return `${dia} a las ${cuando.hora}`;
+}
+
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+const diaEnPalabrasSinAño = (dia) => {
+  const { m, d } = partes(dia);
+  return `${d} de ${MESES[m - 1]}`;
+};
+
+// Lo que pasó con el aviso de un turno, en una frase para la persona:
+// { estado: "programado" | "enviado" | "fallido", frase }, o null si no hay
+// aviso que mostrar (no tiene, o se canceló).
+//
+// El error de un envío fallido no se muestra nunca: es texto del proveedor
+// ("Kapso rechazó el envío (HTTP 400)"). La frase dice qué hacer, como pide
+// la sección 07 de la cartilla. Casi siempre es el número.
+export function avisoEnPalabras({ aviso, ahora }) {
+  switch (aviso?.estado) {
+    case "pendiente":
+      return { estado: "programado", frase: `Le va a llegar el recordatorio ${momentoEnPalabras(aviso.enviar_en, ahora)}.` };
+    case "enviado":
+      return { estado: "enviado", frase: `Le mandamos el recordatorio ${momentoEnPalabras(aviso.procesado_en ?? aviso.enviar_en, ahora)}.` };
+    case "fallido":
+      return {
+        estado: "fallido",
+        frase: "No se pudo enviar el recordatorio. Revisá que el teléfono del cliente tenga código de país.",
+      };
+    default:
+      return null;
+  }
+}
+
+// El aviso de un turno, como lo trae la API: el último de la cola, en el
+// listado (turno.aviso), o el que quedó después de un cambio, en la
+// respuesta (turno.recordatorio.aviso). Si viene "aviso", manda.
+export function avisoDelTurno(turno) {
+  if (turno && turno.aviso !== undefined) return turno.aviso;
+  return turno?.recordatorio?.aviso ?? null;
+}
+
+// Al anotar o mover un turno, lo que vale la pena decir en el momento sobre
+// su recordatorio. La frase es la de la API, ya escrita para la persona.
+// Apagado, sin cliente o sin teléfono no se dice: la agenda lo muestra en el
+// mismo turno, y repetirlo en cada alta sería ruido.
+const SE_AVISA_AL_ANOTAR = new Set(["muy_cerca", "whatsapp_no_configurado", "no_se_pudo"]);
+
+export function avisoAlAnotar(recordatorio) {
+  return SE_AVISA_AL_ANOTAR.has(recordatorio?.motivo) ? recordatorio.mensaje ?? null : null;
+}
+
+// ------------------------------------------------------------
+// La configuración de los dos recordatorios
+// ------------------------------------------------------------
+// La API la manda con el posventa arriba ({ activo, dias, mensaje }) y el de
+// turnos en "turno" ({ activo, horas, mensaje }). La pantalla edita los dos
+// igual, cada uno con su plazo como texto del campo.
+
+const paraEditar = (c, plazo) => ({
+  activo: Boolean(c?.activo),
+  plazo: plazo == null ? "" : String(plazo),
+  mensaje: c?.mensaje ?? "",
+});
+
+export const recordatoriosDeLaApi = (config) => ({
+  cierre: paraEditar(config, config?.dias),
+  turno: paraEditar(config?.turno, config?.turno?.horas),
+});
+
+// Lo que cambió de uno, con los nombres de la API.
+function cambiosDeUno(antes, ahora, nombreDelPlazo) {
+  const cambios = {};
+  if (ahora.activo !== antes.activo) cambios.activo = ahora.activo;
+  if (String(ahora.plazo).trim() !== String(antes.plazo).trim()) cambios[nombreDelPlazo] = Number(ahora.plazo);
+  if (ahora.mensaje.trim() !== antes.mensaje.trim()) cambios.mensaje = ahora.mensaje.trim();
+  return cambios;
+}
+
+// El PATCH de /negocio/seguimiento: sólo lo que cambió. Así apagar uno no
+// escribe nada del otro, y la API guarda cada tipo por separado.
+export function cambiosDeRecordatorios(guardado, borrador) {
+  const cierre = cambiosDeUno(guardado.cierre, borrador.cierre, "dias");
+  const turno = cambiosDeUno(guardado.turno, borrador.turno, "horas");
+  return { ...cierre, ...(Object.keys(turno).length ? { turno } : {}) };
+}

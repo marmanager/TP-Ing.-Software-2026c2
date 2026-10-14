@@ -25,6 +25,7 @@ import SedesVinculadas from "@/componentes/SedesVinculadas";
 import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import ResumenRecordatorios from "@/componentes/ResumenRecordatorios";
 
 export default function MiNegocio() {
   const datos = useDatos();
@@ -487,6 +488,12 @@ export default function MiNegocio() {
           </Tarjeta>
         </>
       )}
+
+      {/* Los mensajes que le llegan solos al cliente (R-4b): el de después
+          de entregar y, con la agenda prendida, el de antes del turno. Se
+          editan en su pantalla, como los horarios. */}
+      <TituloSeccion id="recordatorios">Recordatorios por WhatsApp</TituloSeccion>
+      <ResumenRecordatorios puedeConfigurar={puede(usuario?.rol, "cargarDatos")} />
 
       <TituloSeccion id="rubro">El rubro de tu negocio</TituloSeccion>
       <Tarjeta className="mb-12">
