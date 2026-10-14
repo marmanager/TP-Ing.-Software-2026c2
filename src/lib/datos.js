@@ -16,10 +16,10 @@ import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
 import { pagosEnLinea } from "./pagos.js";
 import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./api.js";
-import { turnoParaLaApi } from "./turnos.js";
+import { instanteParaLaApi, turnoParaLaApi } from "./turnos.js";
 import { reemplazarUnicoPorId, unicosPorId } from "./listas.js";
 import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
-import { volverEnParaLaApi } from "./recordatorios.js";
+import { avisoAlAnotar, volverEnParaLaApi } from "./recordatorios.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -624,12 +624,16 @@ export function DatosProvider({ children }) {
         return { ok: true, cobro: anulado };
       },
 
-      // El mensaje de seguimiento por WhatsApp que se manda al entregar.
+      // Los mensajes por WhatsApp: el de seguimiento que se manda al
+      // entregar y el recordatorio de turno (R-4b).
       async consultarSeguimiento() {
         const r = await traer("/negocio/seguimiento", await tokenDeSesion());
         return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
       },
 
+      // Los dos recordatorios van por el mismo camino: arriba el posventa
+      // ({ activo, dias, mensaje }) y en "turno" el de turnos
+      // ({ activo, horas, mensaje }). Se manda sólo lo que cambió.
       async configurarSeguimiento(cambios) {
         const r = await parchar("/negocio/seguimiento", cambios, await tokenDeSesion());
         return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
@@ -1069,13 +1073,28 @@ export function DatosProvider({ children }) {
           setAviso(r.error.mensaje);
           return null;
         }
-        const { turno, cliente } = r.datos;
+        // El recordatorio por WhatsApp (R-4a) viaja al lado del turno: se
+        // guarda con él, para que la agenda muestre cuándo le llega.
+        const { turno, cliente, recordatorio = null } = r.datos;
         setDatos((d) => ({
           ...d,
           clientes: cliente ? [...d.clientes, cliente] : d.clientes,
-          turnos: [...d.turnos, turno],
+          turnos: [...d.turnos, { ...turno, recordatorio }],
         }));
-        return { ok: true };
+        return { ok: true, avisoDelRecordatorio: avisoAlAnotar(recordatorio) };
+      },
+
+      // Pasar el turno a otro día u hora. La API corre el recordatorio con la
+      // misma anticipación, o lo cancela si ya no llega a tiempo, y devuelve
+      // el turno con cómo quedó. Si el horario nuevo está tomado, lo dice.
+      async moverTurno(turnoId, empiezaEn) {
+        const r = await parchar(`/turnos/${encodeURIComponent(turnoId)}`, {
+          empieza_en: instanteParaLaApi(empiezaEn),
+          actualizado_en: version(datos.turnos, turnoId),
+        }, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        setDatos((d) => ({ ...d, turnos: ponerFila(d.turnos, r.datos) }));
+        return { ok: true, turno: r.datos, avisoDelRecordatorio: avisoAlAnotar(r.datos.recordatorio) };
       },
 
       // "Vino a buscarlo": el turno era por un trabajo que ya estaba en

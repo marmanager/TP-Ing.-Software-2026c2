@@ -295,3 +295,56 @@ export function avisoEnPalabras({ aviso, ahora }) {
       return null;
   }
 }
+
+// El aviso de un turno, como lo trae la API: el último de la cola, en el
+// listado (turno.aviso), o el que quedó después de un cambio, en la
+// respuesta (turno.recordatorio.aviso). Si viene "aviso", manda.
+export function avisoDelTurno(turno) {
+  if (turno && turno.aviso !== undefined) return turno.aviso;
+  return turno?.recordatorio?.aviso ?? null;
+}
+
+// Al anotar o mover un turno, lo que vale la pena decir en el momento sobre
+// su recordatorio. La frase es la de la API, ya escrita para la persona.
+// Apagado, sin cliente o sin teléfono no se dice: la agenda lo muestra en el
+// mismo turno, y repetirlo en cada alta sería ruido.
+const SE_AVISA_AL_ANOTAR = new Set(["muy_cerca", "whatsapp_no_configurado", "no_se_pudo"]);
+
+export function avisoAlAnotar(recordatorio) {
+  return SE_AVISA_AL_ANOTAR.has(recordatorio?.motivo) ? recordatorio.mensaje ?? null : null;
+}
+
+// ------------------------------------------------------------
+// La configuración de los dos recordatorios
+// ------------------------------------------------------------
+// La API la manda con el posventa arriba ({ activo, dias, mensaje }) y el de
+// turnos en "turno" ({ activo, horas, mensaje }). La pantalla edita los dos
+// igual, cada uno con su plazo como texto del campo.
+
+const paraEditar = (c, plazo) => ({
+  activo: Boolean(c?.activo),
+  plazo: plazo == null ? "" : String(plazo),
+  mensaje: c?.mensaje ?? "",
+});
+
+export const recordatoriosDeLaApi = (config) => ({
+  cierre: paraEditar(config, config?.dias),
+  turno: paraEditar(config?.turno, config?.turno?.horas),
+});
+
+// Lo que cambió de uno, con los nombres de la API.
+function cambiosDeUno(antes, ahora, nombreDelPlazo) {
+  const cambios = {};
+  if (ahora.activo !== antes.activo) cambios.activo = ahora.activo;
+  if (String(ahora.plazo).trim() !== String(antes.plazo).trim()) cambios[nombreDelPlazo] = Number(ahora.plazo);
+  if (ahora.mensaje.trim() !== antes.mensaje.trim()) cambios.mensaje = ahora.mensaje.trim();
+  return cambios;
+}
+
+// El PATCH de /negocio/seguimiento: sólo lo que cambió. Así apagar uno no
+// escribe nada del otro, y la API guarda cada tipo por separado.
+export function cambiosDeRecordatorios(guardado, borrador) {
+  const cierre = cambiosDeUno(guardado.cierre, borrador.cierre, "dias");
+  const turno = cambiosDeUno(guardado.turno, borrador.turno, "horas");
+  return { ...cierre, ...(Object.keys(turno).length ? { turno } : {}) };
+}

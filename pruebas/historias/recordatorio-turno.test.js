@@ -16,11 +16,15 @@
 import { describe, expect, test } from "@jest/globals";
 import {
   anticipacionEnPalabras,
+  avisoAlAnotar,
+  avisoDelTurno,
   avisoEnPalabras,
+  cambiosDeRecordatorios,
   cuandoSaleElAviso,
   cuandoSaleEnPalabras,
   erroresDelRecordatorio,
   porQueNoHayAviso,
+  recordatoriosDeLaApi,
 } from "../../src/lib/recordatorios.js";
 
 // Martes 13 de octubre de 2026, 10:00 en Argentina.
@@ -153,5 +157,66 @@ describe("Historia: recordarle el turno al cliente", () => {
   test("un aviso cancelado, o ninguno, no muestra nada", () => {
     expect(avisoEnPalabras({ aviso: { estado: "cancelado", enviar_en: "2026-10-14T13:00:00Z" }, ahora: AHORA })).toBeNull();
     expect(avisoEnPalabras({ aviso: null, ahora: AHORA })).toBeNull();
+  });
+
+  // ------------------------------------------------------------
+  // De dónde sale el aviso de un turno
+  // ------------------------------------------------------------
+
+  test("el aviso del turno es el que trae la API, también recién movido", () => {
+    const pendiente = { estado: "pendiente", enviar_en: "2026-10-14T13:00:00Z" };
+    const movido = { estado: "pendiente", enviar_en: "2026-10-15T13:00:00Z" };
+    // Del listado: el último aviso de cada turno.
+    expect(avisoDelTurno(turno({ aviso: pendiente }))).toBe(pendiente);
+    // De la respuesta a un cambio, con el aviso como quedó.
+    expect(avisoDelTurno(turno({ aviso: movido, recordatorio: { aviso: movido } }))).toBe(movido);
+    expect(avisoDelTurno(turno({ recordatorio: { programado: true, aviso: movido } }))).toBe(movido);
+    expect(avisoDelTurno(turno({ recordatorio: { programado: false, motivo: "turno_no_en_pie", aviso: null } }))).toBeNull();
+    expect(avisoDelTurno(turno())).toBeNull();
+  });
+
+  // ------------------------------------------------------------
+  // La configuración de los dos recordatorios
+  // ------------------------------------------------------------
+
+  const DE_LA_API = {
+    activo: true, dias: 7, mensaje: "¿Cómo te fue?",
+    turno: { activo: false, horas: 24, mensaje: "Te esperamos mañana." },
+  };
+
+  test("la configuración de la API se edita con cada plazo en su unidad", () => {
+    expect(recordatoriosDeLaApi(DE_LA_API)).toEqual({
+      cierre: { activo: true, plazo: "7", mensaje: "¿Cómo te fue?" },
+      turno: { activo: false, plazo: "24", mensaje: "Te esperamos mañana." },
+    });
+  });
+
+  test("apagar o cambiar uno no toca el otro: se manda sólo lo que cambió", () => {
+    const guardado = recordatoriosDeLaApi(DE_LA_API);
+    const apagarPosventa = { ...guardado, cierre: { ...guardado.cierre, activo: false } };
+    expect(cambiosDeRecordatorios(guardado, apagarPosventa)).toEqual({ activo: false });
+
+    const prenderTurno = { ...guardado, turno: { ...guardado.turno, activo: true, plazo: "2" } };
+    expect(cambiosDeRecordatorios(guardado, prenderTurno)).toEqual({ turno: { activo: true, horas: 2 } });
+
+    // El texto viaja sin espacios en los bordes, y si sólo cambiaron los
+    // espacios, no cambió.
+    const espacios = { ...guardado, cierre: { ...guardado.cierre, mensaje: "  ¿Cómo te fue?  " } };
+    expect(cambiosDeRecordatorios(guardado, espacios)).toEqual({});
+    expect(cambiosDeRecordatorios(guardado, guardado)).toEqual({});
+  });
+
+  test("al anotar o mover un turno, se avisa sólo lo que la persona no ve en la agenda", () => {
+    const r = (motivo, mensaje = `frase de ${motivo}`) => ({ programado: false, motivo, mensaje, aviso: null });
+    // Lo dice la API, con su frase: el turno quedó, el recordatorio no.
+    expect(avisoAlAnotar(r("muy_cerca"))).toBe("frase de muy_cerca");
+    expect(avisoAlAnotar(r("whatsapp_no_configurado"))).toBe("frase de whatsapp_no_configurado");
+    expect(avisoAlAnotar(r("no_se_pudo"))).toBe("frase de no_se_pudo");
+    // Apagado, sin cliente o sin teléfono: lo dice la agenda en el turno.
+    for (const motivo of ["desactivado", "sin_cliente", "telefono_invalido", "turno_no_en_pie"]) {
+      expect(avisoAlAnotar(r(motivo))).toBeNull();
+    }
+    expect(avisoAlAnotar({ programado: true, motivo: null, mensaje: null, aviso: {} })).toBeNull();
+    expect(avisoAlAnotar(null)).toBeNull();
   });
 });
