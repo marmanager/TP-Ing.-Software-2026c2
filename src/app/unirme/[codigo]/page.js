@@ -4,30 +4,31 @@
 //
 // Es la otra punta del link de invitación. Se abre en cualquier estado, así
 // que la pantalla tiene que explicarse sola: sin cuenta, o con cuenta —con o
-// sin negocios—. Sumarse a otro negocio no saca de los que ya se tiene: se
-// entra al nuevo, y desde Mi perfil se vuelve.
+// sin negocios—. Sumarse a otro negocio no saca de los que ya se tiene: usar
+// el link deja un pedido pendiente hasta que alguien con permiso lo acepta.
 //
 // Se puede ver a qué negocio te invitan ANTES de crearte la cuenta: crearse
 // una cuenta a ciegas sería pedirle a alguien que firme sin leer.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useAuth, recordarInvitacion } from "@/lib/auth";
+import { useParams } from "next/navigation";
+import { useAuth, recordarInvitacion, olvidarInvitacion } from "@/lib/auth";
+import { pedirEntrar } from "@/lib/equipo";
 import { useTitulo } from "@/lib/useTitulo";
 import { Boton, Campo, Tarjeta, TituloPantalla, Cargando, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function Unirme() {
   const { codigo } = useParams();
-  const router = useRouter();
-  const { sesion, cargando, verInvitacion, aceptarInvitacion } = useAuth();
+  const { sesion, cargando, verInvitacion } = useAuth();
   useTitulo("Sumarte a un negocio");
 
   const [mirando, setMirando] = useState(true);
   const [invitacion, setInvitacion] = useState(null);
   const [nombre, setNombre] = useState("");
   const [entrando, setEntrando] = useState(false);
+  const [pedido, setPedido] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -45,16 +46,17 @@ export default function Unirme() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codigo]);
 
-  async function entrar() {
+  async function pedir() {
     setError(null);
     setEntrando(true);
-    const r = await aceptarInvitacion(codigo, nombre.trim());
+    const r = await pedirEntrar(codigo, nombre.trim(), sesion?.access_token);
     setEntrando(false);
     if (!r.ok) {
       setError(r.error);
       return;
     }
-    router.replace("/");
+    olvidarInvitacion();
+    setPedido(r);
   }
 
   if (cargando || mirando) {
@@ -89,7 +91,7 @@ export default function Unirme() {
   }
 
   const cabecera = (
-    <TituloPantalla apoyo={`Te invitaron a trabajar en ${invitacion.negocio}.`}>
+    <TituloPantalla apoyo={`${invitacion.negocio} te invitó a su equipo.`}>
       Sumarte a {invitacion.negocio}
     </TituloPantalla>
   );
@@ -126,13 +128,37 @@ export default function Unirme() {
     );
   }
 
+  // Ya pidió entrar: el acceso llega cuando el negocio lo acepte.
+  if (pedido) {
+    return (
+      <>
+        {cabecera}
+        <Tarjeta>
+          <p className="flex items-start gap-2 font-bold text-completo">
+            <Icono nombre="listo" className="mt-0.5 size-6" />
+            <span>
+              {pedido.estado === "ya_estas"
+                ? `Ya estás en ${pedido.negocio}.`
+                : `Listo. Le avisamos a ${pedido.negocio}: vas a poder entrar cuando te acepten.`}
+            </span>
+          </p>
+          <div className="mt-6">
+            <Link href="/negocios" className="inline-flex min-h-12 items-center gap-2 font-bold text-azul">
+              <Icono nombre="flecha" />
+              Ir a mis negocios
+            </Link>
+          </div>
+        </Tarjeta>
+      </>
+    );
+  }
+
   return (
     <>
       {cabecera}
       <Tarjeta>
         <p className="mb-6 max-w-[65ch] text-tinta-media">
-          Vas a poder ver y trabajar los casos de {invitacion.negocio}, y te van a poder
-          asignar trabajos.
+          Cuando te acepten, vas a poder ver y trabajar los casos que te asignen.
         </p>
 
         <Campo
@@ -154,11 +180,11 @@ export default function Unirme() {
         <Boton
           variante="principal"
           icono="check"
-          motivo={entrando ? "sumándote…" : null}
-          onClick={entrar}
+          motivo={entrando ? "enviando…" : null}
+          onClick={pedir}
           className="min-h-14 w-full"
         >
-          Sumarme a {invitacion.negocio}
+          Pedir entrar a {invitacion.negocio}
         </Boton>
       </Tarjeta>
     </>

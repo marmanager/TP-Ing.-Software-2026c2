@@ -391,22 +391,9 @@ export function AuthProvider({ children }) {
         return {
           ok: true,
           negocio: fila.negocio_nombre,
-          rol: fila.rol,
           sirve: fila.sirve,
           motivo: fila.motivo,
         };
-      },
-
-      async aceptarInvitacion(codigo, nombre) {
-        if (!hayCuentas) {
-          return { ok: false, error: "Para usar una invitación hace falta que el sistema esté conectado a la API." };
-        }
-        const r = await mandar(`/invitaciones/${encodeURIComponent(codigo)}/aceptar`, { nombre: nombre ?? null }, sesion?.access_token);
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
-        olvidarInvitacion();
-        const refrescado = await traerUsuario(sesion.user, sesion.access_token);
-        setUsuario(refrescado);
-        return { ok: true };
       },
     }),
     [sesion]

@@ -2,9 +2,9 @@
 
 // "Equipo" — quién atiende los trabajos (SCRUM-18).
 //
-// Un empleado no necesita cuenta: el taller chico quiere anotar a Diego como
-// responsable sin que Diego use el sistema. Invitar a alguien a entrar con su
-// propia cuenta es otra cosa, y viene después (SCRUM-34).
+// El equipo son cuentas aprobadas: alguien entra con el link del equipo, pide
+// entrar y el dueño lo acepta (docs/equipo-por-link.md). Ya no se cargan
+// personas a mano, sin cuenta.
 //
 // Los tres roles son fijos porque la base no acepta otros; cómo se llaman sale
 // del preset del rubro.
@@ -20,7 +20,8 @@ import { ORDEN_ROLES, etiquetaRol } from "@/lib/presets";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import SumarAlEquipo from "@/componentes/SumarAlEquipo";
+import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 const CASOS_A_LA_VISTA = 3;
 
@@ -35,9 +36,6 @@ export default function Equipo() {
   const puedeManejar = puede(usuario?.rol, "manejarEquipo");
 
   const [verTodosDe, setVerTodosDe] = useState(null);
-  const [abierto, setAbierto] = useState(false);
-  const [nombre, setNombre] = useState("");
-  const [rol, setRol] = useState("tecnico");
   const [sacando, setSacando] = useState(null);
   // El cambio de rol de alguien con cuenta, esperando que se confirme:
   // { id, rol }. Desde la 037 el rol da los permisos, y el cambio se confirma
@@ -48,16 +46,6 @@ export default function Equipo() {
 
   const rubro = negocio?.rubro;
   const sinAsignar = casos.filter((c) => estaAbierto(c) && !c.responsable_id);
-  const motivo = !nombre.trim() ? "falta el nombre" : null;
-
-  function guardar() {
-    const persona = nombre.trim();
-    datos.agregarEmpleado({ nombre: persona, rol });
-    avisarExito(`Listo. ${persona} ya puede quedar como responsable de un caso.`);
-    setNombre("");
-    setRol("tecnico");
-    setAbierto(false);
-  }
 
   function sacar(persona) {
     const suyos = casos.filter((c) => c.responsable_id === persona.id && estaAbierto(c));
@@ -77,68 +65,17 @@ export default function Equipo() {
           <h1 className="text-pantalla">Equipo</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
             {puedeManejar
-              ? "Quién está trabajando en qué. No hace falta que tengan cuenta: alcanza con anotarlos para poder asignarles un caso."
+              ? "Quién está trabajando en qué. Para sumar a alguien, mandale el link del equipo."
               : `Quién está trabajando en qué. ${QUIEN_PUEDE.manejarEquipo}`}
           </p>
         </div>
-        {puedeManejar && (
-          <div className="flex flex-wrap gap-3">
-            <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
-              {abierto ? "Cerrar el alta" : "Sumar a alguien"}
-            </Boton>
-            <Link
-              href="/equipo/invitaciones"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
-            >
-              <Icono nombre="sobre" />
-              Invitar a que entre con su cuenta
-            </Link>
-          </div>
-        )}
       </div>
 
-      {abierto && puedeManejar && (
-        <Tarjeta className="mb-8 max-w-[560px]">
-          <TituloSeccion>Alguien nuevo en el equipo</TituloSeccion>
-          <Campo
-            id="nuevo-nombre"
-            etiqueta="Cómo se llama"
-            ayuda="Como lo vas a reconocer en la lista de casos. Ejemplo: Diego."
-            autoComplete="off"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-          />
-
-          <div className="mb-6">
-            <label htmlFor="nuevo-rol" className="block font-bold text-cuerpo">
-              Qué hace
-            </label>
-            <p className="mt-1 text-apoyo text-tinta-suave">
-              Por ahora sirve para saber quién es quién. Los permisos vienen después.
-            </p>
-            <select
-              id="nuevo-rol"
-              value={rol}
-              onChange={(e) => setRol(e.target.value)}
-              className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
-            >
-              {ORDEN_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {etiquetaRol(rubro, r)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar}>
-            Sumarlo al equipo
-          </Boton>
-        </Tarjeta>
-      )}
+      <SumarAlEquipo />
 
       {empleados.length === 0 ? (
         <Vacio icono="personas" titulo="Todavía no hay nadie cargado">
-          Sumá a las personas que atienden los trabajos y vas a poder asignarles casos.
+          Mandá el link del equipo al grupo y aceptá a quienes pidan entrar.
         </Vacio>
       ) : (
         <ul className="mb-12 grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
@@ -146,8 +83,8 @@ export default function Equipo() {
             const suyos = casos.filter((c) => c.responsable_id === e.id && estaAbierto(c));
             // La foto que la persona cargó en su perfil (SCRUM-118), leída de
             // su cuenta y no copiada a la ficha: si la cambia, acá se ve la
-            // nueva. Una ficha cargada a mano, sin cuenta, no tiene perfil y
-            // sigue con el ícono.
+            // nueva. Ya no se cargan fichas a mano (las que quedaban se borran
+            // con la 051): si no hay foto, queda el ícono.
             const foto = e.usuario_id
               ? fotosEquipo.find((f) => f.usuario_id === e.usuario_id)?.foto
               : null;

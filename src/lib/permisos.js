@@ -12,6 +12,7 @@ export const PERMISOS = {
     verTodosLosCasos: true,
     cargarDatos: true,
     vincularSedes: true,
+    sumarAlEquipo: true,
   },
   encargado: {
     configurarNegocio: false,
@@ -19,6 +20,7 @@ export const PERMISOS = {
     verTodosLosCasos: true,
     cargarDatos: true,
     vincularSedes: false,
+    sumarAlEquipo: false,
   },
   tecnico: {
     configurarNegocio: false,
@@ -26,6 +28,7 @@ export const PERMISOS = {
     verTodosLosCasos: false,
     cargarDatos: false,
     vincularSedes: false,
+    sumarAlEquipo: false,
   },
 };
 
@@ -38,6 +41,7 @@ export const QUIEN_PUEDE = {
   manejarEquipo: "Sumar y sacar gente lo hace el dueño del negocio.",
   cargarDatos: "Esto lo cargan el dueño y el encargado.",
   vincularSedes: "Vincular sedes lo hace el dueño del negocio.",
+  sumarAlEquipo: "Sumar gente al equipo lo hace el dueño del negocio.",
   // Ninguna pantalla la consulta: de esta se encarga sola la base, que no le
   // manda al técnico los casos que no son suyos. Está para que las cuatro
   // acciones se puedan explicar con las mismas palabras si hace falta.
@@ -52,6 +56,7 @@ const QUE_ES = {
   verTodosLosCasos: "ver todos los casos, no sólo los suyos",
   cargarDatos: "cargar y cambiar casos, presupuestos, clientes, agenda e inventario",
   vincularSedes: "vincular este negocio con sus otras sedes",
+  sumarAlEquipo: "sumar gente al equipo y aprobar quién entra",
 };
 
 // Qué gana y qué pierde alguien al pasar de un rol a otro.
@@ -72,3 +77,9 @@ export function queCambiaConElRol(de, a) {
     pierde: claves.filter((k) => antes[k] && !despues[k]).map((k) => QUE_ES[k]),
   };
 }
+
+// Los roles que alguien puede dar al aprobar un pedido: nunca uno más alto que
+// el suyo (la base lo vuelve a controlar en aprobar_solicitud, 051).
+const RANGO = { duenio: 3, encargado: 2, tecnico: 1 };
+export const rolesQuePuedeDar = (miRol) =>
+  ["duenio", "encargado", "tecnico"].filter((r) => RANGO[r] <= (RANGO[miRol] ?? 0));

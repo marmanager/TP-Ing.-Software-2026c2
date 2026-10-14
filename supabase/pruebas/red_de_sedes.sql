@@ -4,6 +4,10 @@
 -- Correr entero en el SQL Editor de Supabase. Antes de la 047 tiene que
 -- fallar (las funciones no existen); después, dar "Success".
 --
+-- Desde la 051 (equipo por link) depende también de ella: usa pedir_entrar()
+-- y el pedido de ingreso en lugar de aceptar_invitacion(). Antes de la 051
+-- tiene que fallar ahí, aunque la 047 esté.
+--
 -- No deja nada: crea cuentas y negocios de mentira, prueba, y al final lo
 -- deshace todo con un error a propósito ('deshacer') que se atrapa.
 --
@@ -51,23 +55,28 @@ begin
     -- ---- El equipo: Caro técnica en A y C; Edu encargado en A y B ----
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     perform entrar_al_negocio(neg_a);
-    insert into invitacion (negocio_id, rol, vence_en) values (neg_a, 'tecnico', now() + interval '1 day') returning codigo into inv;
+    select codigo into inv from cambiar_link_de_equipo(1);
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
-    perform aceptar_invitacion(inv, 'Caro');
-    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    insert into invitacion (negocio_id, rol, vence_en) values (neg_a, 'encargado', now() + interval '1 day') returning codigo into inv;
+    perform pedir_entrar(inv, 'Caro');
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
-    perform aceptar_invitacion(inv, 'Edu');
+    perform pedir_entrar(inv, 'Edu');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), 'tecnico');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Edu'), 'encargado');
+
     perform entrar_al_negocio(neg_c);
-    insert into invitacion (negocio_id, rol, vence_en) values (neg_c, 'tecnico', now() + interval '1 day') returning codigo into inv;
+    select codigo into inv from cambiar_link_de_equipo(1);
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
-    perform aceptar_invitacion(inv, 'Caro');
+    perform pedir_entrar(inv, 'Caro');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), 'tecnico');
+
     perform entrar_al_negocio(neg_b);
-    insert into invitacion (negocio_id, rol, vence_en) values (neg_b, 'encargado', now() + interval '1 day') returning codigo into inv;
+    select codigo into inv from cambiar_link_de_equipo(1);
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
-    perform aceptar_invitacion(inv, 'Edu');
+    perform pedir_entrar(inv, 'Edu');
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Edu'), 'encargado');
 
     -- ---- 1. puede_en, con cada rol ----
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
