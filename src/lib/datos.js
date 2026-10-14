@@ -38,7 +38,6 @@ const VACIO = {
   eventos: [],
   insumos: [],
   turnos: [],
-  invitaciones: [],
   // Los cobros de cada caso (025). Un caso puede tener varios.
   cobros: [],
   // La foto de cada compañero de negocio que cargó una (034), como
@@ -911,30 +910,10 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- equipo ----------
-      // Un empleado es quien puede quedar como responsable de un caso. No
-      // necesita cuenta: el taller chico quiere anotar a Diego sin que Diego
-      // use el sistema. Atarlo a una cuenta es de la invitación (SCRUM-34).
-      agregarEmpleado({ nombre, rol }) {
-        const empleado = {
-          id: nuevoId(),
-          negocio_id: datos.negocio.id,
-          nombre,
-          rol: rol || "tecnico",
-        };
-        setDatos((d) => ({ ...d, empleados: [...d.empleados, empleado] }));
-        enLaApi(async (token) => {
-          const r = await mandar("/equipo", { nombre, rol: rol || "tecnico" }, token, {
-            idempotencia: nuevaClave(),
-          });
-          if (r.ok) {
-            setDatos((d) => ({
-              ...d,
-              empleados: d.empleados.map((e) => (e.id === empleado.id ? r.datos.empleado : e)),
-            }));
-          }
-          return r;
-        });
-        return empleado;
+      // El equipo tal como lo devuelve la API después de aprobar un pedido
+      // (docs/equipo-por-link.md): la ficha nueva la crea la base.
+      reemplazarEmpleados(lista) {
+        setDatos((d) => ({ ...d, empleados: lista }));
       },
 
       // OJO AL CAMBIAR ESTO. Desde la 037 el rol de la ficha es el que da los
@@ -945,8 +924,9 @@ export function DatosProvider({ children }) {
       // Por eso Equipo, antes de llamar acá por alguien con cuenta, pide
       // confirmación diciendo qué gana y qué pierde esa persona: en un
       // desplegable de celular el dedo arrastra y elige otra opción sin
-      // querer (auditoría, H5). Una ficha sin cuenta sigue siendo sólo un
-      // nombre y cambia directo.
+      // querer (auditoría, H5). Las fichas sin cuenta ya no se crean a mano (la 051
+      // lo frena), pero siguen apareciendo: la siembra de datos de prueba las deja
+      // y una cuenta borrada deja su ficha. Para ésas sirve el cambio directo.
       cambiarRolEmpleado(empleadoId, rol) {
         setDatos((d) => ({
           ...d,
@@ -968,40 +948,6 @@ export function DatosProvider({ children }) {
           ),
         }));
         enLaApi((token) => mandar(`/equipo/${empleadoId}/sacar`, {}, token));
-        return;
-      },
-
-      // ---------- invitaciones ----------
-      // El código lo genera la base, no el navegador: tiene que ser difícil
-      // de adivinar y no depender de lo que corra en la máquina de nadie.
-      async crearInvitacion({ rol, usosMaximos, dias }) {
-        const vence = new Date();
-        vence.setDate(vence.getDate() + (Number(dias) || 7));
-
-        const r = await mandar(
-          "/invitaciones",
-          {
-            rol: rol || "tecnico",
-            usos_maximos: Number(usosMaximos) || 1,
-            vence_en: vence.toISOString(),
-          },
-          await tokenDeSesion(),
-          { idempotencia: nuevaClave() }
-        );
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
-        setDatos((d) => ({ ...d, invitaciones: [r.datos.invitacion, ...d.invitaciones] }));
-        return { ok: true, invitacion: r.datos.invitacion };
-      },
-
-      // No se borra: se anula, así queda el rastro de a quién se invitó.
-      anularInvitacion(id) {
-        setDatos((d) => ({
-          ...d,
-          invitaciones: d.invitaciones.map((i) =>
-            i.id === id ? { ...i, anulada: true } : i
-          ),
-        }));
-        enLaApi((token) => mandar(`/invitaciones/${id}/anular`, {}, token));
         return;
       },
 

@@ -22,10 +22,10 @@ export const ruta = (plantilla) =>
     return ids[clave];
   });
 
-// Siembra el escenario, deja su sesión guardada como la deja entrar
-// (src/lib/sesion.js) y abre la ruta. Devuelve los ids.
-export async function entrar(destino = "/", escenario = "taller-completo") {
-  const datos = await sembrar(escenario);
+// Deja guardada la sesión de una cuenta ya sembrada (lo que devuelve sembrar)
+// como la deja entrar (src/lib/sesion.js) y abre la ruta. Sirve para pasar de
+// una cuenta a otra dentro de una misma prueba. Devuelve los ids.
+export async function iniciarCon(datos, destino = "/") {
   ids = datos.ids;
   const sesion = {
     token: datos.token,
@@ -43,6 +43,11 @@ export async function entrar(destino = "/", escenario = "taller-completo") {
   await browser.url(ruta(destino));
   await expect($("body")).toBeDisplayed();
   return ids;
+}
+
+// Siembra el escenario y entra con esa cuenta. Devuelve los ids.
+export async function entrar(destino = "/", escenario = "taller-completo") {
+  return iniciarCon(await sembrar(escenario), destino);
 }
 
 // Cambia lo que ya dice un campo como lo haría una persona: lo selecciona
