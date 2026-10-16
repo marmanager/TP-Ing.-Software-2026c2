@@ -129,7 +129,11 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
         </p>
 
         {creando ? (
-          <div className="mt-2 flex flex-wrap gap-2">
+          // En celular una columna: el campo a todo el ancho y debajo los dos
+          // botones. Con los tres en una fila (y el campo en flex-1) el campo
+          // se achicaba hasta quedar de un par de letras. Desde sm vuelve la
+          // fila: el campo se estira y los botones quedan a su lado.
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start">
             <input
               id={id("categoria-nueva")}
               autoFocus
@@ -140,14 +144,21 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
                 if (e.key === "Escape") setCreando(false);
               }}
               placeholder="Juntas, correas, cables…"
-              className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-azul bg-tarjeta px-4 text-cuerpo"
+              className="block min-h-12 w-full min-w-0 rounded-campo border-2 border-azul bg-tarjeta px-4 text-cuerpo sm:flex-1"
             />
-            <Boton icono="check" motivo={!nueva.trim() ? "falta el nombre" : null} onClick={crearCategoria}>
-              Agregar
-            </Boton>
-            <Boton variante="plano" icono="cruz" onClick={() => setCreando(false)}>
-              No
-            </Boton>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Boton
+                icono="check"
+                className="w-full sm:w-auto"
+                motivo={!nueva.trim() ? "falta el nombre" : null}
+                onClick={crearCategoria}
+              >
+                Agregar
+              </Boton>
+              <Boton variante="plano" icono="cruz" className="w-full sm:w-auto" onClick={() => setCreando(false)}>
+                Cancelar
+              </Boton>
+            </div>
           </div>
         ) : (
           <div className="mt-2 flex gap-2">
@@ -339,18 +350,21 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
       )}
 
       {borrando ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-campo bg-tarjeta p-3">
-          <p className="flex-1">
+        // Misma regla que arriba: en celular una columna (la pregunta y debajo
+        // los dos botones a todo el ancho). Con la pregunta en flex-1 al lado
+        // de los botones quedaba una columna angosta de una palabra por línea.
+        <div className="flex flex-col gap-2 rounded-campo bg-tarjeta p-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <p className="sm:flex-1">
             {!pedido
               ? `¿Querés borrar ${nombre} del inventario? Se pierde el número que tenías cargado.`
               : caso
                 ? `¿Querés borrar el pedido de ${nombre}? El ${casoEnFrase(caso)} sigue esperando: si ya no hace falta, cambialo desde el caso.`
                 : `¿Querés borrar el pedido de ${nombre}?`}
           </p>
-          <Boton variante="peligro" icono="tacho" onClick={borrar}>
+          <Boton variante="peligro" icono="tacho" className="w-full sm:w-auto" onClick={borrar}>
             Sí, borrarlo
           </Boton>
-          <Boton variante="plano" onClick={() => setBorrando(false)}>
+          <Boton variante="plano" className="w-full sm:w-auto" onClick={() => setBorrando(false)}>
             Dejarlo como está
           </Boton>
         </div>

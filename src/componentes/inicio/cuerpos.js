@@ -78,12 +78,20 @@ function Numerito({ href, icono, color, titulo, cuanto, detalle }) {
       href={href}
       className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-campo p-3 hover:bg-superficie"
     >
-      <span className={`flex items-center gap-1.5 font-bold text-etiqueta ${color}`}>
-        <Icono nombre={icono} className="size-5" />
-        {titulo}
+      {/* Celular: título a la izquierda y número a la derecha, en una línea.
+          Desde sm: apilados, como estaban. */}
+      <span className="flex items-center justify-between gap-3 sm:flex-col sm:items-start sm:justify-start sm:gap-0.5">
+        <span className={`flex min-w-0 items-center gap-1.5 font-bold text-etiqueta ${color}`}>
+          <Icono nombre={icono} className="size-5 shrink-0" />
+          {titulo}
+        </span>
+        <span className="shrink-0 whitespace-nowrap font-titulo font-extrabold text-subtitulo">
+          {cuanto}
+        </span>
       </span>
-      <span className="font-titulo font-extrabold text-subtitulo">{cuanto}</span>
-      <span className="truncate text-apoyo text-tinta-suave">{detalle}</span>
+      {/* Sin truncate: acá el texto explica el número y no hay nada que
+          tocar para leerlo completo. */}
+      <span className="text-apoyo text-tinta-suave [overflow-wrap:anywhere]">{detalle}</span>
     </Link>
   );
 }
@@ -111,7 +119,7 @@ function CuerpoPendientes() {
   const casoDelPrimero = casos.find((c) => c.id === enCamino[0]?.caso_id);
 
   return (
-    <div className="flex flex-wrap gap-2 p-2 sm:p-4">
+    <div className="flex flex-col divide-y divide-borde p-2 sm:flex-row sm:flex-wrap sm:gap-2 sm:divide-y-0 sm:p-4">
       <Numerito
         href="/casos"
         icono="reloj"
