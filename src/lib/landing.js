@@ -173,27 +173,57 @@ export const cambiarTexto = (landing, parte, texto) => ({
   colores: { ...landing.colores, [parte]: { ...landing.colores[parte], texto } },
 });
 
-// Lo que Lienzo pisa en su style. Los tonos que el negocio no elige (el texto
-// suave, los bordes, el botón apretado) salen de mezclar los que sí eligió,
-// así siguen leyéndose sobre cualquier fondo. Los links (text-azul) toman el
-// color de los botones.
-const mezcla = (a, b, porcentaje) => `color-mix(in oklab, ${a} ${porcentaje}%, ${b})`;
+// Mezcla dos colores #rrggbb canal por canal: "porcentaje" es cuánto de "a".
+function mezclar(a, b, porcentaje) {
+  const p = porcentaje / 100;
+  const na = parseInt(a.slice(1), 16);
+  const nb = parseInt(b.slice(1), 16);
+  const canal = (n, corrimiento) => (n >> corrimiento) & 255;
+  return (
+    "#" +
+    [16, 8, 0]
+      .map((c) =>
+        Math.round(canal(na, c) * p + canal(nb, c) * (1 - p))
+          .toString(16)
+          .padStart(2, "0")
+      )
+      .join("")
+  );
+}
 
+// Un tono de texto más suave que todavía se lee: si la mezcla no llega al
+// mínimo, queda el texto elegido.
+const textoSuave = (texto, sobre, porcentaje) => {
+  const mezcla = mezclar(texto, sobre, porcentaje);
+  return seLee(sobre, mezcla) ? mezcla : texto;
+};
+
+// Lo que Lienzo pisa en su style. Los tonos que el negocio no elige (el texto
+// suave, los bordes, el botón apretado) salen de mezclar los que sí eligió, y
+// los de texto nunca bajan del mínimo de contraste. Se calculan acá y no con
+// color-mix() en el CSS para poder medirlos. Las cajas tienen los suyos
+// (--lienzo-cajas-*), que globals.css aplica adentro de cada .bg-tarjeta. Los
+// links (text-azul) toman el color de los botones.
 export function variablesDeColor({ colores: { fondo, cajas, botones, acento } }) {
   return {
     "--color-fondo": fondo.color,
     "--color-tinta": fondo.texto,
-    "--color-tinta-media": mezcla(fondo.texto, fondo.color, 85),
-    "--color-tinta-suave": mezcla(fondo.texto, fondo.color, 70),
-    "--color-superficie": mezcla(fondo.texto, fondo.color, 6),
-    "--color-borde": mezcla(fondo.texto, fondo.color, 15),
-    "--color-borde-fuerte": mezcla(fondo.texto, fondo.color, 30),
+    "--color-tinta-media": textoSuave(fondo.texto, fondo.color, 85),
+    "--color-tinta-suave": textoSuave(fondo.texto, fondo.color, 70),
+    "--color-superficie": mezclar(fondo.texto, fondo.color, 6),
+    "--color-borde": mezclar(fondo.texto, fondo.color, 15),
+    "--color-borde-fuerte": mezclar(fondo.texto, fondo.color, 30),
     "--color-tarjeta": cajas.color,
     "--lienzo-cajas-texto": cajas.texto,
+    "--lienzo-cajas-tinta-media": textoSuave(cajas.texto, cajas.color, 85),
+    "--lienzo-cajas-tinta-suave": textoSuave(cajas.texto, cajas.color, 70),
+    "--lienzo-cajas-superficie": mezclar(cajas.texto, cajas.color, 6),
+    "--lienzo-cajas-borde": mezclar(cajas.texto, cajas.color, 15),
+    "--lienzo-cajas-borde-fuerte": mezclar(cajas.texto, cajas.color, 30),
     "--color-azul": botones.color,
     "--color-white": botones.texto,
-    "--color-azul-apretado": mezcla(botones.color, "#000000", 82),
-    "--color-azul-claro": mezcla(botones.color, cajas.color, 14),
+    "--color-azul-apretado": mezclar(botones.color, "#000000", 82),
+    "--color-azul-claro": mezclar(botones.color, cajas.color, 14),
     "--color-terracota": acento.color,
     "--lienzo-acento-texto": acento.texto,
   };
