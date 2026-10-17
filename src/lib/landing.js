@@ -129,7 +129,7 @@ export function moverSeccion(orden, clave, paso) {
 export function estadoDeSecciones(orden, modulosActivos = []) {
   return normalizarLanding({ orden }).orden.map((clave) => {
     const seccion = SECCIONES.find((s) => s.clave === clave);
-    const visible = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos);
+    const visible = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos ?? []);
     const modulo = LISTA_MODULOS.find((m) => m.clave === seccion.modulo);
     return {
       ...seccion,
