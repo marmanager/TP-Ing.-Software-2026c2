@@ -74,6 +74,12 @@ test("sin Agenda, las secciones de turnos no aparecen y dicen por qué", () => {
   assert.ok(estadoDeSecciones(PRESET.orden, ["agenda"]).every((s) => s.visible));
 });
 
+test("sin la lista de módulos, las secciones de turnos no aparecen", () => {
+  const sinLista = estadoDeSecciones(PRESET.orden, null);
+  assert.equal(sinLista.find((s) => s.clave === "sacar_turno").visible, false);
+  assert.equal(sinLista.find((s) => s.clave === "mis_casos").visible, true);
+});
+
 test("las secciones salen en el orden elegido", () => {
   const orden = ["mis_turnos", "mis_casos", "sacar_turno", "negocio"];
   assert.deepEqual(estadoDeSecciones(orden, ["agenda"]).map((s) => s.clave), orden);
