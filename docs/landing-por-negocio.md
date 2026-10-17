@@ -1,6 +1,6 @@
 # Landing por negocio — diseño
 
-Estado: **acordado en la charla del 17/10; falta revisar este documento**.
+Estado: **pasos 1 y 2 implementados en la rama landing-por-negocio (API: landing-editor); falta correr la e2e con la API y la 052**.
 Tareas: SCRUM-195 (épica), SCRUM-196 a SCRUM-199.
 Fecha: 17 de octubre de 2026.
 

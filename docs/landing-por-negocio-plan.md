@@ -655,6 +655,8 @@ git commit -m "Test en rojo: no hay lógica de la landing de cada negocio" -m "E
 
 - [ ] **Paso 4: escribir `src/lib/landing.js`**
 
+> Superado al ejecutar: los tonos se calculan en src/lib/landing.js con piso de legibilidad, y las cajas usan --lienzo-cajas-* (ver el código en la rama).
+
 ```js
 // La landing de cada negocio (docs/landing-por-negocio.md): qué secciones
 // tiene, cómo viene de fábrica, qué colores se leen y cómo se pinta.
@@ -974,6 +976,8 @@ export default function Lienzo({ landing, className = "", children, ...props }) 
 - [ ] **Paso 3: las reglas de `[data-lienzo]`**
 
 Al final de `src/app/globals.css`, agregar:
+
+> Superado al ejecutar: los tonos se calculan en src/lib/landing.js con piso de legibilidad, y las cajas usan --lienzo-cajas-* (ver el código en la rama).
 
 ```css
 /* ------------------------------------------------------------
