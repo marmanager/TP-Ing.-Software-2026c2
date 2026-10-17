@@ -1152,6 +1152,17 @@ export function DatosProvider({ children }) {
         return { ok: true };
       },
 
+      // La landing del negocio (docs/landing-por-negocio.md): la
+      // personalización entera, o null para volver a la de fábrica. No es
+      // optimista como cambiarInicio: el editor tiene un botón Guardar y
+      // tiene que poder decir si salió.
+      async guardarLanding(valor) {
+        const r = await reemplazar("/negocio/landing", { valor }, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio) ponerNegocio(r.datos.negocio);
+        return { ok: true };
+      },
+
       // El link del calendario (027). Es otro código y otro interruptor que el
       // de pedir turno, porque muestran cosas distintas a gente distinta: aquél
       // sólo horarios ocupados para cualquiera, éste los turnos con nombre y
