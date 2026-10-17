@@ -431,7 +431,8 @@ salteada si faltan sus variables.
 Ojo: sin `.env` en la API, `aviso-de-turno.test.ts`, `recordatorio-turno.test.ts`
 y `turnos.test.ts` fallan al cargar ("faltan variables de entorno
 obligatorias"). Ya fallan así en `origin/master` y no son de esta tarea: no
-importan `pruebas/apoyo/entorno.js`. Para ver la suite entera en verde sin
+importan `pruebas/apoyo/entorno.js`. Lo arregla la rama `pruebas-sin-env`
+(`044bca2`); si ya está en `master`, `npm test` da verde sin nada de esto. Para ver la suite entera en verde sin
 tocar el `.env`, correrla con las variables de mentira de
 `pruebas/apoyo/entorno.ts` puestas sólo en el proceso (Git Bash):
 
