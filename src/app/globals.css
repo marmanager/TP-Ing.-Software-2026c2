@@ -568,7 +568,8 @@
    que va dentro de una caja (un hover, un botón apagado, un borde) sale de
    los tonos de la caja (--lienzo-cajas-*) y no de los del fondo. Esos tonos
    los calcula variablesDeColor() en JS y no color-mix() acá, para poder
-   medir su contraste: el texto nunca baja de 4.5:1.
+   medir su contraste: los tonos suaves no bajan del contraste del texto
+   elegido; si la mezcla no llega a 4,5:1, queda el texto elegido.
 
    Va en la capa base para que las utilidades sigan ganando: un botón con
    fondo de caja y text-azul tiene que seguir siendo azul.

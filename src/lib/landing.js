@@ -199,11 +199,12 @@ const textoSuave = (texto, sobre, porcentaje) => {
 };
 
 // Lo que Lienzo pisa en su style. Los tonos que el negocio no elige (el texto
-// suave, los bordes, el botón apretado) salen de mezclar los que sí eligió, y
-// los de texto nunca bajan del mínimo de contraste. Se calculan acá y no con
-// color-mix() en el CSS para poder medirlos. Las cajas tienen los suyos
-// (--lienzo-cajas-*), que globals.css aplica adentro de cada .bg-tarjeta. Los
-// links (text-azul) toman el color de los botones.
+// suave, los bordes, el botón apretado) salen de mezclar los que sí eligió. Los
+// tonos suaves no bajan del contraste del texto elegido: si la mezcla no llega
+// a 4,5:1, queda el texto elegido (que puede no leerse; el editor lo avisa).
+// Se calculan acá y no con color-mix() en el CSS para poder medirlos. Las cajas
+// tienen los suyos (--lienzo-cajas-*), que globals.css aplica adentro de cada
+// .bg-tarjeta. Los links (text-azul) toman el color de los botones.
 export function variablesDeColor({ colores: { fondo, cajas, botones, acento } }) {
   return {
     "--color-fondo": fondo.color,
