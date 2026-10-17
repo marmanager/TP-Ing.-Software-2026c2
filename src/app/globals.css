@@ -558,3 +558,40 @@
       background-color 0.35s var(--e-salida);
   }
 }
+
+/* ------------------------------------------------------------
+   La landing de cada negocio (src/componentes/landing/Lienzo.js).
+
+   Lienzo pisa las variables en su style. Esto vuelve a declarar el fondo,
+   el color y la fuente, que body ya resolvió con los de la app, y les da a
+   las cajas su propio texto: las tarjetas no fijan color, lo heredan. Lo
+   que va dentro de una caja (un hover, un botón apagado, un borde) sale de
+   los tonos de la caja (--lienzo-cajas-*) y no de los del fondo. Esos tonos
+   los calcula variablesDeColor() en JS y no color-mix() acá, para poder
+   medir su contraste: el texto nunca baja de 4.5:1.
+
+   Va en la capa base para que las utilidades sigan ganando: un botón con
+   fondo de caja y text-azul tiene que seguir siendo azul.
+   ------------------------------------------------------------ */
+@layer base {
+  [data-lienzo] {
+    background-color: var(--color-fondo);
+    color: var(--color-tinta);
+    font-family: var(--font-cuerpo);
+  }
+
+  [data-lienzo] .bg-tarjeta {
+    --color-tinta: var(--lienzo-cajas-texto);
+    --color-tinta-media: var(--lienzo-cajas-tinta-media);
+    --color-tinta-suave: var(--lienzo-cajas-tinta-suave);
+    --color-superficie: var(--lienzo-cajas-superficie);
+    --color-borde: var(--lienzo-cajas-borde);
+    --color-borde-fuerte: var(--lienzo-cajas-borde-fuerte);
+    color: var(--color-tinta);
+  }
+
+  [data-lienzo] .lienzo-acento {
+    background-color: var(--color-terracota);
+    color: var(--lienzo-acento-texto);
+  }
+}

@@ -266,9 +266,11 @@ Errores nuevos:
   porque las tarjetas no fijan su color de texto: lo heredan del fondo.
 - **Los botones** pisan `--color-azul` y, para su texto, `--color-white`. Los
   links (`text-azul`) también toman el color de los botones.
-- **Los tonos derivados** (texto suave, borde, botón apretado) se calculan con
-  `color-mix()` a partir de los elegidos, para que sigan leyéndose sobre
-  cualquier fondo.
+- **Los tonos derivados** (texto suave, borde, botón apretado) se calculan en
+  `src/lib/landing.js` mezclando los colores elegidos, no con `color-mix()`: así
+  se puede medir su contraste. Los de texto nunca bajan de 4.5:1; si la mezcla
+  no se lee, queda el texto que eligió el dueño. Las cajas tienen los suyos
+  (`--lienzo-cajas-*`), que `globals.css` aplica adentro de cada `.bg-tarjeta`.
 - **Las fuentes** se declaran con `next/font` en
   `src/componentes/landing/fuentes.js`, con `preload: false`, así el navegador
   baja sólo la que algún texto usa. Todas declaran la variable
