@@ -44,6 +44,10 @@ describe("Historia: El dueño arma la landing de su negocio", () => {
     expect(await primeraSeccion()).toBe("El negocio");
     await $('button[aria-label="Bajar El negocio"]').click();
     expect(await primeraSeccion()).toBe("Sacar turno");
+    // Quien usa el teclado sigue en el mismo botón después de mover.
+    expect(
+      await browser.execute(() => document.activeElement?.getAttribute("aria-label"))
+    ).toBe("Bajar El negocio");
     await $("button=Guardar").click();
     await verTexto("Tu landing quedó guardada");
     await browser.refresh();

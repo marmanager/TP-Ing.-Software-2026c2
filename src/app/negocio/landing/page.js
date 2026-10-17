@@ -11,6 +11,7 @@
 // pública (paso 4 del diseño).
 
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
@@ -35,8 +36,9 @@ import { FUENTES_LANDING } from "@/componentes/landing/fuentes";
 import VistaPrevia from "@/componentes/landing/VistaPrevia";
 import { Boton, Cargando, Tarjeta, TituloPantalla, TituloSeccion } from "@/componentes/ui";
 
-// 4.5 → "4,5", como se escribe acá.
-const conComa = (n) => n.toFixed(1).replace(".", ",");
+// 4.478 → "4,4": se trunca, no se redondea, para que un contraste que no llega
+// nunca se muestre igual al mínimo.
+const conComa = (n) => (Math.floor(n * 10) / 10).toFixed(1).replace(".", ",");
 
 const CAMPO_COLOR =
   "h-12 w-16 cursor-pointer rounded-campo border-2 border-borde-fuerte bg-tarjeta p-1";
@@ -60,8 +62,19 @@ export default function EditorDeLanding() {
   const hayCambios = borrador !== null && JSON.stringify(borrador) !== JSON.stringify(guardada);
   const secciones = estadoDeSecciones(actual.orden, negocio?.modulos_activos ?? []);
 
-  const mover = (clave, paso) =>
-    setBorrador({ ...actual, orden: moverSeccion(actual.orden, clave, paso) });
+  // React mueve la fila en el DOM y el botón apretado pierde el foco: se lo
+  // devolvemos, o al otro de la fila si quedó apagado en la punta. Sin esto,
+  // quien usa el teclado vuelve al principio de la página a cada paso.
+  const mover = (clave, paso, ev) => {
+    const boton = ev.currentTarget;
+    flushSync(() =>
+      setBorrador({ ...actual, orden: moverSeccion(actual.orden, clave, paso) })
+    );
+    (boton.disabled
+      ? boton.parentElement.querySelector("button:not(:disabled)")
+      : boton
+    )?.focus();
+  };
 
   const guardar = async () => {
     setError(null);
@@ -71,7 +84,8 @@ export default function EditorDeLanding() {
     const r = await datos.guardarLanding(esDeFabrica(actual) ? null : actual);
     setGuardando(false);
     if (!r.ok) return setError(r.error);
-    setBorrador(null);
+    // Si cambió algo mientras la API contestaba, eso no se guardó: no se pisa.
+    setBorrador((b) => (b === actual ? null : b));
     datos.avisarExito("Listo. Tu landing quedó guardada.");
   };
 
@@ -126,18 +140,18 @@ export default function EditorDeLanding() {
                       <Boton
                         variante="plano"
                         icono="flecha-arriba"
-                        aria-label={`Subir ${s.nombre}`}
+                        aria-label={`Subir ${s.nombre}${i === 0 ? " · ya va primera" : ""}`}
                         motivo={i === 0 ? "ya va primera" : null}
-                        onClick={() => mover(s.clave, -1)}
+                        onClick={(ev) => mover(s.clave, -1, ev)}
                       >
                         Subir
                       </Boton>
                       <Boton
                         variante="plano"
                         icono="flecha-abajo"
-                        aria-label={`Bajar ${s.nombre}`}
+                        aria-label={`Bajar ${s.nombre}${i === secciones.length - 1 ? " · ya va última" : ""}`}
                         motivo={i === secciones.length - 1 ? "ya va última" : null}
-                        onClick={() => mover(s.clave, 1)}
+                        onClick={(ev) => mover(s.clave, 1, ev)}
                       >
                         Bajar
                       </Boton>
@@ -262,7 +276,7 @@ export default function EditorDeLanding() {
             </Tarjeta>
 
             {error && (
-              <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
+              <p role="alert" className="mb-4 flex items-start gap-2 font-bold text-rojo">
                 <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                 <span>{error}</span>
               </p>
