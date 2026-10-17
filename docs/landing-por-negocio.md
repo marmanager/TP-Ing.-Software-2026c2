@@ -29,8 +29,6 @@ cuenta. Esta es la de cada negocio, para sus clientes.
   pero no hay envío de mensajes todavía (Kapso no está conectado y la API no
   manda mails).
 - **Casos completados en "Mis casos".** Sólo los abiertos.
-- **Publicar la landing en el modo de ejemplo.** El editor y la vista previa
-  andan; la página pública necesita el servidor.
 - **Un dominio o una dirección con el nombre del negocio.** El link lleva un
   código, como la agenda.
 
@@ -43,7 +41,7 @@ cuenta. Esta es la de cada negocio, para sus clientes.
 | Secciones | **El negocio, Sacar turno, Mis casos, Mis turnos.** | Las que cubren los links de hoy más los datos del negocio. El catálogo se puede ampliar. |
 | Sin identificarse | Se ven **"El negocio" y el calendario de "Sacar turno"**. Los datos se piden al confirmar el turno o al abrir "Mis casos" o "Mis turnos". | Es la decisión que ya tomó la pantalla de turnos: mostrar si hay lugar antes de pedir datos. |
 | Colores | Cuatro: **fondo, cajas, botones y acento**, cada uno con el color de su texto. El editor recomienda el texto que mejor contrasta y avisa si no alcanza, pero deja elegir. | Libertad para el negocio sin que la página quede ilegible sin que nadie se entere. |
-| Fuente | Una de una **lista cerrada** de unas 6, para toda la página. | Cada fuente se carga en la app de antemano; no puede ser cualquiera. |
+| Fuente | Una de una **lista cerrada**. La de fábrica es la de la app (Figtree en los títulos y Source Sans 3 en el texto); las otras van en toda la página. | Cada fuente se carga en la app de antemano; no puede ser cualquiera. |
 | Qué casos se ven | **Todos los abiertos** del cliente (los que no están `completado`, como `estaAbierto()` de `lib/estados.js`). El que no tiene link lo recibe al entrar. | Es el sentido de centralizar: el negocio no tiene que compartir caso por caso. Consecuencia: "dejar de compartir" un caso ya no lo saca de la landing. |
 | Qué es la landing | **La puerta.** Cada caso abre la pantalla de seguimiento que ya existe, con los colores de la landing. | Aprobar y pagar ya andan y tienen pruebas: no se reescriben. |
 | Quién verifica | **La base**, con funciones `security definer`, como el seguimiento y la agenda. | Así la base sigue siendo la última línea de defensa. Descartado: que la API firme su propio token para el cliente y use la clave de servicio (MIGRACION.md de la API, sección 8, lo marca como lo que no hay que hacer). |
@@ -81,12 +79,12 @@ entró al editor ya tiene una landing que se ve bien.
     "botones": { "color": "#1f4e8c", "texto": "#ffffff" },
     "acento":  { "color": "#9a3d1e", "texto": "#ffffff" }
   },
-  "fuente": "figtree"
+  "fuente": "fabrica"
 }
 ```
 
-Ese es también **el preset de fábrica** (SCRUM-199): los colores y la fuente
-actuales de la app.
+Ese es también **el preset de fábrica** (SCRUM-199): los colores y las
+fuentes actuales de la app.
 
 - Al **guardar**, la API exige que `orden` tenga cada sección del catálogo una
   sola vez, que cada color sea `#rrggbb` y que la fuente esté en la lista.
@@ -99,6 +97,9 @@ El link de la landing. Null quiere decir "no publicada". Es aparte de
 `agenda_codigo`: si el negocio apaga el link de turnos, la landing no se cae.
 Igual que la agenda, compartir **devuelve siempre el mismo código**; para
 cambiarlo hay que dejar de compartir y volver a compartir.
+
+Llega con la 053, junto con la página pública, y no antes: un botón de
+"publicar" sin la página haría repartir un link que no anda.
 
 ### `turno.identificador` (text, puede ser null)
 
@@ -153,12 +154,16 @@ Dos migraciones, para que el editor no espere al ingreso:
 
 **`052_landing.sql`**, lo que usa el editor:
 
-- `negocio.landing` y `negocio.landing_codigo` con su índice único.
-- `compartir_landing()` y `dejar_de_compartir_landing()`: sólo el dueño, copia
-  de las de la agenda.
+- `negocio.landing`, con un check que sólo exige que sea un objeto (como
+  `estados` en la 046). La forma la valida la API al guardar, y el front tolera
+  al leer, como el Inicio (006).
 
-**`053_landing_ingreso.sql`**, la página pública y el ingreso del cliente:
+**`053_landing_ingreso.sql`**, el link, la página pública y el ingreso del
+cliente:
 
+- `negocio.landing_codigo` con su índice único, y `compartir_landing()` y
+  `dejar_de_compartir_landing()`: sólo el dueño, copia de las de la agenda
+  (024).
 - `ver_landing(p_codigo)`: lo que se ve sin entrar (nombre, logo, teléfono,
   horarios, personalización, qué secciones aparecen según los módulos y si el
   negocio publicó horarios).
@@ -189,11 +194,11 @@ la forma del pedido y la base para la verificación final.
 
 **Para el negocio**, con sesión y sólo el dueño (como `PUT /negocio/modulos`):
 
-| Ruta | Qué hace |
-|---|---|
-| `PUT /v1/negocio/landing` | `{ valor }` con la personalización entera, o `null` para volver al preset. |
-| `POST /v1/negocio/landing/compartir` | Se suma a la lista `LINKS` de `modulos/negocio/rutas.ts`. |
-| `POST /v1/negocio/landing/dejar-de-compartir` | Ídem. |
+| Ruta | Paso | Qué hace |
+|---|---|---|
+| `PUT /v1/negocio/landing` | 1 | `{ valor }` con la personalización entera, o `null` para volver al preset. |
+| `POST /v1/negocio/landing/compartir` | 3 | Se suma a la lista `LINKS` de `modulos/negocio/rutas.ts`. |
+| `POST /v1/negocio/landing/dejar-de-compartir` | 3 | Ídem. |
 
 **Para el cliente**, en un módulo nuevo `src/modulos/landing/` montado en
 `/v1/publico/landing`, antes de `sesion`:
@@ -247,16 +252,30 @@ Errores nuevos:
 
 ### Colores y fuente
 
-- **`Lienzo`**, el contenedor de la landing, pisa las variables de color de
-  `globals.css` con los valores del negocio. Así los componentes reutilizados,
-  como el calendario y el seguimiento, se pintan sin tocarlos.
+- **`Lienzo`** (`src/componentes/landing/Lienzo.js`), el contenedor de la
+  landing, pisa en su `style` las variables de color de `globals.css` con los
+  valores del negocio. Funciona porque el tema es `@theme` y no `@theme
+  inline`: las utilidades usan `var(--color-…)` (verificado en el CSS
+  compilado). Así los componentes reutilizados, como el calendario y el
+  seguimiento, se pintan sin tocarlos.
+- **Se marca con el atributo `data-lienzo`**, no con la clase `landing`, que es
+  de `/bienvenida`. En `globals.css`, dentro de `@layer base` para que las
+  utilidades sigan ganando, `[data-lienzo]` vuelve a declarar el fondo, el
+  color y la fuente, que `body` ya resolvió con los de la app.
+- **El texto de las cajas** sale de una regla `[data-lienzo] .bg-tarjeta`,
+  porque las tarjetas no fijan su color de texto: lo heredan del fondo.
+- **Los botones** pisan `--color-azul` y, para su texto, `--color-white`. Los
+  links (`text-azul`) también toman el color de los botones.
 - **Los tonos derivados** (texto suave, borde, botón apretado) se calculan con
   `color-mix()` a partir de los elegidos, para que sigan leyéndose sobre
   cualquier fondo.
-- **Las fuentes** se declaran con `next/font` en un archivo propio, y el
-  navegador baja sólo la elegida. **Lista inicial**: Figtree (la de fábrica),
-  Source Sans 3, Nunito, Montserrat, Lora y Merriweather. Antes de escribirlo,
-  leer la guía de `next/font` en `node_modules/next/dist/docs/` (AGENTS.md).
+- **Las fuentes** se declaran con `next/font` en
+  `src/componentes/landing/fuentes.js`, con `preload: false`, así el navegador
+  baja sólo la que algún texto usa. Todas declaran la variable
+  `--fuente-landing`, y Lienzo pisa `--font-titulo` y `--font-cuerpo` con ella.
+  **La lista**: la de la app (Figtree y Source Sans 3, que ya carga
+  `layout.js`), Nunito, Montserrat, Lora y Merriweather. Lora no pasa de 700,
+  así que sus títulos extra negritas se ven en 700.
 
 ### El editor: `/negocio/landing` (SCRUM-196)
 
@@ -264,20 +283,21 @@ Se llega desde "Mi negocio", como "Módulos". Lo ve y lo usa sólo el dueño
 (`QUIEN_PUEDE` en `lib/permisos.js`). De arriba abajo:
 
 1. **El link**: publicar, copiar, mandar por WhatsApp, dejar de compartir.
+   Llega en el paso 4, con la página pública. El bloque de la agenda en
+   `/negocio/horarios` se saca a un componente `LinkCompartido` que usan las
+   dos pantallas.
 2. **Orden** (SCRUM-197): las secciones con botones ↑↓. No se arrastran: los
    botones andan en el celular y con teclado, y no suman una librería. La
    sección de un módulo apagado se ve gris, con el porqué.
 3. **Colores** (SCRUM-198): fondo, cajas, botones y acento. Cada uno con su
    color, el color de su texto y la marca "Recomendado" en el que mejor
    contrasta. Si el contraste del texto elegido es menor a 4,5:1, aparece un
-   aviso.
+   aviso. Como los links van con el color de los botones, también avisa si
+   ese color no se lee sobre las cajas.
 4. **Fuente** (SCRUM-198): la lista, cada opción escrita con su fuente.
 5. **Vista previa**: la landing en chico, con datos de ejemplo, que cambia
    mientras se edita, sin guardar.
 6. **"Volver al de fábrica"** (SCRUM-199) y **Guardar**.
-
-En el modo de ejemplo guarda en el navegador como el resto, y avisa que la
-landing no se publica sin cuenta.
 
 ### `src/lib/landing.js`
 
@@ -285,13 +305,21 @@ La lógica pura, con sus pruebas en Jest:
 
 - **El catálogo** (`SECCIONES`): clave, nombre y de qué módulo depende cada
   sección. Sumar una sección es una entrada acá y su componente.
-- **`PRESET`** y **`FUENTES`**.
-- **`contraste(a, b)`**: la razón de contraste de WCAG.
-- **`textoRecomendado(color)`**: entre la tinta de la app (`#241f1b`) y el
-  blanco, el que más contrasta.
-- **`seccionesVisibles(landing, modulos, tieneHorarios)`**: el orden guardado,
-  con las secciones nuevas al final y sin las que no aparecen.
-- **`variablesDeColor(landing)`**: las variables de CSS para `Lienzo`.
+- **`PARTES`**, **`FUENTES`** y **`PRESET`**.
+- **`normalizarLanding(guardada)`**: lo guardado, completado con la de fábrica
+  donde falte o no se entienda; el orden viejo suma al final las secciones
+  nuevas. **`esDeFabrica(landing)`**.
+- **`moverSeccion(orden, clave, paso)`** y **`estadoDeSecciones(orden,
+  modulosActivos)`**: cada sección con si aparece y, si no, por qué. En el
+  paso 4 se le suma la condición de los horarios publicados.
+- **`contraste(a, b)`**, la razón de contraste de WCAG; **`seLee(color,
+  texto)`**, si llega a 4,5:1; y **`textoRecomendado(color)`**, entre la tinta
+  de la app (`#241f1b`) y el blanco, el que más contrasta.
+- **`cambiarColor(landing, parte, color)`**: si el texto era el recomendado,
+  pasa al recomendado del color nuevo; si el dueño eligió otro, se respeta.
+  **`cambiarTexto(landing, parte, texto)`**.
+- **`variablesDeColor(landing)`** y **`variablesDeFuente(landing)`**: las
+  variables de CSS para `Lienzo`.
 
 ## Pruebas
 
@@ -302,7 +330,7 @@ TDD de la cátedra: commit "Test en rojo: …" y el arreglo aparte.
 | Base: `supabase/pruebas/landing.sql` | <ul><li>Entrar con datos buenos y malos, siempre con el mismo error.</li><li>El bloqueo al 5.º fallido, y que entrar bien lo limpie.</li><li>La llave vencida.</li><li>Dos clientes con la misma patente y teléfonos distintos: cada uno ve lo suyo.</li><li>Registrarse con la patente de otro no muestra nada ajeno.</li><li>Los casos sin link reciben código.</li><li>Las funciones de 024 contestan igual que antes.</li></ul> Se corre en el SQL Editor y deshace todo, como las otras de esa carpeta. |
 | API: casos de uso y contrato | Los códigos de error, los límites por IP, que sólo el dueño guarde, y que zod rechace un orden con secciones repetidas o faltantes, un color inválido o una fuente fuera de la lista. El Supabase falso aprende las funciones nuevas, como ya imita `reservar_turno` y `ver_seguimiento`. |
 | Front: Jest | Todo `lib/landing.js`. |
-| Front: e2e | El editor en el modo de ejemplo: cambiar el orden y los colores, ver la vista previa y volver al de fábrica. La landing pública se prueba a mano en la preview, porque necesita el servidor. |
+| Front: e2e | El editor con una cuenta sembrada por la API (`pruebas/e2e/siembra.js`), como las demás: cambiar el orden, los colores y la fuente, ver la vista previa, volver al de fábrica y que quede después de refrescar. |
 
 ## Orden de trabajo
 
@@ -310,10 +338,10 @@ Cada paso es un PR y ninguno rompe lo que anda:
 
 | # | Qué | Repo | Tareas |
 |---|---|---|---|
-| 1 | `052_landing.sql` y las rutas de la API que usa el editor (`PUT /negocio/landing` y compartir). | front (SQL) y API | 196 |
-| 2 | `lib/landing.js`, el editor y la vista previa. | front | 196, 197, 198, 199 |
-| 3 | `053_landing_ingreso.sql`, `supabase/pruebas/landing.sql` y las rutas públicas. | front (SQL) y API | nueva |
-| 4 | `/n/[codigo]` con "El negocio", "Mis casos" e ingreso. La pantalla del caso avisa, junto a "dejar de compartir", que el cliente lo sigue viendo por la landing. | front | nueva |
+| 1 | `052_landing.sql` y `PUT /v1/negocio/landing`. | front (SQL) y API | 196 |
+| 2 | `lib/landing.js`, Lienzo, las fuentes, el editor y la vista previa. Plan: `docs/landing-por-negocio-plan.md`. | front | 196, 197, 198, 199 |
+| 3 | `053_landing_ingreso.sql` (con el link), `supabase/pruebas/landing.sql`, compartir y las rutas públicas. | front (SQL) y API | nueva |
+| 4 | `/n/[codigo]` con "El negocio", "Mis casos" e ingreso, y el bloque del link en el editor. La pantalla del caso avisa, junto a "dejar de compartir", que el cliente lo sigue viendo por la landing. | front | nueva |
 | 5 | "Sacar turno" con el calendario reutilizado, registro, "Mis turnos", y el seguimiento con colores y "Volver". | front | nueva |
 
 - Las migraciones las corre una persona del equipo en el SQL Editor de Supabase,
@@ -322,9 +350,9 @@ Cada paso es un PR y ninguno rompe lo que anda:
   eso su prueba se corre antes de dar el paso por terminado.
 - Los pasos 1 y 2 cubren las cuatro tareas del Sprint 4. Los pasos 3 a 5 necesitan
   tareas nuevas en Jira, para el sprint que viene.
-- Antes del paso 3 tiene que estar mergeada en la API la rama
-  `migracion/limpieza-final`. Arregla que, después de que alguien entra al
-  sistema, las consultas públicas salgan con el token de esa persona.
+- El paso 3 necesitaba en la API el arreglo para que, después de que alguien
+  entra al sistema, las consultas públicas no salgan con su token. Ya está en
+  `master` (`c566e3c`).
 
 ## Riesgos
 
