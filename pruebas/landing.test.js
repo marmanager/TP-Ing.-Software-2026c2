@@ -136,7 +136,45 @@ test("las variables de color pisan las de la app con las del negocio", () => {
   assert.equal(v["--color-white"], BLANCO);
   assert.equal(v["--color-terracota"], "#9a3d1e");
   assert.equal(v["--lienzo-acento-texto"], BLANCO);
-  assert.match(v["--color-tinta-suave"], /^color-mix\(in oklab, #241f1b 70%, #fbf8f4\)$/);
+  // Mezclada de verdad, y legible.
+  assert.notEqual(v["--color-tinta-suave"], TINTA);
+  assert.equal(seLee(v["--color-fondo"], v["--color-tinta-suave"]), true);
+  assert.equal(v["--color-tinta-suave"], "#65605c");
+});
+
+test("cada parte toma sus colores de donde corresponde", () => {
+  const v = variablesDeColor({
+    ...PRESET,
+    colores: {
+      fondo: { color: "#101010", texto: "#f0f0f0" },
+      cajas: { color: "#fafafa", texto: "#202020" },
+      botones: { color: "#003366", texto: "#ffeeaa" },
+      acento: { color: "#660033", texto: "#ccffee" },
+    },
+  });
+  assert.equal(v["--color-fondo"], "#101010");
+  assert.equal(v["--color-tinta"], "#f0f0f0");
+  assert.equal(v["--color-borde"], "#323232");
+  assert.equal(v["--color-tarjeta"], "#fafafa");
+  assert.equal(v["--lienzo-cajas-texto"], "#202020");
+  assert.equal(v["--lienzo-cajas-borde"], "#d9d9d9");
+  assert.equal(seLee("#fafafa", v["--lienzo-cajas-tinta-suave"]), true);
+  assert.equal(v["--color-azul"], "#003366");
+  assert.equal(v["--color-white"], "#ffeeaa");
+  assert.equal(v["--color-azul-apretado"], "#002a54");
+  assert.equal(v["--color-terracota"], "#660033");
+  assert.equal(v["--lienzo-acento-texto"], "#ccffee");
+});
+
+test("un tono suave que no se leería queda como el texto elegido", () => {
+  // Blanco sobre #767676 llega justo a 4,5:1: cualquier mezcla hacia el gris
+  // baja de ahí.
+  const v = variablesDeColor({
+    ...PRESET,
+    colores: { ...PRESET.colores, fondo: { color: "#767676", texto: BLANCO } },
+  });
+  assert.equal(v["--color-tinta-media"], BLANCO);
+  assert.equal(v["--color-tinta-suave"], BLANCO);
 });
 
 test("la fuente de fábrica no pisa nada; las otras, títulos y texto", () => {
