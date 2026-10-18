@@ -61,6 +61,12 @@ const esSeguimiento = (ruta) => ruta.startsWith("/seguimiento");
 // y por el mismo motivo: quien la abre no tiene cuenta y no la va a tener.
 const esAgendaPublica = (ruta) => ruta.startsWith("/turnos");
 
+// "/n/<código>" es la landing del negocio (docs/landing-por-negocio.md): lo
+// que ve un cliente desde el Instagram del negocio. Mismas reglas que las dos
+// anteriores. Con la barra: "/n" a secas agarraría también "/negocio",
+// "/negocios" y "/nueva-contrasena", y el sistema se quedaría sin navegación.
+const esLanding = (ruta) => ruta.startsWith("/n/");
+
 // La pantalla de un módulo apagado se sigue pudiendo escribir en la barra de
 // direcciones: un favorito viejo, un link que alguien pasó, el módulo apagado
 // hace un rato. No alcanza con sacarlo de la navegación.
@@ -101,7 +107,7 @@ export default function Guardia({ children }) {
   const ruta = usePathname();
   const router = useRouter();
 
-  const publica = esSeguimiento(ruta) || esAgendaPublica(ruta);
+  const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta);
   const hayEntrada = Boolean(sesion);
   const tieneNegocio = Boolean(usuario?.negocio_id);
 
