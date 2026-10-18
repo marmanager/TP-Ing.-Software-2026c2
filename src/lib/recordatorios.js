@@ -4,7 +4,8 @@
 // La primera pieza (R-1b) es cuándo le toca volver: se anota al entregar el
 // caso, con la fecha típica del rubro ya cargada, y la ficha del cliente
 // muestra la próxima. La segunda (R-4b) es el recordatorio de turno por
-// WhatsApp: cuándo sale y cómo se cuenta en el turno lo que pasó con él.
+// WhatsApp: cuándo sale y cómo se cuenta en el turno lo que pasó con él. La
+// tercera (R-8b) es la baja: cómo se dice que el cliente pidió no recibirlos.
 //
 // Dos reglas que valen para todo el archivo:
 //
@@ -23,6 +24,7 @@
 
 import { cadaCuantoVuelve, mayuscula, vocabulario } from "./presets.js";
 import { telefonoWhatsAppValido } from "./seguimiento-whatsapp.js";
+import { diaEnPalabras } from "./fechas.js";
 
 // ------------------------------------------------------------
 // Días del calendario
@@ -245,6 +247,11 @@ export function porQueNoHayAviso({ turno, cliente, rubro }) {
   if (!turno?.cliente_id) {
     return { motivo: "sin_cliente", frase: `${mayuscula(cita.el())} no tiene cliente, así que no le llega recordatorio.` };
   }
+  // Antes que el teléfono, como en la API (R-8a): si pidió la baja,
+  // completar el teléfono no cambiaría nada.
+  if (cliente?.avisos_baja_en) {
+    return { motivo: "baja_de_avisos", frase: `Pidió no recibir mensajes automáticos, así que no le llega el recordatorio de su ${cita.palabra()}.` };
+  }
   if (!telefonoWhatsAppValido(cliente?.telefono)) {
     return { motivo: "sin_telefono", frase: "Falta el teléfono del cliente, con código de país, para mandarle el recordatorio." };
   }
@@ -348,3 +355,48 @@ export function cambiosDeRecordatorios(guardado, borrador) {
   const turno = cambiosDeUno(guardado.turno, borrador.turno, "horas");
   return { ...cierre, ...(Object.keys(turno).length ? { turno } : {}) };
 }
+
+// ------------------------------------------------------------
+// La baja de avisos (R-8b)
+// ------------------------------------------------------------
+// El cliente la pide contestando BAJA por WhatsApp, y la API la registra
+// en cliente.avisos_baja_en (R-8a): un instante, no un sí/no. Desde ahí no
+// se le programa ningún aviso, de ningún tipo.
+//
+// No es un error: el cliente ejerció un derecho. Las frases lo informan, y
+// lo que dice la API se traduce acá: su texto no se muestra (cartilla, 07).
+
+// Lo que la ficha dice de la baja: { dia, frase, consecuencia }, o null si
+// nunca la pidió. El día es el de Argentina: un pedido de las 22:30 es de
+// ese día, aunque en UTC ya sea el siguiente.
+export function bajaDeAvisos({ cliente, rubro }) {
+  const cuando = cliente?.avisos_baja_en ? enArgentina(cliente.avisos_baja_en) : null;
+  if (!cuando) return null;
+  const { cita } = vocabulario(rubro);
+  return {
+    dia: cuando.dia,
+    frase: `Pidió no recibir mensajes automáticos el ${diaEnPalabras(cuando.dia)}.`,
+    consecuencia: `No le van a llegar los recordatorios de sus ${cita.palabra(2)} ni los mensajes de seguimiento por WhatsApp.`,
+  };
+}
+
+// Al entregar o cambiar de estado la API dice, en sin_aviso, por qué no
+// programó el mensaje. La frase sale del motivo, no de su texto.
+export function porQueNoSeAviso(sinAviso) {
+  if (!sinAviso) return null;
+  return sinAviso.motivo === "baja_de_avisos"
+    ? "No se programó el mensaje porque el cliente pidió no recibir avisos."
+    : "No se programó el mensaje por WhatsApp.";
+}
+
+// Por qué no se pudo revertir la baja, dicho por lo que pasó y qué hacer.
+const AL_REVERTIR = {
+  sin_permiso: "Que el cliente vuelva a recibir avisos lo decide el dueño o el encargado del negocio.",
+  cliente_no_encontrado: "No encontramos a este cliente. Volvé a la lista de clientes y buscalo de nuevo.",
+  no_esta: "No encontramos a este cliente. Volvé a la lista de clientes y buscalo de nuevo.",
+  sin_conexion: "Se cortó internet. Cuando vuelva, probá de nuevo: el cliente sigue sin recibir avisos.",
+  sesion_vencida: "Tu sesión venció. Volvé a entrar y probá de nuevo.",
+};
+
+export const errorAlRevertirBaja = (error) =>
+  AL_REVERTIR[error?.codigo] ?? "No pudimos volver a activar sus avisos. Probá de nuevo en un rato.";

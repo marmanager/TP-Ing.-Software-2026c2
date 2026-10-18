@@ -7,10 +7,15 @@
 //
 // Las frases salen de lib/recordatorios.js. El error del proveedor no se
 // muestra nunca: avisoEnPalabras() lo traduce a qué hacer.
+//
+// Si el cliente pidió no recibir avisos (R-8b), se dice sin alerta: no es
+// algo que el negocio tenga que arreglar, y completar el teléfono no
+// cambiaría nada.
 
 import Link from "next/link";
 import { avisoDelTurno, avisoEnPalabras, porQueNoHayAviso } from "@/lib/recordatorios";
 import { turnoEnPie } from "@/lib/turnos";
+import { vocabulario } from "@/lib/presets";
 import Icono from "./Icono";
 
 // Cada estado con su color, su ícono y su palabra (cartilla, sección 02).
@@ -48,6 +53,14 @@ export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActiv
   if (!recordatorioActivo) return null;
 
   const falta = porQueNoHayAviso({ turno, cliente, rubro });
+  if (falta?.motivo === "baja_de_avisos") {
+    return (
+      <p data-aviso={falta.motivo} className="mt-1 flex items-start gap-1.5 text-etiqueta text-tinta-media">
+        <Icono nombre="whatsapp" className="mt-0.5 size-5 shrink-0" />
+        <span>{falta.frase}</span>
+      </p>
+    );
+  }
   if (falta) {
     return (
       <div data-aviso={falta.motivo} className="mt-1">
@@ -62,6 +75,16 @@ export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActiv
 
   // Lo que dijo la API al anotarlo o moverlo (por ejemplo, que ya no llegaba
   // a tiempo), mientras siga en pantalla.
+  //
+  // Si se anotó cuando el cliente no recibía avisos y la baja ya se
+  // revirtió, la frase de la API quedó vieja: se dice qué pasa ahora.
+  if (turno.recordatorio?.motivo === "baja_de_avisos") {
+    return (
+      <p data-aviso="anotado_en_baja" className="mt-1 text-etiqueta text-tinta-media">
+        Se anotó cuando el cliente no recibía avisos, así que no tiene recordatorio. Si {vocabulario(rubro).cita.segun("lo", "la")} movés, se programa.
+      </p>
+    );
+  }
   const porQue = turno.recordatorio?.mensaje;
   return porQue ? (
     <p data-aviso={turno.recordatorio.motivo} className="mt-1 text-etiqueta text-tinta-media">{porQue}</p>

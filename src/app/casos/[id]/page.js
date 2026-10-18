@@ -1058,13 +1058,14 @@ export default function VerCaso() {
                         if (CAMPOS_DEL_COBRO.includes(r.campo)) setPasoEntrega(1);
                         return setErrorEntrega(r.error);
                       }
-                      datos.avisarExito(
-                        r.falta > 0
-                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
-                          : monto > 0
-                            ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
-                            : `Listo. El ${casoEnFrase(caso)} quedó entregado.`
-                      );
+                      const entregado = r.falta > 0
+                        ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
+                        : monto > 0
+                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
+                          : `Listo. El ${casoEnFrase(caso)} quedó entregado.`;
+                      // Si el cliente pidió no recibir avisos, se dice acá
+                      // mismo: es parte de cómo quedó, no un problema.
+                      datos.avisarExito(r.noSeAviso ? `${entregado} ${r.noSeAviso}` : entregado);
                       setEntregando(false);
                     }}
                   >
