@@ -128,6 +128,7 @@ const PUROS = [
   "src/lib/modulos.js",
   "src/lib/fechas.js",
   "src/lib/recordatorios.js",
+  "src/lib/llave-landing.js",
 ];
 
 for (const archivo of PUROS) {
