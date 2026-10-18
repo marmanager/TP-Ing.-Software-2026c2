@@ -90,9 +90,8 @@ create table if not exists landing_sesion (
   creada_en     timestamptz not null default now()
 );
 
--- Los ingresos fallidos, para el bloqueo. de_registro marca los registros con
--- un identificador ajeno (ver reservar_turno_landing): ésos no los borra
--- entrar bien.
+-- Los ingresos fallidos, para el bloqueo. de_registro marca los que anotó un
+-- registro (ver reservar_turno_landing): ésos no los borra entrar bien.
 create table if not exists landing_intento (
   id            uuid        primary key default gen_random_uuid(),
   negocio_id    uuid        not null references negocio (id) on delete cascade,
@@ -623,16 +622,29 @@ begin
     return jsonb_build_object('ok', false, 'motivo', 'muchos_intentos');
   end if;
 
+  -- Un identificador vacío no es de nadie: no se anota, así cinco ingresos
+  -- vacíos no contestan muchos_intentos en vez de datos_incorrectos.
   if ident = '' or length(u4) <> 4
      or not exists (select 1 from clientes_de_la_landing(n.id, ident, u4)) then
-    insert into landing_intento (negocio_id, identificador) values (n.id, ident);
+    if ident <> '' then
+      insert into landing_intento (negocio_id, identificador) values (n.id, ident);
+    end if;
     return jsonb_build_object('ok', false, 'motivo', 'datos_incorrectos');
   end if;
 
-  -- Entró: se olvidan sus fallidos. Los de un registro con su identificador
-  -- y otros dígitos quedan (ver reservar_turno_landing).
-  delete from landing_intento
-   where negocio_id = n.id and identificador = ident and not de_registro;
+  -- Entró: se olvidan sus fallidos, pero sólo si coincidió con un cliente
+  -- confirmado. Quien se registra con la patente de otro y su propio
+  -- teléfono tiene un ingreso que siempre entra (coincide con su turno); si
+  -- ése borrara los fallidos, intercalándolo cada 4 intentos se adivinarían
+  -- los dígitos de la víctima sin tope. Un registro desde la landing nace
+  -- "por confirmar" y sólo se confirma cuando el negocio le abre un caso. Los
+  -- intentos de un registro (de_registro) no se borran nunca.
+  if exists (select 1 from cliente
+              where id in (select * from clientes_de_la_landing(n.id, ident, u4))
+                and confirmado) then
+    delete from landing_intento
+     where negocio_id = n.id and identificador = ident and not de_registro;
+  end if;
 
   return jsonb_build_object('ok', true) || abrir_sesion_landing(n.id, ident, u4);
 end;
@@ -843,22 +855,18 @@ begin
 
   -- El registro abre una sesión con el identificador y los dígitos que
   -- elige quien se registra, y esa sesión ve lo de todos los clientes con
-  -- esos datos. Si el identificador ya es de alguien y ningún cliente con él
-  -- tiene un teléfono que termine así, registrarse es probar 4 dígitos
-  -- contra ese identificador: cuenta como un intento fallido (de_registro,
-  -- que entrar bien no borra) y respeta el bloqueo. Si no, alcanzaría con
-  -- registrarse una vez por combinación y mirar "Mis casos". La respuesta es
-  -- la misma en todos los casos: el registro no avisa si el identificador
-  -- ya existe.
+  -- esos datos: registrarse es probar 4 dígitos contra ese identificador.
+  -- Por eso respeta el bloqueo y, salvo que ya coincida con alguien (la
+  -- misma persona que se registra de nuevo), cuenta como un intento
+  -- fallido (de_registro, que no se borra). Si no, alcanzaría con
+  -- registrarse una vez por combinación y mirar "Mis casos". Se anota igual
+  -- sea el identificador conocido o no, para que el bloqueo no cuente qué
+  -- patentes son clientes; y la respuesta es la misma en todos los casos.
   if landing_bloqueada(n.id, ident) then
     return jsonb_build_object('ok', false, 'motivo', 'Se hicieron muchos intentos seguidos. Probá de nuevo en unos minutos.');
   end if;
 
-  adivina := not exists (select 1 from clientes_de_la_landing(n.id, ident, u4))
-             and (exists (select 1 from caso
-                           where negocio_id = n.id and normalizar_identificador(identificador) = ident)
-                  or exists (select 1 from turno
-                              where negocio_id = n.id and normalizar_identificador(identificador) = ident));
+  adivina := not exists (select 1 from clientes_de_la_landing(n.id, ident, u4));
 
   insert into cliente (negocio_id, nombre, telefono, confirmado)
   values (n.id, trim(p_nombre), trim(p_telefono), false)
