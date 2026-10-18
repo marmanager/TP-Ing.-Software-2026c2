@@ -12,6 +12,10 @@
 // cuando cambian de mes o de día, porque lo que había elegido ya no se ve.
 // El mes y el día que se miran son de acá adentro: a quien lo usa sólo le
 // importa qué horario quedó puesto.
+//
+// `nivel` es el de sus títulos ("Qué día" y el día elegido; las franjas van
+// uno más abajo). En /turnos/[codigo] cuelgan del título de la pantalla (2);
+// en la landing, del de la sección "Sacar turno" (3).
 
 import { useState } from "react";
 import { enFranjas, mesesConLugar, semanasDelMes } from "@/lib/horarios";
@@ -22,7 +26,9 @@ import Icono from "@/componentes/Icono";
 export const comoHora = (fecha) =>
   `${fecha.getHours()}:${String(fecha.getMinutes()).padStart(2, "0")}`;
 
-export default function CalendarioDeTurnos({ dias, elegido, onElegir }) {
+export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 }) {
+  const Titulo = `h${nivel}`;
+  const Franja = `h${nivel + 1}`;
   // El día que está mirando, como toDateString(). null = el primero que
   // tenga lugar.
   const [dia, setDia] = useState(null);
@@ -43,7 +49,7 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir }) {
 
   return (
     <>
-      <h2 className="mt-8 mb-3 text-seccion">Qué día</h2>
+      <Titulo className="mt-8 mb-3 text-seccion">Qué día</Titulo>
       <Calendario
         mes={mes}
         antes={meses[posMes - 1]}
@@ -62,9 +68,9 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir }) {
       />
 
       <div className="mt-6 rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-5">
-        <h2 className="text-subtitulo font-bold first-letter:uppercase">
+        <Titulo className="text-subtitulo font-bold first-letter:uppercase">
           {diaPasado(delDia.fecha)}
-        </h2>
+        </Titulo>
         <p className="text-tinta-media">
           {delDia.huecos.length === 1
             ? "Queda 1 horario libre."
@@ -73,7 +79,9 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir }) {
 
         {franjas.map((f) => (
           <div key={f.nombre} className="mt-4">
-            <h3 className="mb-2 font-bold text-tinta-media">{f.nombre}</h3>
+            {/* font-titulo explícito: globals.css se la da a h1, h2 y h3, y
+                con nivel 3 esto es un h4. */}
+            <Franja className="mb-2 font-titulo font-bold text-tinta-media">{f.nombre}</Franja>
             <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {f.huecos.map((h) => {
                 const puesto = elegido && h.getTime() === new Date(elegido).getTime();

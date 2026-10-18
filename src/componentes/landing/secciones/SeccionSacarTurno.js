@@ -20,6 +20,11 @@ import { Boton, Campo, ErrorGeneral } from "@/componentes/ui";
 // registro la guarda reservarEnLanding), así que "Mis turnos" lo muestra sin
 // que tenga que entrar aparte.
 //
+// "vencida" es que la llave venció (al pedir acá o en otra sección) y todavía
+// no volvió a entrar. Ya entró alguna vez, así que es cliente: en lugar del
+// registro, que lo dejaría dos veces, se lo manda al Ingreso, y lo que eligió
+// queda acá para cuando vuelva.
+//
 // El calendario no acepta una lista vacía de días: antes de dibujarlo, cada
 // vez (también después de volver a pedir la agenda), se mira si queda algo.
 
@@ -29,7 +34,7 @@ import { Boton, Campo, ErrorGeneral } from "@/componentes/ui";
 // sin perder el horario elegido.
 const DEL_HORARIO = ["turno_ocupado", "horario_no_disponible", "agenda_sin_horarios"];
 
-export default function SeccionSacarTurno({ codigo, negocio, entrado, alEntrar, alVencer, alReservar }) {
+export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, alEntrar, alVencer, alReservar }) {
   const ident = comoSeIdentifica(negocio.rubro);
   const motivos = preset(negocio.rubro).motivos;
   const [agenda, setAgenda] = useState(null);
@@ -73,8 +78,8 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, alEntrar, 
     setGuardando(false);
 
     if (!r.ok) {
-      setProblema(r.mensaje);
       if (r.codigo === "llave_vencida") return alVencer(r.mensaje);
+      setProblema(r.mensaje);
       if (DEL_HORARIO.includes(r.codigo)) {
         setElegido(null);
         setVuelta((v) => v + 1);
@@ -172,13 +177,15 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, alEntrar, 
     ? "contanos para qué venís"
     : entrado
       ? null
-      : !nombre.trim()
-        ? "falta tu nombre"
-        : telefono.replace(/\D/g, "").length < 4
-          ? "falta tu teléfono"
-          : !identificador.trim()
-            ? `falta ${ident.enFrase}`
-            : null;
+      : vencida
+        ? "primero entrá de nuevo con tus datos"
+        : !nombre.trim()
+          ? "falta tu nombre"
+          : telefono.replace(/\D/g, "").length < 4
+            ? "falta tu teléfono"
+            : !identificador.trim()
+              ? `falta ${ident.enFrase}`
+              : null;
 
   return (
     <>
@@ -205,7 +212,9 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, alEntrar, 
         </p>
       ) : (
         <>
+          {/* Nivel 3: cuelga del título de la sección, que es un h2. */}
           <CalendarioDeTurnos
+            nivel={3}
             dias={agenda.dias}
             elegido={elegido}
             onElegir={(cuando) => {
@@ -256,7 +265,20 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, alEntrar, 
                 </ul>
               )}
 
-              {!entrado && (
+              {!entrado && vencida && (
+                <p className="mb-6 flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
+                  <Icono nombre="reloj" className="mt-0.5 size-5 shrink-0" />
+                  <span>
+                    <span className="font-bold">Pasó un rato desde que entraste.</span>{" "}
+                    <a href="#ingreso" className="font-bold underline">
+                      Entrá de nuevo con tus datos
+                    </a>{" "}
+                    y pedí el turno: lo que elegiste queda acá.
+                  </span>
+                </p>
+              )}
+
+              {!entrado && !vencida && (
                 <>
                   {/* Quien ya es cliente y no entró se registraría de nuevo
                       y quedaría dos veces: mejor que entre. */}

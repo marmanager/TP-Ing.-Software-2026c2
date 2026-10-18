@@ -58,7 +58,8 @@ export default function Landing() {
   const [pagina, setPagina] = useState(null);
   const [entrado, setEntrado] = useState(false);
   // Por qué se le vuelven a pedir los datos (la llave venció). Lo muestra el
-  // Ingreso, aunque la que se dio cuenta haya sido otra sección.
+  // Ingreso, aunque la que se dio cuenta haya sido otra sección, y mientras
+  // está, "Sacar turno" no ofrece registrarse: lo manda al Ingreso.
   const [aviso, setAviso] = useState(null);
   // Cuántos turnos sacó desde que abrió la página: "Mis turnos" se vuelve a
   // pedir cada vez que cambia.
@@ -67,6 +68,15 @@ export default function Landing() {
   // de cero, y en un celular prestado el que sigue no ve la confirmación del
   // turno ni el nombre y el teléfono que escribió el anterior.
   const [salidas, setSalidas] = useState(0);
+  // Al entrar, al salir o cuando la llave vence, lo que tenía el foco (el
+  // botón de entrar, el de salir, el de pedir el turno) desaparece o se
+  // apaga, y el foco quedaría en la nada: quien usa lector de pantalla no se
+  // entera de qué cambió. Va al título de la sección del Ingreso, que es
+  // donde está lo nuevo: lo suyo recién abierto, o el Ingreso otra vez con el
+  // aviso de por qué. Cuenta las veces y no es un sí o no, así dos seguidas también lo
+  // mueven. (Registrarse sacando turno no lo mueve: la confirmación del turno
+  // se anuncia sola, con role="status".)
+  const [foco, setFoco] = useState(0);
 
   // Estables, porque las listas los usan en sus efectos: si cambiaran en cada
   // dibujo, volverían a pedir los datos cada vez.
@@ -77,8 +87,17 @@ export default function Landing() {
   const alVencer = useCallback((mensaje) => {
     setAviso(mensaje);
     setEntrado(false);
+    setFoco((n) => n + 1);
   }, []);
   const alReservar = useCallback(() => setReservas((n) => n + 1), []);
+
+  useEffect(() => {
+    if (foco) document.querySelector("[data-titulo-del-ingreso]")?.focus();
+  }, [foco]);
+  const entrarConDatos = useCallback(() => {
+    alEntrar();
+    setFoco((n) => n + 1);
+  }, [alEntrar]);
 
   useEffect(() => {
     document.title = pagina?.negocio?.nombre ?? "La página del negocio";
@@ -104,6 +123,7 @@ export default function Landing() {
     salirDeLanding(codigo);
     setEntrado(false);
     setSalidas((n) => n + 1);
+    setFoco((n) => n + 1);
   }
 
   if (mirando) {
@@ -163,6 +183,7 @@ export default function Landing() {
         <div className="flex flex-col gap-6">
           {secciones.map(({ clave, nombre }) => {
             const Seccion = COMPONENTES[clave];
+            const delIngreso = clave === conIngreso?.clave;
             return (
               <section
                 key={clave}
@@ -170,19 +191,26 @@ export default function Landing() {
                 className="rounded-tarjeta border border-borde bg-tarjeta p-5 sm:p-6"
               >
                 {/* Los mismos títulos que la vista previa del editor: lo que
-                    el negocio vio ahí es lo que ve su cliente. */}
-                <h2 id={`seccion-${clave}`} className="text-seccion">
+                    el negocio vio ahí es lo que ve su cliente. El de la
+                    sección del Ingreso recibe el foco al entrar, al salir y
+                    cuando vence la llave (ver "foco"). */}
+                <h2
+                  id={`seccion-${clave}`}
+                  tabIndex={delIngreso ? -1 : undefined}
+                  data-titulo-del-ingreso={delIngreso ? "" : undefined}
+                  className="text-seccion focus:outline-none"
+                >
                   {nombre}
                 </h2>
                 {PRIVADAS[clave] && !entrado ? (
-                  clave === conIngreso.clave ? (
+                  delIngreso ? (
                     <Ingreso
                       codigo={codigo}
                       negocio={negocio}
                       boton={PRIVADAS[clave].boton}
                       aviso={aviso}
                       principal={!conTurno}
-                      alEntrar={alEntrar}
+                      alEntrar={entrarConDatos}
                     />
                   ) : (
                     // Siempre está más abajo que el Ingreso: el Ingreso va en
@@ -205,6 +233,7 @@ export default function Landing() {
                     negocio={negocio}
                     horarios={horarios}
                     entrado={entrado}
+                    vencida={Boolean(aviso)}
                     alEntrar={alEntrar}
                     alVencer={alVencer}
                     alReservar={alReservar}
