@@ -150,13 +150,16 @@ Reglas de `ingresar_landing`, en este orden:
 1. Negocio por código; si no, `landing_no_encontrada`.
 2. `id := normalizar_identificador(p_identificador)`, `u4 := regexp_replace(coalesce(p_ultimos4,''), '[^0-9]', '', 'g')`.
 3. Borrar intentos de más de un día y sesiones vencidas (limpieza barata, sin cron).
-4. Si hay **5 o más** intentos de `(negocio, id)` en los últimos **15 minutos**: `muchos_intentos` (sin anotar otro).
-5. Si `id = ''`, `length(u4) <> 4` o `clientes_de_la_landing` no trae nada: anotar el intento y `datos_incorrectos`.
-6. Si coincide: crear la llave (los fallidos no se borran: vencen solos a los
-   15 minutos, porque el contador lo comparten todos los que tienen ese identificador)
+4. Si `id = ''` o tiene más de 40 caracteres: `datos_incorrectos`, sin anotar
+   intento (no es de nadie).
+5. Si hay **5 o más** intentos de `(negocio, id)` en los últimos **15 minutos**,
+   o **20 o más** en el último **día**: `muchos_intentos` (sin anotar otro).
+6. Si `length(u4) <> 4` o `clientes_de_la_landing` no trae nada: anotar el intento y `datos_incorrectos`.
+7. Si coincide: crear la llave
    (`replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-','')`,
    64 caracteres), guardar **sólo la huella** con `vence_en = now() + interval '12 hours'`,
-   y devolver la llave.
+   y devolver la llave. Los fallidos no se borran: vencen solos, porque el
+   contador lo comparten todos los que tienen ese identificador.
 
 Reglas de `mis_casos_landing`: cada caso abierto de los clientes de la sesión
 que no tenga `seguimiento_codigo` lo recibe en ese momento, generado igual que
@@ -169,11 +172,15 @@ Reglas de `reservar_turno_landing`:
   nombre, teléfono e identificador que vengan.
 - Sin `p_llave` (registro): exige nombre no vacío, teléfono con al menos 4
   dígitos ("Necesitamos tu teléfono para que puedas volver a entrar.") e
-  identificador que normalizado no sea vacío ("Falta con qué te identificamos.").
+  identificador que normalizado no sea vacío ni pase de 40 caracteres ("Falta
+  con qué te identificamos."). Respeta el bloqueo de `ingresar_landing`
+  (bloqueado: `muchos_intentos`) y, si no coincide con nadie, anota un intento.
   Crea el cliente "por confirmar", anota el turno con el identificador tal como
   vino (recortado), y si sale, crea la sesión como `ingresar_landing` y devuelve
   la llave. Si no sale, borra el cliente.
-- En los dos, antes de escribir: `por_que_no_se_reserva`.
+- En los dos, antes de escribir: `por_que_no_se_reserva`. Sin la Agenda prendida
+  (`modulos_activos ? 'agenda'`), contesta como sin horarios; lo mismo
+  `ver_agenda_landing` (`horarios` nulo).
 
 `ver_seguimiento(p_codigo)`: se reescribe **desde la versión de la 026** sumando
 `'landing', n.landing, 'landing_codigo', n.landing_codigo` del negocio del caso.
@@ -189,11 +196,16 @@ error `deshacer` que se atrapa). Casos:
 4. Al 5.º fallido → `muchos_intentos`, aunque después vengan los datos buenos; y entrar bien en el medio (4 fallidos, entra, 1 fallido más) no borra los fallidos: el siguiente ya da `muchos_intentos`.
 5. Llave vencida (actualizar `vence_en` a pasado como postgres) → `llave_vencida`.
 6. Dos clientes con la misma patente y teléfonos distintos: cada uno ve sólo sus casos.
-7. Registrarse con la patente de otro y otro teléfono: con esa llave no se ve ningún caso ajeno.
+7. Registrarse con la patente de otro y otro teléfono: con esa llave no se ve ningún caso ajeno; el registro cuenta como intento, y bloqueado contesta `muchos_intentos`.
 8. Un caso sin link recibe `seguimiento_codigo` al pedir `mis_casos_landing`; un caso completado no aparece.
 9. `reservar_turno` y `ver_agenda_publica` de la 024 contestan igual: código malo (`existe:false`), sin horarios, sin nombre, y una reserva buena.
-10. Como `anon`, no se puede leer `landing_sesion` ni `landing_intento`, ni llamar a las internas.
+10. Como `anon`, no se puede leer `landing_sesion` ni `landing_intento`, ni llamar a las internas; están los índices de la limpieza (`landing_intento (creado_en)`, `landing_sesion (vence_en)`).
 11. `compartir_landing` como encargado → error; como dueño → el mismo código dos veces.
+12. Entrar con un registro propio (la patente de otro y el teléfono propio) no desarma el bloqueo; un identificador vacío no suma intentos.
+13. Otro cliente confirmado con la misma patente tampoco reinicia el bloqueo.
+14. Un identificador de más de 40 caracteres → `datos_incorrectos` (en el registro, "Falta con qué te identificamos.") sin anotar intento; 40 justos sí cuentan.
+15. 20 fallidos en el día, espaciados para no caer en los 15 minutos → `muchos_intentos` con los datos buenos (con 19 todavía entra); pasado el día, vencen.
+16. Sin la Agenda prendida: `ver_agenda_landing` con `horarios` nulo y `reservar_turno_landing` (con llave y sin) → "El negocio todavía no publicó sus horarios."
 
 ### API — `src/modulos/landing/` (rama `landing-publica`)
 
@@ -220,12 +232,13 @@ cliente `anonimo`, como `publico`.
 |---|---|---|
 | `landing_no_encontrada` | 404 | "Este link ya no sirve. Pedile uno nuevo al negocio." |
 | `datos_incorrectos` | 401 | "Esos datos no coinciden. Revisalos y probá de nuevo." |
-| `muchos_intentos` | 429 | "Se hicieron muchos intentos seguidos. Probá de nuevo en unos minutos." |
+| `muchos_intentos` | 429 | "Se hicieron muchos intentos seguidos. Probá de nuevo en unos minutos." (con `Retry-After: 900` cuando viene de la base) |
 | `llave_vencida` | 401 | "Pasó un rato desde que entraste. Volvé a poner tus datos." |
 
 - La reserva: antes de escribir, la misma revisión que `publico.reservar`
   (`porQueNoSePuede` con la agenda de la landing → `NoSePuedeReservar`); la
-  respuesta "ganaron" → `turno_ocupado`; otro `motivo` → `ReservaRechazada`.
+  respuesta "ganaron" → `turno_ocupado`; `muchos_intentos` (el registro
+  bloqueado) → 429 `muchos_intentos`; otro `motivo` → `ReservaRechazada`.
 - Para no duplicar el armado de la agenda: `src/modulos/publico/casos-de-uso.ts`
   exporta `armarAgenda(agenda, ahora)` (lo que hoy hace `verAgenda` después de
   buscarla) y `verAgenda` lo usa; la landing también.

@@ -108,8 +108,11 @@ Llega con la 053, junto con la página pública, y no antes: un botón de
 ### `turno.identificador` (text, puede ser null)
 
 Un cliente nuevo todavía no tiene casos, así que su identificador queda en el
-turno que saca al registrarse. Cuando el negocio le abre el caso desde ese
-turno, el identificador pasa al caso.
+turno que saca al registrarse (con llave, el turno lleva el de la sesión).
+Cuando el negocio le abre el caso desde ese turno, el identificador pasa al
+caso: "Abrir un caso nuevo" lo trae cargado, como el nombre, el teléfono y el
+motivo, y no cuenta como algo escrito sin guardar. Con él, el cliente sigue
+entrando a la landing y ve el caso en "Mis casos".
 
 ### `landing_sesion`
 
@@ -126,20 +129,26 @@ borran cada vez que alguien entra; no hace falta un cron.
 
 ### `landing_intento`
 
-Los intentos fallidos: `negocio_id`, identificador normalizado y hora. **Con 5
-fallidos en 15 minutos para el mismo identificador en el mismo negocio, se
-bloquea** hasta que pasen los 15 minutos. Los fallidos vencen solos a los 15
-minutos y entrar bien no los borra: el contador lo comparten todos los que
-tienen ese identificador, y si entrar bien lo reiniciara, cualquiera de ellos
-podría probar los dígitos de otro sin tope. Junto con el límite por IP de la
-API, probar las 10.000 combinaciones de 4 dígitos deja de ser viable.
+Los intentos fallidos: `negocio_id`, identificador normalizado y hora. **Para
+el mismo identificador en el mismo negocio, se bloquea con 5 fallidos en 15
+minutos o con 20 en un día**, hasta que dejan de sumar eso. Los fallidos
+vencen solos (cuentan 15 minutos para un tope y un día para el otro, y la
+limpieza de cada ingreso borra los de más de un día) y entrar bien no los
+borra: el contador lo comparten todos los que tienen ese identificador, y si
+entrar bien lo reiniciara, cualquiera de ellos podría probar los dígitos de
+otro sin tope. Con el tope del día, probar las 10.000 combinaciones de 4
+dígitos de una patente lleva más de un año (ver "Riesgos").
+
+Un identificador de más de 40 caracteres (normalizado) no es de nadie: se
+contesta `datos_incorrectos` sin anotarlo, como uno vacío. El formulario y la
+API no dejan escribir más; esto es para quien llama a la función directo.
 
 **Registrarse también cuenta.** El registro abre una sesión con el
 identificador y los 4 dígitos que elige quien se registra, así que es otra
 forma de probar dígitos: respeta el bloqueo y, salvo que ya coincida con
 alguien (la misma persona que se registra de nuevo), anota un intento
 fallido. Si no, alcanzaría con registrarse una vez por combinación y mirar
-"Mis casos".
+"Mis casos". Bloqueado, contesta el mismo `muchos_intentos` que el ingreso.
 
 ## Cómo se reconoce al cliente
 
@@ -210,6 +219,12 @@ Decidido al implementar (plan, "Decisiones"):
   no hay confirmada, la más reciente.
 - **Dejar de compartir la landing borra sus sesiones**: el link muerto no deja
   a nadie adentro.
+- **La base exige la Agenda prendida** para los turnos de la landing:
+  `ver_agenda_landing` y `reservar_turno_landing` miran `modulos_activos ?
+  'agenda'` y, si no, contestan como sin horarios (aunque haya horarios
+  guardados). El link sirve igual: no es `existe: false`. La pantalla ya no
+  muestra "Sacar turno" sin la Agenda; esto es para quien llama directo. El
+  link de la agenda (024) no cambia.
 
 ## La API
 
@@ -249,7 +264,7 @@ Errores nuevos:
 |---|---|---|
 | `landing_no_encontrada` | 404 | El código no existe o la landing no está publicada. |
 | `datos_incorrectos` | 401 | El identificador y los 4 dígitos no coinciden. |
-| `muchos_intentos` | 429 | El bloqueo por identificador o el límite por IP. |
+| `muchos_intentos` | 429 | El bloqueo por identificador (al entrar o al registrarse) o el límite por IP. Siempre con `Retry-After`: 900 segundos el de la base. |
 | `llave_vencida` | 401 | La llave no existe o venció: el front vuelve a pedir los datos. |
 
 ## El front
@@ -279,14 +294,18 @@ Errores nuevos:
   muestra el turno sin que tenga que entrar aparte.
 - **La llave va en `sessionStorage`**: se borra al cerrar la pestaña, así nadie
   queda adentro en un celular prestado, y "Salir" arranca las secciones de
-  cero. Con `llave_vencida`, se borra y se vuelve a pedir, diciendo por qué.
+  cero. Con `llave_vencida`, se borra y se vuelve a pedir, diciendo por qué; y
+  mientras tanto "Sacar turno" no ofrece registrarse (quedaría dos veces):
+  lleva al Ingreso. Al entrar, al salir y cuando vence la llave, el foco va al
+  título de la sección del Ingreso.
 - **La llave no viaja como `token`**: `api.js` cambia el token por el de la
   sesión del dueño. Va por una opción aparte (`autorizacion`), y todas las
   llamadas de la landing van con `avisarSiVence: false`: un 401 del cliente no
   le cierra la sesión al dueño que tenga la app abierta en el mismo navegador.
 - **"Sacar turno"** usa el calendario de `/turnos/[codigo]`, que hoy está escrito
   adentro de esa página. Se saca a `src/componentes/CalendarioDeTurnos.js` y lo
-  usan las dos. La página de turnos queda igual.
+  usan las dos. La página de turnos queda igual; la landing le pide sus títulos
+  un nivel más abajo (`nivel={3}`), debajo del de la sección.
 - **El seguimiento** (`/seguimiento/[codigo]`): si la landing está publicada
   (`landing_codigo` no nulo), se pinta con sus colores y suma "← Volver a
   [negocio]".
@@ -372,7 +391,7 @@ TDD de la cátedra: commit "Test en rojo: …" y el arreglo aparte.
 
 | Nivel | Qué |
 |---|---|
-| Base: `supabase/pruebas/landing.sql` | <ul><li>Entrar con datos buenos y malos, siempre con el mismo error.</li><li>El bloqueo al 5.º fallido, aunque en el medio alguien haya entrado bien.</li><li>La llave vencida.</li><li>Dos clientes con la misma patente y teléfonos distintos: cada uno ve lo suyo.</li><li>Registrarse con la patente de otro no muestra nada ajeno.</li><li>Los casos sin link reciben código.</li><li>Las funciones de 024 contestan igual que antes.</li></ul> Se corre en el SQL Editor y deshace todo, como las otras de esa carpeta. |
+| Base: `supabase/pruebas/landing.sql` | <ul><li>Entrar con datos buenos y malos, siempre con el mismo error.</li><li>El bloqueo al 5.º fallido, aunque en el medio alguien haya entrado bien, y el tope de 20 fallidos por día.</li><li>Un identificador de más de 40 caracteres no anota intentos.</li><li>La llave vencida.</li><li>Dos clientes con la misma patente y teléfonos distintos: cada uno ve lo suyo.</li><li>Registrarse con la patente de otro no muestra nada ajeno.</li><li>Los casos sin link reciben código.</li><li>Las funciones de 024 contestan igual que antes.</li><li>Sin la Agenda prendida no se sacan turnos por la landing.</li></ul> Se corre en el SQL Editor y deshace todo, como las otras de esa carpeta. |
 | API: casos de uso y contrato | Los códigos de error, los límites por IP, que sólo el dueño guarde, y que zod rechace un orden con secciones repetidas o faltantes, un color inválido o una fuente fuera de la lista. El Supabase falso aprende las funciones nuevas, como ya imita `reservar_turno` y `ver_seguimiento`. |
 | Front: Jest | Todo `lib/landing.js`, `lib/llave-landing.js` y la opción `autorizacion` de `api.js`. |
 | Front: e2e | El editor con una cuenta sembrada por la API (`pruebas/e2e/siembra.js`), como las demás: cambiar el orden, los colores y la fuente, ver la vista previa, volver al de fábrica y que quede después de refrescar, y publicar el link. La landing pública (`landing-publica.e2e.js`): abrir el link publicado, entrar con la patente y los 4 dígitos (y no entrar con los malos), abrir un caso y volver, y sacar turno registrándose. |
@@ -401,10 +420,17 @@ Cada paso es un PR y ninguno rompe lo que anda:
 
 ## Riesgos
 
-- **4 dígitos son pocos.** El bloqueo por identificador y el límite por IP lo
-  cubren contra un ataque a ciegas, pero no contra alguien que conoce la patente
-  y el teléfono de la persona. Para eso está el código por mensaje, que queda
-  afuera.
+- **4 dígitos son pocos.** La cuenta honesta:
+  - **A ciegas no alcanza.** El bloqueo por identificador lo pone la base, así
+    que vale también para quien llama a las funciones directo con la clave
+    anónima (el límite por IP es sólo de la API). Con 5 fallidos cada 15
+    minutos se recorrerían los 10.000 números de una patente en tres semanas;
+    con el tope de 20 por día, lleva más de un año.
+  - **Quien sabe la patente puede bloquearla un día.** Con 20 fallidos a
+    propósito, el dueño de esa patente no entra ni se registra con ella hasta
+    el día siguiente (puede llamar al negocio). Es el precio del tope.
+  - **Quien sabe la patente y el teléfono entra.** Contra eso no hay bloqueo
+    que sirva: para eso está el código por mensaje, que queda afuera.
 - **"Dejar de compartir" pierde efecto** para los casos de un cliente que entra
   por la landing. La pantalla de los pasos del caso lo avisa (paso 4).
 - **La lógica de la agenda se mueve a funciones internas** (paso 3). La prueba de
