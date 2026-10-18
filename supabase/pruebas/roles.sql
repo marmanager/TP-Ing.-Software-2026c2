@@ -308,6 +308,14 @@ begin
     perform set_config('role', 'authenticated', true);
     if n <> 0 then raise exception 'FALLÓ 8: quedan % funciones que deciden con el rol viejo.', n; end if;
 
+    -- ---- 9. mis_negocios() trae el rol nuevo ----
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    select * into fila from mis_negocios() where id = neg_a;
+    if fila.rol_nombre <> 'Mecánico' or fila.es_duenio or fila.permisos <> permisos_de_clave('tecnico') then
+      raise exception 'FALLÓ 9: mis_negocios() del técnico no trae su rol nuevo.';
+    end if;
+
     raise exception 'deshacer';
   exception when raise_exception then
     if sqlerrm <> 'deshacer' then raise; end if;
