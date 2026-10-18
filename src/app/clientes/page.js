@@ -169,6 +169,7 @@ export default function Clientes() {
                     {suyos.length} {suyos.length === 1 ? "caso" : "casos"}
                     {abiertos > 0 && ` · ${abiertos} sin cerrar`}
                   </p>
+                  {cliente.avisos_baja_en && <NoRecibeAvisos />}
                   {cliente.notas && (
                     <p className="mt-2 text-apoyo text-tinta-suave">{cliente.notas}</p>
                   )}
@@ -219,6 +220,7 @@ export default function Clientes() {
                     <Icono nombre="reloj" className="size-5" />
                     Tiene turno, todavía no vino
                   </p>
+                  {cliente.avisos_baja_en && <NoRecibeAvisos />}
                 </Tarjeta>
               </li>
             ))}
@@ -226,5 +228,16 @@ export default function Clientes() {
         </>
       )}
     </>
+  );
+}
+
+// Que pidió no recibir avisos (R-8b), para verlo sin abrir cada ficha. Es un
+// dato, no una alerta: color de apoyo, con ícono y palabra (cartilla, 02).
+function NoRecibeAvisos() {
+  return (
+    <p data-baja-de-avisos className="mt-1 flex items-center gap-1.5 text-etiqueta text-tinta-suave">
+      <Icono nombre="whatsapp" className="size-5" />
+      Pidió no recibir avisos
+    </p>
   );
 }

@@ -19,7 +19,7 @@ import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./a
 import { instanteParaLaApi, turnoParaLaApi } from "./turnos.js";
 import { reemplazarUnicoPorId, unicosPorId } from "./listas.js";
 import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
-import { avisoAlAnotar, volverEnParaLaApi } from "./recordatorios.js";
+import { avisoAlAnotar, errorAlRevertirBaja, porQueNoSeAviso, volverEnParaLaApi } from "./recordatorios.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -466,7 +466,12 @@ export function DatosProvider({ children }) {
           ? { estado, notificar_cliente: Boolean(notificarCliente) } : {});
         if (!r.ok) return setAviso(r.error.mensaje);
         incorporarCasoApi(r.datos);
-        if (r.datos.notificacion?.estado === "fallido") {
+        // Si el cliente pidió no recibir avisos (R-8a), el estado cambia
+        // igual: no es un error, se dice por qué no se le avisó.
+        if (r.datos.sin_aviso) {
+          setDeshacerExito(null);
+          setExito(`Listo, se cambió el estado. ${porQueNoSeAviso(r.datos.sin_aviso)}`);
+        } else if (r.datos.notificacion?.estado === "fallido") {
           setAviso("El estado se cambió, pero no pudimos enviar el aviso por WhatsApp.");
         } else if (r.datos.notificacion) {
           setDeshacerExito(null);
@@ -661,7 +666,11 @@ export function DatosProvider({ children }) {
           return siguiente;
         });
         const avisos = [];
-        if (seguimiento?.enviar && !r.datos.seguimiento) {
+        // Sin mensaje porque el cliente pidió no recibir avisos (R-8a): no es
+        // un problema, va en el "Listo" de la entrega, y no se confunde con
+        // el seguimiento apagado.
+        const noSeAviso = porQueNoSeAviso(r.datos.sin_aviso);
+        if (!noSeAviso && seguimiento?.enviar && !r.datos.seguimiento) {
           avisos.push("El caso se cerró, pero no se programó el mensaje: el seguimiento está desactivado en el negocio.");
         } else if (r.datos.seguimiento?.estado === "fallido") {
           avisos.push("El caso se cerró, pero no pudimos enviar el mensaje de seguimiento por WhatsApp.");
@@ -679,7 +688,7 @@ export function DatosProvider({ children }) {
           }
         }
         if (avisos.length) setAviso(avisos.join(" "));
-        return { ok: true, ...r.datos };
+        return { ok: true, ...r.datos, noSeAviso };
       },
 
       // Marcar que un paso aprobado ya se hizo, o desmarcarlo (flujo, 7).
@@ -992,6 +1001,17 @@ export function DatosProvider({ children }) {
         enLaApi((token) => parchar(`/clientes/${clienteId}`, { telefono, actualizado_en: version(datos.clientes, clienteId) }, token),
           ({ cliente }) => setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, cliente) })));
         return;
+      },
+
+      // Que el cliente vuelva a recibir avisos (R-8b). La baja la pidió él
+      // por WhatsApp y sólo se deshace por acá: la API saca la fecha y deja
+      // en su historial quién y cuándo. Se espera la respuesta, porque es el
+      // único camino y no hay nada que mostrar antes. El error va traducido.
+      async revertirBajaDeAvisos(clienteId) {
+        const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/revertir-baja`, {}, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: errorAlRevertirBaja(r.error) };
+        setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, r.datos.cliente) }));
+        return { ok: true };
       },
 
       // ---------- agenda ----------

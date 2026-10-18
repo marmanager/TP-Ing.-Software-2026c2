@@ -15,9 +15,9 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto, pesos } from "@/lib/estados";
-import { comoSeIdentifica } from "@/lib/presets";
+import { comoSeIdentifica, mayuscula, vocabulario } from "@/lib/presets";
 import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
-import { proximaVisita } from "@/lib/recordatorios";
+import { bajaDeAvisos, proximaVisita } from "@/lib/recordatorios";
 import { telefonoValido } from "@/lib/validaciones";
 import { saldoDelCaso } from "@/lib/cobros";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -34,6 +34,8 @@ export default function FichaDeCliente() {
   const [corrigiendo, setCorrigiendo] = useState(false);
   const [telefono, setTelefono] = useState("");
   const [tocado, setTocado] = useState(false);
+  const [revirtiendo, setRevirtiendo] = useState(false);
+  const [errorBaja, setErrorBaja] = useState(null);
 
   const cliente = clientes.find((c) => c.id === id);
   useTitulo(cliente ? cliente.nombre : "Cliente");
@@ -79,6 +81,10 @@ export default function FichaDeCliente() {
     dia: diaDeVolver,
     caso: suyos.find((c) => c.volver_en === diaDeVolver),
   };
+
+  // Si pidió no recibir avisos (R-8a), cuándo y qué quiere decir.
+  const baja = bajaDeAvisos({ cliente, rubro: negocio?.rubro });
+  const { cita } = vocabulario(negocio?.rubro);
 
   const proximos = turnos
     .filter((t) => t.cliente_id === cliente.id && t.estado !== "cancelado")
@@ -175,6 +181,53 @@ export default function FichaDeCliente() {
               >
                 {cliente.telefono ? "Corregir el teléfono" : "Cargar el teléfono"}
               </Boton>
+            )}
+          </div>
+        )}
+
+        {/* La baja de avisos (R-8b). No es un error: el cliente ejerció un
+            derecho, y la ficha lo informa sin rojo ni ícono de alerta.
+            Revertirla es para cuando el cliente pide volver, y el botón lo
+            aclara al lado en vez de preguntar "¿está seguro?". */}
+        {baja && (
+          <div data-baja-de-avisos className="mt-6 max-w-[65ch]">
+            <p className="font-bold text-cuerpo">Avisos por WhatsApp</p>
+            <p className="mt-1 flex items-start gap-2 text-tinta-media">
+              <Icono nombre="whatsapp" className="mt-0.5 size-5 shrink-0" />
+              <span>
+                {baja.frase} {baja.consecuencia}
+              </span>
+            </p>
+            {puedeCargar && (
+              <div className="mt-3">
+                <Boton
+                  icono="deshacer"
+                  motivo={revirtiendo ? "guardando" : null}
+                  onClick={async () => {
+                    setErrorBaja(null);
+                    setRevirtiendo(true);
+                    const r = await datos.revertirBajaDeAvisos(cliente.id);
+                    setRevirtiendo(false);
+                    if (!r.ok) return setErrorBaja(r.error);
+                    datos.avisarExito(
+                      proximos.length
+                        ? `Listo. ${cliente.nombre} va a volver a recibir avisos. ${mayuscula(cita.el(2))} que ya tenía no tienen recordatorio: si ${cita.segun("los", "las")} movés, se programa.`
+                        : `Listo. ${cliente.nombre} va a volver a recibir avisos.`
+                    );
+                  }}
+                >
+                  Volver a mandarle avisos
+                </Boton>
+                <p className="mt-2 text-apoyo text-tinta-suave">
+                  Usalo sólo si el cliente te pidió volver a recibirlos. Queda anotado quién lo hizo.
+                </p>
+                {errorBaja && (
+                  <p role="alert" className="mt-2 flex items-start gap-2 font-bold text-rojo">
+                    <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                    {errorBaja}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
