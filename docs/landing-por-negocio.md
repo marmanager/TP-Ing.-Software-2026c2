@@ -124,9 +124,11 @@ borran cada vez que alguien entra; no hace falta un cron.
 
 Los intentos fallidos: `negocio_id`, identificador normalizado y hora. **Con 5
 fallidos en 15 minutos para el mismo identificador en el mismo negocio, se
-bloquea** hasta que pasen los 15 minutos. Entrar bien borra los fallidos de ese
-identificador. Junto con el límite por IP de la API, probar las 10.000
-combinaciones de 4 dígitos deja de ser viable.
+bloquea** hasta que pasen los 15 minutos. Los fallidos vencen solos a los 15
+minutos y entrar bien no los borra: el contador lo comparten todos los que
+tienen ese identificador, y si entrar bien lo reiniciara, cualquiera de ellos
+podría probar los dígitos de otro sin tope. Junto con el límite por IP de la
+API, probar las 10.000 combinaciones de 4 dígitos deja de ser viable.
 
 ## Cómo se reconoce al cliente
 
@@ -329,7 +331,7 @@ TDD de la cátedra: commit "Test en rojo: …" y el arreglo aparte.
 
 | Nivel | Qué |
 |---|---|
-| Base: `supabase/pruebas/landing.sql` | <ul><li>Entrar con datos buenos y malos, siempre con el mismo error.</li><li>El bloqueo al 5.º fallido, y que entrar bien lo limpie.</li><li>La llave vencida.</li><li>Dos clientes con la misma patente y teléfonos distintos: cada uno ve lo suyo.</li><li>Registrarse con la patente de otro no muestra nada ajeno.</li><li>Los casos sin link reciben código.</li><li>Las funciones de 024 contestan igual que antes.</li></ul> Se corre en el SQL Editor y deshace todo, como las otras de esa carpeta. |
+| Base: `supabase/pruebas/landing.sql` | <ul><li>Entrar con datos buenos y malos, siempre con el mismo error.</li><li>El bloqueo al 5.º fallido, aunque en el medio alguien haya entrado bien.</li><li>La llave vencida.</li><li>Dos clientes con la misma patente y teléfonos distintos: cada uno ve lo suyo.</li><li>Registrarse con la patente de otro no muestra nada ajeno.</li><li>Los casos sin link reciben código.</li><li>Las funciones de 024 contestan igual que antes.</li></ul> Se corre en el SQL Editor y deshace todo, como las otras de esa carpeta. |
 | API: casos de uso y contrato | Los códigos de error, los límites por IP, que sólo el dueño guarde, y que zod rechace un orden con secciones repetidas o faltantes, un color inválido o una fuente fuera de la lista. El Supabase falso aprende las funciones nuevas, como ya imita `reservar_turno` y `ver_seguimiento`. |
 | Front: Jest | Todo `lib/landing.js`. |
 | Front: e2e | El editor con una cuenta sembrada por la API (`pruebas/e2e/siembra.js`), como las demás: cambiar el orden, los colores y la fuente, ver la vista previa, volver al de fábrica y que quede después de refrescar. |

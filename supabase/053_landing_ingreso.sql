@@ -90,13 +90,12 @@ create table if not exists landing_sesion (
   creada_en     timestamptz not null default now()
 );
 
--- Los ingresos fallidos, para el bloqueo. de_registro marca los que anotó un
--- registro (ver reservar_turno_landing): ésos no los borra entrar bien.
+-- Los ingresos fallidos, para el bloqueo. Vencen solos a los 15 minutos:
+-- entrar bien no los borra (ver ingresar_landing).
 create table if not exists landing_intento (
   id            uuid        primary key default gen_random_uuid(),
   negocio_id    uuid        not null references negocio (id) on delete cascade,
   identificador text        not null,
-  de_registro   boolean     not null default false,
   creado_en     timestamptz not null default now()
 );
 
@@ -595,6 +594,14 @@ grant execute on function ver_agenda_landing(text) to anon, authenticated;
 -- (datos_incorrectos), para no dar pistas de qué patentes son clientes. El
 -- bloqueo se mira antes de verificar, y estando bloqueado no se anota otro
 -- intento: así no se estira solo.
+--
+-- Entrar bien no borra los fallidos: vencen solos a los 15 minutos. El
+-- contador es por identificador y lo comparten todos los que lo tienen (el
+-- dueño nuevo de un auto usado, o quien se registró con la patente de otro y
+-- su propio teléfono): si entrar bien lo borrara, cualquiera de ellos podría
+-- intercalar su ingreso cada 4 intentos y probar los dígitos de otro sin
+-- tope. El costo es de comodidad: quien se equivocó 4 veces y después entró
+-- tiene que escribir con cuidado durante 15 minutos.
 create or replace function ingresar_landing(p_codigo text, p_identificador text, p_ultimos4 text)
 returns jsonb
 language plpgsql
@@ -630,20 +637,6 @@ begin
       insert into landing_intento (negocio_id, identificador) values (n.id, ident);
     end if;
     return jsonb_build_object('ok', false, 'motivo', 'datos_incorrectos');
-  end if;
-
-  -- Entró: se olvidan sus fallidos, pero sólo si coincidió con un cliente
-  -- confirmado. Quien se registra con la patente de otro y su propio
-  -- teléfono tiene un ingreso que siempre entra (coincide con su turno); si
-  -- ése borrara los fallidos, intercalándolo cada 4 intentos se adivinarían
-  -- los dígitos de la víctima sin tope. Un registro desde la landing nace
-  -- "por confirmar" y sólo se confirma cuando el negocio le abre un caso. Los
-  -- intentos de un registro (de_registro) no se borran nunca.
-  if exists (select 1 from cliente
-              where id in (select * from clientes_de_la_landing(n.id, ident, u4))
-                and confirmado) then
-    delete from landing_intento
-     where negocio_id = n.id and identificador = ident and not de_registro;
   end if;
 
   return jsonb_build_object('ok', true) || abrir_sesion_landing(n.id, ident, u4);
@@ -858,7 +851,7 @@ begin
   -- esos datos: registrarse es probar 4 dígitos contra ese identificador.
   -- Por eso respeta el bloqueo y, salvo que ya coincida con alguien (la
   -- misma persona que se registra de nuevo), cuenta como un intento
-  -- fallido (de_registro, que no se borra). Si no, alcanzaría con
+  -- fallido, que vence solo como los demás. Si no, alcanzaría con
   -- registrarse una vez por combinación y mirar "Mis casos". Se anota igual
   -- sea el identificador conocido o no, para que el bloqueo no cuente qué
   -- patentes son clientes; y la respuesta es la misma en todos los casos.
@@ -880,7 +873,7 @@ begin
   end if;
 
   if adivina then
-    insert into landing_intento (negocio_id, identificador, de_registro) values (n.id, ident, true);
+    insert into landing_intento (negocio_id, identificador) values (n.id, ident);
   end if;
 
   return resultado || abrir_sesion_landing(n.id, ident, u4);

@@ -152,7 +152,8 @@ Reglas de `ingresar_landing`, en este orden:
 3. Borrar intentos de más de un día y sesiones vencidas (limpieza barata, sin cron).
 4. Si hay **5 o más** intentos de `(negocio, id)` en los últimos **15 minutos**: `muchos_intentos` (sin anotar otro).
 5. Si `id = ''`, `length(u4) <> 4` o `clientes_de_la_landing` no trae nada: anotar el intento y `datos_incorrectos`.
-6. Si coincide: borrar los intentos de `(negocio, id)`, crear la llave
+6. Si coincide: crear la llave (los fallidos no se borran: vencen solos a los
+   15 minutos, porque el contador lo comparten todos los que tienen ese identificador)
    (`replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-','')`,
    64 caracteres), guardar **sólo la huella** con `vence_en = now() + interval '12 hours'`,
    y devolver la llave.
@@ -185,7 +186,7 @@ error `deshacer` que se atrapa). Casos:
 1. `ver_landing` con código malo → `sirve:false`; con el bueno → nombre y landing.
 2. Entrar con identificador + 4 dígitos buenos (con espacios y minúsculas en el identificador) → `ok` y llave de 64.
 3. Datos malos → `datos_incorrectos`, siempre el mismo motivo (identificador malo y dígitos malos).
-4. Al 5.º fallido → `muchos_intentos`, aunque después vengan los datos buenos; y que entrar bien antes del 5.º borra los fallidos.
+4. Al 5.º fallido → `muchos_intentos`, aunque después vengan los datos buenos; y entrar bien en el medio (4 fallidos, entra, 1 fallido más) no borra los fallidos: el siguiente ya da `muchos_intentos`.
 5. Llave vencida (actualizar `vence_en` a pasado como postgres) → `llave_vencida`.
 6. Dos clientes con la misma patente y teléfonos distintos: cada uno ve sólo sus casos.
 7. Registrarse con la patente de otro y otro teléfono: con esa llave no se ve ningún caso ajeno.
