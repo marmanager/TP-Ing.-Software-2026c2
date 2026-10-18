@@ -30,6 +30,7 @@ declare
   cod_landing_b text;  -- link de la landing del otro negocio
   cod_agenda    text;  -- link de la agenda (024) del taller
   cod_agenda_b  text;  -- link de la agenda del otro negocio
+  cod_nuevo     text;  -- el link del taller después de volver a compartir
   cod_239       text;  -- el caso 239 ya estaba compartido
   marcela    uuid;
   marcela_pc uuid;     -- la misma Marcela, anotada "por confirmar" desde un turno
@@ -481,10 +482,18 @@ begin
 
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
     frenado := false;
-    begin perform compartir_landing(); exception when raise_exception then frenado := true; end;
+    begin
+      perform compartir_landing();
+    exception when raise_exception then
+      frenado := (sqlerrm = 'Compartir la landing lo hace el dueño del negocio.');
+    end;
     if not frenado then raise exception 'FALLÓ 11: el encargado compartió la landing.'; end if;
     frenado := false;
-    begin perform dejar_de_compartir_landing(); exception when raise_exception then frenado := true; end;
+    begin
+      perform dejar_de_compartir_landing();
+    exception when raise_exception then
+      frenado := (sqlerrm = 'Dejar de compartir la landing lo hace el dueño del negocio.');
+    end;
     if not frenado then raise exception 'FALLÓ 11: el encargado dejó de compartir la landing.'; end if;
 
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
@@ -506,8 +515,47 @@ begin
     end if;
     perform set_config('role', 'authenticated', true);
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    if compartir_landing() is not distinct from cod_landing then
+    cod_nuevo := compartir_landing();
+    if cod_nuevo is not distinct from cod_landing then
       raise exception 'FALLÓ 11: volver a compartir no dio un link nuevo.';
+    end if;
+    cod_landing := cod_nuevo;
+
+    -- ---- 12. Entrar con un registro propio no desarma el bloqueo ----
+    -- Quien se registra con la patente de otro y un teléfono propio tiene un
+    -- ingreso que siempre entra (coincide con su propio turno). Si entrar con
+    -- él borrara los fallidos, intercalándolo cada 4 se adivinaría sin tope.
+    -- Va con AA000AA (el caso 239 de Marcela, confirmada): las otras patentes
+    -- ya quedaron bloqueadas más arriba.
+    perform set_config('role', 'anon', true);
+    perform set_config('request.jwt.claims', '', true);
+    r := reservar_turno_landing(cod_landing, null, manana + interval '3 hours', 'Otro turno',
+                                'Intrusa', '11 4000 0099', 'AA000AA');
+    if r ->> 'ok' is distinct from 'true' then
+      raise exception 'FALLÓ 12: el registro con la patente de otro no salió: %', r;
+    end if;
+    perform ingresar_landing(cod_landing, 'AA000AA', '1000');
+    perform ingresar_landing(cod_landing, 'AA000AA', '2000');
+    perform ingresar_landing(cod_landing, 'AA000AA', '3000');
+    if ingresar_landing(cod_landing, 'AA000AA', '0099') ->> 'ok' is distinct from 'true' then
+      raise exception 'FALLÓ 12: la que se registró no puede entrar con sus datos.';
+    end if;
+    perform ingresar_landing(cod_landing, 'AA000AA', '4000');
+    perform ingresar_landing(cod_landing, 'AA000AA', '5000');
+    if ingresar_landing(cod_landing, 'AA000AA', '7890')
+         is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb
+       or ingresar_landing(cod_landing, 'AA000AA', '0099')
+         is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb then
+      raise exception 'FALLÓ 12: entrar con un registro propio borró los fallidos y el bloqueo se desarmó.';
+    end if;
+
+    -- Un identificador vacío no suma intentos (el del 3): si no, cinco
+    -- ingresos vacíos contestarían muchos_intentos en vez de datos_incorrectos.
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from landing_intento where negocio_id = neg and identificador = '';
+    perform set_config('role', 'anon', true);
+    if n <> 0 then
+      raise exception 'FALLÓ 12: un ingreso con el identificador vacío anotó % intentos.', n;
     end if;
 
     raise exception 'deshacer';
