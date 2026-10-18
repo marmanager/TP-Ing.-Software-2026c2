@@ -153,6 +153,84 @@ begin
       raise exception 'FALLÓ 6: mis_permisos() de la dueña no trae el catálogo entero.';
     end if;
 
+    -- ---- 7. Las políticas: lo mismo que antes, ahora por permiso ----
+    perform set_config('role', 'authenticated', true);
+
+    -- Un caso de Edu y otro de Ivo, cargados por la dueña.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    insert into caso (negocio_id, numero, servicio, responsable_id)
+    select neg_a, 901, 'Frenos', e.id from empleado e where e.negocio_id = neg_a and e.nombre = 'Ivo';
+    insert into caso (negocio_id, numero, servicio) values (neg_a, 902, 'Aceite');
+
+    -- El técnico ve sólo el suyo, y no lo mueve de estado.
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    select count(*) into n from caso;
+    if n <> 1 then raise exception 'FALLÓ 7: el técnico ve % casos y no 1.', n; end if;
+    frenado := false;
+    begin
+      update caso set estado = 'en_proceso' where numero = 901;
+    exception when insufficient_privilege then frenado := true;
+    end;
+    if not frenado then raise exception 'FALLÓ 7: el técnico cambió el estado de su caso.'; end if;
+
+    -- El técnico no carga clientes, turnos, inventario ni pasos; sí los ve.
+    frenado := false;
+    begin insert into cliente (negocio_id, nombre) values (neg_a, 'X');
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 7: el técnico cargó un cliente.'; end if;
+    frenado := false;
+    begin insert into turno (negocio_id, motivo, empieza_en) values (neg_a, 'X', now() + interval '1 day');
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 7: el técnico cargó un turno.'; end if;
+    frenado := false;
+    begin insert into insumo (negocio_id, nombre) values (neg_a, 'X');
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 7: el técnico cargó inventario.'; end if;
+    frenado := false;
+    begin insert into paso (caso_id, nombre) select id, 'X' from caso where numero = 901;
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 7: el técnico armó presupuesto.'; end if;
+
+    -- El encargado: carga todo eso, ve todos los casos, asigna y mueve estado.
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    select count(*) into n from caso;
+    if n <> 2 then raise exception 'FALLÓ 7: el encargado ve % casos y no 2.', n; end if;
+    insert into cliente (negocio_id, nombre) values (neg_a, 'Pedro');
+    insert into turno (negocio_id, motivo, empieza_en) values (neg_a, 'Service', now() + interval '1 day');
+    insert into insumo (negocio_id, nombre) values (neg_a, 'Filtro');
+    insert into paso (caso_id, nombre, monto) select id, 'Pastillas', 100 from caso where numero = 902;
+    update paso set estado = 'rechazado' where nombre = 'Pastillas';
+    update caso set estado = 'en_proceso' where numero = 902;
+    update caso set responsable_id = (select id from empleado where negocio_id = neg_a and nombre = 'Edu') where numero = 902;
+
+    -- El encargado no configura el negocio ni toca el equipo.
+    update negocio set nombre = 'Cambiado' where id = neg_a;
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from negocio where id = neg_a and nombre = 'Cambiado';
+    perform set_config('role', 'authenticated', true);
+    if n <> 0 then raise exception 'FALLÓ 7: el encargado cambió el nombre del negocio.'; end if;
+    delete from empleado where negocio_id = neg_a and nombre = 'Ivo';
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from empleado where negocio_id = neg_a and nombre = 'Ivo';
+    perform set_config('role', 'authenticated', true);
+    if n <> 1 then raise exception 'FALLÓ 7: el encargado sacó a alguien del equipo.'; end if;
+
+    -- La dueña sí configura.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    update negocio set descripcion = 'Prueba' where id = neg_a;
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from negocio where id = neg_a and descripcion = 'Prueba';
+    perform set_config('role', 'authenticated', true);
+    if n <> 1 then raise exception 'FALLÓ 7: la dueña no pudo configurar su negocio.'; end if;
+
+    -- Ninguna política mira ya el rol viejo.
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from pg_policies
+     where schemaname = 'public'
+       and (coalesce(qual, '') ~ 'mi_rol\(\)|puedo_cargar\(\)' or coalesce(with_check, '') ~ 'mi_rol\(\)|puedo_cargar\(\)');
+    perform set_config('role', 'authenticated', true);
+    if n <> 0 then raise exception 'FALLÓ 7: quedan % políticas con mi_rol() o puedo_cargar().', n; end if;
+
     raise exception 'deshacer';
   exception when raise_exception then
     if sqlerrm <> 'deshacer' then raise; end if;
