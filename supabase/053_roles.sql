@@ -277,3 +277,79 @@ create trigger negocio_crea_sus_roles
 --   select count(*) from empleado where rol_id is null;                -- 0
 --   select count(*) from negocio n
 --    where not exists (select 1 from rol r where r.negocio_id = n.id and r.es_duenio);  -- 0
+
+-- ------------------------------------------------------------
+-- 7. Los permisos de quien llama
+-- ------------------------------------------------------------
+-- La única función que decide. puede_en, puede_aca y mis_permisos leen de
+-- acá; la 057 le suma las visitas entre sedes y nadie más cambia.
+create or replace function permisos_efectivos(p_negocio uuid)
+returns text[]
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((
+    select case when r.es_duenio then permisos_conocidos() else r.permisos end
+      from empleado e
+      join rol r on r.id = e.rol_id
+     where e.negocio_id = p_negocio
+       and e.usuario_id = auth.uid()
+     limit 1
+  ), '{}'::text[]);
+$$;
+
+revoke all on function permisos_efectivos(uuid) from public;
+revoke all on function permisos_efectivos(uuid) from anon;
+grant execute on function permisos_efectivos(uuid) to authenticated;
+
+-- Misma firma que la 047 y la 051: quien ya la llama no cambia.
+create or replace function puede_en(p_negocio uuid, p_permiso text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_permiso = any(permisos_efectivos(p_negocio));
+$$;
+
+create or replace function puede_aca(p_permiso text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select puede_en(mi_negocio(), p_permiso);
+$$;
+
+revoke all on function puede_aca(text) from public;
+revoke all on function puede_aca(text) from anon;
+grant execute on function puede_aca(text) to authenticated;
+
+-- Para la API y el front: con qué rol está quien llama y qué puede, en el
+-- negocio activo. Sin ficha, rol null y los permisos que le toquen (vacío,
+-- hasta la 057).
+create or replace function mis_permisos()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'rol_id', r.id,
+    'rol_nombre', r.nombre,
+    'es_duenio', coalesce(r.es_duenio, false),
+    'permisos', to_jsonb(permisos_efectivos(mi_negocio()))
+  )
+    from (select 1) uno
+    left join empleado e on e.negocio_id = mi_negocio() and e.usuario_id = auth.uid()
+    left join rol r on r.id = e.rol_id;
+$$;
+
+revoke all on function mis_permisos() from public;
+revoke all on function mis_permisos() from anon;
+grant execute on function mis_permisos() to authenticated;

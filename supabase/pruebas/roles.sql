@@ -111,6 +111,48 @@ begin
     select count(*) into n from rol;
     if n <> 3 then raise exception 'FALLÓ 5: la dueña ve % roles y no los 3 de su negocio.', n; end if;
 
+    -- ---- 6. Cada persona puede exactamente lo de su rol viejo ----
+    perform set_config('role', 'authenticated', true);
+    foreach permiso in array permisos_conocidos() loop
+      perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+      if not puede_en(neg_a, permiso) then
+        raise exception 'FALLÓ 6: la dueña no puede %.', permiso;
+      end if;
+      perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+      if puede_en(neg_a, permiso) is distinct from (permiso = any(permisos_de_clave('encargado'))) then
+        raise exception 'FALLÓ 6: el encargado cambió en %.', permiso;
+      end if;
+      perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+      if puede_en(neg_a, permiso) is distinct from (permiso = any(permisos_de_clave('tecnico'))) then
+        raise exception 'FALLÓ 6: el técnico cambió en %.', permiso;
+      end if;
+      -- Zoe no tiene ficha en A.
+      perform set_config('request.jwt.claims', json_build_object('sub', zoe, 'role', 'authenticated')::text, true);
+      if puede_en(neg_a, permiso) then
+        raise exception 'FALLÓ 6: sin ficha en A, Zoe puede % en A.', permiso;
+      end if;
+    end loop;
+
+    -- Los tres permisos que ya existían (047, 051) dicen lo mismo que antes.
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    if puede_en(neg_a, 'vincular_sedes') or puede_en(neg_a, 'sumar_al_equipo') or not puede_en(neg_a, 'ver_inventario_de_sedes') then
+      raise exception 'FALLÓ 6: los permisos de sedes y equipo del encargado cambiaron.';
+    end if;
+    if puede_en(neg_a, 'borrar_todo') then
+      raise exception 'FALLÓ 6: un permiso que no existe dio que sí.';
+    end if;
+
+    -- mis_permisos() dice lo mismo, con el nombre del rol.
+    select * into fila from jsonb_to_record(mis_permisos()) as x(rol_nombre text, es_duenio boolean, permisos text[]);
+    if fila.rol_nombre <> 'Encargado' or fila.es_duenio or fila.permisos <> permisos_de_clave('encargado') then
+      raise exception 'FALLÓ 6: mis_permisos() del encargado dice otra cosa.';
+    end if;
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    select * into fila from jsonb_to_record(mis_permisos()) as x(rol_nombre text, es_duenio boolean, permisos text[]);
+    if not fila.es_duenio or fila.permisos <> permisos_conocidos() then
+      raise exception 'FALLÓ 6: mis_permisos() de la dueña no trae el catálogo entero.';
+    end if;
+
     raise exception 'deshacer';
   exception when raise_exception then
     if sqlerrm <> 'deshacer' then raise; end if;
