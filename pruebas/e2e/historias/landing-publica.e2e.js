@@ -57,6 +57,29 @@ async function guardarLosHorariosDeFabrica() {
   await verTexto("Listo, tus horarios quedaron guardados.");
 }
 
+// Prender la Agenda y guardar los horarios se mandan a la API por atrás: la
+// pantalla dice "listo" antes de que lleguen. Antes de publicar se espera a
+// que la API los tenga, recargando el editor (que los lee de nuevo) hasta que
+// "Sacar turno" deje de decir "Aparece cuando…". Si no, el link se abre con
+// lo de antes y la landing no muestra "Sacar turno".
+async function esperarQueLaApiTengaLaAgenda() {
+  await browser.waitUntil(
+    async () => {
+      await browser.url("/negocio/landing");
+      const titulo = await $("ol[data-orden]").$("h3=Sacar turno");
+      // Sin tirar: un error acá cortaría la espera con otro mensaje.
+      if (!(await titulo.waitForDisplayed({ timeout: 5000 }).catch(() => false))) return false;
+      return !(await titulo.parentElement().getText()).includes("Aparece cuando");
+    },
+    {
+      timeout: 20000,
+      interval: 1000,
+      timeoutMsg:
+        "La API todavía no tiene la Agenda prendida y los horarios guardados: en el editor, «Sacar turno» sigue diciendo «Aparece cuando…».",
+    }
+  );
+}
+
 describe("Historia: Los clientes usan la landing del negocio", () => {
   it("el dueño publica la landing y al abrir el link se ve el negocio, y Mis casos pide los datos", async () => {
     await abrirLaLanding();
@@ -101,8 +124,7 @@ describe("Historia: Los clientes usan la landing del negocio", () => {
     await entrar("/");
     await prenderLaAgenda();
     await guardarLosHorariosDeFabrica();
-    // Publicar espera la respuesta de la API: va último, así lo anterior (que
-    // se guarda por atrás) ya llegó cuando se abre el link.
+    await esperarQueLaApiTengaLaAgenda();
     const link = await publicarLaLanding();
     await browser.url(link);
 
