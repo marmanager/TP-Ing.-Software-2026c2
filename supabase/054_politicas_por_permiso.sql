@@ -327,3 +327,524 @@ drop policy if exists cobro_de_mi_negocio on cobro;
 create policy cobro_de_mi_negocio on cobro
   for select
   using (negocio_id = mi_negocio() and mi_empleado() is not null);
+
+-- ------------------------------------------------------------
+-- Las funciones security definer que decidían con el rol
+-- ------------------------------------------------------------
+-- Cada una es la última definición tal cual (archivo y líneas al lado), con
+-- una sola línea cambiada. Misma firma: los grants se conservan.
+
+-- 018_seguimiento.sql:80-121, con avanzar_casos
+create or replace function compartir_caso(p_caso_id uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actual text;
+begin
+  if not puede_aca('avanzar_casos') then
+    raise exception 'Compartir el estado con el cliente lo hacen el dueño y el encargado.';
+  end if;
+
+  -- "for update" bloquea la fila hasta terminar: dos personas tocando
+  -- "Compartir" al mismo tiempo no pueden generar dos códigos distintos y
+  -- dejar uno de los dos links muerto al nacer.
+  select seguimiento_codigo into actual
+  from caso
+  where id = p_caso_id and negocio_id = mi_negocio()
+  for update;
+
+  if not found then
+    raise exception 'Ese caso no es de tu negocio.';
+  end if;
+
+  if actual is not null then
+    return actual;
+  end if;
+
+  -- El choque es virtualmente imposible con 16 bytes, pero el índice único
+  -- lo haría fallar y el negocio vería un error sin culpa suya.
+  loop
+    actual := replace(gen_random_uuid()::text, '-', '');
+    exit when not exists (select 1 from caso where seguimiento_codigo = actual);
+  end loop;
+
+  update caso set seguimiento_codigo = actual, seguimiento_visto_en = null
+  where id = p_caso_id;
+
+  return actual;
+end;
+$$;
+
+-- 018_seguimiento.sql:133-152, con avanzar_casos
+create or replace function dejar_de_compartir_caso(p_caso_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not puede_aca('avanzar_casos') then
+    raise exception 'Dejar de compartir lo hacen el dueño y el encargado.';
+  end if;
+
+  update caso
+  set seguimiento_codigo = null, seguimiento_visto_en = null
+  where id = p_caso_id and negocio_id = mi_negocio();
+
+  if not found then
+    raise exception 'Ese caso no es de tu negocio.';
+  end if;
+end;
+$$;
+
+-- 021_paso_hecho.sql:56-109, con avanzar_casos y ver_todos_los_casos
+create or replace function marcar_paso_hecho(p_paso_id uuid, p_hecho boolean)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  p   paso%rowtype;
+  c   caso%rowtype;
+  ya  timestamptz;
+begin
+  select * into p from paso where id = p_paso_id for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese paso ya no está en el presupuesto.');
+  end if;
+
+  select * into c from caso where id = p.caso_id;
+  if not found or c.negocio_id is distinct from mi_negocio() then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese caso no es de tu negocio.');
+  end if;
+
+  -- El técnico marca lo suyo; el dueño y el encargado, cualquier caso del
+  -- negocio. Es la misma frontera que ya usa la tabla "caso".
+  if (mi_empleado() is null or c.responsable_id is distinct from mi_empleado()) and not (puede_aca('avanzar_casos') and puede_aca('ver_todos_los_casos')) then
+    return jsonb_build_object('ok', false, 'motivo', 'Este caso lo tiene otra persona del equipo.');
+  end if;
+
+  if p.estado <> 'aprobado' then
+    return jsonb_build_object('ok', false, 'motivo', 'Sólo se marca lo que el cliente aprobó.');
+  end if;
+
+  -- Un caso cerrado es el registro de lo que pasó, no un borrador. Para
+  -- corregirlo se vuelve a abrir, que es una acción sola y queda escrita.
+  if c.estado = 'completado' then
+    return jsonb_build_object('ok', false, 'motivo', 'El caso ya se entregó. Volvé a abrirlo si hay algo que corregir.');
+  end if;
+
+  ya := p.hecho_en;
+
+  if p_hecho then
+    if ya is not null then
+      return jsonb_build_object('ok', true, 'hecho_en', ya, 'cambio', false);
+    end if;
+    update paso set hecho_en = now() where id = p.id returning hecho_en into ya;
+    return jsonb_build_object('ok', true, 'hecho_en', ya, 'cambio', true);
+  end if;
+
+  if ya is null then
+    return jsonb_build_object('ok', true, 'hecho_en', null, 'cambio', false);
+  end if;
+  update paso set hecho_en = null where id = p.id;
+  return jsonb_build_object('ok', true, 'hecho_en', null, 'cambio', true);
+end;
+$$;
+
+-- 024_pedir_turno.sql:48-78, con configurar_negocio
+create or replace function compartir_agenda()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  yo     uuid := mi_negocio();
+  actual text;
+begin
+  if yo is null then
+    raise exception 'Hay que iniciar sesión.';
+  end if;
+  if not puede_aca('configurar_negocio') then
+    raise exception 'Compartir la agenda lo hace el dueño del negocio.';
+  end if;
+
+  select agenda_codigo into actual from negocio where id = yo for update;
+  if actual is not null then
+    return actual;
+  end if;
+
+  loop
+    actual := replace(gen_random_uuid()::text, '-', '');
+    exit when not exists (select 1 from negocio where agenda_codigo = actual);
+  end loop;
+
+  update negocio set agenda_codigo = actual where id = yo;
+  return actual;
+end;
+$$;
+
+-- 024_pedir_turno.sql:85-101, con configurar_negocio
+create or replace function dejar_de_compartir_agenda()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if mi_negocio() is null then
+    raise exception 'Hay que iniciar sesión.';
+  end if;
+  if not puede_aca('configurar_negocio') then
+    raise exception 'Dejar de compartir la agenda lo hace el dueño del negocio.';
+  end if;
+
+  update negocio set agenda_codigo = null where id = mi_negocio();
+end;
+$$;
+
+-- 025_cobros.sql:177-218, con cobrar
+create or replace function registrar_cobro(
+  p_caso_id uuid,
+  p_monto   numeric,
+  p_medio   text,
+  p_nota    text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c caso%rowtype;
+  nuevo cobro%rowtype;
+begin
+  select * into c from caso where id = p_caso_id;
+  if not found or c.negocio_id is distinct from mi_negocio() then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese caso no es de tu negocio.');
+  end if;
+
+  -- Mover plata es del dueño y del encargado (008_permisos.sql).
+  if not puede_aca('cobrar') then
+    return jsonb_build_object('ok', false, 'motivo', 'Los cobros los anotan el dueño o el encargado.');
+  end if;
+
+  if p_monto is null or p_monto <= 0 then
+    return jsonb_build_object('ok', false, 'motivo', 'El monto tiene que ser mayor que cero.');
+  end if;
+
+  -- Sólo lo que se cobra en el local. Link y QR los crea la API de pagos.
+  if p_medio not in ('efectivo', 'transferencia', 'tarjeta') then
+    return jsonb_build_object('ok', false, 'motivo', 'Los cobros por link o QR se piden desde el sistema de pagos.');
+  end if;
+
+  insert into cobro (negocio_id, caso_id, monto, medio, estado, nota, creado_por, pagado_en)
+  values (c.negocio_id, c.id, round(p_monto, 2), p_medio, 'pagado',
+          nullif(trim(coalesce(p_nota, '')), ''), mi_empleado(), now())
+  returning * into nuevo;
+
+  return jsonb_build_object('ok', true, 'cobro', to_jsonb(nuevo));
+end;
+$$;
+
+-- 025_cobros.sql:233-269, con cobrar
+create or replace function anular_cobro(p_cobro_id uuid, p_motivo text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  x cobro%rowtype;
+begin
+  select * into x from cobro where id = p_cobro_id for update;
+  if not found or x.negocio_id is distinct from mi_negocio() then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese cobro ya no está.');
+  end if;
+
+  if not puede_aca('cobrar') then
+    return jsonb_build_object('ok', false, 'motivo', 'Los cobros los corrigen el dueño o el encargado.');
+  end if;
+
+  if x.estado not in ('pendiente', 'pagado') then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese cobro ya no cuenta: no hay nada que anular.');
+  end if;
+
+  if x.estado = 'pagado' and x.medio in ('link', 'qr') then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese pago ya entró por el medio de pago. Para devolverlo, hay que hacerlo desde ahí.');
+  end if;
+
+  update cobro set
+    estado           = 'anulado',
+    anulado_en       = now(),
+    anulado_por      = mi_empleado(),
+    motivo_anulacion = nullif(trim(coalesce(p_motivo, '')), '')
+  where id = x.id
+  returning * into x;
+
+  return jsonb_build_object('ok', true, 'cobro', to_jsonb(x));
+end;
+$$;
+
+-- 027_agenda_ics.sql:55-87, con configurar_negocio
+create or replace function compartir_ics()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  yo     uuid := mi_negocio();
+  actual text;
+begin
+  if yo is null then
+    raise exception 'Hay que iniciar sesión.';
+  end if;
+  if not puede_aca('configurar_negocio') then
+    raise exception 'Poner la agenda en el calendario lo hace el dueño del negocio.';
+  end if;
+
+  -- "for update" bloquea la fila: dos pestañas tocando el botón a la vez no
+  -- pueden generar dos códigos y dejar uno de los dos links muerto al nacer.
+  select ics_codigo into actual from negocio where id = yo for update;
+  if actual is not null then
+    return actual;
+  end if;
+
+  loop
+    actual := replace(gen_random_uuid()::text, '-', '');
+    exit when not exists (select 1 from negocio where ics_codigo = actual);
+  end loop;
+
+  update negocio set ics_codigo = actual where id = yo;
+  return actual;
+end;
+$$;
+
+-- 027_agenda_ics.sql:98-114, con configurar_negocio
+create or replace function dejar_de_compartir_ics()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if mi_negocio() is null then
+    raise exception 'Hay que iniciar sesión.';
+  end if;
+  if not puede_aca('configurar_negocio') then
+    raise exception 'Sacar la agenda del calendario lo hace el dueño del negocio.';
+  end if;
+
+  update negocio set ics_codigo = null where id = mi_negocio();
+end;
+$$;
+
+-- 040_entregar_caso_api.sql:43-59, con armar_presupuesto
+create or replace function cambiar_descuento_api(
+  p_caso_id uuid, p_monto numeric, p_autor text, p_titulo text, p_detalle text
+)
+returns jsonb language plpgsql security invoker set search_path = public as $$
+declare c caso%rowtype; e evento%rowtype;
+begin
+  if not puede_aca('armar_presupuesto') then
+    return jsonb_build_object('ok', false, 'motivo', 'Los descuentos los carga el dueño o el encargado.');
+  end if;
+  update caso set descuento = p_monto where id = p_caso_id returning * into c;
+  if not found then return jsonb_build_object('ok', false, 'motivo', 'Ese caso ya no está.'); end if;
+  insert into evento (caso_id, tipo, titulo, detalle, icono, monto, autor)
+  values (p_caso_id, 'plata', p_titulo, p_detalle,
+          case when p_monto > 0 then 'nota' else 'deshacer' end, p_monto, p_autor)
+  returning * into e;
+  return jsonb_build_object('ok', true, 'caso', to_jsonb(c), 'evento', to_jsonb(e));
+end; $$;
+
+-- 041_cobro_en_linea_atomico.sql:57-137, con cobrar
+create or replace function registrar_cobro_en_linea_api(
+  p_id uuid,
+  p_caso_id uuid,
+  p_monto numeric,
+  p_medio text,
+  p_proveedor_id text,
+  p_link text,
+  p_qr_imagen text,
+  p_vence_en timestamptz,
+  p_codigo text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c caso%rowtype;
+  nuevo cobro%rowtype;
+  existente cobro%rowtype;
+  aprobado numeric;
+  comprometido numeric;
+  saldo numeric;
+begin
+  select * into c from caso where id = p_caso_id for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'codigo', 'caso_no_encontrado', 'motivo', 'Ese caso ya no está.');
+  end if;
+
+  if p_codigo is null then
+    if c.negocio_id is distinct from mi_negocio() then
+      return jsonb_build_object('ok', false, 'codigo', 'caso_no_encontrado', 'motivo', 'Ese caso ya no está.');
+    end if;
+    if not puede_aca('cobrar') then
+      return jsonb_build_object('ok', false, 'codigo', 'sin_permiso', 'motivo', 'Los cobros los carga el dueño o el encargado.');
+    end if;
+  elsif c.seguimiento_codigo is distinct from p_codigo then
+    return jsonb_build_object('ok', false, 'codigo', 'seguimiento_no_encontrado', 'motivo', 'Ese link ya no sirve.');
+  end if;
+
+  if p_medio not in ('link', 'qr') then
+    return jsonb_build_object('ok', false, 'codigo', 'medio_invalido', 'motivo', 'Elegí link o QR.');
+  end if;
+  if p_monto is null or p_monto <= 0 then
+    return jsonb_build_object('ok', false, 'codigo', 'monto_invalido', 'motivo', 'El monto tiene que ser mayor que cero.');
+  end if;
+
+  update cobro set estado = 'vencido'
+   where caso_id = c.id and estado = 'pendiente' and vence_en <= now();
+
+  select * into existente from cobro
+   where caso_id = c.id and estado = 'pendiente' and medio = p_medio
+     and monto = p_monto and (vence_en is null or vence_en > now()) and link is not null
+   order by creado_en desc limit 1;
+  if found then
+    return jsonb_build_object('ok', true, 'creado', false, 'cobro', to_jsonb(existente));
+  end if;
+
+  select coalesce(sum(monto), 0) into aprobado from paso
+   where caso_id = c.id and estado = 'aprobado';
+  select coalesce(sum(monto), 0) into comprometido from cobro
+   where caso_id = c.id and estado in ('pagado', 'pendiente');
+  saldo := aprobado - comprometido - coalesce(c.descuento, 0);
+
+  if (p_codigo is not null and p_monto is distinct from saldo)
+     or (aprobado > 0 and p_monto > saldo) then
+    return jsonb_build_object('ok', false, 'codigo', 'monto_supera_saldo', 'motivo', 'El monto supera lo que falta cobrar.');
+  end if;
+
+  insert into cobro (
+    id, negocio_id, caso_id, monto, medio, estado, proveedor,
+    proveedor_id, link, qr_imagen, vence_en, creado_por
+  ) values (
+    p_id, c.negocio_id, c.id, round(p_monto, 2), p_medio, 'pendiente', 'mercadopago',
+    p_proveedor_id, p_link, p_qr_imagen, p_vence_en,
+    case when auth.uid() is null then null else mi_empleado() end
+  ) returning * into nuevo;
+
+  return jsonb_build_object('ok', true, 'creado', true, 'cobro', to_jsonb(nuevo));
+end;
+$$;
+
+-- 043_mercadopago_rls.sql:5-10, con cobrar o conectar_mercadopago
+create or replace function mercadopago_estado()
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if not (puede_aca('cobrar') or puede_aca('conectar_mercadopago')) then raise exception 'Sin permiso.'; end if;
+  return exists (select 1 from "negocio_conexionMP" where negocio_id = mi_negocio());
+end; $$;
+
+-- 043_mercadopago_rls.sql:12-18, con conectar_mercadopago
+create or replace function mercadopago_crear_estado(p_state text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not puede_aca('conectar_mercadopago') then raise exception 'Sin permiso.'; end if;
+  delete from "MP_oauth_state" where negocio_id = mi_negocio() or created_at < now() - interval '10 minutes';
+  insert into "MP_oauth_state" (state, negocio_id) values (p_state, mi_negocio());
+end; $$;
+
+-- 043_mercadopago_rls.sql:20-25, con conectar_mercadopago
+create or replace function mercadopago_desvincular()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not puede_aca('conectar_mercadopago') then raise exception 'Sin permiso.'; end if;
+  delete from "negocio_conexionMP" where negocio_id = mi_negocio();
+end; $$;
+
+-- 048_volver_en.sql:36-110, con entregar_y_reabrir
+create or replace function entregar_caso(
+  p_caso_id uuid,
+  p_monto numeric default null,
+  p_medio text default null,
+  p_nota text default null,
+  p_descuento numeric default 0,
+  p_detalle text default 'El caso queda cerrado.',
+  p_autor text default 'El equipo',
+  p_ocurrido_en timestamptz default now(),
+  p_volver_en date default null,
+  p_toca_volver_en boolean default false
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  actual caso%rowtype;
+  cerrado caso%rowtype;
+  pago jsonb := null;
+  nuevo_evento evento%rowtype;
+begin
+  select * into actual from caso where id = p_caso_id for update;
+  if not found or actual.negocio_id is distinct from mi_negocio() then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese caso ya no está.');
+  end if;
+  if not puede_aca('entregar_y_reabrir') then
+    return jsonb_build_object('ok', false, 'motivo', 'Los casos los entrega el dueño o el encargado.');
+  end if;
+  if actual.estado = 'completado' then
+    return jsonb_build_object('ok', false, 'motivo', 'Ese caso ya está entregado.');
+  end if;
+  if p_descuento < 0 then
+    return jsonb_build_object('ok', false, 'motivo', 'El descuento no puede ser negativo.');
+  end if;
+
+  if p_monto is not null and p_monto > 0 then
+    pago := registrar_cobro(p_caso_id, p_monto, p_medio, p_nota);
+    if not coalesce((pago->>'ok')::boolean, false) then
+      return pago;
+    end if;
+  end if;
+
+  update caso set
+    estado = 'completado',
+    que_falta = null,
+    descuento = p_descuento,
+    -- El cero explícito conserva la diferencia histórica entre "no se cobró"
+    -- y "no sabemos cuánto se cobró" cuando todavía no hay ningún cobro.
+    cobrado = case
+      when p_monto is null and not exists (select 1 from cobro where caso_id = p_caso_id) then 0
+      else cobrado
+    end,
+    cobrado_en = case
+      when p_monto is null and not exists (select 1 from cobro where caso_id = p_caso_id) then p_ocurrido_en
+      else cobrado_en
+    end,
+    volver_en = case when p_toca_volver_en then p_volver_en else volver_en end
+  where id = p_caso_id
+  returning * into cerrado;
+
+  insert into evento (caso_id, tipo, titulo, detalle, icono, estado, monto, autor, ocurrido_en)
+  values (p_caso_id, 'entrega', 'Entregaron el trabajo', p_detalle, 'listo', 'completado',
+          p_monto, p_autor, p_ocurrido_en)
+  returning * into nuevo_evento;
+
+  return jsonb_build_object(
+    'ok', true,
+    'caso', to_jsonb(cerrado),
+    'cobro', pago->'cobro',
+    'evento', to_jsonb(nuevo_evento)
+  );
+end;
+$$;

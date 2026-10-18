@@ -268,6 +268,46 @@ begin
     perform set_config('role', 'authenticated', true);
     if n <> 0 then raise exception 'FALLÓ 7: quedan % políticas con mi_rol() o puedo_cargar().', n; end if;
 
+    -- ---- 8. Las funciones: mismo resultado que antes ----
+    perform set_config('role', 'authenticated', true);
+
+    -- El técnico no comparte la agenda ni cobra; la dueña sí comparte.
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin perform compartir_agenda(); exception when others then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 8: el técnico compartió la agenda.'; end if;
+
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin perform compartir_agenda(); exception when others then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 8: el encargado compartió la agenda.'; end if;
+
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform compartir_agenda();
+
+    -- El técnico marca hechos los pasos de SU caso, no los de otro.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    insert into paso (caso_id, nombre, estado) select id, 'Suyo', 'aprobado' from caso where numero = 901;
+    insert into paso (caso_id, nombre, estado) select id, 'Ajeno', 'aprobado' from caso where numero = 902;
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    select * into fila from jsonb_to_record(marcar_paso_hecho((select id from paso where nombre = 'Suyo'), true)) as x(ok boolean);
+    if not fila.ok then raise exception 'FALLÓ 8: el técnico no pudo marcar un paso de su caso.'; end if;
+    perform set_config('role', 'postgres', true);
+    select id into pedido from paso where nombre = 'Ajeno';
+    perform set_config('role', 'authenticated', true);
+    select * into fila from jsonb_to_record(marcar_paso_hecho(pedido, true)) as x(ok boolean);
+    if fila.ok then raise exception 'FALLÓ 8: el técnico marcó un paso de un caso ajeno.'; end if;
+
+    -- Ninguna función decide ya con mi_rol() ni puedo_cargar().
+    perform set_config('role', 'postgres', true);
+    select count(*) into n
+      from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+     where s.nspname = 'public'
+       and p.proname not in ('mi_rol', 'puedo_cargar')
+       and p.prosrc ~ 'mi_rol\(\)|puedo_cargar\(\)';
+    perform set_config('role', 'authenticated', true);
+    if n <> 0 then raise exception 'FALLÓ 8: quedan % funciones que deciden con el rol viejo.', n; end if;
+
     raise exception 'deshacer';
   exception when raise_exception then
     if sqlerrm <> 'deshacer' then raise; end if;
