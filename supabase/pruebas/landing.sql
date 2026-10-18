@@ -290,6 +290,8 @@ begin
     -- ahora son los del registro) no borra: si no, registrarse una vez por
     -- cada combinación de dígitos salteaba el bloqueo. Con lo que falta para
     -- llegar a 5, el registro y el ingreso con esa patente quedan bloqueados.
+    -- El registro bloqueado contesta el código (muchos_intentos), como el
+    -- ingreso, y no una frase: la API lo traduce al mismo 429.
     if ingresar_landing(cod_landing, 'AB123CD', '0001') ->> 'ok' is distinct from 'true' then
       raise exception 'FALLÓ 7: el que se registró no puede volver a entrar con sus datos.';
     end if;
@@ -303,8 +305,7 @@ begin
     end if;
     r := reservar_turno_landing(cod_landing, null, manana + interval '30 minutes', 'Otro',
                                 'Intruso', '11 4000 0002', 'AB123CD');
-    if r is distinct from jsonb_build_object('ok', false, 'motivo',
-                            'Se hicieron muchos intentos seguidos. Probá de nuevo en unos minutos.')
+    if r is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb
        or ingresar_landing(cod_landing, 'AB123CD', '7890')
             is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb then
       raise exception 'FALLÓ 7: con 5 intentos, el registro o el ingreso con esa patente siguen andando: %', r;
@@ -468,6 +469,16 @@ begin
                    where schemaname = 'public' and tablename in ('landing_sesion', 'landing_intento')) then
       raise exception 'FALLÓ 10: las tablas de la landing no tienen RLS o tienen políticas.';
     end if;
+    -- La limpieza de cada ingreso borra por fecha: sin estos índices recorre
+    -- las tablas enteras.
+    if not exists (select 1 from pg_indexes
+                    where schemaname = 'public' and tablename = 'landing_intento'
+                      and indexdef like '%(creado_en)')
+       or not exists (select 1 from pg_indexes
+                       where schemaname = 'public' and tablename = 'landing_sesion'
+                         and indexdef like '%(vence_en)') then
+      raise exception 'FALLÓ 10: faltan los índices de la limpieza (landing_intento por creado_en, landing_sesion por vence_en).';
+    end if;
 
     -- ---- 11. Compartir la landing: sólo el dueño, y siempre el mismo código ----
     perform set_config('role', 'authenticated', true);
@@ -580,6 +591,100 @@ begin
        or ingresar_landing(cod_landing, 'CC111CC', '3333')
          is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb then
       raise exception 'FALLÓ 13: un cliente confirmado con la misma patente reinició el bloqueo.';
+    end if;
+
+    -- ---- 14. Un identificador de más de 40 caracteres no es de nadie ----
+    -- Ni el formulario ni la API dejan escribir más, pero las funciones se
+    -- pueden llamar directo con la clave anónima. La base contesta como a
+    -- cualquier dato malo y no anota nada: si no, se podría llenar la tabla
+    -- de intentos con identificadores que no son de nadie. 40 justos sí
+    -- cuentan como un intento.
+    if ingresar_landing(cod_landing, repeat('Z', 41), '7890')
+         is distinct from '{"ok": false, "motivo": "datos_incorrectos"}'::jsonb
+       or ingresar_landing(cod_landing, repeat('Y', 40), '7890')
+         is distinct from '{"ok": false, "motivo": "datos_incorrectos"}'::jsonb then
+      raise exception 'FALLÓ 14: un identificador de más de 40 caracteres no contesta datos_incorrectos.';
+    end if;
+    r := reservar_turno_landing(cod_landing, null, manana + interval '4 hours', 'Algo',
+                                'Largo', '11 4000 0041', repeat('X', 41));
+    if r is distinct from '{"ok": false, "motivo": "Falta con qué te identificamos."}'::jsonb then
+      raise exception 'FALLÓ 14: el registro con un identificador de más de 40 caracteres no contestó que falta: %', r;
+    end if;
+    perform set_config('role', 'postgres', true);
+    select count(*) filter (where length(identificador) > 40) as largos,
+           count(*) filter (where identificador = repeat('Y', 40)) as de40
+      into fila
+      from landing_intento where negocio_id = neg;
+    select count(*) into n from cliente where negocio_id = neg and nombre = 'Largo';
+    perform set_config('role', 'anon', true);
+    if fila.largos <> 0 or n <> 0 then
+      raise exception 'FALLÓ 14: un identificador de más de 40 caracteres anotó % intentos o creó % clientes.', fila.largos, n;
+    end if;
+    if fila.de40 <> 1 then
+      raise exception 'FALLÓ 14: un identificador de 40 caracteres justos no anotó su intento (hay %).', fila.de40;
+    end if;
+
+    -- ---- 15. El tope del día: 20 fallidos, aunque vengan espaciados ----
+    -- Con sólo el bloqueo de 15 minutos, alguien paciente prueba 5 cada 15
+    -- minutos (480 por día) y en tres semanas recorre los 10.000 números. Con
+    -- 20 por día lleva más de un año. Los fallidos se corren para atrás de a 4 (como
+    -- postgres: now() no avanza dentro de la prueba) para que no caigan en la
+    -- ventana de 15 minutos. Patente nueva: las de arriba ya están bloqueadas.
+    perform set_config('role', 'postgres', true);
+    insert into caso (negocio_id, numero, cliente_id, servicio, identificador, estado) values
+      (neg, 402, lucia, 'Alineación', 'DD222DD', 'nuevo');
+    perform set_config('role', 'anon', true);
+    for i in 1..19 loop
+      r := ingresar_landing(cod_landing, 'DD222DD', '0000');
+      if r ->> 'motivo' is distinct from 'datos_incorrectos' then
+        raise exception 'FALLÓ 15: el fallido % no contestó datos_incorrectos: %', i, r;
+      end if;
+      if i % 4 = 0 then
+        perform set_config('role', 'postgres', true);
+        update landing_intento set creado_en = now() - i * interval '20 minutes'
+         where negocio_id = neg and identificador = 'DD222DD' and creado_en = now();
+        perform set_config('role', 'anon', true);
+      end if;
+    end loop;
+    if ingresar_landing(cod_landing, 'DD222DD', '1111') ->> 'ok' is distinct from 'true' then
+      raise exception 'FALLÓ 15: con 19 fallidos en el día (3 en los últimos 15 minutos), los datos buenos no entran.';
+    end if;
+    perform ingresar_landing(cod_landing, 'DD222DD', '0000');  -- el 20.º, el 4.º de los recientes
+    if ingresar_landing(cod_landing, 'DD222DD', '1111')
+         is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb then
+      raise exception 'FALLÓ 15: con 20 fallidos en el día (4 en los últimos 15 minutos), los datos buenos entran.';
+    end if;
+    -- Y vencen solos: pasado el día, se vuelve a entrar.
+    perform set_config('role', 'postgres', true);
+    update landing_intento set creado_en = now() - interval '25 hours'
+     where negocio_id = neg and identificador = 'DD222DD';
+    perform set_config('role', 'anon', true);
+    if ingresar_landing(cod_landing, 'DD222DD', '1111') ->> 'ok' is distinct from 'true' then
+      raise exception 'FALLÓ 15: pasado el día, los fallidos siguen bloqueando.';
+    end if;
+
+    -- ---- 16. Sin la Agenda prendida no se sacan turnos por la landing ----
+    -- Aunque tenga horarios guardados. El link sirve (los casos se siguen
+    -- viendo), así que no es existe:false: la agenda contesta como sin
+    -- horarios y la reserva, lo mismo que si no los hubiera publicado. Con
+    -- llave y sin llave.
+    perform set_config('role', 'postgres', true);
+    insert into caso (negocio_id, numero, cliente_id, servicio, identificador, estado) values
+      (neg, 403, raul, 'Escape', 'EE333EE', 'nuevo');
+    update negocio set modulos_activos = '[]'::jsonb where id = neg;
+    perform set_config('role', 'anon', true);
+    r := ver_agenda_landing(cod_landing);
+    if r ->> 'sirve' is distinct from 'true' or r -> 'horarios' is distinct from 'null'::jsonb then
+      raise exception 'FALLÓ 16: con la Agenda apagada, la agenda de la landing trae horarios: %', r;
+    end if;
+    llave := ingresar_landing(cod_landing, 'EE333EE', '3333') ->> 'llave';
+    r := '{"ok": false, "motivo": "El negocio todavía no publicó sus horarios."}'::jsonb;
+    if llave is null
+       or reservar_turno_landing(cod_landing, llave, manana + interval '5 hours', 'Algo', null, null, null)
+            is distinct from r
+       or reservar_turno_landing(cod_landing, null, manana + interval '5 hours', 'Algo',
+                                 'Nueva', '11 4000 0055', 'FF444FF') is distinct from r then
+      raise exception 'FALLÓ 16: con la Agenda apagada se reserva por la landing, o no contesta como sin horarios.';
     end if;
 
     raise exception 'deshacer';
