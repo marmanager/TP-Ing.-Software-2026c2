@@ -1,8 +1,12 @@
 # Landing por negocio — diseño
 
-Estado: **pasos 1 y 2 implementados en la rama landing-por-negocio (API: landing-editor); falta correr la e2e con la API y la 052**.
+Estado: **pasos 1 y 2 en `development` (API: `master`); pasos 3 a 5 hechos en
+las ramas `landing-publica` del front y de la API. Falta correr la 053 en el SQL
+Editor, su prueba (`supabase/pruebas/landing.sql`) y las e2e
+(`landing-editor.e2e.js` y `landing-publica.e2e.js`) con la API y la 053.**
 Tareas: SCRUM-195 (épica), SCRUM-196 a SCRUM-199.
-Fecha: 17 de octubre de 2026.
+Fecha: 17 de octubre de 2026. Plan de los pasos 3 a 5, con las decisiones que
+se tomaron al implementarlos: [`landing-publica-plan.md`](landing-publica-plan.md).
 
 ## Qué se quiere
 
@@ -130,6 +134,13 @@ tienen ese identificador, y si entrar bien lo reiniciara, cualquiera de ellos
 podría probar los dígitos de otro sin tope. Junto con el límite por IP de la
 API, probar las 10.000 combinaciones de 4 dígitos deja de ser viable.
 
+**Registrarse también cuenta.** El registro abre una sesión con el
+identificador y los 4 dígitos que elige quien se registra, así que es otra
+forma de probar dígitos: respeta el bloqueo y, salvo que ya coincida con
+alguien (la misma persona que se registra de nuevo), anota un intento
+fallido. Si no, alcanzaría con registrarse una vez por combinación y mirar
+"Mis casos".
+
 ## Cómo se reconoce al cliente
 
 - **Normalizar el identificador**: mayúsculas y sin espacios, puntos ni guiones
@@ -189,6 +200,17 @@ cliente:
 La llave sale de `gen_random_uuid()` dos veces, como los otros códigos, y la
 huella de `sha256()`, que viene con Postgres. No hace falta `pgcrypto`.
 
+Decidido al implementar (plan, "Decisiones"):
+
+- **Las funciones públicas contestan JSON con `ok` y `motivo`**, no tiran
+  excepciones, como las de la 024: la API no traduce códigos de Postgres en lo
+  público.
+- **Con llave, el turno va a una ficha de la sesión:** si la persona tiene
+  varias (una "por confirmar" y otra de verdad), la confirmada más reciente; si
+  no hay confirmada, la más reciente.
+- **Dejar de compartir la landing borra sus sesiones**: el link muerto no deja
+  a nadie adentro.
+
 ## La API
 
 Mismas convenciones de siempre: rutas finas, reglas en los casos de uso, zod para
@@ -217,6 +239,10 @@ la forma del pedido y la base para la verificación final.
 La llave viaja en el encabezado `Authorization: Llave <llave>`, no en la
 dirección, para que no quede en los registros.
 
+**"Publicó horarios" lo decide la API** con `horariosListos`, la misma regla que
+la agenda pública: `GET /:codigo` manda los `horarios` normalizados, o `null` si
+no están listos, y con eso el front decide si aparecen las secciones de turnos.
+
 Errores nuevos:
 
 | Código | HTTP | Cuándo |
@@ -238,19 +264,32 @@ Errores nuevos:
   `SeccionMisTurnos`. La página los dibuja en el orden guardado y saltea los que
   no aparecen.
 - **"Sacar turno" y "Mis turnos"** aparecen sólo si el módulo Agenda está
-  prendido y el negocio publicó horarios. **"El negocio" y "Mis casos"**
-  siempre.
-- **`Ingreso`**: la cajita de identificador y 4 dígitos. Aparece en lugar de
-  "Mis casos" o "Mis turnos" mientras el cliente no entró, y al confirmar un
-  turno sin llave aparece el registro.
+  prendido y el negocio publicó horarios (`horarios` no nulo, ver la API).
+  **"El negocio" y "Mis casos"** siempre.
+- **`Ingreso`**: la cajita de identificador y 4 dígitos. **Hay uno solo en la
+  página**: mientras el cliente no entró, va en la primera de las secciones
+  privadas según el orden ("Mis casos" o "Mis turnos"), y la otra dice que
+  entre con sus datos y lleva hasta él (`#ingreso`). Dos formularios iguales
+  harían pensar que son dos cosas distintas. Entrar abre las dos.
+- **Un solo botón principal**: si está "Sacar turno", es "Pedir el turno" (a lo
+  que viene la mayoría) y el de entrar va con borde; si no, el de entrar.
+- **Registro al sacar turno**: sin llave, "Sacar turno" pide además nombre,
+  teléfono (con sus últimos 4 se vuelve a entrar) y el identificador del rubro.
+  Si sale, la API devuelve una llave y la persona queda adentro: "Mis turnos"
+  muestra el turno sin que tenga que entrar aparte.
 - **La llave va en `sessionStorage`**: se borra al cerrar la pestaña, así nadie
-  queda adentro en un celular prestado. Con `llave_vencida`, se borra y se
-  vuelve a pedir.
+  queda adentro en un celular prestado, y "Salir" arranca las secciones de
+  cero. Con `llave_vencida`, se borra y se vuelve a pedir, diciendo por qué.
+- **La llave no viaja como `token`**: `api.js` cambia el token por el de la
+  sesión del dueño. Va por una opción aparte (`autorizacion`), y todas las
+  llamadas de la landing van con `avisarSiVence: false`: un 401 del cliente no
+  le cierra la sesión al dueño que tenga la app abierta en el mismo navegador.
 - **"Sacar turno"** usa el calendario de `/turnos/[codigo]`, que hoy está escrito
   adentro de esa página. Se saca a `src/componentes/CalendarioDeTurnos.js` y lo
   usan las dos. La página de turnos queda igual.
-- **El seguimiento** (`/seguimiento/[codigo]`): si el negocio tiene landing, se
-  pinta con sus colores y suma "← Volver a [negocio]".
+- **El seguimiento** (`/seguimiento/[codigo]`): si la landing está publicada
+  (`landing_codigo` no nulo), se pinta con sus colores y suma "← Volver a
+  [negocio]".
 
 ### Colores y fuente
 
@@ -300,7 +339,8 @@ Se llega desde "Mi negocio", como "Módulos". Lo ve y lo usa sólo el dueño
    ese color no se lee sobre las cajas.
 4. **Fuente** (SCRUM-198): la lista, cada opción escrita con su fuente.
 5. **Vista previa**: la landing en chico, con datos de ejemplo, que cambia
-   mientras se edita, sin guardar.
+   mientras se edita, sin guardar. Queda con datos de ejemplo también después
+   del paso 4: las secciones reales necesitan datos y llave.
 6. **"Volver al de fábrica"** (SCRUM-199) y **Guardar**.
 
 ### `src/lib/landing.js`
@@ -314,8 +354,9 @@ La lógica pura, con sus pruebas en Jest:
   donde falte o no se entienda; el orden viejo suma al final las secciones
   nuevas. **`esDeFabrica(landing)`**.
 - **`moverSeccion(orden, clave, paso)`** y **`estadoDeSecciones(orden,
-  modulosActivos)`**: cada sección con si aparece y, si no, por qué. En el
-  paso 4 se le suma la condición de los horarios publicados.
+  modulosActivos, horariosListos = true)`**: cada sección con si aparece y, si
+  no, por qué. Con la Agenda prendida y sin horarios, las de turnos no
+  aparecen y el motivo es "Aparece cuando publicás tus horarios."
 - **`contraste(a, b)`**, la razón de contraste de WCAG; **`seLee(color,
   texto)`**, si llega a 4,5:1; y **`textoRecomendado(color)`**, entre la tinta
   de la app (`#241f1b`) y el blanco, el que más contrasta.
@@ -333,8 +374,8 @@ TDD de la cátedra: commit "Test en rojo: …" y el arreglo aparte.
 |---|---|
 | Base: `supabase/pruebas/landing.sql` | <ul><li>Entrar con datos buenos y malos, siempre con el mismo error.</li><li>El bloqueo al 5.º fallido, aunque en el medio alguien haya entrado bien.</li><li>La llave vencida.</li><li>Dos clientes con la misma patente y teléfonos distintos: cada uno ve lo suyo.</li><li>Registrarse con la patente de otro no muestra nada ajeno.</li><li>Los casos sin link reciben código.</li><li>Las funciones de 024 contestan igual que antes.</li></ul> Se corre en el SQL Editor y deshace todo, como las otras de esa carpeta. |
 | API: casos de uso y contrato | Los códigos de error, los límites por IP, que sólo el dueño guarde, y que zod rechace un orden con secciones repetidas o faltantes, un color inválido o una fuente fuera de la lista. El Supabase falso aprende las funciones nuevas, como ya imita `reservar_turno` y `ver_seguimiento`. |
-| Front: Jest | Todo `lib/landing.js`. |
-| Front: e2e | El editor con una cuenta sembrada por la API (`pruebas/e2e/siembra.js`), como las demás: cambiar el orden, los colores y la fuente, ver la vista previa, volver al de fábrica y que quede después de refrescar. |
+| Front: Jest | Todo `lib/landing.js`, `lib/llave-landing.js` y la opción `autorizacion` de `api.js`. |
+| Front: e2e | El editor con una cuenta sembrada por la API (`pruebas/e2e/siembra.js`), como las demás: cambiar el orden, los colores y la fuente, ver la vista previa, volver al de fábrica y que quede después de refrescar, y publicar el link. La landing pública (`landing-publica.e2e.js`): abrir el link publicado, entrar con la patente y los 4 dígitos (y no entrar con los malos), abrir un caso y volver, y sacar turno registrándose. |
 
 ## Orden de trabajo
 
@@ -345,7 +386,7 @@ Cada paso es un PR y ninguno rompe lo que anda:
 | 1 | `052_landing.sql` y `PUT /v1/negocio/landing`. | front (SQL) y API | 196 |
 | 2 | `lib/landing.js`, Lienzo, las fuentes, el editor y la vista previa. Plan: `docs/landing-por-negocio-plan.md`. | front | 196, 197, 198, 199 |
 | 3 | `053_landing_ingreso.sql` (con el link), `supabase/pruebas/landing.sql`, compartir y las rutas públicas. | front (SQL) y API | nueva |
-| 4 | `/n/[codigo]` con "El negocio", "Mis casos" e ingreso, y el bloque del link en el editor. La pantalla del caso avisa, junto a "dejar de compartir", que el cliente lo sigue viendo por la landing. | front | nueva |
+| 4 | `/n/[codigo]` con "El negocio", "Mis casos" e ingreso, y el bloque del link en el editor. La pantalla de los pasos del caso avisa, junto a "dejar de compartir", que el cliente lo sigue viendo por la landing (si el caso no está completado). | front | nueva |
 | 5 | "Sacar turno" con el calendario reutilizado, registro, "Mis turnos", y el seguimiento con colores y "Volver". | front | nueva |
 
 - Las migraciones las corre una persona del equipo en el SQL Editor de Supabase,
@@ -365,7 +406,7 @@ Cada paso es un PR y ninguno rompe lo que anda:
   y el teléfono de la persona. Para eso está el código por mensaje, que queda
   afuera.
 - **"Dejar de compartir" pierde efecto** para los casos de un cliente que entra
-  por la landing. La pantalla del caso lo avisa (paso 4).
+  por la landing. La pantalla de los pasos del caso lo avisa (paso 4).
 - **La lógica de la agenda se mueve a funciones internas** (paso 3). La prueba de
   la base tiene que mostrar que las de 024 contestan igual.
 - **Colores libres**: el aviso de contraste no impide guardar. Una landing fea es
