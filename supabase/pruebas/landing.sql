@@ -47,6 +47,7 @@ declare
   link_equipo text;
   pedido  uuid;
   n       integer;
+  antes   integer;
   i       integer;
   frenado boolean;
   fila    record;
@@ -162,31 +163,25 @@ begin
       raise exception 'FALLÓ 3: con un link malo no contesta landing_no_encontrada.';
     end if;
 
-    -- ---- 4. El bloqueo: entrar bien antes del 5.º fallido los borra... ----
+    -- ---- 4. El bloqueo: al 5.º fallido, aunque en el medio haya entrado bien ----
+    -- Entrar bien no borra los fallidos: vencen solos a los 15 minutos.
     for i in 1..4 loop
-      perform ingresar_landing(cod_landing, 'AC456EF', '0000');
-    end loop;
-    r := ingresar_landing(cod_landing, 'AC456EF', '1111');
-    if r ->> 'ok' is distinct from 'true' then
-      raise exception 'FALLÓ 4: con 4 fallidos, los datos buenos no entran: %', r;
-    end if;
-    perform set_config('role', 'postgres', true);
-    select count(*) into n from landing_intento where negocio_id = neg and identificador = 'AC456EF';
-    perform set_config('role', 'anon', true);
-    if n <> 0 then
-      raise exception 'FALLÓ 4: entrar bien no borró los fallidos (quedan %).', n;
-    end if;
-
-    -- ... y con 5 fallidos se bloquea, aunque después vengan los datos buenos.
-    for i in 1..5 loop
       r := ingresar_landing(cod_landing, 'AC456EF', '0000');
       if r ->> 'motivo' is distinct from 'datos_incorrectos' then
         raise exception 'FALLÓ 4: el fallido % no contestó datos_incorrectos: %', i, r;
       end if;
     end loop;
+    r := ingresar_landing(cod_landing, 'AC456EF', '1111');
+    if r ->> 'ok' is distinct from 'true' then
+      raise exception 'FALLÓ 4: con 4 fallidos, los datos buenos no entran: %', r;
+    end if;
+    r := ingresar_landing(cod_landing, 'AC456EF', '0000');
+    if r ->> 'motivo' is distinct from 'datos_incorrectos' then
+      raise exception 'FALLÓ 4: el 5.º fallido no contestó datos_incorrectos: %', r;
+    end if;
     r := ingresar_landing(cod_landing, 'ac 456 ef', '1111');
     if r is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb then
-      raise exception 'FALLÓ 4: después de 5 fallidos, los datos buenos entran: %', r;
+      raise exception 'FALLÓ 4: entrar bien borró los fallidos, o después de 5 los datos buenos entran: %', r;
     end if;
     perform set_config('role', 'postgres', true);
     select count(*) into n from landing_intento where negocio_id = neg and identificador = 'AC456EF';
@@ -266,6 +261,9 @@ begin
     end if;
 
     -- ---- 7. Registrarse con la patente de otro no muestra nada ajeno ----
+    perform set_config('role', 'postgres', true);
+    select count(*) into antes from landing_intento where negocio_id = neg and identificador = 'AB123CD';
+    perform set_config('role', 'anon', true);
     r := reservar_turno_landing(cod_landing, null, manana, 'Quiero un turno',
                                 'Intruso', '11 4000 0001', ' AB-123-CD ');
     llave_i := r ->> 'llave';
@@ -290,17 +288,18 @@ begin
     -- Registrarse con la patente de otro y unos dígitos que no son de nadie
     -- cuenta como un intento, que entrar después con esos mismos datos (que
     -- ahora son los del registro) no borra: si no, registrarse una vez por
-    -- cada combinación de dígitos salteaba el bloqueo.
+    -- cada combinación de dígitos salteaba el bloqueo. Con lo que falta para
+    -- llegar a 5, el registro y el ingreso con esa patente quedan bloqueados.
     if ingresar_landing(cod_landing, 'AB123CD', '0001') ->> 'ok' is distinct from 'true' then
       raise exception 'FALLÓ 7: el que se registró no puede volver a entrar con sus datos.';
     end if;
     perform set_config('role', 'postgres', true);
     select count(*) into n from landing_intento where negocio_id = neg and identificador = 'AB123CD';
     insert into landing_intento (negocio_id, identificador)
-    select neg, 'AB123CD' from generate_series(1, 4);
+    select neg, 'AB123CD' from generate_series(1, 5 - n);
     perform set_config('role', 'anon', true);
-    if n <> 1 then
-      raise exception 'FALLÓ 7: el registro con la patente de otro no quedó como intento (hay %).', n;
+    if n <> antes + 1 then
+      raise exception 'FALLÓ 7: el registro con la patente de otro no quedó como intento (había %, hay %).', antes, n;
     end if;
     r := reservar_turno_landing(cod_landing, null, manana + interval '30 minutes', 'Otro',
                                 'Intruso', '11 4000 0002', 'AB123CD');
@@ -556,6 +555,31 @@ begin
     perform set_config('role', 'anon', true);
     if n <> 0 then
       raise exception 'FALLÓ 12: un ingreso con el identificador vacío anotó % intentos.', n;
+    end if;
+
+    -- ---- 13. Otro cliente confirmado con la misma patente tampoco lo reinicia ----
+    -- El contador es por identificador: lo comparten todos los que lo tienen.
+    -- Si entrar bien lo borrara, Raúl (confirmado, con la patente que fue de
+    -- Lucía) podría intercalar su ingreso y probar los dígitos de ella sin
+    -- tope. Patente nueva, porque las de arriba ya quedaron bloqueadas.
+    perform set_config('role', 'postgres', true);
+    insert into caso (negocio_id, numero, cliente_id, servicio, identificador, estado) values
+      (neg, 400, lucia, 'Chapa',   'CC111CC',   'completado'),
+      (neg, 401, raul,  'Pintura', 'cc-111-cc', 'nuevo');
+    perform set_config('role', 'anon', true);
+    perform ingresar_landing(cod_landing, 'CC111CC', '1000');
+    perform ingresar_landing(cod_landing, 'CC111CC', '2000');
+    perform ingresar_landing(cod_landing, 'CC111CC', '3000');
+    perform ingresar_landing(cod_landing, 'CC111CC', '4000');
+    if ingresar_landing(cod_landing, 'CC111CC', '3333') ->> 'ok' is distinct from 'true' then
+      raise exception 'FALLÓ 13: Raúl no puede entrar con lo suyo.';
+    end if;
+    perform ingresar_landing(cod_landing, 'CC111CC', '5000');
+    if ingresar_landing(cod_landing, 'CC111CC', '1111')
+         is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb
+       or ingresar_landing(cod_landing, 'CC111CC', '3333')
+         is distinct from '{"ok": false, "motivo": "muchos_intentos"}'::jsonb then
+      raise exception 'FALLÓ 13: un cliente confirmado con la misma patente reinició el bloqueo.';
     end if;
 
     raise exception 'deshacer';
