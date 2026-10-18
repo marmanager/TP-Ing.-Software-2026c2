@@ -109,33 +109,50 @@ create policy caso_lo_borra_quien_puede on caso
 -- Las columnas de un caso, por permiso. No es security definer a propósito
 -- (como red_fija, 047): adentro de una función security definer current_user
 -- es el dueño de las tablas y pasa; con sesión es "authenticated" y se mira.
+--
+-- Entregar o reabrir (pasar a o desde 'completado') pide entregar_y_reabrir y
+-- puede tocar cualquier columna: entregar_caso (048) escribe descuento,
+-- cobrado, volver_en... junto con el estado. Cambiar el responsable pide
+-- asignar_casos, y el estado que viaja con él (la API reasigna y pasa a
+-- 'esperando' de una) no pide más. Un cambio de estado solo pide
+-- avanzar_casos, igual que cualquier otra columna (nombre, servicio,
+-- diagnóstico, que_falta, …); que_falta viaja libre sólo si cambia con el
+-- estado. actualizado_en lo mueve un trigger que corre antes (001).
 create or replace function caso_cambio_permitido()
 returns trigger
 language plpgsql
 set search_path = public
 as $$
+declare
+  v_nuevo jsonb;
+  v_viejo jsonb;
 begin
   if current_user not in ('authenticated', 'anon') then
     return new;
-  end if;
-
-  if new.responsable_id is distinct from old.responsable_id and not puede_aca('asignar_casos') then
-    raise exception 'Este rol no permite asignar casos.' using errcode = '42501';
   end if;
 
   if (new.estado = 'completado') is distinct from (old.estado = 'completado') then
     if not puede_aca('entregar_y_reabrir') then
       raise exception 'Este rol no permite entregar ni reabrir casos.' using errcode = '42501';
     end if;
+    return new;
+  end if;
+
+  if new.responsable_id is distinct from old.responsable_id then
+    if not puede_aca('asignar_casos') then
+      raise exception 'Este rol no permite asignar casos.' using errcode = '42501';
+    end if;
   elsif new.estado is distinct from old.estado and not puede_aca('avanzar_casos') then
     raise exception 'Este rol no permite cambiar el estado de los casos.' using errcode = '42501';
   end if;
 
-  -- Cualquier otra columna (nombre, servicio, diagnóstico, …) es trabajar el
-  -- caso. actualizado_en lo mueve un trigger que corre antes (001).
-  if (to_jsonb(new) - 'responsable_id' - 'estado' - 'que_falta' - 'actualizado_en')
-       is distinct from (to_jsonb(old) - 'responsable_id' - 'estado' - 'que_falta' - 'actualizado_en')
-     and not puede_aca('avanzar_casos') then
+  v_nuevo := to_jsonb(new) - 'responsable_id' - 'estado' - 'actualizado_en';
+  v_viejo := to_jsonb(old) - 'responsable_id' - 'estado' - 'actualizado_en';
+  if new.estado is distinct from old.estado then
+    v_nuevo := v_nuevo - 'que_falta';
+    v_viejo := v_viejo - 'que_falta';
+  end if;
+  if v_nuevo is distinct from v_viejo and not puede_aca('avanzar_casos') then
     raise exception 'Este rol no permite modificar casos.' using errcode = '42501';
   end if;
 
@@ -164,7 +181,8 @@ create policy paso_lo_mueve_quien_puede on paso
     and exists (select 1 from caso c where c.id = paso.caso_id and c.negocio_id = mi_negocio())
   );
 
--- Responder es cambiar estado (y aprobado_en, que pone la API al aprobar).
+-- Responder es cambiar estado (y aprobado_en, que pone la API al aprobar;
+-- actualizado_en lo mueve un trigger que corre antes, 042).
 -- Todo lo demás —crear, borrar, cambiar nombre o monto— es armar.
 create or replace function paso_cambio_permitido()
 returns trigger
@@ -180,7 +198,7 @@ begin
     if not puede_aca('aprobar_por_el_cliente') then
       raise exception 'Este rol no permite aprobar ni rechazar pasos.' using errcode = '42501';
     end if;
-    if (to_jsonb(new) - 'estado' - 'aprobado_en') = (to_jsonb(old) - 'estado' - 'aprobado_en') then
+    if (to_jsonb(new) - 'estado' - 'aprobado_en' - 'actualizado_en') = (to_jsonb(old) - 'estado' - 'aprobado_en' - 'actualizado_en') then
       return new;
     end if;
   end if;

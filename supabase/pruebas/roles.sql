@@ -172,6 +172,18 @@ begin
     exception when insufficient_privilege then frenado := true;
     end;
     if not frenado then raise exception 'FALLÓ 7: el técnico cambió el estado de su caso.'; end if;
+    frenado := false;
+    begin
+      update caso set diagnostico = 'Pastillas gastadas' where numero = 901;
+    exception when insufficient_privilege then frenado := true;
+    end;
+    if not frenado then raise exception 'FALLÓ 7: el técnico cambió el diagnóstico de su caso.'; end if;
+    frenado := false;
+    begin
+      update caso set que_falta = 'Repuesto' where numero = 901;
+    exception when insufficient_privilege then frenado := true;
+    end;
+    if not frenado then raise exception 'FALLÓ 7: el técnico cambió que_falta de su caso.'; end if;
 
     -- El técnico no carga clientes, turnos, inventario ni pasos; sí los ve.
     frenado := false;
@@ -222,6 +234,31 @@ begin
     select count(*) into n from negocio where id = neg_a and descripcion = 'Prueba';
     perform set_config('role', 'authenticated', true);
     if n <> 1 then raise exception 'FALLÓ 7: la dueña no pudo configurar su negocio.'; end if;
+
+    -- Quien sólo aprueba (un rol a medida): responde un paso, pero no lo arma.
+    perform set_config('role', 'postgres', true);
+    insert into rol (negocio_id, nombre, permisos)
+    values (neg_a, 'Sólo aprobar', array['ver_todos_los_casos', 'aprobar_por_el_cliente']);
+    update empleado set rol_id = (select id from rol where negocio_id = neg_a and nombre = 'Sólo aprobar')
+     where negocio_id = neg_a and nombre = 'Ivo';
+    -- Que actualizado_en difiera, como pasa en una base con historia (042).
+    perform set_config('session_replication_role', 'replica', true);
+    update paso set actualizado_en = now() - interval '1 day' where nombre = 'Pastillas';
+    perform set_config('session_replication_role', 'origin', true);
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin
+      update paso set nombre = 'x' where nombre = 'Pastillas';
+    exception when insufficient_privilege then frenado := true;
+    end;
+    if not frenado then raise exception 'FALLÓ 7: quien sólo aprueba pudo cambiar el nombre de un paso.'; end if;
+    update paso set estado = 'aprobado' where nombre = 'Pastillas';
+    perform set_config('role', 'postgres', true);
+    update empleado set rol_id = (select id from rol where negocio_id = neg_a and clave = 'tecnico')
+     where negocio_id = neg_a and nombre = 'Ivo';
+    delete from rol where negocio_id = neg_a and nombre = 'Sólo aprobar';
+    perform set_config('role', 'authenticated', true);
 
     -- Ninguna política mira ya el rol viejo.
     perform set_config('role', 'postgres', true);
