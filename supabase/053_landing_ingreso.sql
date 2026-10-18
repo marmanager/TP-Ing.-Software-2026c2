@@ -25,7 +25,8 @@
 -- nuevo es la llave. El identificador solo no es secreto (la patente está
 -- pegada en el auto), así que para ver casos y turnos hace falta además el
 -- final del teléfono que el negocio tiene cargado, y lo verifica la base.
--- Con 5 fallidos en 15 minutos para el mismo identificador, se bloquea.
+-- Con 5 fallidos en 15 minutos, o 20 en un día, para el mismo
+-- identificador, se bloquea.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -90,8 +91,9 @@ create table if not exists landing_sesion (
   creada_en     timestamptz not null default now()
 );
 
--- Los ingresos fallidos, para el bloqueo. Vencen solos a los 15 minutos:
--- entrar bien no los borra (ver ingresar_landing).
+-- Los ingresos fallidos, para el bloqueo. Vencen solos (cuentan 15 minutos
+-- para un tope y un día para el otro, y la limpieza borra los de más de un
+-- día): entrar bien no los borra (ver ingresar_landing).
 create table if not exists landing_intento (
   id            uuid        primary key default gen_random_uuid(),
   negocio_id    uuid        not null references negocio (id) on delete cascade,
@@ -101,6 +103,11 @@ create table if not exists landing_intento (
 
 create index if not exists landing_intento_idx
   on landing_intento (negocio_id, identificador, creado_en);
+
+-- Para la limpieza de cada ingreso (ver ingresar_landing), que borra por
+-- fecha sin mirar el negocio: sin éstos recorrería las tablas enteras.
+create index if not exists landing_intento_creado_idx on landing_intento (creado_en);
+create index if not exists landing_sesion_vence_idx on landing_sesion (vence_en);
 
 -- Sin políticas a propósito, como solicitud_de_ingreso (051): nadie las lee
 -- ni las escribe directo, sólo las funciones de abajo.
@@ -273,7 +280,11 @@ $$;
 
 revoke all on function abrir_sesion_landing(uuid, text, text) from public, anon, authenticated;
 
--- ¿Ese identificador está bloqueado en ese negocio? 5 fallidos en 15 minutos.
+-- ¿Ese identificador está bloqueado en ese negocio? 5 fallidos en 15 minutos,
+-- o 20 en un día. Con sólo el primero, alguien paciente prueba 5 cada 15
+-- minutos (480 por día) y en tres semanas recorre los 10.000 números; con el
+-- tope del día, le lleva más de un año.
+--
 -- Antes de contar toma un candado por (negocio, identificador) hasta el final
 -- de la transacción: sin él, veinte pedidos al mismo tiempo contarían los
 -- mismos cuatro fallidos y pasarían todos. Con él, cada uno ve los fallidos
@@ -286,11 +297,12 @@ as $$
 begin
   perform pg_advisory_xact_lock(hashtextextended(p_negocio::text || ' ' || p_identificador, 0));
 
-  return (select count(*)
+  return (select count(*) filter (where creado_en > now() - interval '15 minutes') >= 5
+                 or count(*) >= 20
             from landing_intento
            where negocio_id = p_negocio
              and identificador = p_identificador
-             and creado_en > now() - interval '15 minutes') >= 5;
+             and creado_en > now() - interval '1 day');
 end;
 $$;
 
@@ -567,6 +579,13 @@ grant execute on function ver_landing(text) to anon, authenticated;
 
 -- El calendario de "Sacar turno": lo mismo que ver_agenda_publica(), pero
 -- con el link de la landing.
+--
+-- Sin la Agenda prendida no hay turnos por la landing, aunque el negocio
+-- tenga horarios guardados: contesta como sin horarios. El link sirve igual
+-- (los casos se siguen viendo), así que no es sirve:false. La pantalla ya no
+-- muestra "Sacar turno" sin la Agenda; esto es para quien llama directo.
+-- (El link de la agenda, de la 024, no mira los módulos: se apaga dejándolo
+-- de compartir.)
 create or replace function ver_agenda_landing(p_codigo text)
 returns jsonb
 language plpgsql
@@ -579,6 +598,10 @@ begin
   select * into n from landing_del_codigo(p_codigo);
   if n.id is null then
     return jsonb_build_object('sirve', false);
+  end if;
+
+  if not (n.modulos_activos ? 'agenda') then
+    n.horarios := null;
   end if;
 
   return agenda_del_negocio(n);
@@ -595,7 +618,7 @@ grant execute on function ver_agenda_landing(text) to anon, authenticated;
 -- bloqueo se mira antes de verificar, y estando bloqueado no se anota otro
 -- intento: así no se estira solo.
 --
--- Entrar bien no borra los fallidos: vencen solos a los 15 minutos. El
+-- Entrar bien no borra los fallidos: vencen solos (ver landing_bloqueada). El
 -- contador es por identificador y lo comparten todos los que lo tienen (el
 -- dueño nuevo de un auto usado, o quien se registró con la patente de otro y
 -- su propio teléfono): si entrar bien lo borrara, cualquiera de ellos podría
@@ -625,17 +648,21 @@ begin
   delete from landing_intento where creado_en < now() - interval '1 day';
   delete from landing_sesion  where vence_en <= now();
 
+  -- Un identificador vacío no es de nadie, y uno de más de 40 caracteres
+  -- tampoco (el formulario y la API no dejan escribir más; esto es para quien
+  -- llama a la función directo). No se anotan: cinco ingresos vacíos no
+  -- contestan muchos_intentos en vez de datos_incorrectos, y nadie llena la
+  -- tabla de intentos con identificadores inventados.
+  if ident = '' or length(ident) > 40 then
+    return jsonb_build_object('ok', false, 'motivo', 'datos_incorrectos');
+  end if;
+
   if landing_bloqueada(n.id, ident) then
     return jsonb_build_object('ok', false, 'motivo', 'muchos_intentos');
   end if;
 
-  -- Un identificador vacío no es de nadie: no se anota, así cinco ingresos
-  -- vacíos no contestan muchos_intentos en vez de datos_incorrectos.
-  if ident = '' or length(u4) <> 4
-     or not exists (select 1 from clientes_de_la_landing(n.id, ident, u4)) then
-    if ident <> '' then
-      insert into landing_intento (negocio_id, identificador) values (n.id, ident);
-    end if;
+  if length(u4) <> 4 or not exists (select 1 from clientes_de_la_landing(n.id, ident, u4)) then
+    insert into landing_intento (negocio_id, identificador) values (n.id, ident);
     return jsonb_build_object('ok', false, 'motivo', 'datos_incorrectos');
   end if;
 
@@ -759,7 +786,8 @@ grant execute on function mis_turnos_landing(text, text) to anon, authenticated;
 -- Sacar turno desde la landing. Devuelve { ok: true, cuando, minutos } (más
 -- { llave, vence_en } si fue un registro), { ok: false, existe: false,
 -- motivo } si el link no sirve, { ok: false, llave_vencida: true } si la
--- llave no sirve, o { ok: false, motivo } con la frase para el cliente.
+-- llave no sirve, o { ok: false, motivo } con la frase para el cliente (o
+-- muchos_intentos, si el registro está bloqueado).
 --
 -- Con llave: el turno va a nombre de quien entró, con el identificador de su
 -- sesión, y lo que venga de nombre, teléfono e identificador no cuenta. Si
@@ -799,6 +827,13 @@ begin
     return jsonb_build_object('ok', false, 'existe', false, 'motivo', 'Este link ya no sirve. Pedile uno nuevo al negocio.');
   end if;
 
+  -- Sin la Agenda prendida, como si no hubiera publicado sus horarios (ver
+  -- ver_agenda_landing): por_que_no_se_reserva() contesta eso, con llave y
+  -- sin llave.
+  if not (n.modulos_activos ? 'agenda') then
+    n.horarios := null;
+  end if;
+
   -- ---------- con llave ----------
   if p_llave is not null then
     select * into s from sesion_de_la_llave(n.id, p_llave);
@@ -836,8 +871,10 @@ begin
     return jsonb_build_object('ok', false, 'motivo', 'Necesitamos tu teléfono para que puedas volver a entrar.');
   end if;
 
+  -- Más de 40 caracteres no es de nadie, como en el ingreso: se contesta
+  -- antes de anotar nada.
   ident := normalizar_identificador(p_identificador);
-  if ident = '' then
+  if ident = '' or length(ident) > 40 then
     return jsonb_build_object('ok', false, 'motivo', 'Falta con qué te identificamos.');
   end if;
 
@@ -855,8 +892,9 @@ begin
   -- registrarse una vez por combinación y mirar "Mis casos". Se anota igual
   -- sea el identificador conocido o no, para que el bloqueo no cuente qué
   -- patentes son clientes; y la respuesta es la misma en todos los casos.
+  -- Bloqueado, contesta el mismo código que el ingreso: es el mismo bloqueo.
   if landing_bloqueada(n.id, ident) then
-    return jsonb_build_object('ok', false, 'motivo', 'Se hicieron muchos intentos seguidos. Probá de nuevo en unos minutos.');
+    return jsonb_build_object('ok', false, 'motivo', 'muchos_intentos');
   end if;
 
   adivina := not exists (select 1 from clientes_de_la_landing(n.id, ident, u4));
