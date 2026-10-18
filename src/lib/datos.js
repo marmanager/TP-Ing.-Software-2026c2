@@ -217,6 +217,9 @@ export async function misTurnosEnLanding(codigo) {
 // puede pedir es la API.
 export async function reservarEnLanding(codigo, { cuando, motivo, nombre, telefono, identificador }) {
   const llave = leerLlave(codigo);
+  // Sin llave y sin datos de registro es que entró y la llave venció en el
+  // camino: se dice eso, y no "falta con qué te identificamos".
+  if (!llave && !String(identificador ?? "").trim()) return { ...SIN_LLAVE };
   const pedido = {
     empieza_en: new Date(cuando).toISOString(),
     motivo,

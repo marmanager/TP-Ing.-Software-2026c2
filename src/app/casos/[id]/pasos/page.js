@@ -771,8 +771,9 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
               </p>
               {/* Desde la landing el cliente ve sus casos abiertos, y la
                   base le arma un link nuevo al que no tenga: cortar este no
-                  se lo esconde. Mejor que el negocio lo sepa antes de cortar. */}
-              {datos.negocio?.landing_codigo && (
+                  se lo esconde. Mejor que el negocio lo sepa antes de cortar.
+                  Un caso terminado no está en la landing: ahí no se dice. */}
+              {datos.negocio?.landing_codigo && estaAbierto(caso) && (
                 <p className="mt-2 max-w-[65ch] text-tinta-media">
                   Si tu cliente entra por tu landing, va a seguir viendo este caso.
                 </p>

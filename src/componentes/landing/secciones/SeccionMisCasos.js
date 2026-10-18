@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { misCasosEnLanding } from "@/lib/datos";
 import { elDia } from "@/lib/fechas";
@@ -8,50 +8,17 @@ import { comoSeIdentifica } from "@/lib/presets";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton } from "@/componentes/ui";
-import Ingreso from "./Ingreso";
 
 // "Mis casos", en la landing: los casos abiertos del cliente, cada uno con su
 // estado y un link a su seguimiento, que es donde se ve todo lo demás. Los
 // terminados no vienen (lo decide la base).
 //
-// Sin entrar, en su lugar va el Ingreso. Si la llave venció, se vuelve al
-// Ingreso diciendo por qué: si no, la persona vería aparecer el formulario
-// de golpe sin entender qué hizo mal.
-export default function SeccionMisCasos({ codigo, negocio, entrado, setEntrado }) {
-  const [aviso, setAviso] = useState(null);
-
-  // Estable, porque la lista lo usa en su efecto: si cambiara en cada dibujo,
-  // la lista volvería a pedir los casos cada vez.
-  const alVencer = useCallback(
-    (mensaje) => {
-      setAviso(mensaje);
-      setEntrado(false);
-    },
-    [setEntrado]
-  );
-
-  if (!entrado) {
-    return (
-      <Ingreso
-        codigo={codigo}
-        negocio={negocio}
-        boton="Ver mis casos"
-        aviso={aviso}
-        alEntrar={() => {
-          setAviso(null);
-          setEntrado(true);
-        }}
-      />
-    );
-  }
-
-  return <Lista codigo={codigo} negocio={negocio} alVencer={alVencer} />;
-}
-
-// Aparte de la sección para que cada vez que se entra arranque de cero: si
-// alguien sale y entra otra persona en el mismo celular, no ve ni por un
-// momento la lista de la anterior.
-function Lista({ codigo, negocio, alVencer }) {
+// La página la dibuja sólo cuando el cliente entró (sin entrar, en su lugar
+// va el Ingreso), así que cada vez que se entra arranca de cero: si alguien
+// sale y entra otra persona en el mismo celular, no ve ni por un momento la
+// lista de la anterior. Si la llave venció, alVencer() vuelve al Ingreso
+// diciendo por qué.
+export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
   const [casos, setCasos] = useState(null);
   const [problema, setProblema] = useState(null);
   const [vuelta, setVuelta] = useState(0);

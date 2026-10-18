@@ -17,27 +17,39 @@
 // de src/componentes/landing/secciones/.
 //
 // "entrado" vive acá y no en cada sección: entrar desde una sección abre
-// todas las que muestran lo del cliente, y salir las cierra todas.
+// todas las que muestran lo del cliente, y salir las cierra todas. Por lo
+// mismo, el Ingreso lo pone la página y hay uno solo: va en la primera de las
+// secciones privadas (Mis casos o Mis turnos, según el orden) y la otra,
+// mientras no entró, lleva hasta él. Dos formularios iguales en la misma
+// página harían pensar que son dos cosas distintas.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { buscarLanding, salirDeLanding } from "@/lib/datos";
 import { estadoDeSecciones } from "@/lib/landing";
 import { leerLlave } from "@/lib/llave-landing";
 import Icono from "@/componentes/Icono";
 import Lienzo from "@/componentes/landing/Lienzo";
+import Ingreso from "@/componentes/landing/secciones/Ingreso";
 import SeccionMisCasos from "@/componentes/landing/secciones/SeccionMisCasos";
+import SeccionMisTurnos from "@/componentes/landing/secciones/SeccionMisTurnos";
 import SeccionNegocio from "@/componentes/landing/secciones/SeccionNegocio";
+import SeccionSacarTurno from "@/componentes/landing/secciones/SeccionSacarTurno";
 import { Boton, Cargando } from "@/componentes/ui";
 
-// Una sección, un componente. "Sacar turno" y "Mis turnos" todavía no tienen
-// el suyo (la Tarea 8 del plan los suma acá): mientras tanto no se dibujan,
-// aunque estadoDeSecciones() diga que corresponden.
+// Una sección, un componente.
 const COMPONENTES = {
   negocio: SeccionNegocio,
+  sacar_turno: SeccionSacarTurno,
   mis_casos: SeccionMisCasos,
-  sacar_turno: null,
-  mis_turnos: null,
+  mis_turnos: SeccionMisTurnos,
+};
+
+// Las que muestran lo del cliente: sin entrar, en su lugar va el Ingreso (o
+// el camino hasta él). Con qué botón se entra y qué se ve al entrar.
+const PRIVADAS = {
+  mis_casos: { boton: "Ver mis casos", que: "tus casos" },
+  mis_turnos: { boton: "Ver mis turnos", que: "tus turnos" },
 };
 
 export default function Landing() {
@@ -45,6 +57,28 @@ export default function Landing() {
   const [mirando, setMirando] = useState(true);
   const [pagina, setPagina] = useState(null);
   const [entrado, setEntrado] = useState(false);
+  // Por qué se le vuelven a pedir los datos (la llave venció). Lo muestra el
+  // Ingreso, aunque la que se dio cuenta haya sido otra sección.
+  const [aviso, setAviso] = useState(null);
+  // Cuántos turnos sacó desde que abrió la página: "Mis turnos" se vuelve a
+  // pedir cada vez que cambia.
+  const [reservas, setReservas] = useState(0);
+  // Cuántas veces salió. Las secciones llevan esto de key: salir las arranca
+  // de cero, y en un celular prestado el que sigue no ve la confirmación del
+  // turno ni el nombre y el teléfono que escribió el anterior.
+  const [salidas, setSalidas] = useState(0);
+
+  // Estables, porque las listas los usan en sus efectos: si cambiaran en cada
+  // dibujo, volverían a pedir los datos cada vez.
+  const alEntrar = useCallback(() => {
+    setAviso(null);
+    setEntrado(true);
+  }, []);
+  const alVencer = useCallback((mensaje) => {
+    setAviso(mensaje);
+    setEntrado(false);
+  }, []);
+  const alReservar = useCallback(() => setReservas((n) => n + 1), []);
 
   useEffect(() => {
     document.title = pagina?.negocio?.nombre ?? "La página del negocio";
@@ -69,6 +103,7 @@ export default function Landing() {
   function salir() {
     salirDeLanding(codigo);
     setEntrado(false);
+    setSalidas((n) => n + 1);
   }
 
   if (mirando) {
@@ -104,8 +139,12 @@ export default function Landing() {
 
   const { negocio, landing, modulos_activos, horarios } = pagina;
   const secciones = estadoDeSecciones(landing.orden, modulos_activos, Boolean(horarios)).filter(
-    (s) => s.visible && COMPONENTES[s.clave]
+    (s) => s.visible
   );
+  const conIngreso = secciones.find((s) => PRIVADAS[s.clave]);
+  // Un solo botón principal por pantalla: si se puede sacar turno, es "Pedir
+  // el turno", que es a lo que viene la mayoría; el de entrar va con borde.
+  const conTurno = secciones.some((s) => s.clave === "sacar_turno");
 
   return (
     <Lienzo landing={landing}>
@@ -135,13 +174,43 @@ export default function Landing() {
                 <h2 id={`seccion-${clave}`} className="text-seccion">
                   {nombre}
                 </h2>
-                <Seccion
-                  codigo={codigo}
-                  negocio={negocio}
-                  horarios={horarios}
-                  entrado={entrado}
-                  setEntrado={setEntrado}
-                />
+                {PRIVADAS[clave] && !entrado ? (
+                  clave === conIngreso.clave ? (
+                    <Ingreso
+                      codigo={codigo}
+                      negocio={negocio}
+                      boton={PRIVADAS[clave].boton}
+                      aviso={aviso}
+                      principal={!conTurno}
+                      alEntrar={alEntrar}
+                    />
+                  ) : (
+                    // Siempre está más abajo que el Ingreso: el Ingreso va en
+                    // la primera de las dos.
+                    <>
+                      <p className="mt-2 max-w-[65ch] text-tinta-media">
+                        Para ver {PRIVADAS[clave].que}, entrá con tus datos en «{conIngreso.nombre}», más
+                        arriba.
+                      </p>
+                      <a href="#ingreso" className="mt-2 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
+                        <Icono nombre="llave" className="size-5" />
+                        Ir a poner mis datos
+                      </a>
+                    </>
+                  )
+                ) : (
+                  <Seccion
+                    key={salidas}
+                    codigo={codigo}
+                    negocio={negocio}
+                    horarios={horarios}
+                    entrado={entrado}
+                    alEntrar={alEntrar}
+                    alVencer={alVencer}
+                    alReservar={alReservar}
+                    reservas={reservas}
+                  />
+                )}
               </section>
             );
           })}
@@ -178,7 +247,9 @@ function Marco({ negocio, accion, children }) {
               <Icono nombre="tienda" />
             </span>
           )}
-          <h1 className="min-w-0 flex-1 truncate font-titulo font-extrabold text-subtitulo leading-tight">
+          {/* Se parte en renglones y no se corta: es el nombre del negocio, y
+              en un celular "Taller Mecánico Hermanos…" no dice de quién es. */}
+          <h1 className="min-w-0 flex-1 break-words font-titulo font-extrabold text-subtitulo leading-tight">
             {negocio?.nombre ?? "La página del negocio"}
           </h1>
           {accion}
