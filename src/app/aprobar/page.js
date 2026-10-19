@@ -3,12 +3,17 @@
 // "A aprobar" — los casos donde falta que el cliente conteste.
 // No es una pantalla vacía: es la misma consulta del Inicio filtrada por
 // los pasos que todavía esperan respuesta.
+//
+// Cada caso dice también qué pasa con el aviso automático del presupuesto
+// (R-5b): cuándo le llega al cliente o si ya se le avisó. El aviso sale una
+// sola vez, así que es lo que hay que saber para decidir a quién llamar.
 
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { casosPorAprobar, pesos } from "@/lib/estados";
 import { cuantoHace, diasDesde } from "@/lib/fechas";
+import { avisoDelPresupuesto } from "@/lib/recordatorios";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
@@ -24,6 +29,7 @@ export default function AAprobar() {
   const conPendientes = casosPorAprobar(casos, pasos);
 
   const total = conPendientes.reduce((s, x) => s + x.plata, 0);
+  const ahora = Date.now();
 
   return (
     <>
@@ -51,6 +57,7 @@ export default function AAprobar() {
               const cliente = clientes.find((c) => c.id === caso.cliente_id);
               // Una semana sin respuesta es el momento de levantar el teléfono.
               const hayQueInsistir = diasDesde(esperandoDesde) >= 7;
+              const aviso = avisoDelPresupuesto({ caso, cliente, ahora });
               return (
                 <li key={caso.id}>
                   <Tarjeta>
@@ -78,6 +85,14 @@ export default function AAprobar() {
                       Se lo mandaste {cuantoHace(esperandoDesde)}
                       {hayQueInsistir && ". Conviene llamarlo"}
                     </p>
+                    {aviso && (
+                      <p
+                        className={`mt-1 flex max-w-[65ch] items-start gap-2 ${aviso.estado === "fallido" ? "font-bold text-rojo" : "text-tinta-media"}`}
+                      >
+                        <Icono nombre={aviso.estado === "fallido" ? "alerta" : "whatsapp"} className="mt-1 size-5 shrink-0" />
+                        <span>{aviso.frase}</span>
+                      </p>
+                    )}
 
                     {/* Esta pantalla existe para decidir a quién insistirle:
                         el teléfono va acá y no a dos pantallas de distancia
