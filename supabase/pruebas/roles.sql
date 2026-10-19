@@ -47,9 +47,9 @@ begin
     perform pedir_entrar(link, 'Ivo');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     select id into pedido from pedidos_de_ingreso() where nombre = 'Edu';
-    perform aprobar_solicitud(pedido, 'encargado');
+    perform aprobar_solicitud(pedido, (select id from rol where negocio_id = neg_a and nombre = 'Encargado'));
     select id into pedido from pedidos_de_ingreso() where nombre = 'Ivo';
-    perform aprobar_solicitud(pedido, 'tecnico');
+    perform aprobar_solicitud(pedido, (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
 
     perform set_config('request.jwt.claims', json_build_object('sub', zoe, 'role', 'authenticated')::text, true);
     neg_p := crear_mi_negocio('Roles P', 'personalizable', '[]'::jsonb);
@@ -315,6 +315,111 @@ begin
     if fila.rol_nombre <> 'Mecánico' or fila.es_duenio or fila.permisos <> permisos_de_clave('tecnico') then
       raise exception 'FALLÓ 9: mis_negocios() del técnico no trae su rol nuevo.';
     end if;
+
+    -- ---- 10. Roles a medida y el tope ----
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+
+    -- La dueña arma "Recepción" (puede manejar roles y cobrar, nada más) y se
+    -- la da a Edu.
+    pedido := guardar_rol(null, 'Recepción', array['manejar_roles', 'cobrar']);
+    perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Edu'), pedido);
+
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    if not puede_aca('cobrar') or puede_aca('crear_casos') then
+      raise exception 'FALLÓ 10: el rol asignado no dio sus permisos.';
+    end if;
+
+    -- Edu no arma un rol con un permiso que no tiene.
+    frenado := false;
+    begin perform guardar_rol(null, 'Amigo', array['cobrar', 'crear_casos']);
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 10: se dio un permiso que no se tiene.'; end if;
+
+    -- Sí uno dentro de lo suyo.
+    perform guardar_rol(null, 'Caja', array['cobrar']);
+
+    -- No edita el Encargado (tiene permisos que él no).
+    frenado := false;
+    begin perform guardar_rol((select id from rol where negocio_id = neg_a and nombre = 'Encargado'), 'Encargado', array['cobrar']);
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 10: se editó un rol con más permisos que el propio.'; end if;
+
+    -- No edita su propio rol, ni el Dueño, ni se cambia el rol.
+    frenado := false;
+    begin perform guardar_rol(pedido, 'Recepción', array['cobrar']);
+    exception when raise_exception then frenado := (sqlerrm = 'El rol propio no se modifica.'); end;
+    if not frenado then raise exception 'FALLÓ 10: se editó el rol propio.'; end if;
+    frenado := false;
+    begin perform guardar_rol((select id from rol where negocio_id = neg_a and es_duenio), 'Jefe', '{}');
+    exception when raise_exception then frenado := (sqlerrm = 'El rol Dueño no se modifica.'); end;
+    if not frenado then raise exception 'FALLÓ 10: se editó el rol Dueño.'; end if;
+    frenado := false;
+    begin perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Edu'), (select id from rol where negocio_id = neg_a and nombre = 'Caja'));
+    exception when raise_exception then frenado := (sqlerrm = 'El rol propio no se modifica.'); end;
+    if not frenado then raise exception 'FALLÓ 10: alguien se cambió su propio rol.'; end if;
+
+    -- No se da el rol Dueño, ni baja a la dueña, ni baja a Ivo al rol Caja
+    -- (Ivo tiene permisos de mirar que Edu ya no).
+    frenado := false;
+    begin perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Ivo'), (select id from rol where negocio_id = neg_a and es_duenio));
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 10: se dio el rol Dueño sin ser Dueño.'; end if;
+    frenado := false;
+    begin perform asignar_rol((select id from empleado where negocio_id = neg_a and usuario_id = ana), (select id from rol where negocio_id = neg_a and nombre = 'Caja'));
+    exception when others then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 10: se le cambió el rol a la creadora.'; end if;
+    frenado := false;
+    begin perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Ivo'), (select id from rol where negocio_id = neg_a and nombre = 'Caja'));
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 10: se bajó a alguien con permisos que el propio no tiene.'; end if;
+
+    -- Un rol de otro negocio no se asigna.
+    perform set_config('role', 'postgres', true);
+    select id into fila from rol where negocio_id = neg_p and es_duenio;
+    perform set_config('role', 'authenticated', true);
+    frenado := false;
+    begin perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Ivo'), fila.id);
+    exception when raise_exception then frenado := (sqlerrm = 'Ese rol ya no existe.'); end;
+    if not frenado then raise exception 'FALLÓ 10: se asignó un rol de otro negocio.'; end if;
+
+    -- Un rol en uso no se borra; uno libre sí.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin perform borrar_rol(pedido);
+    exception when raise_exception then frenado := (sqlerrm like 'Rol asignado a 1 persona%'); end;
+    if not frenado then raise exception 'FALLÓ 10: se borró un rol en uso.'; end if;
+    perform borrar_rol((select id from rol where negocio_id = neg_a and nombre = 'Caja'));
+
+    -- Nombre repetido y permiso inexistente.
+    frenado := false;
+    begin perform guardar_rol(null, 'recepción', '{}');
+    exception when raise_exception then frenado := (sqlerrm = 'Ya hay un rol con ese nombre.'); end;
+    if not frenado then raise exception 'FALLÓ 10: se repitió el nombre de un rol.'; end if;
+    frenado := false;
+    begin perform guardar_rol(null, 'Raro', array['borrar_todo']);
+    exception when raise_exception then frenado := (sqlerrm = 'Hay un permiso que no existe.'); end;
+    if not frenado then raise exception 'FALLÓ 10: se guardó un permiso que no existe.'; end if;
+
+    -- roles_del_negocio() cuenta las personas.
+    select personas into n from roles_del_negocio() where nombre = 'Recepción';
+    if n <> 1 then raise exception 'FALLÓ 10: roles_del_negocio() cuenta % personas en Recepción.', n; end if;
+
+    -- Desde el navegador ya no se escribe el rol de una ficha.
+    frenado := false;
+    begin update empleado set rol = 'tecnico' where negocio_id = neg_a and nombre = 'Ivo';
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 10: se cambió empleado.rol sin pasar por asignar_rol().'; end if;
+
+    -- ---- 11. Aprobar un pedido con un rol a medida ----
+    perform set_config('request.jwt.claims', json_build_object('sub', zoe, 'role', 'authenticated')::text, true);
+    perform pedir_entrar(link, 'Zoe');
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Zoe'), pedido);
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from empleado where negocio_id = neg_a and usuario_id = zoe and rol_id = pedido;
+    perform set_config('role', 'authenticated', true);
+    if n <> 1 then raise exception 'FALLÓ 11: aprobar no dejó a Zoe con el rol elegido.'; end if;
 
     raise exception 'deshacer';
   exception when raise_exception then

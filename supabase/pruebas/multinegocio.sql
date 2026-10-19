@@ -122,7 +122,7 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
     perform pedir_entrar(inv_caro, 'Caro');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), 'tecnico');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
     select * into fila from usuario where id = caro;
     if fila.negocio_id is distinct from neg_a or fila.rol <> 'tecnico' then
@@ -161,7 +161,7 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
     perform pedir_entrar(inv_beto, 'Beto');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Beto'), 'encargado');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Beto'), (select id from rol where negocio_id = neg_a and nombre = 'Encargado'));
     perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
     select * into fila from usuario where id = beto;
     if fila.negocio_id is distinct from neg_b then
@@ -231,7 +231,7 @@ begin
     end if;
 
     -- ---- 12. El rol de la ficha da los permisos; el propio no se toca (037) ----
-    update empleado set rol = 'encargado' where id = ficha_caro;
+    perform asignar_rol(ficha_caro, (select id from rol where negocio_id = neg_a and nombre = 'Encargado'));
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
     select * into fila from usuario where id = caro;
     if fila.rol <> 'encargado' then
@@ -241,9 +241,9 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     frenado := false;
     begin
-      update empleado set rol = 'tecnico' where id = ficha_ana;
+      perform asignar_rol(ficha_ana, (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
     exception when raise_exception then
-      frenado := sqlerrm = 'No podés cambiar tu propio rol.';
+      frenado := sqlerrm = 'El rol propio no se modifica.';
     end;
     if not frenado then
       raise exception 'FALLÓ 12: una cuenta se pudo cambiar su propio rol.';
@@ -287,14 +287,14 @@ begin
 
     -- ---- 15. Otro dueño no baja, no saca ni reemplaza a quien creó el negocio (038) ----
     select id into ficha_beto from empleado where usuario_id = beto and negocio_id = neg_a;
-    update empleado set rol = 'duenio' where id = ficha_beto;
+    perform asignar_rol(ficha_beto, (select id from rol where negocio_id = neg_a and es_duenio));
 
     perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
     perform entrar_al_negocio(neg_a);
 
     frenado := false;
     begin
-      update empleado set rol = 'tecnico' where id = ficha_ana;
+      perform asignar_rol(ficha_ana, (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
     exception when raise_exception then
       frenado := sqlerrm = 'A quien creó el negocio no se le puede cambiar el rol.';
     end;
