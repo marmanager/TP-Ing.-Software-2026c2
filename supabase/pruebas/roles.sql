@@ -21,6 +21,7 @@ declare
   zoe  uuid := gen_random_uuid();  -- crea un negocio personalizable
   neg_a uuid;
   neg_p uuid;
+  neg_b uuid;
   link text;
   pedido uuid;
   n integer;
@@ -442,6 +443,69 @@ begin
     select count(*) into n from empleado where negocio_id = neg_a and usuario_id = zoe and rol_id = pedido;
     perform set_config('role', 'authenticated', true);
     if n <> 1 then raise exception 'FALLÓ 11: aprobar no dejó a Zoe con el rol elegido.'; end if;
+
+    -- ---- 12. Visitas entre sedes ----
+    -- Ana crea la sede B y la vincula con A (vincular_sede, 047, desde el
+    -- negocio activo). Ivo es miembro sólo de A.
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    neg_b := crear_mi_negocio('Roles B', 'taller', '[]'::jsonb);
+    perform entrar_al_negocio(neg_a);
+    perform vincular_sede(neg_b);
+    perform set_config('role', 'postgres', true);
+    insert into cliente (negocio_id, nombre) values (neg_b, 'Cliente de B');
+    perform set_config('role', 'authenticated', true);
+
+    -- Sin ver_sedes_vinculadas, Ivo no ve B y no entra.
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_a);
+    select count(*) into n from sedes_que_veo() where id = neg_b;
+    if n <> 0 then raise exception 'FALLÓ 12: sin el permiso, Ivo ve la sede B.'; end if;
+    frenado := false;
+    begin perform entrar_de_visita(neg_b); exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 12: sin el permiso, Ivo entró de visita.'; end if;
+
+    -- Con el permiso (la dueña le suma ver_sedes_vinculadas a Mecánico), la ve y entra.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_a);
+    perform guardar_rol((select id from rol where negocio_id = neg_a and nombre = 'Mecánico'), 'Mecánico',
+      permisos_de_clave('tecnico') || array['ver_sedes_vinculadas']);
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    select count(*) into n from sedes_que_veo() where id = neg_b and not soy_miembro;
+    if n <> 1 then raise exception 'FALLÓ 12: con el permiso, Ivo no ve la sede B como visita.'; end if;
+    perform entrar_de_visita(neg_b);
+
+    -- De visita: ve lo que su rol ve en A (clientes sí; casos ajenos no) y no escribe nada.
+    select count(*) into n from cliente where nombre = 'Cliente de B';
+    if n <> 1 then raise exception 'FALLÓ 12: de visita, Ivo no ve los clientes de B.'; end if;
+    if puede_aca('editar_clientes') or puede_aca('ver_todos_los_casos') then
+      raise exception 'FALLÓ 12: de visita, Ivo tiene permisos que no son de mirar o que no tiene en A.';
+    end if;
+    frenado := false;
+    begin insert into cliente (negocio_id, nombre) values (neg_b, 'X');
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 12: de visita, Ivo cargó un cliente.'; end if;
+    select count(*) into n from cobro;
+    if n <> 0 then raise exception 'FALLÓ 12: de visita, Ivo ve cobros.'; end if;
+    select count(*) into n from ecuacion;
+    if n <> 0 then raise exception 'FALLÓ 12: de visita, Ivo ve ecuaciones.'; end if;
+
+    -- Tampoco por una función security definer: un paso aprobado de un caso
+    -- de B sin responsable (ahí mi_empleado() y responsable_id son null).
+    perform set_config('role', 'postgres', true);
+    insert into caso (negocio_id, numero, servicio) values (neg_b, 903, 'Sin responsable');
+    insert into paso (caso_id, nombre, estado) select id, 'De B', 'aprobado' from caso where numero = 903;
+    select id into pedido from paso where nombre = 'De B';
+    perform set_config('role', 'authenticated', true);
+    select * into fila from jsonb_to_record(marcar_paso_hecho(pedido, true)) as x(ok boolean);
+    if fila.ok then raise exception 'FALLÓ 12: de visita, Ivo marcó un paso hecho.'; end if;
+
+    -- Volver a su sede limpia la visita.
+    perform entrar_al_negocio(neg_a);
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from usuario where id = ivo and visitando_desde is not null;
+    perform set_config('role', 'authenticated', true);
+    if n <> 0 then raise exception 'FALLÓ 12: volver a su sede no limpió la visita.'; end if;
 
     raise exception 'deshacer';
   exception when raise_exception then
