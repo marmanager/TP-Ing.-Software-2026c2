@@ -22,6 +22,7 @@ declare
   neg_a uuid;
   neg_p uuid;
   neg_b uuid;
+  neg_c uuid;
   link text;
   pedido uuid;
   n integer;
@@ -66,11 +67,12 @@ begin
     select count(*) into n from rol where negocio_id = neg_p;
     if n <> 1 then raise exception 'FALLÓ 1: el personalizable nació con % roles y no sólo Dueño.', n; end if;
 
-    -- ---- 2. Cada ficha apunta al rol de su clave vieja ----
+    -- ---- 2. Cada ficha apunta al rol con que se la aprobó ----
     select count(*) into n
       from empleado e join rol r on r.id = e.rol_id
-     where e.negocio_id = neg_a and r.clave is distinct from e.rol;
-    if n <> 0 then raise exception 'FALLÓ 2: % fichas apuntan a un rol que no es el de su clave.', n; end if;
+     where e.negocio_id = neg_a
+       and ((e.usuario_id = edu and r.nombre = 'Encargado') or (e.usuario_id = ivo and r.nombre = 'Mecánico'));
+    if n <> 2 then raise exception 'FALLÓ 2: las fichas de Edu e Ivo no apuntan a Encargado y Mecánico.'; end if;
     select count(*) into n from empleado where rol_id is null;
     if n <> 0 then raise exception 'FALLÓ 2: hay % fichas sin rol_id en toda la base.', n; end if;
     select count(*) into n
@@ -256,7 +258,7 @@ begin
     if not frenado then raise exception 'FALLÓ 7: quien sólo aprueba pudo cambiar el nombre de un paso.'; end if;
     update paso set estado = 'aprobado' where nombre = 'Pastillas';
     perform set_config('role', 'postgres', true);
-    update empleado set rol_id = (select id from rol where negocio_id = neg_a and clave = 'tecnico')
+    update empleado set rol_id = (select id from rol where negocio_id = neg_a and nombre = 'Mecánico')
      where negocio_id = neg_a and nombre = 'Ivo';
     delete from rol where negocio_id = neg_a and nombre = 'Sólo aprobar';
     perform set_config('role', 'authenticated', true);
@@ -407,11 +409,6 @@ begin
     if n <> 1 then raise exception 'FALLÓ 10: roles_del_negocio() cuenta % personas en Recepción.', n; end if;
 
     -- Desde el navegador ya no se escribe el rol de una ficha.
-    frenado := false;
-    begin update empleado set rol = 'tecnico' where negocio_id = neg_a and nombre = 'Ivo';
-    exception when insufficient_privilege then frenado := true; end;
-    if not frenado then raise exception 'FALLÓ 10: se cambió empleado.rol sin pasar por asignar_rol().'; end if;
-
     frenado := false;
     begin update empleado set rol_id = (select id from rol where negocio_id = neg_a and nombre = 'Mecánico') where negocio_id = neg_a and nombre = 'Ivo';
     exception when insufficient_privilege then frenado := true; end;
@@ -587,6 +584,25 @@ begin
     if n <> 1 then raise exception 'FALLÓ 13: el visitante de la sede borrada no volvió a su sede.'; end if;
     perform set_config('role', 'authenticated', true);
 
+    -- Ana crea la sede C y la vincula con A. Ivo, de visita en C, crea su propio
+    -- negocio: la visita termina.
+    neg_c := crear_mi_negocio('Roles C', 'taller', '[]'::jsonb);
+    perform entrar_al_negocio(neg_a);
+    perform vincular_sede(neg_c);
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    perform entrar_de_visita(neg_c);
+    pedido := crear_mi_negocio('Roles I', 'taller', '[]'::jsonb);
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from usuario where id = ivo and negocio_id = pedido and visitando_desde is null;
+    if n <> 1 then raise exception 'FALLÓ 13: crear un negocio estando de visita no terminó la visita.'; end if;
+    perform set_config('role', 'authenticated', true);
+
+    -- Edu, de visita en C desde A: al borrar A no se queda en C sin ficha; pasa
+    -- a su predeterminado, que era A, o sea a ninguno.
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    perform entrar_de_visita(neg_c);
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+
     -- Con el nombre bien, se borra con todo adentro (fichas, roles, casos con
     -- pasos aprobados y cobros).
     perform set_config('role', 'postgres', true);
@@ -601,10 +617,13 @@ begin
     if n <> 0 then raise exception 'FALLÓ 13: quedaron % roles.', n; end if;
     select count(*) into n from usuario where id in (ana, edu, ivo, zoe) and (negocio_id = neg_a or visitando_desde = neg_a);
     if n <> 0 then raise exception 'FALLÓ 13: quedaron % cuentas paradas en el negocio borrado.', n; end if;
+    select count(*) into n from usuario where id = edu and negocio_id is null and visitando_desde is null;
+    if n <> 1 then raise exception 'FALLÓ 13: quien visitaba otra sede desde el negocio borrado quedó en ella sin ficha.'; end if;
 
     -- Nadie se salta la regla del creador con una variable de sesión: Edu, Dueño
     -- de un negocio que sigue vivo (el de Zoe), no le saca la ficha a Zoe.
-    insert into empleado (negocio_id, usuario_id, nombre, rol) values (neg_p, edu, 'Edu P', 'duenio');
+    insert into empleado (negocio_id, usuario_id, nombre, rol_id)
+    values (neg_p, edu, 'Edu P', (select id from rol where negocio_id = neg_p and es_duenio));
     perform set_config('role', 'authenticated', true);
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
     perform entrar_al_negocio(neg_p);
@@ -616,6 +635,20 @@ begin
     perform set_config('role', 'postgres', true);
     select count(*) into n from empleado where usuario_id = zoe and negocio_id = neg_p;
     if n <> 1 then raise exception 'FALLÓ 13: una variable de sesión sacó al creador del equipo.'; end if;
+    perform set_config('role', 'authenticated', true);
+
+    -- ---- 14. No queda nada del rol viejo ----
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from information_schema.columns
+     where table_schema = 'public'
+       and ((table_name in ('empleado', 'usuario') and column_name = 'rol')
+         or (table_name = 'rol' and column_name = 'clave'));
+    if n <> 0 then raise exception 'FALLÓ 14: quedan % columnas del rol viejo.', n; end if;
+    select count(*) into n from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+     where s.nspname = 'public'
+       and p.proname in ('mi_rol', 'puedo_cargar', 'rango_del_rol', 'rol_de_clave', 'rol_id_de_la_clave',
+                         'rol_de_la_ficha_da_permisos', 'aceptar_invitacion');
+    if n <> 0 then raise exception 'FALLÓ 14: quedan % funciones del rol viejo.', n; end if;
     perform set_config('role', 'authenticated', true);
 
     raise exception 'deshacer';

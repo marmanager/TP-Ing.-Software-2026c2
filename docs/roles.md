@@ -1,7 +1,8 @@
 # Roles y permisos configurables
 
-Diseño aprobado el 2026-10-18. El plan de implementación va en
-`docs/roles-plan.md`.
+Implementado. Plan: docs/roles-plan.md.
+
+Diseño aprobado el 2026-10-18.
 
 ## Qué cambia
 

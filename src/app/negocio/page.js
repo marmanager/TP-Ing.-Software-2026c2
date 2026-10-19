@@ -615,10 +615,6 @@ export default function MiNegocio() {
                     Con qué se identifica cada caso: «{actual.identificador.nombre}» pasa a
                     ser «{nuevo.identificador.nombre}».
                   </li>
-                  <li>
-                    Cómo se llama quien hace el trabajo: «{actual.roles.tecnico}» pasa a
-                    «{nuevo.roles.tecnico}».
-                  </li>
                   <li>Los motivos y los ejemplos que te ofrecemos al cargar algo.</li>
                 </ul>
 

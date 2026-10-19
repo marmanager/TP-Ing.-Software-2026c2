@@ -920,10 +920,8 @@ export function DatosProvider({ children }) {
         setDatos((d) => ({ ...d, empleados: lista }));
       },
 
-      // OJO AL CAMBIAR ESTO. Desde la 037 el rol de la ficha es el que da los
-      // permisos: si la ficha es de una cuenta, la base pasa este rol a
-      // usuario.rol, que es de donde lee mi_rol() (008_permisos.sql). Antes
-      // era sólo el nombre con el que figuraba en la lista.
+      // OJO AL CAMBIAR ESTO. El rol de la ficha (rol_id) es el que da los
+      // permisos en ese negocio (053, 056).
       //
       // Por eso Equipo, antes de llamar acá por alguien con cuenta, pide
       // confirmación diciendo qué gana y qué pierde esa persona: en un

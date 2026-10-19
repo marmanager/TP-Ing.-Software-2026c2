@@ -89,13 +89,19 @@ todo en el navegador; se fue porque obligaba a tener las reglas copiadas acá.
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `047_red_de_sedes.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `059_roles_limpieza.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
-   correr cuantas veces haga falta.
+   correr cuantas veces haga falta, salvo que una vez corrida la `059` no se
+   vuelve a correr ninguna anterior: escribirían otra vez el rol viejo
+   (`empleado.rol`, `usuario.rol`, `rol.clave`), que la `059` borra.
 
-   Después de la 038, correr `supabase/pruebas/multinegocio.sql`: prueba el
-   aislamiento y los permisos contra la base y no deja nada guardado.
+   Las pruebas de `supabase/pruebas/` se corren al final, enteras, en el SQL
+   Editor; no dejan nada guardado y, si pasan, dan "Success. No rows returned":
+   `multinegocio.sql` (el aislamiento y los permisos, desde la 038),
+   `pedido_idempotente.sql` (039), `red_de_sedes.sql` (047),
+   `equipo_por_link.sql` (051) y `roles.sql` (los roles y permisos por
+   negocio, de la 053 a la 059).
 
    Si una base existente muestra `function gen_random_bytes(integer) does not exist`,
    ejecutar `supabase/029_reparar_codigos.sql` en el SQL Editor. Actualiza las
@@ -995,6 +1001,10 @@ puede cambiar el rol propio, y `empleado.usuario_id` no se escribe desde el
 navegador: sólo lo pone aceptar una invitación. Al correrla, las etiquetas que
 ya no coincidían se corrigen para decir la verdad: la migración no le cambia el
 acceso a nadie.
+
+Desde la 059 (roles por negocio, `docs/roles.md`), el rol está sólo en la ficha
+(`empleado.rol_id`, que apunta a un rol del negocio): `usuario.rol`,
+`empleado.rol`, `mi_rol()` y `puedo_cargar()` ya no existen.
 
 **Varios negocios por cuenta** (`038_multinegocio.sql`, diseño en
 `docs/multinegocio.md`). Una cuenta puede estar en varios negocios —sus
