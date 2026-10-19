@@ -37,6 +37,7 @@ import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
 import CuandoVuelve from "@/componentes/CuandoVuelve";
 import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
+import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import {
   Boton,
@@ -400,10 +401,10 @@ export default function VerCaso() {
             {cliente?.telefono && (
               <Dato icono="telefono" que="Teléfono">
                 <a
-                  href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                  href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
                   className="-mx-2 inline-flex min-h-12 items-center rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
                 >
-                  {cliente.telefono}
+                  {telefonoLegible(cliente.telefono)}
                 </a>
               </Dato>
             )}

@@ -121,11 +121,11 @@ test("el link se arma con el origen del navegador, sin barra doble", () => {
 // Preguntarle al negocio antes de decidir
 // ------------------------------------------------------------
 
-test("el link de WhatsApp lleva el número al formato que quiere WhatsApp", () => {
-  // Diez dígitos, como los pide el sistema: con característica y sin el 0
-  // ni el 15. Para un celular argentino eso es 54 9 adelante.
-  assert.ok(linkDeWhatsAppA("341 456 7890", "hola").startsWith("https://wa.me/5493414567890?text="));
-  assert.ok(linkDeWhatsAppA("3414567890", "hola").startsWith("https://wa.me/5493414567890?text="));
+test("el link de WhatsApp va al número internacional guardado", () => {
+  // Desde B-1b el teléfono se guarda con código de país. Uno de antes, sin
+  // país, no arma link: no se le inventa el 549 (telefono-internacional.test.js).
+  assert.ok(linkDeWhatsAppA("5493414567890", "hola").startsWith("https://wa.me/5493414567890?text="));
+  assert.equal(linkDeWhatsAppA("3414567890", "hola"), null);
 });
 
 test("un número que ya viene con el país no se le suma otro", () => {
