@@ -55,7 +55,10 @@ function Formulario() {
   // El caso puede salir de un turno: alguien pidió hora, vino, y esto es lo
   // que venía a hacer. En ese caso el nombre, el teléfono y el motivo ya
   // están anotados y no se vuelven a pedir (cartilla, sección 08: el alta
-  // tiene que entrar en un minuto).
+  // tiene que entrar en un minuto). Si lo sacó desde la landing, el turno
+  // trae también su identificador (la patente con la que se registró o
+  // entró, 053): pasa al caso, y con él vuelve a entrar a la landing y lo ve
+  // en "Mis casos".
   const idTurno = useSearchParams().get("turno");
   const turno = turnos.find((t) => t.id === idTurno) ?? null;
   const delTurno = turno ? clientes.find((c) => c.id === turno.cliente_id) : null;
@@ -76,7 +79,7 @@ function Formulario() {
   // flechas (-1 es ninguna).
   const [listaAbierta, setListaAbierta] = useState(false);
   const [marcada, setMarcada] = useState(-1);
-  const [identificador, setIdentificador] = useState("");
+  const [identificador, setIdentificador] = useState(turno?.identificador ?? "");
   const [servicio, setServicio] = useState(turno?.motivo ?? "");
   const [responsable, setResponsable] = useState("");
   const [tocado, setTocado] = useState({});
@@ -90,12 +93,13 @@ function Formulario() {
     nombre: delTurno?.nombre ?? "",
     telefono,
     servicio: turno?.motivo ?? "",
+    identificador: turno?.identificador ?? "",
   });
   const hayAlgoEscrito =
     nombre !== alEntrar.nombre ||
     telefono !== alEntrar.telefono ||
     servicio !== alEntrar.servicio ||
-    identificador !== "" ||
+    identificador !== alEntrar.identificador ||
     responsable !== "";
 
   // Cerrar la pestaña o recargar con algo escrito también pregunta. El texto

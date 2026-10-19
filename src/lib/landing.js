@@ -2,7 +2,7 @@
 // tiene, cómo viene de fábrica, qué colores se leen y cómo se pinta.
 //
 // Lógica pura, sin React: la usan el editor (/negocio/landing), la vista
-// previa y, más adelante, la página pública. Pruebas: pruebas/landing.test.js.
+// previa y la página pública (/n/[codigo]). Pruebas: pruebas/landing.test.js.
 //
 // Las claves de SECCIONES y FUENTES están también en la API
 // (src/modulos/negocio/esquemas.ts), que no deja guardar otras. Si se suma
@@ -125,16 +125,30 @@ export function moverSeccion(orden, clave, paso) {
 }
 
 // Las secciones en el orden elegido, con si aparecen y, si no, por qué. El
-// editor las muestra todas; la vista previa, sólo las visibles.
-export function estadoDeSecciones(orden, modulosActivos = []) {
+// editor las muestra todas; la vista previa y la página pública, sólo las
+// visibles.
+//
+// Las de turnos piden dos cosas: la Agenda prendida y los horarios publicados
+// ("horariosListos", que lo decide la API con la misma regla que la agenda
+// pública). Sin horarios no hay turnos que ofrecer. Por defecto se da por
+// hecho que están, así lo que ya usaba esta función no cambia.
+export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = true) {
   return normalizarLanding({ orden }).orden.map((clave) => {
     const seccion = SECCIONES.find((s) => s.clave === clave);
-    const visible = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos ?? []);
+    const prendido = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos ?? []);
+    // El módulo apagado manda: avisar que faltan horarios cuando ni siquiera
+    // está la Agenda mandaría a la persona a un lugar que todavía no existe.
+    const sinHorarios = prendido && seccion.modulo === "agenda" && !horariosListos;
+    const visible = prendido && !sinHorarios;
     const modulo = LISTA_MODULOS.find((m) => m.clave === seccion.modulo);
     return {
       ...seccion,
       visible,
-      motivo: visible ? null : `Aparece cuando prendés el módulo ${modulo?.nombre ?? seccion.modulo}.`,
+      motivo: visible
+        ? null
+        : sinHorarios
+          ? "Aparece cuando publicás tus horarios."
+          : `Aparece cuando prendés el módulo ${modulo?.nombre ?? seccion.modulo}.`,
     };
   });
 }

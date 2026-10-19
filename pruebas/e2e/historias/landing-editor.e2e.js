@@ -98,4 +98,15 @@ describe("Historia: El dueño arma la landing de su negocio", () => {
     await expect($("[data-lienzo]")).toBeDisplayed();
     expect(await estiloDeLaVistaPrevia()).toContain("--color-fondo: #fbf8f4");
   });
+
+  it("SCRUM-196: publica el link de la landing y lo deja de compartir", async () => {
+    await $("button=Publicar la landing").click();
+    // El link nace en el navegador (origen + /n/<código>): toHaveValue espera
+    // a que el campo se llene en vez de leerlo vacío.
+    await expect($("#link-landing")).toHaveValue(expect.stringContaining("/n/"));
+    await $("button=Dejar de compartir la landing").click();
+    await $("button=Sí, dejar de compartirla").click();
+    // Sin link, vuelve el botón de publicar.
+    await expect($("button=Publicar la landing")).toBeDisplayed();
+  });
 });

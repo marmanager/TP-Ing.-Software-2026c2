@@ -26,9 +26,11 @@
 // nada: lo que llega es lo que se puede mostrar.
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { buscarSeguimiento, responderDesdeElLink } from "@/lib/datos";
 import { ESTADOS, pesos } from "@/lib/estados";
+import { normalizarLanding } from "@/lib/landing";
 import {
   comoSeEspera,
   comoSeIdentifica,
@@ -47,6 +49,7 @@ import {
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
 import { telefonoLegible } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
+import Lienzo from "@/componentes/landing/Lienzo";
 import { Boton, Cargando } from "@/componentes/ui";
 
 export default function Seguimiento() {
@@ -187,7 +190,7 @@ export default function Seguimiento() {
   });
 
   return (
-    <Marco negocio={caso.negocio_nombre}>
+    <Marco negocio={caso.negocio_nombre} landing={caso.landing} landingCodigo={caso.landing_codigo}>
       {/* El estado, lo más grande de la pantalla. Color, ícono y palabra: si
           se imprime en blanco y negro se sigue entendiendo (cartilla, 02). */}
       <div className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
@@ -791,8 +794,14 @@ function SeccionPago({ pago, completado, principal }) {
 // El marco de la pantalla. A sangre completa, sin la navegación del sistema
 // y con una columna angosta: se abre casi siempre en un celular, y en una
 // pantalla grande una línea de texto de punta a punta no se lee.
-function Marco({ negocio, children }) {
-  return (
+//
+// Si el negocio publicó su landing ("landingCodigo"), la pantalla se pinta
+// con sus colores y su letra y lleva de vuelta a ella: quien llegó desde
+// "Mis casos" sigue en la página del negocio. Sin landing publicada, queda
+// como siempre. Mientras carga, o si el link no sirve, todavía no se sabe de
+// qué negocio es, así que tampoco.
+function Marco({ negocio, landing, landingCodigo, children }) {
+  const pantalla = (
     <div className="min-h-screen bg-fondo">
       <header className="border-b border-borde bg-tarjeta">
         <div className="mx-auto flex w-full max-w-[640px] items-center gap-3 px-4 py-4">
@@ -807,7 +816,19 @@ function Marco({ negocio, children }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">
+        {landingCodigo && (
+          <Link
+            href={`/n/${landingCodigo}`}
+            className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+          >
+            <Icono nombre="volver" />
+            Volver a {negocio}
+          </Link>
+        )}
+        {children}
+      </main>
     </div>
   );
+  return landingCodigo ? <Lienzo landing={normalizarLanding(landing)}>{pantalla}</Lienzo> : pantalla;
 }
