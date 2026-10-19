@@ -220,6 +220,9 @@ begin
   if nuevo.es_duenio and not soy_duenio_aca() then
     raise exception 'Solo un Dueño puede asignar el rol Dueño.' using errcode = '42501';
   end if;
+  if (select r.es_duenio from rol r where r.id = ficha.rol_id) and not soy_duenio_aca() then
+    raise exception 'Solo un Dueño puede cambiar el rol de otro Dueño.' using errcode = '42501';
+  end if;
   if not permisos_del_rol(ficha.rol_id) <@ mios then
     raise exception 'Esta persona tiene permisos que el rol propio no incluye.' using errcode = '42501';
   end if;

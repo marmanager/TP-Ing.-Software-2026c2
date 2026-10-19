@@ -411,6 +411,28 @@ begin
     exception when insufficient_privilege then frenado := true; end;
     if not frenado then raise exception 'FALLÓ 10: se cambió empleado.rol sin pasar por asignar_rol().'; end if;
 
+    frenado := false;
+    begin update empleado set rol_id = (select id from rol where negocio_id = neg_a and nombre = 'Mecánico') where negocio_id = neg_a and nombre = 'Ivo';
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 10: se cambió empleado.rol_id sin pasar por asignar_rol().'; end if;
+
+    -- Quien tiene todos los permisos sin ser Dueño no le baja el rol a un Dueño.
+    -- La dueña hace Dueño a Ivo y deja a Edu con un rol que tiene todo el catálogo.
+    frenado := false;
+    pedido := guardar_rol(null, 'Casi dueño', permisos_conocidos());
+    perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Ivo'), (select id from rol where negocio_id = neg_a and es_duenio));
+    perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Edu'), pedido);
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    begin perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Ivo'), (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
+    exception when insufficient_privilege then frenado := (sqlerrm = 'Solo un Dueño puede cambiar el rol de otro Dueño.'); end;
+    if not frenado then raise exception 'FALLÓ 10: quien no es Dueño le bajó el rol a un Dueño.'; end if;
+
+    -- Se deja todo como estaba para la sección 11.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Ivo'), (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
+    pedido := (select id from rol where negocio_id = neg_a and nombre = 'Recepción');
+    perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Edu'), pedido);
+
     -- ---- 11. Aprobar un pedido con un rol a medida ----
     perform set_config('request.jwt.claims', json_build_object('sub', zoe, 'role', 'authenticated')::text, true);
     perform pedir_entrar(link, 'Zoe');
