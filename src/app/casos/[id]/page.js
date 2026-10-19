@@ -42,7 +42,7 @@ import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } fr
 import SelectorEstado from "@/componentes/SelectorEstado";
 import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
 import CuandoVuelve from "@/componentes/CuandoVuelve";
-import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
+import { erroresSeguimiento, linkDelAvisoDeAvance, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
 import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
@@ -100,6 +100,9 @@ export default function VerCaso() {
   const [cerrando, setCerrando] = useState(false);
   const [notificarCliente, setNotificarCliente] = useState(false);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  // Generar el link desde "Notificar", para que el aviso de avance lo lleve (R-11).
+  const [generandoLink, setGenerandoLink] = useState(false);
+  const [errorLink, setErrorLink] = useState(null);
   const [seguimientoEntrega, setSeguimientoEntrega] = useState(SEGUIMIENTO_VACIO);
   // Cuándo le toca volver (R-1b): al entregar, y para corregirlo después.
   const [volverEn, setVolverEn] = useState("");
@@ -143,6 +146,8 @@ export default function VerCaso() {
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const nombreEstado = (estado) => presentacionEstado(negocio, estado).nombre;
   const puedeNotificar = telefonoWhatsAppValido(cliente?.telefono);
+  // Sin link, el aviso de avance sale sin él: se dice antes y se ofrece generarlo.
+  const sinLinkEnElAviso = notificarCliente && puedeNotificar ? linkDelAvisoDeAvance({ caso, pasos }) : null;
   const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega))[0];
 
   // El día de hoy en Argentina, el mismo que usa la API para decidir si una
@@ -161,6 +166,23 @@ export default function VerCaso() {
         casos.filter((c) => c.cliente_id === caso.cliente_id && c.id !== caso.id).map((c) => diaDeArgentina(c.abierto_en)),
         hoy
       );
+
+  async function generarLinkDelAviso() {
+    if (generandoLink) return;
+    setErrorLink(null);
+    setGenerandoLink(true);
+    try {
+      // compartirCaso() devuelve el mismo código si ya hubiera uno: nunca
+      // genera otro, y el que el cliente tenga sigue andando.
+      const r = await datos.compartirCaso(caso.id);
+      if (!r.ok) return setErrorLink(r.error);
+      datos.avisarExito(r.quedaEsperando
+        ? "Listo. El aviso va a llevar el link, y el caso quedó esperando la respuesta del cliente."
+        : "Listo. El aviso va a llevar el link del caso.");
+    } finally {
+      setGenerandoLink(false);
+    }
+  }
 
   async function cambiarEstadoDelCaso(nuevo) {
     if (cambiandoEstado || cerrando) return;
@@ -311,6 +333,31 @@ export default function VerCaso() {
                   {!puedeNotificar ? "Falta un teléfono con código de país."
                     : "Avisar al cliente al cambiar el estado."}
                 </p>
+              )}
+              {sePuedeEditar && sinLinkEnElAviso && (
+                <div className="mt-2 max-w-[36ch]">
+                  <p className="flex items-start gap-2 text-tinta-media">
+                    <Icono nombre="sobre" className="mt-1 size-5 shrink-0" />
+                    <span>{sinLinkEnElAviso.frase}</span>
+                  </p>
+                  {sinLinkEnElAviso.consecuencia && (
+                    <p className="mt-1 text-apoyo text-tinta-media">{sinLinkEnElAviso.consecuencia}</p>
+                  )}
+                  {errorLink && (
+                    <p role="alert" className="mt-1 flex items-start gap-2 font-bold text-rojo">
+                      <Icono nombre="alerta" className="mt-1 size-5 shrink-0" />
+                      <span>{errorLink}</span>
+                    </p>
+                  )}
+                  <Boton
+                    className="mt-2"
+                    icono="sobre"
+                    motivo={generandoLink ? "generándolo" : cambiandoEstado ? "cambiando el estado" : null}
+                    onClick={generarLinkDelAviso}
+                  >
+                    {sinLinkEnElAviso.boton}
+                  </Boton>
+                </div>
               )}
             </div>
           </div>
