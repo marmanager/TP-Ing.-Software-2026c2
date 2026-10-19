@@ -64,7 +64,10 @@ export default function VerCaso() {
   const datos = useDatos();
   const { cargando, casos, clientes, empleados, pasos, eventos, insumos, negocio } = datos;
   const { usuario } = useAuth();
-  const puedeCargar = puede(usuario?.rol, "cargarDatos");
+  const puedeCargar = puede(usuario, "avanzar_casos");
+  const puedeEntregar = puede(usuario, "entregar_y_reabrir");
+  const puedeCobrar = puede(usuario, "cobrar");
+  const puedePedir = puede(usuario, "editar_inventario");
   const [eligiendo, setEligiendo] = useState(false);
   // Identificador del rubro y notas sueltas (SCRUM-51/52). El diagnóstico
   // vive ahora en la pantalla de los pasos.
@@ -701,7 +704,7 @@ export default function VerCaso() {
           llegó: son las dos puntas de lo mismo. Lleva a "En camino" con el
           caso ya elegido, y sólo si el negocio tiene esa pantalla. */}
       {abierto &&
-        (insumosDelCaso.some((i) => i.estado !== "en_stock") || (conEnCamino && puedeCargar)) && (
+        (insumosDelCaso.some((i) => i.estado !== "en_stock") || (conEnCamino && puedePedir)) && (
         <div className="mt-12 flex flex-wrap items-start gap-3">
           {insumosDelCaso
             .filter((i) => i.estado !== "en_stock")
@@ -710,7 +713,7 @@ export default function VerCaso() {
                 Marcar que llegó {i.nombre.toLowerCase()}
               </Boton>
             ))}
-          {conEnCamino && puedeCargar && (
+          {conEnCamino && puedePedir && (
             <Link
               href={`/inventario/en-camino?caso=${caso.id}`}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
@@ -733,13 +736,13 @@ export default function VerCaso() {
         aprobado={aprobado}
         cobros={cobrosDeEste}
         descuento={descuento}
-        puedeCargar={puedeCargar}
+        puedeCargar={puedeCobrar}
         datos={datos}
         cliente={cliente}
         negocio={negocio}
       />
 
-      {puedeCargar && (caso.estado === "revision_final" || caso.estado === "completado") && (
+      {puedeEntregar && (caso.estado === "revision_final" || caso.estado === "completado") && (
         <AvisarleQueEstaListo
           caso={caso}
           cliente={cliente}

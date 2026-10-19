@@ -31,9 +31,10 @@ export default function Equipo() {
   const { usuario } = useAuth();
   useTitulo("Equipo");
 
-  // Sumar y sacar gente lo hace el dueño. La base también lo rechaza
-  // (008_permisos.sql); acá sólo evitamos ofrecer un botón que va a fallar.
-  const puedeManejar = puede(usuario?.rol, "manejarEquipo");
+  // Cambiar el rol y sacar gente son permisos distintos. La base también los
+  // controla; acá sólo evitamos ofrecer un botón que va a fallar.
+  const puedeCambiarRol = puede(usuario, "manejar_roles");
+  const puedeSacar = puede(usuario, "sacar_del_equipo");
 
   const [verTodosDe, setVerTodosDe] = useState(null);
   const [sacando, setSacando] = useState(null);
@@ -64,9 +65,9 @@ export default function Equipo() {
         <div>
           <h1 className="text-pantalla">Equipo</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
-            {puedeManejar
+            {puedeCambiarRol || puedeSacar
               ? "Quién está trabajando en qué. Para sumar a alguien, mandale el link del equipo."
-              : `Quién está trabajando en qué. ${QUIEN_PUEDE.manejarEquipo}`}
+              : `Quién está trabajando en qué. ${QUIEN_PUEDE.manejar_roles}`}
           </p>
         </div>
       </div>
@@ -116,7 +117,7 @@ export default function Equipo() {
                     )}
                   </div>
 
-                  {puedeManejar && !intocable ? (
+                  {puedeCambiarRol && !intocable ? (
                     <div className="mt-4">
                       <label
                         htmlFor={`rol-${e.id}`}
@@ -214,7 +215,7 @@ export default function Equipo() {
                     </Boton>
                   )}
 
-                  {!puedeManejar || intocable ? null : sacando === e.id ? (
+                  {!puedeSacar || intocable ? null : sacando === e.id ? (
                     <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                       <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
                       {/* Con cuenta, sacarlo también le quita el acceso (036): es

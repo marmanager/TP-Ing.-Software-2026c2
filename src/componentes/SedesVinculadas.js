@@ -2,7 +2,7 @@
 
 // "Sedes vinculadas", en Mi negocio (docs/red-de-sedes.md).
 //
-// La lista de sedes de la red y, para quien puede (vincularSedes), vincular
+// La lista de sedes de la red y, para quien puede (vincular_sedes), vincular
 // otra y desvincular ésta. La base vuelve a verificar todo: los botones sólo
 // evitan ofrecer lo que va a rechazar.
 
@@ -18,7 +18,7 @@ export default function SedesVinculadas() {
   const { usuario, sesion, misNegocios } = useAuth();
   const { negocio, avisarExito } = useDatos();
   const token = sesion?.access_token;
-  const puedeVincular = puede(usuario?.rol, "vincularSedes");
+  const puedeVincular = puede(usuario, "vincular_sedes");
   const [sedes, setSedes] = useState(null);
   const [candidatos, setCandidatos] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
@@ -93,7 +93,7 @@ export default function SedesVinculadas() {
       )}
 
       {!puedeVincular ? (
-        <p className="mt-4 text-tinta-media">{QUIEN_PUEDE.vincularSedes}</p>
+        <p className="mt-4 text-tinta-media">{QUIEN_PUEDE.vincular_sedes}</p>
       ) : candidatos ? (
         <div className="mt-4 rounded-tarjeta bg-superficie p-4">
           <p className="font-bold">¿Con cuál la vinculás?</p>

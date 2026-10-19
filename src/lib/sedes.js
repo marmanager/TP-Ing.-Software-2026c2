@@ -34,5 +34,5 @@ export async function inventarioDeSedes(token) {
 // rol puede vincular.
 export const candidatosParaVincular = (negocios = [], sedes = [], activoId) =>
   negocios.filter(
-    (n) => n.id !== activoId && !sedes.some((s) => s.id === n.id) && puede(n.rol, "vincularSedes")
+    (n) => n.id !== activoId && !sedes.some((s) => s.id === n.id) && puede(n, "vincular_sedes")
   );

@@ -3,7 +3,7 @@
 // "Sumar gente al equipo" y "Quieren entrar" (docs/equipo-por-link.md).
 //
 // Un solo link por negocio, para mandar al grupo de WhatsApp. Quien lo usa no
-// entra: queda pendiente hasta que alguien con sumarAlEquipo (hoy, el dueño)
+// entra: queda pendiente hasta que alguien con sumar_al_equipo
 // lo acepta y le da un rol. La base vuelve a controlar todo; acá sólo se
 // muestra lo que se puede hacer.
 
@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { cuando } from "@/lib/fechas";
-import { puede, rolesQuePuedeDar } from "@/lib/permisos";
+import { puede } from "@/lib/permisos";
 import { etiquetaRol } from "@/lib/presets";
 import {
   aprobarPedido,
@@ -30,7 +30,7 @@ export default function SumarAlEquipo() {
   const { negocio, avisarExito, reemplazarEmpleados } = useDatos();
   const token = sesion?.access_token;
   const hayToken = Boolean(token); // el efecto depende de si hay, no de su valor: un refresco de sesión no reinicia la pantalla
-  const puedeSumar = puede(usuario?.rol, "sumarAlEquipo");
+  const puedeSumar = puede(usuario, "sumar_al_equipo");
   const [link, setLink] = useState(undefined); // undefined: cargando; null: no hay
   const [linkFallo, setLinkFallo] = useState(false); // no se pudo saber si hay link
   const [pedidos, setPedidos] = useState([]);
@@ -76,7 +76,7 @@ export default function SumarAlEquipo() {
 
   const url = link && origen ? linkDeInvitacion(link.codigo, origen) : null;
   const mensaje = url ? mensajeDeInvitacion(negocio?.nombre ?? "tu negocio", url) : "";
-  const roles = rolesQuePuedeDar(usuario?.rol);
+  const roles = ["duenio", "encargado", "tecnico"].filter((r) => usuario?.es_duenio || r !== "duenio");
 
   async function cambiarLink() {
     setOcupado(true);

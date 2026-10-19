@@ -20,7 +20,7 @@ import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 export default function Agenda() {
   const datos = useDatos();
   const { usuario } = useAuth();
-  const puedeCargar = puede(usuario?.rol, "cargarDatos");
+  const puedeCargar = puede(usuario, "manejar_turnos");
   const { cargando, turnos, clientes, casos } = datos;
   const [abierto, setAbierto] = useState(false);
   // El turno que se está por cancelar, esperando la confirmación.

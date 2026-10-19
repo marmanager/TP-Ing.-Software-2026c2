@@ -128,7 +128,10 @@ export function AuthProvider({ children }) {
       // "full_name" (ingreso-google.js).
       nombre: nombreDeLaCuenta(user.user_metadata),
       negocio_id: null,
-      rol: "duenio",
+      // Sin base (modo de ejemplo) la cuenta es la dueña de su negocio local.
+      es_duenio: true,
+      permisos: [],
+      rol_nombre: "Dueño",
     };
     const token = accessToken ?? await tokenVigente();
     if (token) {

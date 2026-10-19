@@ -1,85 +1,67 @@
-// Qué puede hacer cada rol (SCRUM-18).
+// Qué puede hacer un rol (docs/roles.md).
 //
-// Es el mismo criterio que hacen cumplir la API y las políticas de
-// supabase/008_permisos.sql. Acá sólo sirve para no ofrecer botones que van
-// a rechazar: **la que manda es la API**, y detrás la base. Si algún día no
-// coinciden, esconder un botón no protege nada y la regla de la API sí.
-
-export const PERMISOS = {
-  duenio: {
-    configurarNegocio: true,
-    manejarEquipo: true,
-    verTodosLosCasos: true,
-    cargarDatos: true,
-    vincularSedes: true,
-    sumarAlEquipo: true,
-  },
-  encargado: {
-    configurarNegocio: false,
-    manejarEquipo: false,
-    verTodosLosCasos: true,
-    cargarDatos: true,
-    vincularSedes: false,
-    sumarAlEquipo: false,
-  },
-  tecnico: {
-    configurarNegocio: false,
-    manejarEquipo: false,
-    verTodosLosCasos: false,
-    cargarDatos: false,
-    vincularSedes: false,
-    sumarAlEquipo: false,
-  },
-};
-
-// Sin rol (la cuenta todavía no cargó) no se ofrece nada.
-export const puede = (rol, que) => Boolean(PERMISOS[rol]?.[que]);
-
-// Para explicar por qué no se puede, con las palabras del mostrador.
-export const QUIEN_PUEDE = {
-  configurarNegocio: "Esto lo cambia el dueño del negocio.",
-  manejarEquipo: "Sumar y sacar gente lo hace el dueño del negocio.",
-  cargarDatos: "Esto lo cargan el dueño y el encargado.",
-  vincularSedes: "Vincular sedes lo hace el dueño del negocio.",
-  sumarAlEquipo: "Sumar gente al equipo lo hace el dueño del negocio.",
-  // Ninguna pantalla la consulta: de esta se encarga sola la base, que no le
-  // manda al técnico los casos que no son suyos. Está para que las cuatro
-  // acciones se puedan explicar con las mismas palabras si hace falta.
-  verTodosLosCasos: "Cada quien ve los casos que tiene asignados.",
-};
-
-// Qué significa cada permiso, dicho de la persona. Para la confirmación de
-// Equipo: "Va a poder..." / "Deja de poder...".
-const QUE_ES = {
-  configurarNegocio: "cambiar la configuración del negocio",
-  manejarEquipo: "sumar y sacar gente del equipo",
-  verTodosLosCasos: "ver todos los casos, no sólo los suyos",
-  cargarDatos: "cargar y cambiar casos, presupuestos, clientes, agenda e inventario",
-  vincularSedes: "vincular este negocio con sus otras sedes",
-  sumarAlEquipo: "sumar gente al equipo y aprobar quién entra",
-};
-
-// Qué gana y qué pierde alguien al pasar de un rol a otro.
+// El catálogo es el mismo que la base (supabase/053_roles.sql) y la API
+// (src/compartido/permisos.ts), con las mismas claves en el mismo orden: la
+// prueba lo verifica contra la 053. Acá sólo sirve para no ofrecer botones
+// que van a rechazar: **la que manda es la base**. Esconder un botón no
+// protege nada.
 //
-// Desde la 037, cambiar el rol en Equipo cambia los permisos de verdad, y el
-// cambio se confirma diciendo esto antes (auditoría, H5): en un desplegable de
-// celular el dedo elige otra opción sin querer, y bajar a alguien sin querer
-// lo deja sin poder trabajar.
-//
-// Sale de PERMISOS, no de una lista aparte: si se suma un permiso, entra solo.
-// Si ese permiso no tiene su frase en QUE_ES, la prueba lo ataja.
-export function queCambiaConElRol(de, a) {
-  const antes = PERMISOS[de] ?? {};
-  const despues = PERMISOS[a] ?? {};
-  const claves = Object.keys(PERMISOS.duenio);
-  return {
-    gana: claves.filter((k) => !antes[k] && despues[k]).map((k) => QUE_ES[k]),
-    pierde: claves.filter((k) => antes[k] && !despues[k]).map((k) => QUE_ES[k]),
-  };
+// Los textos son formales e impersonales (docs/roles.md, "Textos").
+
+export const GRUPOS = ["Casos", "Presupuesto", "Cobros", "Clientes", "Agenda", "Inventario", "Sedes", "Equipo", "Negocio"];
+
+export const PERMISOS = [
+  { clave: "ver_todos_los_casos", grupo: "Casos", nombre: "Ver todos los casos", descripcion: "Ver todos los casos del negocio. Sin este permiso, solo los casos asignados." },
+  { clave: "crear_casos", grupo: "Casos", nombre: "Abrir casos", descripcion: "Abrir casos nuevos." },
+  { clave: "avanzar_casos", grupo: "Casos", nombre: "Trabajar los casos", descripcion: "Cambiar el estado, editar los datos, anotar y compartir el seguimiento." },
+  { clave: "asignar_casos", grupo: "Casos", nombre: "Asignar casos", descripcion: "Elegir o cambiar el responsable de un caso." },
+  { clave: "entregar_y_reabrir", grupo: "Casos", nombre: "Entregar y reabrir", descripcion: "Entregar casos, reabrirlos y configurar los mensajes de WhatsApp." },
+  { clave: "armar_presupuesto", grupo: "Presupuesto", nombre: "Armar el presupuesto", descripcion: "Agregar, editar y quitar pasos, montos, descuentos y ecuaciones." },
+  { clave: "aprobar_por_el_cliente", grupo: "Presupuesto", nombre: "Responder por el cliente", descripcion: "Aprobar o rechazar pasos en nombre del cliente." },
+  { clave: "cobrar", grupo: "Cobros", nombre: "Cobrar", descripcion: "Registrar y anular cobros, y generar el QR o link de pago." },
+  { clave: "conectar_mercadopago", grupo: "Cobros", nombre: "Conectar Mercado Pago", descripcion: "Vincular y desvincular la cuenta de cobro del negocio." },
+  { clave: "ver_clientes", grupo: "Clientes", nombre: "Ver clientes", descripcion: "Ver la lista de clientes y sus datos." },
+  { clave: "editar_clientes", grupo: "Clientes", nombre: "Editar clientes", descripcion: "Agregar y modificar clientes." },
+  { clave: "ver_agenda", grupo: "Agenda", nombre: "Ver la agenda", descripcion: "Ver los turnos." },
+  { clave: "manejar_turnos", grupo: "Agenda", nombre: "Manejar turnos", descripcion: "Dar, mover, cancelar y marcar turnos, con sus recordatorios." },
+  { clave: "ver_inventario", grupo: "Inventario", nombre: "Ver el inventario", descripcion: "Ver productos y stock." },
+  { clave: "editar_inventario", grupo: "Inventario", nombre: "Editar el inventario", descripcion: "Cargar productos, cambiar el stock y hacer pedidos." },
+  { clave: "ver_inventario_de_sedes", grupo: "Inventario", nombre: "Ver el inventario de las sedes", descripcion: "Ver el inventario conjunto de las sedes vinculadas donde se es miembro." },
+  { clave: "ver_sedes_vinculadas", grupo: "Sedes", nombre: "Ver las sedes vinculadas", descripcion: "Entrar en modo solo lectura a las sedes vinculadas donde no se es miembro." },
+  { clave: "vincular_sedes", grupo: "Sedes", nombre: "Vincular sedes", descripcion: "Vincular y desvincular este negocio con otras sedes." },
+  { clave: "sumar_al_equipo", grupo: "Equipo", nombre: "Sumar al equipo", descripcion: "Manejar el link de ingreso y aprobar o rechazar pedidos." },
+  { clave: "sacar_del_equipo", grupo: "Equipo", nombre: "Sacar del equipo", descripcion: "Quitar personas del equipo." },
+  { clave: "manejar_roles", grupo: "Equipo", nombre: "Manejar roles", descripcion: "Crear, editar y asignar roles, solo con permisos incluidos en el rol propio." },
+  { clave: "configurar_negocio", grupo: "Negocio", nombre: "Configurar el negocio", descripcion: "Datos, horarios, módulos, Inicio, landing y links públicos de la agenda." },
+  { clave: "ver_historial", grupo: "Negocio", nombre: "Ver el historial", descripcion: "Ver la pantalla Historial del negocio." },
+];
+
+const CLAVES = new Set(PERMISOS.map((p) => p.clave));
+
+export const PERMISOS_DE_MIRAR = ["ver_todos_los_casos", "ver_clientes", "ver_agenda", "ver_inventario", "ver_historial"];
+
+// `quien` es el usuario de la sesión o una fila de mis_negocios(): cualquier
+// cosa con es_duenio y permisos. Sin datos (la cuenta todavía no cargó) no se
+// ofrece nada.
+export function puede(quien, clave) {
+  if (!CLAVES.has(clave)) return false;
+  return Boolean(quien?.es_duenio) || Boolean(quien?.permisos?.includes(clave));
 }
 
-// Los roles que alguien puede dar al aprobar un pedido: nunca uno más alto que
-// el suyo (la base lo vuelve a controlar en aprobar_solicitud, 051).
-const RANGO = { duenio: 3, encargado: 2, tecnico: 1 };
-export const rolesQuePuedeDar = (miRol) =>
-  ["duenio", "encargado", "tecnico"].filter((r) => RANGO[r] <= (RANGO[miRol] ?? 0));
+// Para explicar por qué un control está apagado.
+export const QUIEN_PUEDE = Object.fromEntries(
+  PERMISOS.map((p) => [p.clave, `Su rol no incluye el permiso «${p.nombre}».`])
+);
+
+const efectivos = (rol) => (rol?.es_duenio ? PERMISOS.map((p) => p.clave) : rol?.permisos ?? []);
+
+// Qué gana y qué pierde alguien al pasar de un rol a otro. Para la
+// confirmación de Equipo: "Permisos que se agregan" / "Permisos que se quitan".
+export function queCambiaConElRol(antes, despues) {
+  const a = new Set(efectivos(antes));
+  const d = new Set(efectivos(despues));
+  return {
+    gana: PERMISOS.filter((p) => !a.has(p.clave) && d.has(p.clave)).map((p) => p.descripcion),
+    pierde: PERMISOS.filter((p) => a.has(p.clave) && !d.has(p.clave)).map((p) => p.descripcion),
+  };
+}

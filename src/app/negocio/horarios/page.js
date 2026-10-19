@@ -65,7 +65,7 @@ export default function Horarios() {
 
   if (cargando) return <Cargando />;
 
-  const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
+  const puedeConfigurar = puede(usuario, "configurar_negocio");
   const guardado = normalizarHorarios(negocio?.horarios);
   const actual = borrador ?? guardado;
   const editando = borrador !== null;
@@ -113,7 +113,7 @@ export default function Horarios() {
 
       {!puedeConfigurar ? (
         <Tarjeta>
-          <p className="max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.configurarNegocio}</p>
+          <p className="max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.configurar_negocio}</p>
           {guardado ? (
             <p className="mt-3 text-tinta-media">
               Hoy atendés{" "}

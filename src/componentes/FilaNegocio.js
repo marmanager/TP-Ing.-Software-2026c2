@@ -4,7 +4,7 @@
 // perfil tiene botones adentro.
 
 import Link from "next/link";
-import { etiquetaRol, preset } from "@/lib/presets";
+import { preset } from "@/lib/presets";
 import Icono from "./Icono";
 
 export default function FilaNegocio({ negocio, rol }) {
@@ -22,7 +22,7 @@ export default function FilaNegocio({ negocio, rol }) {
         <span className="block font-bold text-cuerpo">{negocio.nombre}</span>
         <span className="block text-tinta-media">
           {preset(negocio.rubro).nombre}
-          {rol && ` · ${etiquetaRol(negocio.rubro, rol)}`}
+          {rol && ` · ${rol}`}
         </span>
       </span>
     </>

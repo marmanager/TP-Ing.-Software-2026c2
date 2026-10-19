@@ -30,7 +30,7 @@ export default function FichaDeCliente() {
   const datos = useDatos();
   const { cargando, clientes, casos, turnos, negocio, pasos, cobros } = datos;
   const { usuario } = useAuth();
-  const puedeCargar = puede(usuario?.rol, "cargarDatos");
+  const puedeCargar = puede(usuario, "editar_clientes");
   const [corrigiendo, setCorrigiendo] = useState(false);
   const [telefono, setTelefono] = useState("");
   const [tocado, setTocado] = useState(false);

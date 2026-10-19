@@ -76,7 +76,7 @@ export default function Recordatorios() {
 
   if (cargando || (leyendo && !error)) return <Cargando />;
 
-  const puedeConfigurar = puede(usuario?.rol, "cargarDatos");
+  const puedeConfigurar = puede(usuario, "entregar_y_reabrir");
   const conAgenda = estaPrendido("agenda", negocio?.modulos_activos ?? []);
   const { cita } = vocabulario(negocio?.rubro);
   const antesDe = `Antes ${cita.segun("del", "de la")} ${cita.palabra()}`;
@@ -145,7 +145,7 @@ export default function Recordatorios() {
       </TituloPantalla>
 
       {!puedeConfigurar && (
-        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.cargarDatos}</p>
+        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.entregar_y_reabrir}</p>
       )}
 
       <fieldset disabled={!puedeConfigurar || guardando}>
