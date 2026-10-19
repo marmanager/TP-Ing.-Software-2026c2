@@ -74,3 +74,13 @@ export function rolesQuePuedeDar(quien, roles) {
     r.es_duenio ? Boolean(quien?.es_duenio) : r.permisos.every((p) => mios.has(p))
   );
 }
+
+// El rol con el que entra un pedido si nadie elige otro: el de menos permisos
+// que no sea Dueño (el primero si empatan), o null. Nunca un Dueño.
+export function rolPorDefecto(roles) {
+  let elegido = null;
+  for (const r of roles ?? []) {
+    if (!r.es_duenio && (!elegido || r.permisos.length < elegido.permisos.length)) elegido = r;
+  }
+  return elegido?.id ?? null;
+}

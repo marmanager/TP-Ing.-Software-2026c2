@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { cuando } from "@/lib/fechas";
-import { puede, rolesQuePuedeDar } from "@/lib/permisos";
+import { puede, rolPorDefecto, rolesQuePuedeDar } from "@/lib/permisos";
 import {
   aprobarPedido,
   cambiarLinkDeEquipo,
@@ -76,11 +76,9 @@ export default function SumarAlEquipo() {
   const url = link && origen ? linkDeInvitacion(link.codigo, origen) : null;
   const mensaje = url ? mensajeDeInvitacion(negocio?.nombre ?? "tu negocio", url) : "";
   const roles = rolesQuePuedeDar(usuario, rolesDelNegocio);
-  // Sin elegir otro, entra con el rol de menos permisos (nunca con Dueño de entrada).
-  const porDefecto = (
-    roles.filter((r) => !r.es_duenio).reduce((a, r) => (!a || r.permisos.length < a.permisos.length ? r : a), null) ??
-    roles[0]
-  )?.id;
+  // Sin elegir otro, entra con el rol de menos permisos; nunca Dueño de entrada.
+  const porDefecto = rolPorDefecto(roles);
+  const elegidoPara = (p) => rolDe[p.id] ?? porDefecto ?? "";
 
   async function cambiarLink() {
     setOcupado(true);
@@ -104,7 +102,8 @@ export default function SumarAlEquipo() {
   }
 
   async function aceptar(p) {
-    const rolId = rolDe[p.id] ?? porDefecto;
+    const rolId = elegidoPara(p);
+    if (!rolId) return;
     setOcupado(true);
     setError(null);
     const r = await aprobarPedido(p.id, rolId, token);
@@ -230,10 +229,11 @@ export default function SumarAlEquipo() {
                       </label>
                       <select
                         id={`rol-pedido-${p.id}`}
-                        value={rolDe[p.id] ?? porDefecto ?? ""}
+                        value={elegidoPara(p)}
                         onChange={(e) => setRolDe((r) => ({ ...r, [p.id]: e.target.value }))}
                         className="mt-2 block min-h-12 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
                       >
+                        <option value="">Elegir un rol</option>
                         {roles.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.nombre}
@@ -241,7 +241,7 @@ export default function SumarAlEquipo() {
                         ))}
                       </select>
                     </div>
-                    <Boton icono="check" motivo={ocupado ? "esperando" : !porDefecto ? "no hay roles para dar" : null} onClick={() => aceptar(p)}>
+                    <Boton icono="check" motivo={ocupado ? "esperando" : !elegidoPara(p) ? "elegir un rol" : null} onClick={() => aceptar(p)}>
                       Aceptar
                     </Boton>
                     <Boton variante="peligro" disabled={ocupado} onClick={() => rechazar(p)}>

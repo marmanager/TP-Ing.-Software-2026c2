@@ -123,7 +123,7 @@ export default function Equipo() {
                     )}
                   </div>
 
-                  {puedeCambiarRol && !intocable && datos.roles ? (
+                  {puedeCambiarRol && !intocable && ofrecidos.some((r) => r.id === e.rol_id) ? (
                     <div className="mt-4">
                       <label
                         htmlFor={`rol-${e.id}`}
@@ -149,14 +149,11 @@ export default function Equipo() {
                         }}
                         className="mt-1 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
                       >
-                        {/* El rol actual siempre figura, aunque tenga más de lo propio. */}
-                        {(ofrecidos.some((r) => r.id === e.rol_id) ? ofrecidos : [rolDe(e.rol_id), ...ofrecidos])
-                          .filter(Boolean)
-                          .map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.nombre}
-                            </option>
-                          ))}
+                        {ofrecidos.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nombre}
+                          </option>
+                        ))}
                       </select>
 
                       {cambiandoRol?.id === e.id && (

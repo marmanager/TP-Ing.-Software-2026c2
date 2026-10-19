@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { GRUPOS, PERMISOS, puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { GRUPOS, PERMISOS, puede, QUIEN_PUEDE, rolesQuePuedeDar } from "@/lib/permisos";
 import Icono from "@/componentes/Icono";
 import {
   Boton,
@@ -43,12 +43,16 @@ export default function EditarRol() {
     if (sinRoles) datos.cargarRoles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sinRoles]);
+  // Se carga una vez por rol: si los datos se vuelven a leer (la pestaña vuelve
+  // al frente), lo que se estaba editando no se pisa.
+  const idDelRol = rol?.id;
   useEffect(() => {
     if (rol) {
       setNombre(rol.nombre);
       setPermisos(rol.permisos);
     }
-  }, [rol]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idDelRol]);
 
   if (sinRoles) return <Cargando />;
   if (!nuevo && !rol) {
@@ -63,14 +67,18 @@ export default function EditarRol() {
   }
 
   const esPropio = !nuevo && rol.id === usuario?.rol_id;
-  const soloLectura = !puede(usuario, "manejar_roles") || rol?.es_duenio || esPropio;
+  // Un rol con permisos que el propio no tiene tampoco se toca (056).
+  const excedeAlPropio = !nuevo && rolesQuePuedeDar(usuario, [rol]).length === 0;
+  const soloLectura = !puede(usuario, "manejar_roles") || rol?.es_duenio || esPropio || excedeAlPropio;
   const motivoGeneral = rol?.es_duenio
     ? "El rol Dueño no se modifica."
     : esPropio
       ? "El rol propio no se modifica."
       : !puede(usuario, "manejar_roles")
         ? QUIEN_PUEDE.manejar_roles
-        : null;
+        : excedeAlPropio
+          ? "Este rol tiene permisos que el rol propio no incluye."
+          : null;
 
   const alternar = (clave, prendido) =>
     setPermisos((l) => (prendido ? [...l, clave] : l.filter((c) => c !== clave)));
@@ -158,7 +166,12 @@ export default function EditarRol() {
       {!soloLectura && (
         <>
           {!nuevo && (
-            <Boton icono="tacho" onClick={eliminar} className="mb-8">
+            <Boton
+              icono="tacho"
+              onClick={eliminar}
+              className="mb-8"
+              motivo={rol.personas > 0 ? `asignado a ${rol.personas} ${rol.personas === 1 ? "persona" : "personas"}` : null}
+            >
               Eliminar el rol
             </Boton>
           )}

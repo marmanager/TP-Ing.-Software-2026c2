@@ -7,7 +7,7 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, puede, queCambiaConElRol, rolesQuePuedeDar } from "../src/lib/permisos.js";
+import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, puede, queCambiaConElRol, rolPorDefecto, rolesQuePuedeDar } from "../src/lib/permisos.js";
 
 const claves = PERMISOS.map((p) => p.clave);
 
@@ -73,4 +73,16 @@ test("se ofrecen sólo los roles dentro de lo propio, y Dueño sólo a un Dueño
   const recepcion = { es_duenio: false, permisos: ["manejar_roles", "cobrar"] };
   assert.deepEqual(rolesQuePuedeDar(recepcion, roles).map((r) => r.id), ["c"]);
   assert.deepEqual(rolesQuePuedeDar({ es_duenio: true, permisos: [] }, roles).map((r) => r.id), ["d", "c", "e"]);
+});
+
+test("el rol por defecto de un pedido nunca es Dueño: el de menos permisos, o ninguno", () => {
+  const d = { id: "d", es_duenio: true, permisos: [] };
+  const a = { id: "a", es_duenio: false, permisos: ["cobrar", "crear_casos"] };
+  const b = { id: "b", es_duenio: false, permisos: ["cobrar"] };
+  const c = { id: "c", es_duenio: false, permisos: ["crear_casos"] };
+  assert.equal(rolPorDefecto([d]), null);
+  assert.equal(rolPorDefecto([]), null);
+  assert.equal(rolPorDefecto(undefined), null);
+  assert.equal(rolPorDefecto([d, a, b]), "b");
+  assert.equal(rolPorDefecto([a, b, c]), "b");
 });
