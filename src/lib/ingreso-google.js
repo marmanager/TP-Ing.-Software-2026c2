@@ -34,10 +34,10 @@ export function errorDelIngreso(direccion) {
   if (!codigo) return null;
 
   if (codigo === "access_denied") {
-    return "No se completó el ingreso con Google. Si fue sin querer, probá de nuevo.";
+    return "No se completó el ingreso con Google. Si fue involuntario, vuelva a intentarlo.";
   }
   if (/provider is not enabled|unsupported provider/i.test(detalle)) {
-    return "El ingreso con Google todavía no está activado. Por ahora entrá con tu mail y tu contraseña.";
+    return "El ingreso con Google todavía no está activado. Por ahora, ingrese con su correo y su contraseña.";
   }
-  return "No pudimos entrar con Google. Probá de nuevo o entrá con tu mail y tu contraseña.";
+  return "No se pudo ingresar con Google. Vuelva a intentarlo o ingrese con su correo y su contraseña.";
 }

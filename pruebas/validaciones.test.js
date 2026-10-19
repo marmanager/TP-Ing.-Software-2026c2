@@ -221,8 +221,8 @@ test("el teléfono se compara sólo por los números", () => {
 
 test("la contraseña nueva necesita 8 caracteres y repetirla igual", () => {
   assert.equal(motivoDeContrasenaNueva("corta", "corta"), "necesita 8 caracteres o más");
-  assert.equal(motivoDeContrasenaNueva("larguita123", "larguita12"), "repetila igual abajo");
-  assert.equal(motivoDeContrasenaNueva("larguita123", ""), "repetila igual abajo");
+  assert.equal(motivoDeContrasenaNueva("larguita123", "larguita12"), "tiene que repetirse igual abajo");
+  assert.equal(motivoDeContrasenaNueva("larguita123", ""), "tiene que repetirse igual abajo");
   assert.equal(motivoDeContrasenaNueva("larguita123", "larguita123"), null);
 });
 

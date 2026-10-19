@@ -93,14 +93,14 @@ describe("Historia: recordarle el turno al cliente", () => {
     expect(cuandoSaleEnPalabras({ tipo: "turno", plazo: 2, rubro: "taller" }))
       .toBe("Le llega al cliente dos horas antes de su turno.");
     expect(cuandoSaleEnPalabras({ tipo: "cierre", plazo: 7, rubro: "taller" }))
-      .toBe("Le llega al cliente siete días después de que entregás el caso.");
+      .toBe("Le llega al cliente siete días después de que se entrega el caso.");
     expect(cuandoSaleEnPalabras({ tipo: "cierre", plazo: 0, rubro: "taller" }))
-      .toBe("Le llega al cliente apenas entregás el caso.");
+      .toBe("Le llega al cliente apenas se entrega el caso.");
   });
 
   test("un texto vacío no es válido", () => {
     expect(erroresDelRecordatorio({ tipo: "turno", plazo: "24", mensaje: "  " }).mensaje)
-      .toMatch(/Escribí el mensaje/);
+      .toMatch(/Escriba el mensaje/);
     expect(erroresDelRecordatorio({ tipo: "turno", plazo: "24", mensaje: "Hola" })).toEqual({});
     // Y el plazo, en su unidad: horas para el turno, días para el posventa.
     expect(erroresDelRecordatorio({ tipo: "turno", plazo: "0", mensaje: "Hola" }).plazo).toMatch(/entre 1 y 168 horas/);
@@ -141,7 +141,7 @@ describe("Historia: recordarle el turno al cliente", () => {
       aviso: { estado: "enviado", enviar_en: "2026-10-13T12:00:00Z", procesado_en: "2026-10-13T12:00:20Z" },
       ahora: AHORA,
     });
-    expect(r).toEqual({ estado: "enviado", frase: "Le mandamos el recordatorio hoy a las 09:00." });
+    expect(r).toEqual({ estado: "enviado", frase: "Se le envió el recordatorio hoy a las 09:00." });
   });
 
   test("un aviso fallido se traduce a una frase para la persona, sin el error técnico", () => {
@@ -150,7 +150,7 @@ describe("Historia: recordarle el turno al cliente", () => {
       ahora: AHORA,
     });
     expect(r.estado).toBe("fallido");
-    expect(r.frase).toBe("No se pudo enviar el recordatorio. Revisá que el teléfono del cliente tenga código de país.");
+    expect(r.frase).toBe("No se pudo enviar el recordatorio. Revise que el teléfono del cliente tenga código de país.");
     expect(r.frase).not.toMatch(/Kapso|HTTP|400|error/i);
   });
 

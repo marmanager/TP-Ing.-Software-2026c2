@@ -101,7 +101,7 @@ export function fechaSugerida({ rubro, hoy }) {
 // mira antes para no ofrecer un botón que va a fallar.
 export function errorDeVolverEn(fecha, hoy) {
   if (!fecha) return null;
-  if (!partes(fecha)) return "Elegí un día del calendario.";
+  if (!partes(fecha)) return "Elija un día del calendario.";
   return yaPaso(fecha, hoy) ? "la fecha ya pasó" : null;
 }
 
@@ -213,8 +213,8 @@ export function cuandoSaleEnPalabras({ tipo, plazo, rubro }) {
       ? `Le llega al cliente el día anterior a ${su}, a la misma hora.`
       : `Le llega al cliente ${anticipacionEnPalabras(n)} de ${su}.`;
   }
-  if (n === 0) return "Le llega al cliente apenas entregás el caso.";
-  return `Le llega al cliente ${n === 1 ? "un día" : `${enLetras(n)} días`} después de que entregás el caso.`;
+  if (n === 0) return "Le llega al cliente apenas se entrega el caso.";
+  return `Le llega al cliente ${n === 1 ? "un día" : `${enLetras(n)} días`} después de que se entrega el caso.`;
 }
 
 // Lo que falta para poder guardar un recordatorio, por campo. El plazo va
@@ -224,11 +224,11 @@ export function erroresDelRecordatorio({ tipo, plazo, mensaje }) {
   const valor = String(plazo ?? "").trim();
   const entero = /^\d+$/.test(valor) ? Number(valor) : null;
   const plazoMal = tipo === "turno"
-    ? (entero === null || entero < 1 || entero > 168) && "Elegí una cantidad de horas enteras entre 1 y 168 horas."
-    : (entero === null || entero > 3650) && "Elegí una cantidad de días enteros entre 0 y 3650.";
+    ? (entero === null || entero < 1 || entero > 168) && "Elija una cantidad de horas enteras entre 1 y 168 horas."
+    : (entero === null || entero > 3650) && "Elija una cantidad de días enteros entre 0 y 3650.";
   const texto = String(mensaje ?? "").trim();
   const mensajeMal = !texto
-    ? "Escribí el mensaje que va a recibir el cliente."
+    ? "Escriba el mensaje que va a recibir el cliente."
     : texto.length > 3000 && "El mensaje no puede superar 3000 caracteres.";
   return {
     ...(plazoMal ? { plazo: plazoMal } : {}),
@@ -243,10 +243,10 @@ export function erroresDelRecordatorio({ tipo, plazo, mensaje }) {
 export function porQueNoHayAviso({ turno, cliente, rubro }) {
   const { cita } = vocabulario(rubro);
   if (!turno?.cliente_id) {
-    return { motivo: "sin_cliente", frase: `${mayuscula(cita.el())} no tiene cliente, así que no le llega recordatorio.` };
+    return { motivo: "sin_cliente", frase: `${mayuscula(cita.el())} no tiene cliente, por lo que no se envía recordatorio.` };
   }
   if (!telefonoWhatsAppValido(cliente?.telefono)) {
-    return { motivo: "sin_telefono", frase: "Falta el teléfono del cliente, con código de país, para mandarle el recordatorio." };
+    return { motivo: "sin_telefono", frase: "Falta el teléfono del cliente, con código de país, para enviarle el recordatorio." };
   }
   return null;
 }
@@ -285,11 +285,11 @@ export function avisoEnPalabras({ aviso, ahora }) {
     case "pendiente":
       return { estado: "programado", frase: `Le va a llegar el recordatorio ${momentoEnPalabras(aviso.enviar_en, ahora)}.` };
     case "enviado":
-      return { estado: "enviado", frase: `Le mandamos el recordatorio ${momentoEnPalabras(aviso.procesado_en ?? aviso.enviar_en, ahora)}.` };
+      return { estado: "enviado", frase: `Se le envió el recordatorio ${momentoEnPalabras(aviso.procesado_en ?? aviso.enviar_en, ahora)}.` };
     case "fallido":
       return {
         estado: "fallido",
-        frase: "No se pudo enviar el recordatorio. Revisá que el teléfono del cliente tenga código de país.",
+        frase: "No se pudo enviar el recordatorio. Revise que el teléfono del cliente tenga código de país.",
       };
     default:
       return null;

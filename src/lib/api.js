@@ -49,22 +49,22 @@ const SEGUNDOS = 15;
 // Las frases para cuando la API no contestó con las suyas. Son del mismo
 // estilo que el resto del sistema: dicen qué pasó y qué hacer.
 const PORQUE = {
-  401: { codigo: "sesion_vencida", mensaje: "Tu sesión venció. Volvé a entrar y probá de nuevo." },
-  403: { codigo: "sin_permiso", mensaje: "No tenés permiso para hacer eso." },
-  404: { codigo: "no_esta", mensaje: "Eso ya no está." },
-  409: { codigo: "choque", mensaje: "Alguien más lo cambió mientras tanto. Volvé a abrirlo." },
-  422: { codigo: "datos_invalidos", mensaje: "Revisá los datos: hay algo que no está bien." },
-  429: { codigo: "muchos_intentos", mensaje: "Probá de nuevo en un minuto: se hicieron muchos intentos seguidos." },
+  401: { codigo: "sesion_vencida", mensaje: "La sesión venció. Vuelva a iniciar sesión e inténtelo de nuevo." },
+  403: { codigo: "sin_permiso", mensaje: "No tiene permiso para realizar esta acción." },
+  404: { codigo: "no_esta", mensaje: "Lo que se buscaba ya no está." },
+  409: { codigo: "choque", mensaje: "Otra persona lo modificó mientras tanto. Vuelva a abrirlo." },
+  422: { codigo: "datos_invalidos", mensaje: "Revise los datos: alguno no es válido." },
+  429: { codigo: "muchos_intentos", mensaje: "Vuelva a intentarlo en un minuto: se hicieron muchos intentos seguidos." },
 };
 
 const SIN_CONEXION = {
   codigo: "sin_conexion",
-  mensaje: "No pudimos conectarnos. Fijate que tengas internet y volvé a probar.",
+  mensaje: "No se pudo conectar con el servidor. Verifique la conexión a internet y vuelva a intentarlo.",
 };
 
 const SE_ROMPIO = {
   codigo: "error_interno",
-  mensaje: "No pudimos completar la operación. Probá de nuevo en un rato.",
+  mensaje: "No se pudo completar la operación. Vuelva a intentarlo en unos minutos.",
 };
 
 // Qué hacer cuando la API dice que la sesión venció. Lo engancha el
@@ -119,7 +119,7 @@ export async function api(
       ok: false,
       error: {
         codigo: "sin_api",
-        mensaje: "La aplicación todavía no está conectada al servidor. Avisale a quien la configuró.",
+        mensaje: "La aplicación todavía no está conectada al servidor. Comuníquelo a quien la configuró.",
       },
     };
   }

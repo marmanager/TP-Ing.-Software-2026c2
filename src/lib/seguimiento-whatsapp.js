@@ -10,9 +10,9 @@ export function erroresSeguimiento(valor) {
   const dias = String(valor.dias ?? "");
   return {
     ...(!/^\d+$/.test(dias) || Number(dias) > 3650
-      ? { dias: "Elegí una cantidad de días enteros entre 0 y 3650." } : {}),
+      ? { dias: "Elija una cantidad de días enteros entre 0 y 3650." } : {}),
     ...(!valor.mensaje?.trim()
-      ? { mensaje: "Escribí el mensaje que va a recibir el cliente." }
+      ? { mensaje: "Escriba el mensaje que va a recibir el cliente." }
       : valor.mensaje.trim().length > 3000
         ? { mensaje: "El mensaje no puede superar 3000 caracteres." } : {}),
   };

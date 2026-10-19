@@ -31,7 +31,7 @@ export const motivoDeContrasenaNueva = (nueva = "", repetida = "") =>
   !contrasenaValida(nueva)
     ? "necesita 8 caracteres o más"
     : nueva !== repetida
-      ? "repetila igual abajo"
+      ? "tiene que repetirse igual abajo"
       : null;
 
 // El monto va en números y sin puntos (cartilla, sección 05: «Escribí el

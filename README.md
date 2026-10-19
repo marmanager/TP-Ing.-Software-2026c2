@@ -192,7 +192,7 @@ estuvieran escritos en ningún lado.
 ## Decisiones que se apartan de la cartilla
 
 La cartilla es normativa: si una decisión de diseño choca con ella, gana la
-cartilla. Estas dos la contradicen a propósito, por decisión del equipo, y
+cartilla. Estas tres la contradicen a propósito, por decisión del equipo, y
 quedan escritas acá para que nadie las "corrija" sin saberlo.
 
 - **Un paso aprobado por el cliente no se deshace.** Las secciones 08 y 09
@@ -206,6 +206,23 @@ quedan escritas acá para que nadie las "corrija" sin saberlo.
   toque, y "Más" abre un panel a pantalla completa con todas las secciones,
   igual que la barra lateral de la computadora. Va con ícono y palabra, y
   queda marcado cuando la pantalla actual está adentro.
+- **Los textos son formales e impersonales, sin voseo.** La cartilla pide
+  hablarle al usuario de vos y en registro coloquial; esa regla deja de
+  aplicarse. Los textos tienen que ser serios y entendibles para cualquier
+  persona:
+  - Se prefiere la forma impersonal o nominal: «Este rol no incluye ese
+    permiso», «Sólo lectura», «Cambios guardados», «No se pudo guardar».
+  - Cuando hay que pedirle algo a quien usa la aplicación, se lo trata de
+    usted: «Escriba el nombre del negocio», «Revise el teléfono».
+  - Nunca vos ni tú: nada de «podés», «tenés», «elegí», «tu negocio».
+  - Sin giros coloquiales: «Listo, …», «Justo te lo ganaron», «plata»,
+    «prender un módulo».
+  - Vale para todo lo que se lee: pantallas internas, lo que ve el cliente
+    del negocio (link de seguimiento, pedir turno, mails, mensajes de
+    WhatsApp que arma el sistema) y los mensajes de error de la API y de
+    las funciones SQL.
+  - Los comentarios del código no son textos de la aplicación y quedan como
+    están.
 
 ## El Inicio se arma por módulos
 

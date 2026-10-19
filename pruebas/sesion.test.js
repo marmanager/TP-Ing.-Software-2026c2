@@ -172,7 +172,7 @@ test("al renovar conserva el usuario y que la sesión era de recuperación", asy
 test("si renovar falla, no hay token y el storage queda vacío", async () => {
   const storage = storageFalso();
   guardar(storage, { token: "a", refresh_token: "r", vence_en: AHORA - 10 });
-  const { renovar } = renovarFalso({ ok: false, error: { codigo: "sesion_vencida", mensaje: "Tu sesión venció." } });
+  const { renovar } = renovarFalso({ ok: false, error: { codigo: "sesion_vencida", mensaje: "La sesión venció." } });
 
   assert.equal(await tokenVigente({ storage, ahora: AHORA, renovar }), null);
   assert.equal(storage.getItem(LLAVE), null);

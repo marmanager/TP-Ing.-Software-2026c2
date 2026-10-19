@@ -768,8 +768,8 @@ export default function Bienvenida() {
 
               <p className="mt-5 max-w-[62ch] text-cuerpo text-tinta-media md:mt-6">
                 Los cinco son siempre los mismos y están en los tres rubros: lo único que cambia
-                son las palabras. Elegís el tuyo una vez, cuando creás el negocio, y el sistema
-                pasa a hablar como vos.
+                son las palabras. El rubro se elige una vez, al crear el negocio, y el sistema
+                pasa a usar las palabras de ese rubro.
               </p>
             </div>
           </div>

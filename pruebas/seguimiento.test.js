@@ -369,7 +369,7 @@ test("lo que manda la API se muestra tal cual, y sirve", () => {
 test("un link que la API no conoce no sirve", () => {
   const r = seguimientoDeLaApi({
     ok: false,
-    error: { codigo: "seguimiento_no_encontrado", mensaje: "Este link ya no sirve. Pedile uno nuevo al negocio." },
+    error: { codigo: "seguimiento_no_encontrado", mensaje: "Este link ya no es válido. Pida uno nuevo al negocio." },
   });
 
   assert.deepEqual(r, { sirve: false });
@@ -391,20 +391,20 @@ test("un link que la API no conoce no sirve", () => {
 test("si la API no contesta, se dice eso y no que el link murió", () => {
   const sinConexion = seguimientoDeLaApi({
     ok: false,
-    error: { codigo: "sin_conexion", mensaje: "No pudimos conectarnos. Fijate que tengas internet y volvé a probar." },
+    error: { codigo: "sin_conexion", mensaje: "No se pudo conectar con el servidor. Verifique la conexión a internet y vuelva a intentarlo." },
   });
   assert.deepEqual(sinConexion, {
     sirve: false,
-    problema: "No pudimos conectarnos. Fijate que tengas internet y volvé a probar.",
+    problema: "No se pudo conectar con el servidor. Verifique la conexión a internet y vuelva a intentarlo.",
   });
 
   const muchos = seguimientoDeLaApi({
     ok: false,
-    error: { codigo: "muchos_intentos", mensaje: "Probá de nuevo en un minuto: se hicieron muchos intentos seguidos." },
+    error: { codigo: "muchos_intentos", mensaje: "Vuelva a intentarlo en un minuto: se hicieron muchos intentos seguidos." },
   });
   assert.deepEqual(muchos, {
     sirve: false,
-    problema: "Probá de nuevo en un minuto: se hicieron muchos intentos seguidos.",
+    problema: "Vuelva a intentarlo en un minuto: se hicieron muchos intentos seguidos.",
   });
 });
 

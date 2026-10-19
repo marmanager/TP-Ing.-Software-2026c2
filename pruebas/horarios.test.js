@@ -67,7 +67,7 @@ test("sin nada configurado no inventa un horario", () => {
   // ningún día": con nulo la página pública no puede abrir.
   assert.equal(normalizarHorarios(null), null);
   assert.equal(normalizarHorarios(undefined), null);
-  assert.deepEqual(problemasDeHorarios(null), ["Todavía no configuraste tus horarios."]);
+  assert.deepEqual(problemasDeHorarios(null), ["Todavía no se configuraron los horarios."]);
 });
 
 test("lo guardado a medias no rompe: se completa con lo de fábrica", () => {
@@ -88,7 +88,7 @@ test("«9:00» y «09:00» son la misma hora", () => {
 });
 
 test("avisa lo que falta, en vez de abrir una página vacía", () => {
-  assert.deepEqual(problemasDeHorarios(config({ dias: [] })), ["Elegí al menos un día."]);
+  assert.deepEqual(problemasDeHorarios(config({ dias: [] })), ["Elija al menos un día."]);
   assert.deepEqual(problemasDeHorarios(config({ desde: "18:00", hasta: "09:00" })), [
     "La hora de cierre tiene que ser posterior a la de apertura.",
   ]);
@@ -98,7 +98,7 @@ test("avisa lo que falta, en vez de abrir una página vacía", () => {
   );
   assert.deepEqual(
     problemasDeHorarios(config({ corte: { desde: "07:00", hasta: "08:00" } })),
-    ["El corte tiene que caer adentro del horario."]
+    ["El corte tiene que quedar dentro del horario."]
   );
 });
 

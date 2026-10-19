@@ -137,12 +137,12 @@ test("nunca devuelve 'reintentable': eso es cosa de adentro", async () => {
 test("el mensaje que escribió la API llega tal cual, con su código y su campo", async () => {
   const { fetcher } = apiFalsa(422, {
     ok: false,
-    error: { codigo: "monto_invalido", mensaje: "El monto va con números, sin puntos, y mayor que cero.", campo: "monto" },
+    error: { codigo: "monto_invalido", mensaje: "El monto se escribe con números, sin puntos, y tiene que ser mayor que cero.", campo: "monto" },
   });
   const r = await mandar("/cobros", {}, "t", { base: BASE, fetcher });
   assert.equal(r.ok, false);
   assert.equal(r.error.codigo, "monto_invalido");
-  assert.equal(r.error.mensaje, "El monto va con números, sin puntos, y mayor que cero.");
+  assert.equal(r.error.mensaje, "El monto se escribe con números, sin puntos, y tiene que ser mayor que cero.");
   assert.equal(r.error.campo, "monto");
 });
 
@@ -164,9 +164,9 @@ test("si la API no explica nada, la frase la pone el front según el código", a
     [401, /sesión venció/],
     [403, /permiso/],
     [404, /ya no está/],
-    [409, /Alguien más/],
+    [409, /Otra persona/],
     [429, /un minuto/],
-    [500, /Probá de nuevo en un rato/],
+    [500, /Vuelva a intentarlo en unos minutos/],
   ];
   for (const [estado, esperado] of casos) {
     const { fetcher } = apiFalsa(estado, null);
@@ -179,7 +179,7 @@ test("una respuesta que no es JSON —un error de un proxy— no rompe nada", as
   const { fetcher } = apiFalsa(502, null, { sinJson: true });
   const r = await api("/casos", { base: BASE, fetcher, reintentar: false });
   assert.equal(r.ok, false);
-  assert.match(r.error.mensaje, /Probá de nuevo/);
+  assert.match(r.error.mensaje, /Vuelva a intentarlo/);
 });
 
 test("un 200 que no dice ok no cuenta como bueno", async () => {
@@ -257,7 +257,7 @@ test("un pedido mal hecho no se repite: daría el mismo error", async () => {
 test("un 401 avisa una vez para que la aplicación cierre la sesión", async () => {
   let avisos = 0;
   alVencerLaSesion(() => avisos++);
-  const { fetcher } = apiFalsa(401, { ok: false, error: { codigo: "sesion_vencida", mensaje: "Tu sesión venció." } });
+  const { fetcher } = apiFalsa(401, { ok: false, error: { codigo: "sesion_vencida", mensaje: "La sesión venció." } });
   await traer("/casos", "t", { base: BASE, fetcher });
   assert.equal(avisos, 1);
   alVencerLaSesion(null);
@@ -287,7 +287,7 @@ test("si la sesión no se puede renovar, no manda el token vencido", async () =>
 test("el pedido que renueva la sesión puede no avisar: su 401 lo maneja quien renueva", async () => {
   let avisos = 0;
   alVencerLaSesion(() => avisos++);
-  const { fetcher } = apiFalsa(401, { ok: false, error: { codigo: "sesion_vencida", mensaje: "Tu sesión venció." } });
+  const { fetcher } = apiFalsa(401, { ok: false, error: { codigo: "sesion_vencida", mensaje: "La sesión venció." } });
   const r = await mandar("/sesiones/renovar", { refresh_token: "r" }, null, { base: BASE, fetcher, avisarSiVence: false });
   assert.equal(r.error.codigo, "sesion_vencida");
   assert.equal(avisos, 0);

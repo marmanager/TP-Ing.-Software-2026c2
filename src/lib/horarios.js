@@ -119,10 +119,10 @@ const enMinutos = (hora) => {
 // está lista.
 export function problemasDeHorarios(horarios) {
   const h = normalizarHorarios(horarios);
-  if (!h) return ["Todavía no configuraste tus horarios."];
+  if (!h) return ["Todavía no se configuraron los horarios."];
 
   const problemas = [];
-  if (h.dias.length === 0) problemas.push("Elegí al menos un día.");
+  if (h.dias.length === 0) problemas.push("Elija al menos un día.");
 
   const abre = enMinutos(h.desde);
   const cierra = enMinutos(h.hasta);
@@ -136,7 +136,7 @@ export function problemasDeHorarios(horarios) {
     const cd = enMinutos(h.corte.desde);
     const ch = enMinutos(h.corte.hasta);
     if (ch <= cd) problemas.push("El corte del mediodía termina antes de empezar.");
-    else if (cd < abre || ch > cierra) problemas.push("El corte tiene que caer adentro del horario.");
+    else if (cd < abre || ch > cierra) problemas.push("El corte tiene que quedar dentro del horario.");
   }
 
   // Sin esto la configuración es válida pero no produce un solo turno, y en

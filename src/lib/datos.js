@@ -77,7 +77,7 @@ export async function buscarSeguimiento(codigo) {
 // Devuelve { ok } o { ok: false, motivo }. El motivo está escrito para el
 // cliente y se muestra tal cual.
 export async function responderDesdeElLink(codigo, pasoId, respuesta) {
-  if (!API) return { ok: false, motivo: "Por ahora no se puede contestar desde acá. Hablá con el negocio." };
+  if (!API) return { ok: false, motivo: "Por ahora no se puede responder desde aquí. Comuníquese con el negocio." };
   return respuestaDeLaApi(await mandar(
     `/publico/seguimiento/${encodeURIComponent(codigo)}/pasos/${encodeURIComponent(pasoId)}/respuesta`,
     { respuesta }
@@ -102,7 +102,7 @@ export async function buscarAgenda(codigo) {
 // escrito para que el cliente lo lea tal cual. La que decide si ese horario
 // se puede pedir es la API.
 export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }) {
-  if (!API) return { ok: false, motivo: "Por ahora no se puede pedir turno desde acá. Llamá al negocio." };
+  if (!API) return { ok: false, motivo: "Por ahora no se puede pedir turno desde aquí. Llame al negocio." };
   const r = await mandar(`/publico/agenda/${encodeURIComponent(codigo)}/turnos`, {
     empieza_en: new Date(cuando).toISOString(),
     motivo,
@@ -222,14 +222,14 @@ export function DatosProvider({ children }) {
         }
 
         setAviso(
-          "Tu negocio todavía no aparece en la base. Esperá unos segundos y volvé a entrar."
+          "El negocio todavía no aparece en la base. Espere unos segundos y vuelva a iniciar sesión."
         );
         setDatos(VACIO);
         setCargando(false);
       } catch {
         if (!vivo) return;
         setAviso(
-          "No se pudo leer el servidor. Fijate la conexión y volvé a entrar."
+          "No se pudo leer el servidor. Verifique la conexión y vuelva a iniciar sesión."
         );
         setDatos(VACIO);
         setCargando(false);
@@ -467,12 +467,12 @@ export function DatosProvider({ children }) {
         if (!r.ok) return setAviso(r.error.mensaje);
         incorporarCasoApi(r.datos);
         if (r.datos.notificacion?.estado === "fallido") {
-          setAviso("El estado se cambió, pero no pudimos enviar el aviso por WhatsApp.");
+          setAviso("El estado se cambió, pero no se pudo enviar el aviso por WhatsApp.");
         } else if (r.datos.notificacion) {
           setDeshacerExito(null);
           setExito(r.datos.notificacion.estado === "enviado"
-            ? "Listo, se cambió el estado y se le avisó al cliente por WhatsApp."
-            : "Listo, se cambió el estado y el aviso por WhatsApp quedó pendiente de envío.");
+            ? "Estado cambiado. Se avisó al cliente por WhatsApp."
+            : "Estado cambiado. El aviso por WhatsApp quedó pendiente de envío.");
         }
         return r.datos.caso;
       },
@@ -490,7 +490,7 @@ export function DatosProvider({ children }) {
         const caso = datos.casos.find((c) => c.id === casoId);
         if (!caso) return { ok: false, error: "Ese caso ya no está." };
         if (!montoDeCobroValido(String(monto ?? ""))) {
-          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+          return { ok: false, error: "El monto se escribe con números, sin puntos, y tiene que ser mayor que cero." };
         }
         if (!MEDIOS_DEL_LOCAL.includes(medio)) {
           return { ok: false, error: "Los cobros por link o QR se piden desde el sistema de pagos." };
@@ -527,7 +527,7 @@ export function DatosProvider({ children }) {
 
       async estadoMercadoPago() {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: "La sesión venció. Vuelva a iniciar sesión e inténtelo de nuevo." };
         const r = await traer("/cobros/mercadopago/status", token);
         return r.ok ? { ok: true, conectado: Boolean(r.datos?.conectado) }
           : { ok: false, error: r.error.mensaje };
@@ -535,21 +535,21 @@ export function DatosProvider({ children }) {
 
       async conectarMercadoPago() {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: "La sesión venció. Vuelva a iniciar sesión e inténtelo de nuevo." };
         const r = await mandar("/cobros/mercadopago/conectar", {}, token);
         return r.ok ? { ok: true, url: r.datos.url } : { ok: false, error: r.error.mensaje };
       },
 
       async desvincularMercadoPago() {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: "La sesión venció. Vuelva a iniciar sesión e inténtelo de nuevo." };
         const r = await quitar("/cobros/mercadopago/vinculacion", token);
         return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
       },
 
       async conciliarCobrosMercadoPago(casoId) {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: "La sesión venció. Vuelva a iniciar sesión e inténtelo de nuevo." };
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/conciliar`, {}, token);
         return r.ok ? { ok: true, ...r.datos } : { ok: false, error: r.error.mensaje };
       },
@@ -561,14 +561,14 @@ export function DatosProvider({ children }) {
         const caso = datos.casos.find((c) => c.id === casoId);
         if (!caso) return { ok: false, error: "Ese caso ya no está." };
         if (!montoDeCobroValido(String(monto ?? ""))) {
-          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+          return { ok: false, error: "El monto se escribe con números, sin puntos, y tiene que ser mayor que cero." };
         }
-        if (!MEDIOS_EN_LINEA.includes(medio)) return { ok: false, error: "Elegí link o QR." };
+        if (!MEDIOS_EN_LINEA.includes(medio)) return { ok: false, error: "Elija link o QR." };
 
         if (!pagosEnLinea().disponible) return { ok: false, error: "Todavía no está conectado el sistema de pagos." };
 
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: "La sesión venció. Vuelva a iniciar sesión e inténtelo de nuevo." };
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/en-linea`, {
           monto: Number(monto), medio,
         }, token, { idempotencia: nuevaClave() });
@@ -607,8 +607,8 @@ export function DatosProvider({ children }) {
             ok: false,
             error:
               cobro.estado === "pagado"
-                ? "Ese pago ya entró por el medio de pago. Para devolverlo, hay que hacerlo desde ahí."
-                : "Ese cobro ya no cuenta: no hay nada que anular.",
+                ? "Ese pago ya se acreditó por el medio de pago. La devolución se hace desde allí."
+                : "Ese cobro ya no está vigente: no hay nada que anular.",
           };
         }
 
@@ -664,7 +664,7 @@ export function DatosProvider({ children }) {
         if (seguimiento?.enviar && !r.datos.seguimiento) {
           avisos.push("El caso se cerró, pero no se programó el mensaje: el seguimiento está desactivado en el negocio.");
         } else if (r.datos.seguimiento?.estado === "fallido") {
-          avisos.push("El caso se cerró, pero no pudimos enviar el mensaje de seguimiento por WhatsApp.");
+          avisos.push("El caso se cerró, pero no se pudo enviar el mensaje de seguimiento por WhatsApp.");
         }
         // El borrador conserva el texto guardado al abrir el formulario. Sólo
         // actualizamos el predeterminado después de usarlo en un cierre confirmado.
@@ -675,7 +675,7 @@ export function DatosProvider({ children }) {
             mensaje: seguimiento.mensaje.trim(),
           }, await tokenDeSesion());
           if (!actualizado.ok) {
-            avisos.push(`El caso se cerró, pero no pudimos guardar el mensaje para los próximos casos. ${actualizado.error.mensaje}`);
+            avisos.push(`El caso se cerró, pero no se pudo guardar el mensaje para los próximos casos. ${actualizado.error.mensaje}`);
           }
         }
         if (avisos.length) setAviso(avisos.join(" "));
@@ -706,7 +706,7 @@ export function DatosProvider({ children }) {
             ok: false,
             error:
               caso?.estado === "completado"
-                ? "El caso ya se entregó. Volvé a abrirlo si hay algo que corregir."
+                ? "El caso ya se entregó. Vuelva a abrirlo si hay algo que corregir."
                 : "Sólo se marca lo que el cliente aprobó.",
           };
         }
@@ -739,7 +739,7 @@ export function DatosProvider({ children }) {
       // ya anda y el estado se puede mover a mano.
       async compartirCaso(casoId) {
         const caso = datos.casos.find((c) => c.id === casoId);
-        if (!caso) return { ok: false, error: "No encontramos ese caso." };
+        if (!caso) return { ok: false, error: "No se encontró ese caso." };
         if (caso.seguimiento_codigo) return { ok: true, codigo: caso.seguimiento_codigo };
 
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/compartir`, {});

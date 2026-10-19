@@ -39,8 +39,8 @@ export const PRESETS = {
       revision_final: "Control antes de entregar",
     },
     // Lo que le dice el link de seguimiento al cliente en cada estado. Habla
-    // el negocio, en primera persona, y le habla de vos como el resto de esa
-    // pantalla. Lo que dejó el cliente es "tu vehículo".
+    // el negocio, en primera persona del plural, y trata al cliente de usted
+    // como el resto de esa pantalla. Lo que dejó el cliente es "su vehículo".
     seguimiento: {
       nuevo: "Ya anotamos tu vehículo. Todavía no empezamos a trabajar en él.",
       en_proceso: "Estamos diagnosticando y evaluando posibles problemas con tu vehículo.",
