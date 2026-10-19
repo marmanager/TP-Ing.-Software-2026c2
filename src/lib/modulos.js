@@ -211,6 +211,21 @@ export const SUBMODULOS = {
     queHace:
       "Cuánto hay de cada producto en cada una de tus sedes vinculadas, el total, y qué falta dónde. Las sedes se vinculan desde Mi negocio.",
   },
+  // Lo que pidieron las otras sedes, adentro de "En camino" y no en una
+  // pantalla propia: "sinPantalla" lo deja fuera de las pestañas. Sólo se
+  // mira (nombre, modelo, cantidad y a qué sede va), sin el caso ni el
+  // cliente de la otra sede. A pedido, como "Todas las sedes".
+  en_camino_sedes: {
+    clave: "en_camino_sedes",
+    padre: "inventario",
+    nombre: "En camino en otras sedes",
+    icono: "camion",
+    aPedido: true,
+    sinPantalla: true,
+    descripcion: "Lo que pidieron tus sedes vinculadas, en En camino.",
+    queHace:
+      "Suma a En camino lo que pidieron tus sedes vinculadas y todavía no llegó, con a qué sede va. Sólo se mira: para cambiar algo se entra a esa sede.",
+  },
 };
 
 export const LISTA_SUBMODULOS = Object.values(SUBMODULOS);
@@ -233,6 +248,10 @@ export function hijosActivos(clave, activos = []) {
   const escritos = hijos.filter((h) => activos.includes(h.clave));
   return escritos.length ? escritos : hijos.filter((h) => !h.aPedido);
 }
+
+// Los hijos prendidos que son una pantalla: los que van en las pestañas.
+export const pantallasDe = (clave, activos = []) =>
+  hijosActivos(clave, activos).filter((h) => !h.sinPantalla);
 
 // Prender o apagar, devolviendo la lista nueva. Es una función suelta y no
 // dos líneas adentro de la pantalla porque tiene cinco reglas que no se ven:
@@ -261,11 +280,15 @@ export function alternarModulo(clave, activos = []) {
   const def = SUBMODULOS[clave];
   if (def) {
     const hermanos = hijosActivos(def.padre, activos).map((h) => h.clave);
-    // Apagar el último hijo es apagar el módulo entero. Antes no se podía
+    // Apagar la última pantalla es apagar el módulo entero. Antes no se podía
     // (el botón decía "apagá Inventario"). Y no alcanza con sacar al hijo:
     // un padre prendido sin ningún hijo escrito vale como "los dos" (ver
-    // hijosActivos), y volvería a prender lo que se acababa de apagar.
-    if (hermanos.length === 1 && hermanos[0] === clave) return alternarModulo(def.padre, activos);
+    // hijosActivos), y volvería a prender lo que se acababa de apagar. Un
+    // hijo sin pantalla no cuenta: solo, dejaría un módulo sin nada que abrir.
+    const pantallas = pantallasDe(def.padre, activos).map((h) => h.clave);
+    if (!def.sinPantalla && pantallas.length === 1 && pantallas[0] === clave) {
+      return alternarModulo(def.padre, activos);
+    }
     const resto = activos.filter((c) => !hermanos.includes(c));
     return hermanos.includes(clave)
       ? [...resto, ...hermanos.filter((c) => c !== clave)]
