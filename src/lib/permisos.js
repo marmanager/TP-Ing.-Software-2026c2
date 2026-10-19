@@ -11,6 +11,7 @@ export const PERMISOS = {
     manejarEquipo: true,
     verTodosLosCasos: true,
     cargarDatos: true,
+    verEstadisticas: true,
     vincularSedes: true,
     sumarAlEquipo: true,
   },
@@ -19,6 +20,7 @@ export const PERMISOS = {
     manejarEquipo: false,
     verTodosLosCasos: true,
     cargarDatos: true,
+    verEstadisticas: true,
     vincularSedes: false,
     sumarAlEquipo: false,
   },
@@ -27,6 +29,7 @@ export const PERMISOS = {
     manejarEquipo: false,
     verTodosLosCasos: false,
     cargarDatos: false,
+    verEstadisticas: false,
     vincularSedes: false,
     sumarAlEquipo: false,
   },
@@ -37,13 +40,14 @@ export const puede = (rol, que) => Boolean(PERMISOS[rol]?.[que]);
 
 // Para explicar por qué no se puede, con las palabras del mostrador.
 export const QUIEN_PUEDE = {
+  verEstadisticas: "El Dashboard lo consultan el dueño y el encargado.",
   configurarNegocio: "Esto lo cambia el dueño del negocio.",
   manejarEquipo: "Sumar y sacar gente lo hace el dueño del negocio.",
   cargarDatos: "Esto lo cargan el dueño y el encargado.",
   vincularSedes: "Vincular sedes lo hace el dueño del negocio.",
   sumarAlEquipo: "Sumar gente al equipo lo hace el dueño del negocio.",
   // Ninguna pantalla la consulta: de esta se encarga sola la base, que no le
-  // manda al técnico los casos que no son suyos. Está para que las cuatro
+  // manda al técnico los casos que no son suyos. Está para que todas las
   // acciones se puedan explicar con las mismas palabras si hace falta.
   verTodosLosCasos: "Cada quien ve los casos que tiene asignados.",
 };
@@ -51,6 +55,7 @@ export const QUIEN_PUEDE = {
 // Qué significa cada permiso, dicho de la persona. Para la confirmación de
 // Equipo: "Va a poder..." / "Deja de poder...".
 const QUE_ES = {
+  verEstadisticas: "consultar las estadísticas del negocio",
   configurarNegocio: "cambiar la configuración del negocio",
   manejarEquipo: "sumar y sacar gente del equipo",
   verTodosLosCasos: "ver todos los casos, no sólo los suyos",

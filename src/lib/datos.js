@@ -8,9 +8,17 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth";
-import { preset } from "./presets";
-import { productoParaLaApi } from "./inventario";
-import { sePuedeMarcarHecho } from "./estados";
+import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
+import { buscarIgual, limpiarProducto, productoParaLaApi } from "./inventario";
+import {
+  FIRMA_DEL_CLIENTE,
+  alLlegarInsumo,
+  alPedirInsumo,
+  elClienteDestraba,
+  elClienteVolvioADarTrabajo,
+  pesos,
+  sePuedeMarcarHecho,
+} from "./estados";
 import { normalizarInicio } from "./inicio";
 import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
@@ -626,6 +634,49 @@ export function DatosProvider({ children }) {
         setDatos((d) => ponerCobro(d, anulado));
         if (r.datos.evento) setDatos((d) => ({ ...d, eventos: [r.datos.evento, ...d.eventos] }));
         return { ok: true, cobro: anulado };
+      },
+
+      // Los agregados se consultan por separado de las listas de la pantalla.
+      async consultarCasosDashboard(periodo) {
+        const r = await traer(`/dashboard/casos?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        if (!r.datos.cerrados || !Array.isArray(r.datos.cerrados.por_dia))
+          return { ok: false, error: "No pudimos consultar los cierres de casos. Volvé a intentarlo." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarCobrosDashboard(periodo) {
+        const r = await traer(`/dashboard/cobros?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarInventarioDashboard() {
+        const r = await traer("/dashboard/inventario", await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarClientesDashboard(periodo) {
+        const r = await traer(`/dashboard/clientes?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarResumenDashboard(periodo) {
+        const r = await traer(`/dashboard/resumen?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, resumen: r.datos };
       },
 
       // Los mensajes por WhatsApp: el de seguimiento que se manda al
