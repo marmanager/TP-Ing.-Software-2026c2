@@ -33,11 +33,11 @@ async function prenderLaAgendaYElRecordatorio() {
   await browser.url("/negocio/modulos");
   await $("button=Prender Agenda").click();
   await expect($("button=Apagar Agenda")).toBeDisplayed();
-  await browser.url("/negocio/recordatorios");
+  await browser.url("/negocio/recordatorios/turno");
   await $('button[role="switch"]*=Recordatorio del turno').click();
   await reemplazarTexto("#turno-plazo", "24");
-  await $("button*=Guardar los recordatorios").click();
-  await verTexto("Quedaron prendidos el de antes del turno");
+  await $("button*=Guardar el recordatorio").click();
+  await verTexto("«Antes del turno» quedó prendido");
 }
 
 async function anotarTurno({ cliente, motivo, cuando }) {
