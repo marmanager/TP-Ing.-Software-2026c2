@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { candidatosParaVincular, desvincularSede, misSedes, vincularSede } from "@/lib/sedes";
+import { candidatosParaVincular, desvincularSede, misSedes, vincularSede, visitarSede } from "@/lib/sedes";
+import Icono from "./Icono";
 import FilaNegocio from "./FilaNegocio";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
@@ -55,6 +56,17 @@ export default function SedesVinculadas() {
     avisarExito(`Listo. ${negocio?.nombre} y ${otro.nombre} quedaron vinculadas.`);
   }
 
+  // Entra a mirar otra sede (sólo lectura). Se recarga la aplicación entera,
+  // como al cambiar de negocio: todos los datos son de la otra sede.
+  async function visitar(id) {
+    setOcupado(true);
+    setError(null);
+    const r = await visitarSede(id, token);
+    if (r.ok) return window.location.assign("/");
+    setOcupado(false);
+    setError(r.error);
+  }
+
   async function desvincular() {
     setOcupado(true);
     setError(null);
@@ -81,6 +93,16 @@ export default function SedesVinculadas() {
             <li key={s.id} className="flex items-center gap-3">
               <FilaNegocio negocio={s} />
               {s.id === negocio?.id && <span className="text-tinta-media">(ésta)</span>}
+              {s.soy_miembro === false && (
+                <>
+                  <span className="flex items-center gap-1 font-bold text-tinta-media">
+                    <Icono nombre="ojo" className="size-5" /> Solo lectura
+                  </span>
+                  <Boton motivo={ocupado ? "entrando" : null} onClick={() => visitar(s.id)}>
+                    Ver la sede
+                  </Boton>
+                </>
+              )}
             </li>
           ))}
         </ul>
