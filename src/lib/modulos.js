@@ -88,6 +88,15 @@ export const MODULOS = {
     queHace:
       "Lo que fue pasando en los casos, día por día y con quién lo hizo: lo que entró, lo que se entregó y la plata. Apagarlo saca la sección del menú: lo que pasa se sigue anotando, y cada caso sigue mostrando el suyo.",
   },
+  dashboard: {
+    clave: "dashboard",
+    nombre: "Dashboard",
+    icono: "grafico",
+    ruta: "/dashboard",
+    descripcion: "La actividad del negocio, organizada por categoría.",
+    queHace:
+      "Un lugar para consultar la actividad del negocio por casos, cobros, clientes e inventario. Sus categorías se recorren desde una barra superior y se prenden o apagan juntas con este módulo.",
+  },
 };
 
 export const LISTA_MODULOS = Object.values(MODULOS);

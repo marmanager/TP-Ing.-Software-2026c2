@@ -12,9 +12,9 @@ import assert from "node:assert/strict";
 import { PERMISOS, puede, queCambiaConElRol, quienEscribe } from "../src/lib/permisos.js";
 
 const ROLES = ["duenio", "encargado", "tecnico"];
-const ACCIONES = ["configurarNegocio", "manejarEquipo", "verTodosLosCasos", "cargarDatos"];
+const ACCIONES = ["configurarNegocio", "manejarEquipo", "verTodosLosCasos", "cargarDatos", "verEstadisticas"];
 
-test("los tres roles definen las cuatro acciones", () => {
+test("los tres roles definen todas las acciones", () => {
   for (const rol of ROLES) {
     for (const accion of ACCIONES) {
       assert.equal(
@@ -34,6 +34,7 @@ test("el dueño puede todo", () => {
 
 test("el encargado trabaja pero no configura ni suma gente", () => {
   assert.equal(puede("encargado", "cargarDatos"), true);
+  assert.equal(puede("encargado", "verEstadisticas"), true);
   assert.equal(puede("encargado", "verTodosLosCasos"), true);
   assert.equal(puede("encargado", "configurarNegocio"), false);
   assert.equal(puede("encargado", "manejarEquipo"), false);
@@ -107,11 +108,12 @@ test("nunca firma en blanco: una firma vacía se lee como un olvido del sistema"
 // confirmarlo, la pantalla dice qué gana y qué pierde esa persona: en un
 // desplegable de celular el dedo elige otra opción sin querer (auditoría, H5).
 
-test("pasar de técnico a encargado: gana ver todo y cargar, no pierde nada", () => {
+test("pasar de técnico a encargado: gana ver todo, cargar y consultar estadísticas, no pierde nada", () => {
   const { gana, pierde } = queCambiaConElRol("tecnico", "encargado");
-  assert.equal(gana.length, 2);
+  assert.equal(gana.length, 3);
   assert.ok(gana.some((t) => /todos los casos/.test(t)));
   assert.ok(gana.some((t) => /cargar/.test(t)));
+  assert.ok(gana.some((t) => /estadísticas/.test(t)));
   assert.deepEqual(pierde, []);
 });
 

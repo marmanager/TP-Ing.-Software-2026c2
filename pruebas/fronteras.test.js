@@ -114,6 +114,8 @@ test("la dirección de la API se nombra en un solo lugar", () => {
 // haber que desenredarla.
 
 const PUROS = [
+  "src/lib/dashboard.js",
+  "src/lib/dashboard-casos.js",
   "src/lib/estados.js",
   "src/lib/cobros.js",
   "src/lib/horarios.js",

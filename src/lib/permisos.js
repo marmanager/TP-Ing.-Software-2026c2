@@ -1,9 +1,8 @@
 // Qué puede hacer cada rol (SCRUM-18).
 //
-// Es el mismo criterio que hacen cumplir las políticas de
-// supabase/008_permisos.sql. Acá sólo sirve para no ofrecer botones que la
-// base va a rechazar: **la que manda es la base**. Si algún día los dos no
-// coinciden, esconder un botón no protege nada y la política sí.
+// La API y las políticas de Supabase hacen cumplir los permisos. Acá sólo
+// sirven para no ofrecer acciones que el servidor va a rechazar: esconder un
+// botón no protege los datos. Dashboard valida su permiso también en la API.
 //
 // El modo de ejemplo no tiene cuenta, así que juega como dueño: es un
 // sandbox para recorrer el sistema entero.
@@ -14,18 +13,21 @@ export const PERMISOS = {
     manejarEquipo: true,
     verTodosLosCasos: true,
     cargarDatos: true,
+    verEstadisticas: true,
   },
   encargado: {
     configurarNegocio: false,
     manejarEquipo: false,
     verTodosLosCasos: true,
     cargarDatos: true,
+    verEstadisticas: true,
   },
   tecnico: {
     configurarNegocio: false,
     manejarEquipo: false,
     verTodosLosCasos: false,
     cargarDatos: false,
+    verEstadisticas: false,
   },
 };
 
@@ -66,11 +68,12 @@ export function quienEscribe({ esDemo, usuario, empleados = [] } = {}) {
 
 // Para explicar por qué no se puede, con las palabras del mostrador.
 export const QUIEN_PUEDE = {
+  verEstadisticas: "El Dashboard lo consultan el dueño y el encargado.",
   configurarNegocio: "Esto lo cambia el dueño del negocio.",
   manejarEquipo: "Sumar y sacar gente lo hace el dueño del negocio.",
   cargarDatos: "Esto lo cargan el dueño y el encargado.",
   // Ninguna pantalla la consulta: de esta se encarga sola la base, que no le
-  // manda al técnico los casos que no son suyos. Está para que las cuatro
+  // manda al técnico los casos que no son suyos. Está para que todas las
   // acciones se puedan explicar con las mismas palabras si hace falta.
   verTodosLosCasos: "Cada quien ve los casos que tiene asignados.",
 };
@@ -78,6 +81,7 @@ export const QUIEN_PUEDE = {
 // Qué significa cada permiso, dicho de la persona. Para la confirmación de
 // Equipo: "Va a poder..." / "Deja de poder...".
 const QUE_ES = {
+  verEstadisticas: "consultar las estadísticas del negocio",
   configurarNegocio: "cambiar la configuración del negocio",
   manejarEquipo: "sumar y sacar gente del equipo",
   verTodosLosCasos: "ver todos los casos, no sólo los suyos",

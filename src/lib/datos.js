@@ -22,6 +22,8 @@ import {
   pesos,
   sePuedeMarcarHecho,
 } from "./estados";
+import { estadisticasCasosDemo } from "./dashboard-casos.js";
+import { resumenDashboardDemo } from "./dashboard.js";
 import { normalizarInicio } from "./inicio";
 import { nombreInicial } from "./nombres.js";
 import { quienEscribe } from "./permisos";
@@ -1210,10 +1212,41 @@ export function DatosProvider({ children }) {
         return { ok: true, cobro: anulado };
       },
 
-      // La API guarda cobro, descuento, cierre e historial en la misma
-      // transacción. Esta acción sólo existe en el camino nuevo; el formulario
-      // conserva abajo el camino anterior mientras el interruptor esté apagado.
-      async entregarCaso({ casoId, monto, medio, resto }) {
+      // Los agregados se consultan por separado de las listas de la pantalla.
+      async consultarCasosDashboard(periodo) {
+        if (!porLaApi()) return { ok: true, estadisticas: estadisticasCasosDemo(datos, periodo) };
+        const r = await traer(`/dashboard/casos?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        if (!r.datos.cerrados || !Array.isArray(r.datos.cerrados.por_dia))
+          return { ok: false, error: "No pudimos consultar los cierres de casos. Volvé a intentarlo." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarResumenDashboard(periodo) {
+        if (!porLaApi()) return { ok: true, resumen: resumenDashboardDemo(datos, periodo) };
+        const r = await traer(`/dashboard/resumen?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, resumen: r.datos };
+      },
+
+      async consultarSeguimiento() {
+        const r = await traer("/negocio/seguimiento", await tokenDeSesion());
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+      },
+
+      async configurarSeguimiento(cambios) {
+        const r = await parchar("/negocio/seguimiento", cambios, await tokenDeSesion());
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+      },
+
+      // La API guarda cobro, descuento, cierre e historial en la misma transacción.
+      async entregarCaso({ casoId, monto, medio, resto, seguimiento }) {
+        const error = Object.values(erroresSeguimiento(seguimiento))[0];
+        if (error) return { ok: false, error };
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/entregar`, {
           monto: monto == null ? null : Number(monto),
           medio: Number(monto) > 0 ? medio : null,
