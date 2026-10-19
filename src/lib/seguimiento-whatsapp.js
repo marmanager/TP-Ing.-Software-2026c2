@@ -30,3 +30,24 @@ export function seguimientoParaLaApi(valor) {
     seguimiento_mensaje: valor.mensaje.trim(),
   };
 }
+
+// El aviso de avance ("Notificar" al cambiar el estado) lleva el link de
+// seguimiento que el caso ya tiene: lo suma la API al mandarlo (R-11). Sin
+// link sale igual, sin él, y esto es lo que se dice antes, con el botón para
+// generarlo. null si el caso ya tiene link.
+//
+// Generarlo es compartir el caso: si tiene pasos sin contestar y no está
+// esperando, queda esperando la respuesta del cliente (compartir() de la
+// API). Se dice antes, no después.
+export function linkDelAvisoDeAvance({ caso, pasos = [] }) {
+  if (!caso || caso.seguimiento_codigo) return null;
+  const quedaEsperando = caso.estado !== "esperando"
+    && pasos.some((p) => p.caso_id === caso.id && p.estado === "esperando");
+  return {
+    frase: "Este caso no tiene link para que el cliente vea cómo va: el aviso sale sin link.",
+    boton: "Generar el link",
+    consecuencia: quedaEsperando
+      ? "Tiene pasos sin contestar: al generarlo, el caso queda esperando la respuesta del cliente."
+      : null,
+  };
+}
