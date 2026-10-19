@@ -22,6 +22,8 @@ import {
 import { normalizarInicio } from "./inicio";
 import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
+import { normalizarLanding } from "./landing.js";
+import { borrarLlave, guardarLlave, leerLlave } from "./llave-landing.js";
 import { pagosEnLinea } from "./pagos.js";
 import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./api.js";
 import { instanteParaLaApi, turnoParaLaApi } from "./turnos.js";
@@ -119,6 +121,137 @@ export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }
   });
   if (r.ok) return { ok: true, cuando: r.datos.cuando, minutos: r.datos.minutos };
   return { ok: false, motivo: r.error.mensaje };
+}
+
+// ------------------------------------------------------------
+// La landing pública de un negocio (/n/[codigo])
+// ------------------------------------------------------------
+// Funciones sueltas, como las de arriba: quien abre la landing no tiene
+// sesión ni negocio. Tres cosas valen para todas:
+//
+//   · Van sin token. Lo único que identifica al cliente es su llave
+//     (src/lib/llave-landing.js), y viaja por "autorizacion" y no por
+//     "token": api.js cambia el token por el de la sesión del dueño.
+//   · Van con avisarSiVence: false. Un 401 acá (datos incorrectos, llave
+//     vencida) es del cliente; si avisara, le cerraría la sesión al dueño que
+//     tenga la app abierta en el mismo navegador.
+//   · Las que escriben son POST sin clave de idempotencia, así que api.js no
+//     las repite: un intento de entrar de más cuenta para el bloqueo.
+//
+// Las que piden algo devuelven { ok: true, ... } o { ok: false, codigo,
+// mensaje }: el código es sobre lo que se ramifica; el mensaje, para mostrar.
+const enLanding = (codigo, resto = "") => `/publico/landing/${encodeURIComponent(codigo)}${resto}`;
+const SIN_AVISO = { avisarSiVence: false };
+const conLlave = (llave) => ({ ...SIN_AVISO, autorizacion: `Llave ${llave}` });
+
+const falla = (r) => ({ ok: false, codigo: r.error.codigo, mensaje: r.error.mensaje });
+
+// Sin llave guardada no se pregunta: la respuesta de la API sería la misma.
+const SIN_LLAVE = {
+  ok: false,
+  codigo: "llave_vencida",
+  mensaje: "Pasó un rato desde que entraste. Volvé a poner tus datos.",
+};
+
+// Lo que se ve sin entrar. La landing viene normalizada (lo que el negocio
+// no eligió, de fábrica) y "horarios" viene null si el negocio no publicó los
+// suyos: lo decide la API. Si la API no contesta se dice eso y no "el link no
+// sirve", que sería mentira.
+export async function buscarLanding(codigo) {
+  const r = await traer(enLanding(codigo), null, SIN_AVISO);
+  if (r.ok) {
+    const { negocio, landing, modulos_activos, horarios } = r.datos;
+    return { sirve: true, negocio, landing: normalizarLanding(landing), modulos_activos, horarios };
+  }
+  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje };
+  return { sirve: false };
+}
+
+// Los días con lugar para "Sacar turno": lo mismo que buscarAgenda().
+export async function agendaDeLanding(codigo) {
+  const r = await traer(enLanding(codigo, "/agenda"), null, SIN_AVISO);
+  if (r.ok) return agendaDeLaApi(r.datos);
+  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje };
+  return { sirve: false };
+}
+
+// Entrar con el identificador (la patente, en un taller) y los últimos 4 del
+// teléfono. Si coinciden, la llave queda guardada en este navegador; si no,
+// el código dice por qué (datos_incorrectos, muchos_intentos...).
+export async function entrarALanding(codigo, { identificador, ultimos4 }) {
+  const r = await mandar(
+    enLanding(codigo, "/ingresar"),
+    { identificador: String(identificador ?? "").trim(), ultimos4: String(ultimos4 ?? "").trim() },
+    null,
+    SIN_AVISO
+  );
+  if (!r.ok) return falla(r);
+  // Sin dónde guardarla, entrar no serviría de nada: en la pantalla siguiente
+  // habría que volver a poner los datos.
+  if (!guardarLlave(codigo, r.datos))
+    return {
+      ok: false,
+      codigo: "sin_almacenamiento",
+      mensaje: "Tu navegador no nos deja recordar que entraste. Probá abrir el link en otro navegador.",
+    };
+  return { ok: true };
+}
+
+// Lo suyo, con la llave guardada. Si la API dice que la llave venció, se
+// borra: seguir mandándola sólo repetiría el error.
+async function loSuyo(codigo, resto) {
+  const llave = leerLlave(codigo);
+  if (!llave) return { ...SIN_LLAVE };
+  const r = await traer(enLanding(codigo, resto), null, conLlave(llave));
+  if (r.ok) return r;
+  if (r.error.codigo === "llave_vencida") borrarLlave(codigo);
+  return falla(r);
+}
+
+export async function misCasosEnLanding(codigo) {
+  const r = await loSuyo(codigo, "/mis-casos");
+  return r.ok ? { ok: true, casos: r.datos.casos ?? [] } : r;
+}
+
+export async function misTurnosEnLanding(codigo) {
+  const r = await loSuyo(codigo, "/mis-turnos");
+  return r.ok ? { ok: true, turnos: r.datos.turnos ?? [] } : r;
+}
+
+// Sacar turno. Con llave, el turno va a nombre de quien entró y sólo viajan el
+// horario y el motivo. Sin llave es el registro: viajan también nombre,
+// teléfono e identificador, y si sale la API devuelve una llave, así que la
+// persona queda adentro sin entrar aparte. La que decide si ese horario se
+// puede pedir es la API.
+export async function reservarEnLanding(codigo, { cuando, motivo, nombre, telefono, identificador }) {
+  const llave = leerLlave(codigo);
+  // Sin llave y sin datos de registro es que entró y la llave venció en el
+  // camino: se dice eso, y no "falta con qué te identificamos".
+  if (!llave && !String(identificador ?? "").trim()) return { ...SIN_LLAVE };
+  const pedido = {
+    empieza_en: new Date(cuando).toISOString(),
+    motivo,
+    ...(llave
+      ? {}
+      : {
+          nombre: String(nombre ?? "").trim(),
+          telefono: String(telefono ?? "").trim(),
+          identificador: String(identificador ?? "").trim(),
+        }),
+  };
+  const r = await mandar(enLanding(codigo, "/turnos"), pedido, null, llave ? conLlave(llave) : SIN_AVISO);
+  if (!r.ok) {
+    if (r.error.codigo === "llave_vencida") borrarLlave(codigo);
+    return falla(r);
+  }
+  if (r.datos.llave) guardarLlave(codigo, r.datos);
+  return { ok: true, cuando: r.datos.cuando, minutos: r.datos.minutos };
+}
+
+// Salir: este navegador se olvida de la llave. La llave sigue valiendo en la
+// base hasta que venza, pero sin la llave en la mano no sirve de nada.
+export function salirDeLanding(codigo) {
+  borrarLlave(codigo);
 }
 
 // Un negocio guardado antes de que existieran los módulos no trae la lista.
@@ -1230,6 +1363,26 @@ export function DatosProvider({ children }) {
         const r = await mandar("/negocio/agenda/dejar-de-compartir", {}, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         sinVersionDelNegocio({ agenda_codigo: null });
+        return { ok: true };
+      },
+
+      // Compartir la landing: el link para el Instagram del negocio. Igual que
+      // la agenda, devuelve siempre el mismo código: uno nuevo dejaría muerto el
+      // que ya está publicado.
+      async compartirLanding() {
+        if (datos.negocio?.landing_codigo)
+          return { ok: true, codigo: datos.negocio.landing_codigo };
+
+        const r = await mandar("/negocio/landing/compartir", {}, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        sinVersionDelNegocio({ landing_codigo: r.datos.codigo });
+        return { ok: true, codigo: r.datos.codigo };
+      },
+
+      async dejarDeCompartirLanding() {
+        const r = await mandar("/negocio/landing/dejar-de-compartir", {}, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        sinVersionDelNegocio({ landing_codigo: null });
         return { ok: true };
       },
 

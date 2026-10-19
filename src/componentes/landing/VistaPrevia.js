@@ -3,8 +3,9 @@ import Icono from "@/componentes/Icono";
 
 // La landing en chico, con datos de ejemplo, para ver cómo queda mientras se
 // edita. Es una imitación: los botones son de mentira (no se pueden tocar ni
-// enfocar). Cuando exista la página pública (paso 4 del diseño), sus
-// secciones reemplazan a estas.
+// enfocar). Las secciones de la página pública (landing/secciones/) no la
+// reemplazan: necesitan los datos del negocio y la llave de un cliente, y acá
+// no hay ni una cosa ni la otra. Los títulos sí son los mismos.
 
 function Seccion({ titulo, children }) {
   return (

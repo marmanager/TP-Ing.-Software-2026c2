@@ -769,6 +769,15 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
                 {cliente?.nombre?.split(" ")[0] ?? "el cliente"} va a ver que no sirve.
                 Podés armar uno nuevo cuando quieras.
               </p>
+              {/* Desde la landing el cliente ve sus casos abiertos, y la
+                  base le arma un link nuevo al que no tenga: cortar este no
+                  se lo esconde. Mejor que el negocio lo sepa antes de cortar.
+                  Un caso terminado no está en la landing: ahí no se dice. */}
+              {datos.negocio?.landing_codigo && estaAbierto(caso) && (
+                <p className="mt-2 max-w-[65ch] text-tinta-media">
+                  Si tu cliente entra por tu landing, va a seguir viendo este caso.
+                </p>
+              )}
               <div className="mt-4 flex flex-wrap gap-3">
                 <Boton variante="peligro" icono="tacho" onClick={cortar}>
                   Sí, dejar de compartirlo

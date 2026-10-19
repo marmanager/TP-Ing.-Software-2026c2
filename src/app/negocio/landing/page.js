@@ -7,8 +7,9 @@
 // ve en la vista previa mientras cambia, y recién al guardar queda.
 //
 // Se llega desde "Mi negocio", como Módulos. La edita sólo el dueño; la API
-// también lo frena (403). El link para compartirla llega con la página
-// pública (paso 4 del diseño).
+// también lo frena (403). Arriba va el link para compartirla: publicarlo y
+// dejar de compartirlo no dependen del borrador, porque la página pública
+// siempre muestra lo que está guardado.
 
 import { useState } from "react";
 import { flushSync } from "react-dom";
@@ -31,7 +32,9 @@ import {
   seLee,
   textoRecomendado,
 } from "@/lib/landing";
+import { horariosListos, normalizarHorarios } from "@/lib/horarios";
 import Icono from "@/componentes/Icono";
+import LinkCompartido from "@/componentes/LinkCompartido";
 import { FUENTES_LANDING } from "@/componentes/landing/fuentes";
 import VistaPrevia from "@/componentes/landing/VistaPrevia";
 import { Boton, Cargando, Tarjeta, TituloPantalla, TituloSeccion } from "@/componentes/ui";
@@ -39,6 +42,23 @@ import { Boton, Cargando, Tarjeta, TituloPantalla, TituloSeccion } from "@/compo
 // 4.478 → "4,4": se trunca, no se redondea, para que un contraste que no llega
 // nunca se muestre igual al mínimo.
 const conComa = (n) => (Math.floor(n * 10) / 10).toFixed(1).replace(".", ",");
+
+// Las palabras del link de la landing. El bloque en sí es el de
+// LinkCompartido, el mismo del link para pedir turno.
+const TEXTOS_DEL_LINK = {
+  etiqueta: "El link de tu landing",
+  explicacion:
+    "Un link para poner en tu Instagram o mandar por WhatsApp. Ahí tus clientes ven tus datos, sacan turno y siguen sus casos.",
+  armar: "Publicar la landing",
+  armado: "Listo. Tu landing ya tiene link para repartir.",
+  whatsapp: (nombre, link) =>
+    `Hola, te escribimos de ${nombre}. Acá podés sacar turno y ver cómo viene lo tuyo: ${link}`,
+  dejar: "Dejar de compartir la landing",
+  pregunta: "¿Dejar de compartir la landing?",
+  aviso:
+    "El link deja de funcionar ahora mismo. Tus clientes no pierden nada: sus casos y turnos siguen como están.",
+  cortado: "Listo. Ese link dejó de funcionar.",
+};
 
 const CAMPO_COLOR =
   "h-12 w-16 cursor-pointer rounded-campo border-2 border-borde-fuerte bg-tarjeta p-1";
@@ -60,7 +80,11 @@ export default function EditorDeLanding() {
   const guardada = normalizarLanding(negocio?.landing);
   const actual = borrador ?? guardada;
   const hayCambios = borrador !== null && JSON.stringify(borrador) !== JSON.stringify(guardada);
-  const secciones = estadoDeSecciones(actual.orden, negocio?.modulos_activos ?? []);
+  const secciones = estadoDeSecciones(
+    actual.orden,
+    negocio?.modulos_activos ?? [],
+    horariosListos(normalizarHorarios(negocio?.horarios))
+  );
 
   // React mueve la fila en el DOM y el botón apretado pierde el foco: se lo
   // devolvemos, o al otro de la fila si quedó apagado en la punta. Sin esto,
@@ -113,6 +137,18 @@ export default function EditorDeLanding() {
         // quedan unos 480 px para el editor.
         <div className="grid gap-8 @4xl:grid-cols-[minmax(0,1fr)_24rem] @4xl:items-start">
           <div>
+            <TituloSeccion>El link</TituloSeccion>
+            <LinkCompartido
+              id="link-landing"
+              codigo={negocio?.landing_codigo}
+              ruta="/n/"
+              icono="pincel"
+              nombre={negocio?.nombre}
+              compartir={datos.compartirLanding}
+              dejarDeCompartir={datos.dejarDeCompartirLanding}
+              textos={TEXTOS_DEL_LINK}
+            />
+
             <TituloSeccion>Orden</TituloSeccion>
             <Tarjeta className="mb-8">
               <p className="mb-4 max-w-[65ch] text-tinta-media">
