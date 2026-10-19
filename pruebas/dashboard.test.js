@@ -1,6 +1,6 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
-import { errorPeriodo, hoyDashboard, periodoDashboard, resumenDashboardDemo } from "../src/lib/dashboard.js";
+import { categoriasDashboard, destinoDashboard, errorPeriodo, hoyDashboard, periodoDashboard, resumenDashboardDemo } from "../src/lib/dashboard.js";
 
 test("El día y los períodos se calculan en Argentina aunque el dispositivo esté en otra zona", () => {
   const ahora = new Date("2026-11-01T02:00:00Z");
@@ -42,4 +42,19 @@ test("Demo respeta cobros pagados, fecha local, módulos y situación actual, si
   const apagado = resumenDashboardDemo(datos, periodo);
   assert.equal(apagado.clientes_nuevos, null);
   assert.equal(apagado.productos_reponer, null);
+});
+
+test("Los módulos apagados no ofrecen categoría ni acceso desde sus estadísticas", () => {
+  const activos = ["dashboard", "-clientes"];
+  assert.ok(!categoriasDashboard(activos).some((c) => c.clave === "clientes" || c.clave === "inventario"));
+  assert.equal(destinoDashboard("clientes", activos), null);
+  assert.equal(destinoDashboard("inventario", activos), null);
+  assert.equal(destinoDashboard("casos", activos)?.href, "/casos");
+});
+
+test("El acceso a Inventario usa En camino si En stock está apagado; Cobros abre los casos", () => {
+  assert.equal(destinoDashboard("inventario", ["dashboard", "inventario", "en_camino"])?.href, "/inventario/en-camino");
+  assert.equal(destinoDashboard("inventario", ["dashboard", "inventario"])?.href, "/inventario");
+  assert.equal(destinoDashboard("cobros", ["dashboard"])?.href, "/casos");
+  assert.equal(destinoDashboard("resumen", ["dashboard"]), null);
 });

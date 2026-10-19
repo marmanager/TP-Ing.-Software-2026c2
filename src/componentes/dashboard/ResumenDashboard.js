@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDatos } from "@/lib/datos";
-import { textoPeriodo } from "@/lib/dashboard";
+import { hijosActivos } from "@/lib/modulos";
+import { destinoDashboard } from "@/lib/dashboard";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, ErrorGeneral, Tarjeta } from "@/componentes/ui";
 
@@ -15,7 +16,8 @@ export default function ResumenDashboard({ periodo }) {
   consultar.current = consultarResumenDashboard;
   const [intento, setIntento] = useState(0);
   const [respuesta, setRespuesta] = useState(null);
-  const clave = `${negocio.id}:${periodo.desde}:${periodo.hasta}:${intento}`;
+  const activos = negocio.modulos_activos ?? [];
+  const clave = `${negocio.id}:${JSON.stringify(activos)}:${periodo.desde}:${periodo.hasta}:${intento}`;
 
   useEffect(() => {
     let vigente = true;
@@ -33,15 +35,16 @@ export default function ResumenDashboard({ periodo }) {
   const cargando = respuesta?.clave !== clave;
   const resumen = !cargando && respuesta?.ok ? respuesta.resumen : null;
   const tarjetas = resumen ? [
-    { clave: "total_cobrado", nombre: "Total cobrado", icono: "nota", unidad: "Pesos argentinos (ARS)", periodo: true,
+    { clave: "total_cobrado", categoria: "cobros", nombre: "Total cobrado", icono: "nota", unidad: "Pesos argentinos (ARS)", periodo: true,
       detalle: "Suma de los cobros pagados, según la fecha del pago." },
-    { clave: "clientes_nuevos", nombre: "Clientes nuevos", icono: "persona", unidad: "Clientes registrados", periodo: true,
+    { clave: "clientes_nuevos", categoria: "clientes", nombre: "Clientes nuevos", icono: "persona", unidad: "Clientes registrados", periodo: true,
       detalle: "Altas registradas en el período; cada cliente se cuenta una vez." },
-    { clave: "casos_abiertos", nombre: "Casos abiertos", icono: "carpeta", unidad: "Casos", periodo: false,
+    { clave: "casos_abiertos", categoria: "casos", nombre: "Casos abiertos", icono: "carpeta", unidad: "Casos", periodo: false,
       detalle: "Todos los casos que todavía no se completaron." },
-    { clave: "productos_reponer", nombre: "Productos para reponer", icono: "cajas", unidad: "Productos", periodo: false,
+    { clave: "productos_reponer", categoria: "inventario", soloStock: true, nombre: "Productos para reponer", icono: "cajas", unidad: "Productos", periodo: false,
       detalle: "Productos en stock con cantidad menor o igual al mínimo." },
-  ].filter((t) => resumen[t.clave] != null) : [];
+  ].filter((t) => resumen[t.clave] != null && destinoDashboard(t.categoria, activos) &&
+    (!t.soloStock || hijosActivos("inventario", activos).some((h) => h.clave === "stock"))) : [];
 
   return (
     <div aria-busy={cargando}>
@@ -56,9 +59,9 @@ export default function ResumenDashboard({ periodo }) {
         </Tarjeta>
       ) : (
         <>
-          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <div className="grid min-w-0 auto-rows-fr gap-4 xl:grid-cols-2">
             {tarjetas.map((t) => (
-              <Tarjeta key={t.clave}>
+              <Tarjeta key={t.clave} className="flex flex-col">
                 <div className="flex items-center gap-2 text-tinta-media">
                   <Icono nombre={t.icono} className="size-6 shrink-0 text-azul" />
                   <h3 className="font-bold text-cuerpo">{t.nombre}</h3>
@@ -68,7 +71,6 @@ export default function ResumenDashboard({ periodo }) {
                 </p>
                 <p className="mt-1 text-etiqueta text-tinta-media">{t.unidad}</p>
                 <p className="mt-4 font-bold text-etiqueta text-azul">{t.periodo ? "En el período seleccionado" : "Situación actual"}</p>
-                <p className="mt-1 text-etiqueta text-tinta-media">{t.periodo ? textoPeriodo(periodo) : "Incluye todos los períodos"}</p>
                 <p className="mt-3 text-etiqueta text-tinta-media">{t.detalle}</p>
               </Tarjeta>
             ))}

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Bar, BarChart, CartesianGrid, LabelList, Legend, Line, LineChart, Rectangle, Tooltip, XAxis, YAxis } from "recharts";
 import { useDatos } from "@/lib/datos";
-import { textoPeriodo } from "@/lib/dashboard";
 import { serieActividadCasos } from "@/lib/dashboard-casos";
 import { etiquetaEstado } from "@/lib/presets";
 import { Boton, Cargando, ErrorGeneral, Tarjeta } from "@/componentes/ui";
@@ -33,25 +32,6 @@ function DetalleGrafico({ active, payload }) {
 
 function BarraEstado(props) {
   return <Rectangle {...props} fill={colores[props.payload?.estado] ?? "var(--color-tinta-suave)"} />;
-}
-
-function DatosDelGrafico({ titulo, filas, columna, comparar = false }) {
-  return (
-    <details className="mt-4 border-t border-borde pt-2">
-      <summary className="min-h-12 cursor-pointer py-3 font-bold text-etiqueta text-azul">{titulo}</summary>
-      <table className="mt-2 w-full text-left text-etiqueta">
-        <caption className="sr-only">{titulo}. Unidad: cantidad de casos.</caption>
-        <thead><tr className="border-b border-borde"><th scope="col" className="py-2 pr-3">{columna}</th><th scope="col" className="py-2 text-right">{comparar ? "Nuevos" : "Casos"}</th>{comparar && <th scope="col" className="py-2 pl-3 text-right">Cierres</th>}</tr></thead>
-        <tbody>{filas.map((fila) => (
-          <tr key={fila.desde ?? fila.estado} className="border-b border-borde last:border-0">
-            <th scope="row" className="py-2 pr-3 font-normal">{fila.detalle}</th>
-            <td className="py-2 text-right tabular-nums">{numero.format(fila.cantidad)}</td>
-            {comparar && <td className="py-2 pl-3 text-right tabular-nums">{numero.format(fila.cerrados)}</td>}
-          </tr>
-        ))}</tbody>
-      </table>
-    </details>
-  );
 }
 
 export default function CasosDashboard({ periodo }) {
@@ -96,12 +76,12 @@ export default function CasosDashboard({ periodo }) {
         </Tarjeta>
       ) : (
         <>
-          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+          <div className="grid min-w-0 items-stretch gap-6 xl:grid-cols-2">
             <Tarjeta className="min-w-0">
               <figure aria-labelledby="casos-actividad-titulo" aria-describedby="casos-actividad-descripcion">
                 <h3 id="casos-actividad-titulo" className="text-subtitulo font-bold">Casos nuevos y cerrados</h3>
                 <figcaption id="casos-actividad-descripcion" className="mt-2 text-etiqueta text-tinta-media">
-                  {textoPeriodo(periodo)} · Agrupados por {serie.agrupacion} · Unidad: casos
+                  Agrupados por {serie.agrupacion} · Unidad: casos
                 </figcaption>
                 <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-subtitulo font-bold tabular-nums">
                   <p>{cantidadCasos(estadisticas.nuevos.total)} {estadisticas.nuevos.total === 1 ? "nuevo" : "nuevos"} en el período</p>
@@ -124,7 +104,6 @@ export default function CasosDashboard({ periodo }) {
                 </div>
               </figure>
               <p className="mt-3 text-etiqueta text-tinta-media">Los nuevos se cuentan por su apertura y los cierres por la fecha de entrega. Reabrir no suma un ingreso; volver a cerrarlo suma otro cierre.</p>
-              <DatosDelGrafico titulo="Ver datos de nuevos y cierres" filas={serie.puntos} columna="Fecha o intervalo" comparar />
             </Tarjeta>
 
             <Tarjeta className="min-w-0">
@@ -149,7 +128,6 @@ export default function CasosDashboard({ periodo }) {
                   </BarChart>
                 </div>
               </figure>
-              <DatosDelGrafico titulo="Ver datos por estado" filas={estados} columna="Estado actual" />
             </Tarjeta>
           </div>
           <p className="mt-4 text-etiqueta text-tinta-media">

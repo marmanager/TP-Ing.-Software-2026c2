@@ -1,7 +1,7 @@
 // Categorías internas de Dashboard: comparten un único interruptor de módulo.
 // Clientes e Inventario acompañan a los módulos que ya usa el negocio.
 import { cobrosConLoDeAntes, cobrosDelCaso } from "./cobros.js";
-import { estaPrendido, hijosActivos } from "./modulos.js";
+import { MODULOS, estaPrendido, hijosActivos } from "./modulos.js";
 
 export const CATEGORIAS_DASHBOARD = [
   {
@@ -40,6 +40,19 @@ export const CATEGORIAS_DASHBOARD = [
 
 export const categoriasDashboard = (activos = []) =>
   CATEGORIAS_DASHBOARD.filter((categoria) => !categoria.modulo || estaPrendido(categoria.modulo, activos));
+
+// Los accesos usan los mismos módulos y destinos que la navegación principal.
+// Cobros vive dentro de los casos; no hay una pantalla /cobros independiente.
+export function destinoDashboard(clave, activos = []) {
+  const categoria = categoriasDashboard(activos).find((c) => c.clave === clave);
+  if (!categoria || clave === "resumen") return null;
+  if (clave === "casos") return { href: "/casos", texto: "Ir a Casos" };
+  if (clave === "cobros") return { href: "/casos", texto: "Ver cobros en Casos" };
+  const modulo = MODULOS[categoria.modulo];
+  if (!modulo) return null;
+  const ruta = clave === "inventario" ? hijosActivos("inventario", activos)[0]?.ruta : modulo.ruta;
+  return ruta ? { href: ruta, texto: `Ir a ${modulo.nombre}` } : null;
+}
 
 export const ZONA_DASHBOARD = "America/Argentina/Buenos_Aires";
 export const PERIODOS_DASHBOARD = [
@@ -99,8 +112,8 @@ export function resumenDashboardDemo(datos, periodo) {
     negocio_id: datos.negocio?.id,
     periodo: { ...periodo, zona_horaria: ZONA_DASHBOARD },
     actualizado_en: new Date().toISOString(),
-    total_cobrado: Math.round(pagos.filter((c) => c.estado === "pagado" && enPeriodo(c.pagado_en))
-      .reduce((total, c) => total + Number(c.monto), 0) * 100) / 100,
+    total_cobrado: pagos.filter((c) => c.estado === "pagado" && enPeriodo(c.pagado_en))
+      .reduce((total, c) => total + Math.round(Number(c.monto) * 100), 0) / 100,
     clientes_nuevos: estaPrendido("clientes", activos) ?
       (datos.clientes ?? []).filter((c) => delNegocio(c) && enPeriodo(c.creado_en)).length : null,
     casos_abiertos: casos.filter((c) => c.estado !== "completado").length,

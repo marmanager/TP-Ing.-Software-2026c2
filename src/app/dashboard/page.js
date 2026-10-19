@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import EnlaceModuloDashboard from "@/componentes/dashboard/EnlaceModuloDashboard";
 import PeriodoDashboard from "@/componentes/dashboard/PeriodoDashboard";
 import ResumenDashboard from "@/componentes/dashboard/ResumenDashboard";
 import { useDatos } from "@/lib/datos";
@@ -13,6 +14,18 @@ import Icono from "@/componentes/Icono";
 import { Cargando, Tarjeta, TituloPantalla, Vacio } from "@/componentes/ui";
 
 const CasosDashboard = dynamic(() => import("@/componentes/dashboard/CasosDashboard"), {
+  loading: () => <Cargando filas={4} />,
+});
+
+const CobrosDashboard = dynamic(() => import("@/componentes/dashboard/CobrosDashboard"), {
+  loading: () => <Cargando filas={4} />,
+});
+
+const InventarioDashboard = dynamic(() => import("@/componentes/dashboard/InventarioDashboard"), {
+  loading: () => <Cargando filas={4} />,
+});
+
+const ClientesDashboard = dynamic(() => import("@/componentes/dashboard/ClientesDashboard"), {
   loading: () => <Cargando filas={4} />,
 });
 
@@ -68,7 +81,7 @@ export default function Dashboard() {
       <PeriodoDashboard periodo={periodo} cambiar={setPeriodo} />
 
       <section id="dashboard-categoria" aria-labelledby="dashboard-categoria-titulo">
-        {actual.clave === "resumen" ? <ResumenDashboard key={negocio.id} periodo={periodo} /> : actual.clave === "casos" ? <CasosDashboard key={negocio.id} periodo={periodo} /> : <Tarjeta>
+        {actual.clave === "resumen" ? <ResumenDashboard key={negocio.id} periodo={periodo} /> : actual.clave === "casos" ? <CasosDashboard key={negocio.id} periodo={periodo} /> : actual.clave === "cobros" ? <CobrosDashboard key={negocio.id} periodo={periodo} /> : actual.clave === "clientes" ? <ClientesDashboard key={negocio.id} periodo={periodo} /> : actual.clave === "inventario" ? <InventarioDashboard key={negocio.id} /> : <Tarjeta>
           <h2 id="dashboard-categoria-titulo" className="flex items-center gap-2 text-seccion">
             <Icono nombre={actual.icono} className="size-6 text-azul" />
             {actual.nombre}
@@ -78,6 +91,9 @@ export default function Dashboard() {
             Los indicadores de esta categoría estarán disponibles próximamente.
           </p>
         </Tarjeta>}
+        {actual.clave !== "resumen" && <div className="mt-6 flex justify-end">
+          <EnlaceModuloDashboard categoria={actual.clave} activos={negocio.modulos_activos ?? []} />
+        </div>}
       </section>
     </>
   );

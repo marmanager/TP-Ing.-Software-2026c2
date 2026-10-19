@@ -22,6 +22,10 @@ import {
   pesos,
   sePuedeMarcarHecho,
 } from "./estados";
+import { crearColaStock } from "./cambios-stock.js";
+import { estadisticasClientesDemo } from "./dashboard-clientes.js";
+import { estadisticasInventarioDemo } from "./dashboard-inventario.js";
+import { estadisticasCobrosDemo } from "./dashboard-cobros.js";
 import { estadisticasCasosDemo } from "./dashboard-casos.js";
 import { resumenDashboardDemo } from "./dashboard.js";
 import { normalizarInicio } from "./inicio";
@@ -370,6 +374,8 @@ export function DatosProvider({ children }) {
   // la manera de volver a correr el efecto de carga sin escribir la lectura
   // dos veces, una para entrar y otra para refrescar.
   const [refresco, setRefresco] = useState(0);
+  const colaStock = useRef(null);
+  if (!colaStock.current) colaStock.current = crearColaStock();
   const [aviso, setAviso] = useState(null);
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
@@ -553,6 +559,29 @@ export function DatosProvider({ children }) {
       if (r.ok) return;
       setAviso(r.error.mensaje);
       setRefresco((n) => n + 1);
+    };
+
+    // Se conserva el cambio optimista más reciente hasta que se confirme.
+    // Las respuestas anteriores de la cola no pisan clics posteriores.
+    const guardarCantidad = (insumoId, pedir) => {
+      const negocioId = datos.negocio?.id;
+      return colaStock.current.encolar(insumoId, async (esUltimo) => {
+        const r = await pedir(await tokenDeSesion());
+        if (!r.ok) {
+          setAviso(r.error.mensaje);
+          setRefresco((n) => n + 1);
+          return r;
+        }
+        if (esUltimo()) setDatos((d) => d.negocio?.id !== negocioId ? d : {
+          ...d, insumos: d.insumos.map((i) => i.id === insumoId ? { ...i, ...r.datos } : i),
+        });
+        return r;
+      }).catch(() => {
+        const mensaje = "No pudimos guardar la cantidad. Volvé a intentarlo.";
+        setAviso(mensaje);
+        setRefresco((n) => n + 1);
+        return { ok: false, error: { mensaje } };
+      });
     };
 
     // Quién firma el historial. La regla vive en permisos.js y tiene test.
@@ -1224,8 +1253,37 @@ export function DatosProvider({ children }) {
         return { ok: true, estadisticas: r.datos };
       },
 
+      async consultarCobrosDashboard(periodo) {
+        if (!porLaApi()) return { ok: true, estadisticas: estadisticasCobrosDemo(datos, periodo) };
+        const r = await traer(`/dashboard/cobros?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarInventarioDashboard() {
+        if (!porLaApi()) return { ok: true, estadisticas: estadisticasInventarioDemo(datos) };
+        await colaStock.current.esperar();
+        const r = await traer("/dashboard/inventario", await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarClientesDashboard(periodo) {
+        if (!porLaApi()) return { ok: true, estadisticas: estadisticasClientesDemo(datos, periodo) };
+        const r = await traer(`/dashboard/clientes?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
       async consultarResumenDashboard(periodo) {
         if (!porLaApi()) return { ok: true, resumen: resumenDashboardDemo(datos, periodo) };
+        await colaStock.current.esperar();
         const r = await traer(`/dashboard/resumen?${new URLSearchParams(periodo)}`, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         if (r.datos.negocio_id !== datos.negocio?.id)
@@ -1244,9 +1302,7 @@ export function DatosProvider({ children }) {
       },
 
       // La API guarda cobro, descuento, cierre e historial en la misma transacción.
-      async entregarCaso({ casoId, monto, medio, resto, seguimiento }) {
-        const error = Object.values(erroresSeguimiento(seguimiento))[0];
-        if (error) return { ok: false, error };
+      async entregarCaso({ casoId, monto, medio, resto }) {
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/entregar`, {
           monto: monto == null ? null : Number(monto),
           medio: Number(monto) > 0 ? medio : null,
@@ -1714,8 +1770,7 @@ export function DatosProvider({ children }) {
           insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad: limpia } : i)),
         }));
         if (porLaApi("inventario")) {
-          enLaApi((token) => parchar(`/insumos/${insumoId}`, { cantidad: limpia }, token));
-          return;
+          return guardarCantidad(insumoId, (token) => parchar(`/insumos/${insumoId}`, { cantidad: limpia }, token));
         }
         escribir("insumo", { id: insumoId, cantidad: limpia });
       },
@@ -1725,17 +1780,14 @@ export function DatosProvider({ children }) {
       ajustarCantidad(insumoId, delta) {
         const insumo = datos.insumos.find((i) => i.id === insumoId);
         if (!insumo) return;
-        const cantidad = Math.max(0, insumo.cantidad + delta);
         setDatos((d) => ({
           ...d,
-          insumos: d.insumos.map((i) => (i.id === insumoId ? { ...i, cantidad } : i)),
+          insumos: d.insumos.map((i) => i.id === insumoId ? { ...i, cantidad: Math.max(0, Number(i.cantidad) + delta) } : i),
         }));
         if (porLaApi("inventario")) {
           const clave = nuevaClave();
-          enLaApi((token) => mandar(`/insumos/${insumoId}/ajustar`, { delta }, token, { idempotencia: clave }));
-          return;
+          return guardarCantidad(insumoId, (token) => mandar(`/insumos/${insumoId}/ajustar`, { delta }, token, { idempotencia: clave }));
         }
-        escribir("insumo", { id: insumoId, cantidad });
       },
 
       eliminarInsumo(insumoId) {
