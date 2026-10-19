@@ -17,7 +17,8 @@ import { puede } from "@/lib/permisos";
 import { estaAbierto, pesos } from "@/lib/estados";
 import { comoSeIdentifica, mayuscula, vocabulario } from "@/lib/presets";
 import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
-import { bajaDeAvisos, proximaVisita } from "@/lib/recordatorios";
+import { avisoDeLaProximaVisita, bajaDeAvisos } from "@/lib/recordatorios";
+import { useRecordatorioVolver } from "@/lib/useRecordatorioVolver";
 import {
   FRASE_TELEFONO_INCOMPLETO,
   paisInicial,
@@ -44,6 +45,7 @@ export default function FichaDeCliente() {
   const [tocado, setTocado] = useState(false);
   const [revirtiendo, setRevirtiendo] = useState(false);
   const [errorBaja, setErrorBaja] = useState(null);
+  const recordatorioVolver = useRecordatorioVolver();
 
   const cliente = clientes.find((c) => c.id === id);
   useTitulo(cliente ? cliente.nombre : "Cliente");
@@ -84,11 +86,10 @@ export default function FichaDeCliente() {
 
   // Se calcula con los casos que ya están en memoria: no hace falta pedir
   // nada más a la API.
-  const diaDeVolver = proximaVisita(suyos, diaDeArgentina());
-  const proximaVuelta = diaDeVolver && {
-    dia: diaDeVolver,
-    caso: suyos.find((c) => c.volver_en === diaDeVolver),
-  };
+  // Con su aviso por WhatsApp (R-2b): cuándo le llega o por qué no.
+  const proximaVuelta = avisoDeLaProximaVisita({
+    casos: suyos, cliente, volver: recordatorioVolver, hoy: diaDeArgentina(),
+  });
 
   // Si pidió no recibir avisos (R-8a), cuándo y qué quiere decir.
   const baja = bajaDeAvisos({ cliente, rubro: negocio?.rubro });
@@ -308,12 +309,18 @@ export default function FichaDeCliente() {
           <TituloSeccion>Le toca volver</TituloSeccion>
           <Link
             href={`/casos/${proximaVuelta.caso.id}`}
-            className="mb-12 flex min-h-14 items-center gap-3 rounded-tarjeta border border-borde bg-tarjeta px-4 hover:bg-superficie"
+            className="mb-12 flex min-h-14 items-center gap-3 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 hover:bg-superficie"
           >
             <Icono nombre="calendario" className="size-5 text-tinta-media" />
             <span className="flex-1">
               <span className="font-bold">El {diaEnPalabras(proximaVuelta.dia)}</span>{" "}
               · {tituloDelCaso(proximaVuelta.caso)}
+              {proximaVuelta.aviso && (
+                <span className="mt-1 flex items-start gap-2 text-tinta-media">
+                  <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+                  <span>{proximaVuelta.aviso.frase}</span>
+                </span>
+              )}
             </span>
           </Link>
         </>

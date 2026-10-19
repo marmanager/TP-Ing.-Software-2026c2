@@ -27,7 +27,7 @@ import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./a
 import { instanteParaLaApi, turnoParaLaApi } from "./turnos.js";
 import { reemplazarUnicoPorId, unicosPorId } from "./listas.js";
 import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
-import { avisoAlAnotar, errorAlRevertirBaja, porQueNoSeAviso, volverEnParaLaApi } from "./recordatorios.js";
+import { avisoAlAnotar, conAvisoDeVolver, errorAlRevertirBaja, porQueNoSeAviso, volverEnParaLaApi } from "./recordatorios.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -304,9 +304,13 @@ export function DatosProvider({ children }) {
     const sinVersionDelNegocio = (cambios) =>
       setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios, actualizado_en: undefined } }));
 
+    // Las respuestas de editar un caso no traen su aviso de volver (R-2a):
+    // sólo las lecturas. Lo que ya se sabía de él se conserva.
     const incorporarCasoApi = ({ caso, cliente, turno, evento, eventos = [] }) => setDatos((d) => ({
       ...d,
-      casos: caso ? reemplazarUnicoPorId(d.casos, caso) : unicosPorId(d.casos),
+      casos: caso
+        ? reemplazarUnicoPorId(d.casos, "aviso_volver" in caso ? caso : conAvisoDeVolver(caso, null, d.casos.find((c) => c.id === caso.id)))
+        : unicosPorId(d.casos),
       clientes: cliente ? (d.clientes.some((x) => x.id === cliente.id)
         ? d.clientes.map((x) => x.id === cliente.id ? cliente : x) : [...d.clientes, cliente]) : d.clientes,
       turnos: turno ? d.turnos.map((x) => x.id === turno.id ? turno : x) : d.turnos,
@@ -444,7 +448,7 @@ export function DatosProvider({ children }) {
           if (r.error.codigo === "choque") setRefresco((n) => n + 1);
           return { ok: false, error: r.error.mensaje };
         }
-        incorporarCasoApi(r.datos);
+        incorporarCasoApi({ ...r.datos, caso: conAvisoDeVolver(r.datos.caso, r.datos.volver, caso) });
         return { ok: true, caso: r.datos.caso };
       },
 
@@ -686,9 +690,10 @@ export function DatosProvider({ children }) {
         return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
       },
 
-      // Los dos recordatorios van por el mismo camino: arriba el posventa
-      // ({ activo, dias, mensaje }) y en "turno" el de turnos
-      // ({ activo, horas, mensaje }). Se manda sólo lo que cambió.
+      // Los recordatorios van por el mismo camino: arriba el posventa
+      // ({ activo, dias, mensaje }), en "turno" el de turnos
+      // ({ activo, horas, mensaje }) y en "volver" el de cuándo le toca
+      // volver ({ activo, dias, mensaje }). Se manda sólo lo que cambió.
       async configurarSeguimiento(cambios) {
         const r = await parchar("/negocio/seguimiento", cambios, await tokenDeSesion());
         return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
@@ -711,7 +716,10 @@ export function DatosProvider({ children }) {
         // El campo dice en qué paso de la entrega mostrar el error.
         if (!r.ok) return { ok: false, error: r.error.mensaje, campo: r.error.campo };
         setDatos((d) => {
-          let siguiente = { ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso : c) };
+          let siguiente = {
+            ...d,
+            casos: d.casos.map((c) => c.id === casoId ? conAvisoDeVolver(r.datos.caso, r.datos.volver, c) : c),
+          };
           if (r.datos.cobro) siguiente = ponerCobro(siguiente, r.datos.cobro);
           if (r.datos.evento) siguiente = { ...siguiente, eventos: [r.datos.evento, ...siguiente.eventos] };
           return siguiente;
