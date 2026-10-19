@@ -3,8 +3,7 @@
 // "Iniciar sesión" (SCRUM-9).
 //
 // Mail y contraseña para entrar a una cuenta ya creada, o la cuenta de
-// Google (BotonGoogle). Es también adonde vuelve Google después de entrar. Aparte queda la vía
-// de escape: probar el sistema sin cuenta, guardando todo en el navegador.
+// Google (BotonGoogle). Es también adonde vuelve Google después de entrar.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -12,12 +11,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
-import Icono from "@/componentes/Icono";
 import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
 
 export default function IniciarSesion() {
   const router = useRouter();
-  const { iniciarSesion, entrarComoDemo, haySupabase, hayGoogle } = useAuth();
+  const { iniciarSesion, haySupabase, hayGoogle } = useAuth();
   useTitulo("Iniciar sesión");
 
   const [email, setEmail] = useState("");
@@ -49,11 +47,6 @@ export default function IniciarSesion() {
       return;
     }
     router.replace("/negocios");
-  }
-
-  function verEjemplo() {
-    entrarComoDemo();
-    router.replace("/");
   }
 
   return (
@@ -120,29 +113,20 @@ export default function IniciarSesion() {
 
         {!haySupabase && (
           <p className="mt-6 text-etiqueta text-tinta-media">
-            Todavía no hay una base de Supabase conectada. Podés recorrer todo el sistema
-            igual: lo que cargues queda en este navegador.
+            El sistema todavía no está conectado a la API: por ahora no se puede
+            entrar.
           </p>
         )}
       </Tarjeta>
 
       {/* Debajo de la tarjeta y como enlace, no como segundo botón de ancho
-          completo: dos botones iguales, uno arriba del otro, hacen dudar
-          sobre cuál es el camino normal, y quien viene a entrar a su cuenta
-          no está eligiendo entre dos caminos (auditoría, H8). */}
+          completo: quien viene a entrar a su cuenta no está eligiendo entre
+          dos caminos (auditoría, H8). */}
       <p className="mt-6 text-tinta-media">
         ¿No tenés cuenta?{" "}
         <Link href="/crear-cuenta" className="font-bold text-azul">
           Creá una
         </Link>
-        . ¿Solo querés recorrer el sistema?{" "}
-        <button
-          type="button"
-          onClick={verEjemplo}
-          className="cursor-pointer font-bold text-azul underline-offset-4 hover:underline"
-        >
-          Probá sin cuenta
-        </button>
         .
       </p>
     </>

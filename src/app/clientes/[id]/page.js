@@ -15,8 +15,9 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto, pesos } from "@/lib/estados";
-import { comoSeIdentifica } from "@/lib/presets";
-import { diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
+import { comoSeIdentifica, mayuscula, vocabulario } from "@/lib/presets";
+import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
+import { bajaDeAvisos, proximaVisita } from "@/lib/recordatorios";
 import { telefonoValido } from "@/lib/validaciones";
 import { saldoDelCaso } from "@/lib/cobros";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -33,6 +34,8 @@ export default function FichaDeCliente() {
   const [corrigiendo, setCorrigiendo] = useState(false);
   const [telefono, setTelefono] = useState("");
   const [tocado, setTocado] = useState(false);
+  const [revirtiendo, setRevirtiendo] = useState(false);
+  const [errorBaja, setErrorBaja] = useState(null);
 
   const cliente = clientes.find((c) => c.id === id);
   useTitulo(cliente ? cliente.nombre : "Cliente");
@@ -70,6 +73,18 @@ export default function FichaDeCliente() {
   const debe = suyos
     .filter((c) => c.estado === "completado")
     .reduce((s, c) => s + (saldos.get(c.id)?.falta ?? 0), 0);
+
+  // Se calcula con los casos que ya están en memoria: no hace falta pedir
+  // nada más a la API.
+  const diaDeVolver = proximaVisita(suyos, diaDeArgentina());
+  const proximaVuelta = diaDeVolver && {
+    dia: diaDeVolver,
+    caso: suyos.find((c) => c.volver_en === diaDeVolver),
+  };
+
+  // Si pidió no recibir avisos (R-8a), cuándo y qué quiere decir.
+  const baja = bajaDeAvisos({ cliente, rubro: negocio?.rubro });
+  const { cita } = vocabulario(negocio?.rubro);
 
   const proximos = turnos
     .filter((t) => t.cliente_id === cliente.id && t.estado !== "cancelado")
@@ -170,6 +185,53 @@ export default function FichaDeCliente() {
           </div>
         )}
 
+        {/* La baja de avisos (R-8b). No es un error: el cliente ejerció un
+            derecho, y la ficha lo informa sin rojo ni ícono de alerta.
+            Revertirla es para cuando el cliente pide volver, y el botón lo
+            aclara al lado en vez de preguntar "¿está seguro?". */}
+        {baja && (
+          <div data-baja-de-avisos className="mt-6 max-w-[65ch]">
+            <p className="font-bold text-cuerpo">Avisos por WhatsApp</p>
+            <p className="mt-1 flex items-start gap-2 text-tinta-media">
+              <Icono nombre="whatsapp" className="mt-0.5 size-5 shrink-0" />
+              <span>
+                {baja.frase} {baja.consecuencia}
+              </span>
+            </p>
+            {puedeCargar && (
+              <div className="mt-3">
+                <Boton
+                  icono="deshacer"
+                  motivo={revirtiendo ? "guardando" : null}
+                  onClick={async () => {
+                    setErrorBaja(null);
+                    setRevirtiendo(true);
+                    const r = await datos.revertirBajaDeAvisos(cliente.id);
+                    setRevirtiendo(false);
+                    if (!r.ok) return setErrorBaja(r.error);
+                    datos.avisarExito(
+                      proximos.length
+                        ? `Listo. ${cliente.nombre} va a volver a recibir avisos. ${mayuscula(cita.el(2))} que ya tenía no tienen recordatorio: si ${cita.segun("los", "las")} movés, se programa.`
+                        : `Listo. ${cliente.nombre} va a volver a recibir avisos.`
+                    );
+                  }}
+                >
+                  Volver a mandarle avisos
+                </Boton>
+                <p className="mt-2 text-apoyo text-tinta-suave">
+                  Usalo sólo si el cliente te pidió volver a recibirlos. Queda anotado quién lo hizo.
+                </p>
+                {errorBaja && (
+                  <p role="alert" className="mt-2 flex items-start gap-2 font-bold text-rojo">
+                    <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                    {errorBaja}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {cliente.notas && (
           <>
             <p className="mt-6 font-bold text-cuerpo">Notas</p>
@@ -225,6 +287,25 @@ export default function FichaDeCliente() {
               </li>
             ))}
           </ul>
+        </>
+      )}
+
+      {/* Cuándo le toca volver (R-1b): la más cercana que no pasó, de entre
+          sus casos. Un cliente sin fecha no tiene sección: una vacía no
+          dice nada que sirva. */}
+      {proximaVuelta && (
+        <>
+          <TituloSeccion>Le toca volver</TituloSeccion>
+          <Link
+            href={`/casos/${proximaVuelta.caso.id}`}
+            className="mb-12 flex min-h-14 items-center gap-3 rounded-tarjeta border border-borde bg-tarjeta px-4 hover:bg-superficie"
+          >
+            <Icono nombre="calendario" className="size-5 text-tinta-media" />
+            <span className="flex-1">
+              <span className="font-bold">El {diaEnPalabras(proximaVuelta.dia)}</span>{" "}
+              · {tituloDelCaso(proximaVuelta.caso)}
+            </span>
+          </Link>
         </>
       )}
 

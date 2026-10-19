@@ -6,7 +6,7 @@
 // sistema completo con su navegación, y manda a la persona a donde corresponde:
 //   sin entrar             -> /bienvenida
 //   entró, falta confirmar -> /confirma-tu-mail
-//   entró, sin negocio     -> /negocios (el modo de ejemplo, /crear-negocio)
+//   entró, sin negocio     -> /negocios, que ofrece crear uno
 //   recién entró           -> /negocios, que elige o entra directo
 //   entró y con negocio    -> el sistema
 
@@ -96,15 +96,14 @@ const moduloApagado = (ruta, negocio) => {
 };
 
 export default function Guardia({ children }) {
-  const { cargando, esDemo, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
-  // En modo de ejemplo el negocio vive en el navegador, no en la cuenta.
+  const { cargando, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
   const { cargando: datosCargando, negocio } = useDatos();
   const ruta = usePathname();
   const router = useRouter();
 
   const publica = esSeguimiento(ruta) || esAgendaPublica(ruta);
-  const hayEntrada = esDemo || Boolean(sesion);
-  const tieneNegocio = esDemo ? Boolean(negocio) : Boolean(usuario?.negocio_id);
+  const hayEntrada = Boolean(sesion);
+  const tieneNegocio = Boolean(usuario?.negocio_id);
 
   // A dónde tendría que estar parada la persona según su estado.
   const esperando = cargando || datosCargando;
@@ -122,19 +121,17 @@ export default function Guardia({ children }) {
         destino = RUTA_BIENVENIDA;
     } else if (recuperando && ruta === "/nueva-contrasena") {
       destino = null;
-    } else if (!esDemo && necesitaConfirmarMail) {
+    } else if (necesitaConfirmarMail) {
       if (ruta !== RUTA_CONFIRMAR) destino = RUTA_CONFIRMAR;
     } else if (!tieneNegocio) {
-      // Una cuenta real sin negocio activo elige entre los suyos o crea uno.
-      // El modo de ejemplo tiene uno solo: lo crea.
+      // Una cuenta sin negocio activo elige entre los suyos o crea uno.
       if (ruta !== RUTA_NEGOCIO && ruta !== RUTA_NEGOCIOS && !esInvitacion(ruta))
-        destino = esDemo ? RUTA_NEGOCIO : RUTA_NEGOCIOS;
+        destino = RUTA_NEGOCIOS;
     } else if (RUTAS_ENTRADA.includes(ruta) || ruta === RUTA_BIENVENIDA) {
       // Con sesión y negocio, estar en una pantalla de entrada es haber
       // iniciado sesión recién —así se vuelve de Google—: toca elegir
-      // negocio. El modo de ejemplo tiene uno solo y va directo al Inicio.
-      // /crear-negocio y /negocios se pueden visitar teniendo negocio.
-      destino = esDemo ? "/" : RUTA_NEGOCIOS;
+      // negocio. /crear-negocio y /negocios se pueden visitar teniendo negocio.
+      destino = RUTA_NEGOCIOS;
     }
   }
 
@@ -160,7 +157,7 @@ export default function Guardia({ children }) {
 
   const enEntrada =
     !hayEntrada ||
-    (!esDemo && necesitaConfirmarMail) ||
+    necesitaConfirmarMail ||
     !tieneNegocio ||
     RUTAS_ENTRADA.includes(ruta) ||
     ruta === RUTA_NEGOCIO ||

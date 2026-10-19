@@ -22,3 +22,6 @@ yarn-error.log*
 
 .DS_Store
 Thumbs.db
+
+# Repomix: el repo entero en un archivo, para leerlo de una. Se genera local.
+repomix-output.*

@@ -45,6 +45,12 @@ setDatos((d) => ponerInsumo(d, r.datos.insumo));
 return { ok: true };
 ```
 
+## Dos personas editando lo mismo
+
+Las ediciones de un caso, un cliente, la ficha del negocio, el rol de una ficha, un producto y el estado de un turno mandan el `actualizado_en` que se ve en pantalla. Si otro cambió esa fila mientras tanto, la API contesta 409 `choque` y no pisa lo del otro: `datos.js` muestra el aviso y vuelve a leer todo.
+
+Para que un cambio propio no choque contra el anterior, cada acción guarda la fila que devuelve la API (con su `actualizado_en` nuevo). Lo que cambia el negocio sin devolverlo entero (compartir la agenda o el calendario, los horarios) deja su versión vacía: el próximo cambio va sin ella, y la API escribe como siempre.
+
 ## La dirección
 
 Sale de `NEXT_PUBLIC_API_URL`. `api.js` acepta la raíz, la dirección anterior terminada en `/payments` y la nueva terminada en `/v1`; normaliza cualquiera de las tres antes de armar las rutas.
@@ -60,7 +66,7 @@ Mientras esté vacía, cualquier llamada devuelve un error con código `sin_api`
 
 Las cuentas reales usan siempre `/v1`: sesión, carga inicial y los ocho recursos de la aplicación pasan por la API. Ya no existe un interruptor por recurso ni un camino alternativo desde el navegador hacia Supabase.
 
-El modo de ejemplo sigue siendo local y no usa servidor. Se conserva hasta que producto decida retirarlo y se reemplacen las pruebas de recorrido que lo usan.
+El modo de ejemplo ("Probá sin cuenta", todo en el navegador) se sacó: obligaba a tener una copia de las reglas en el front. Las e2e entran con una cuenta sembrada por la API (`POST /v1/pruebas/semilla`), y para mostrar el sistema se usa `npm run sembrar` en la API.
 
 Las únicas conexiones directas a Supabase que quedan en este repositorio se ejecutan del lado del servidor de Next:
 
@@ -68,3 +74,58 @@ Las únicas conexiones directas a Supabase que quedan en este repositorio se eje
 - la integración de Google Calendar, que guarda y recupera sus credenciales en el servidor.
 
 Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.test.js). Las fronteras arquitectónicas están en [pruebas/fronteras.test.js](../pruebas/fronteras.test.js).
+
+
+## WhatsApp desde la vista de un caso
+
+- El cambio de estado manda `notificar_cliente` sólo al endpoint `/casos/:id/estado`.
+  La opción es independiente del seguimiento posterior al cierre y requiere un teléfono válido.
+- Al abrir el cierre, se consulta `GET /negocio/seguimiento` y se muestra el texto y la
+  demora actuales. El consentimiento arranca desmarcado en cada entrega.
+- Si se pide seguimiento, el cierre envía `seguimiento: true`, `seguimiento_dias` y
+  `seguimiento_mensaje`. Los días se aplican sólo a ese caso. Desmarcado manda
+  `seguimiento: false`, sin días ni mensaje.
+- Después de confirmar un cierre con seguimiento, si el mensaje utilizado cambió
+  respecto del texto cargado, se guarda con `PATCH /negocio/seguimiento` enviando
+  sólo `mensaje`. Se comparan los textos sin espacios en los extremos. Si ese
+  guardado falla, se muestra un aviso y el cierre sigue confirmado.
+- Si el negocio tiene el seguimiento desactivado, el formulario permite activarlo
+  con `PATCH /negocio/seguimiento` antes de solicitarlo para un caso.
+- Un fallo del envío se muestra aparte del cambio de estado o cierre confirmado.
+
+## Recordatorios por WhatsApp (R-4b)
+
+- `/negocio/recordatorios` edita los dos con el mismo `GET` y `PATCH /negocio/seguimiento`:
+  arriba el de después de entregar (`activo`, `dias`, `mensaje`) y en `turno` el de antes
+  del turno (`activo`, `horas` de 1 a 168, `mensaje`). El `PATCH` lleva sólo lo que cambió
+  (`cambiosDeRecordatorios()`), así que tocar uno no escribe el otro. El texto sugerido
+  según el rubro lo arma la API; el front no tiene copia.
+- Mover un turno es `PATCH /turnos/:id` con `empieza_en` (y `actualizado_en`). `POST /turnos`
+  devuelve `recordatorio` al lado del turno, y `PATCH`, `/atender` y `/desatender` dentro del
+  turno: `{ programado, motivo, mensaje, aviso }`. `datos.js` lo guarda con el turno.
+- Cada turno muestra su aviso con `avisoDelTurno()`: `turno.aviso` si viene, si no
+  `turno.recordatorio.aviso`. **Pendiente en la API** (seguimiento de R-4a): que `GET /turnos`
+  y `GET /datos` traigan en cada turno `aviso: { id, estado, enviar_en, procesado_en } | null`,
+  el último de la cola. Sin eso, "enviado" y "fallido" —que los marca el procesador después—
+  no llegan al front, y lo programado se deja de ver al recargar.
+- El texto de error de un envío fallido no se muestra nunca: la frase dice qué hacer.
+- Sin el número de WhatsApp configurado en la API (`KAPSO_API_KEY`, `KAPSO_PHONE_NUMBER_ID`),
+  los turnos se anotan igual y la respuesta trae `motivo: "whatsapp_no_configurado"`: el
+  alta lo avisa.
+
+## Baja de avisos (R-8b)
+
+- El cliente pide la baja contestando BAJA por WhatsApp (R-8a, migración 054). La API la
+  registra en `cliente.avisos_baja_en`, que viaja en `GET /datos` y en las respuestas de
+  clientes: con eso la ficha dice cuándo la pidió y la lista lo marca. La fecha no se
+  escribe desde el front: la 054 no deja.
+- Revertirla es `POST /clientes/:id/revertir-baja` (dueño o encargado), con la acción
+  `revertirBajaDeAvisos()` de `datos.js`. Devuelve `{ cliente, evento }`; el cliente
+  reemplaza al que había. La API no le vuelve a programar el recordatorio a un turno que
+  ya estaba anotado: se programa si se mueve.
+- Entregar y cambiar de estado traen `sin_aviso: { motivo, mensaje }` cuando no se
+  programó el mensaje. El turno trae `recordatorio.motivo: "baja_de_avisos"`, y
+  `porQueNoHayAviso()` pone ese motivo antes que el teléfono, como la API.
+- Ni el `mensaje` de `sin_aviso` ni el de un error al revertir se muestran: las frases
+  salen de `porQueNoSeAviso()` y `errorAlRevertirBaja()` (`lib/recordatorios.js`), por
+  código, como pide la sección 07 de la cartilla.

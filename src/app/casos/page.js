@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
-import { etiquetaEstado, comoSeIdentifica } from "@/lib/presets";
+import { ORDEN_ESTADOS } from "@/lib/estados";
+import { comoSeIdentifica } from "@/lib/presets";
+import { presentacionEstado } from "@/lib/presentacion-estados";
+import { vueltaDeMercadoPago } from "@/lib/pagos";
 import FilaCaso from "@/componentes/FilaCaso";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Vacio } from "@/componentes/ui";
@@ -22,9 +24,11 @@ export default function Casos() {
   useTitulo("Casos");
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
-    const casoId = window.sessionStorage.getItem("marmanager.mp-caso");
-    window.sessionStorage.removeItem("marmanager.mp-caso");
-    if (casoId && /^[0-9a-f-]{36}$/i.test(casoId)) router.replace(`/casos/${casoId}?mp=conectado#cobros`);
+    // La nota la borra la pantalla a la que se vuelve, al llegar: si se
+    // borrara acá, la segunda vez que corre el efecto (React lo corre dos en
+    // desarrollo) no la encontraría y pisaría la vuelta con /casos.
+    const vuelta = vueltaDeMercadoPago(window.sessionStorage.getItem("marmanager.mp-desde"));
+    if (vuelta) router.replace(vuelta);
     else {
       setMercadoPagoVinculado(true);
       window.history.replaceState(null, "", window.location.pathname);
@@ -123,16 +127,19 @@ export default function Casos() {
         <BotonFiltro activo={filtro === "todos"} onClick={() => setFiltro("todos")}>
           Todos ({casos.length})
         </BotonFiltro>
-        {ORDEN_ESTADOS.map((estado) => (
-          <BotonFiltro
-            key={estado}
-            activo={filtro === estado}
-            onClick={() => setFiltro(estado)}
-            icono={ESTADOS[estado].icono}
-          >
-            {etiquetaEstado(negocio?.rubro, estado)} ({cuantos(estado)})
-          </BotonFiltro>
-        ))}
+        {ORDEN_ESTADOS.map((estado) => {
+          const visual = presentacionEstado(negocio, estado);
+          return (
+            <BotonFiltro
+              key={estado}
+              activo={filtro === estado}
+              onClick={() => setFiltro(estado)}
+              icono={visual.icono}
+            >
+              {visual.nombre} ({cuantos(estado)})
+            </BotonFiltro>
+          );
+        })}
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -157,7 +164,7 @@ export default function Casos() {
           </span>
           {filtro !== "todos" && (
             <Boton variante="plano" icono="cruz" onClick={() => setFiltro("todos")}>
-              {etiquetaEstado(negocio?.rubro, filtro)}
+              {presentacionEstado(negocio, filtro).nombre}
             </Boton>
           )}
           {texto && (

@@ -17,7 +17,8 @@ import {
   quienLoTiene,
 } from "@/lib/estados";
 import { ESTADOS } from "@/lib/estados";
-import { etiquetaEstado, mayuscula, vocabulario } from "@/lib/presets";
+import { mayuscula, vocabulario } from "@/lib/presets";
+import { presentacionEstado } from "@/lib/presentacion-estados";
 import { horaYMinutos, diaLargo, cuando } from "@/lib/fechas";
 import { filtrarHistorial } from "@/lib/historial";
 import { estadoDeTurno } from "@/lib/turnos";
@@ -165,7 +166,7 @@ function CuerpoCasos({ filtro, filas }) {
       <SinNada>
         {filtro === "todos" || filtro === "abiertos"
           ? "Todavía no hay casos. Abrí el primero desde el botón de arriba."
-          : `No hay ninguno en ${etiquetaEstado(negocio?.rubro, filtro).toLowerCase()}.`}
+          : `No hay ninguno en ${presentacionEstado(negocio, filtro).nombre.toLowerCase()}.`}
       </SinNada>
     );
   }

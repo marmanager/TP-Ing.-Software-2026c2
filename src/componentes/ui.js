@@ -9,7 +9,7 @@
 // - La ayuda de un campo va visible debajo de la etiqueta, nunca escondida.
 // - El error va debajo del campo, con ícono, texto rojo y un ejemplo correcto.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icono from "./Icono";
 
 const BASE_BOTON =
@@ -187,6 +187,15 @@ export function MarcaFalta() {
   );
 }
 
+// El recuadro de un campo de texto. El borde dice el estado: rojo con error,
+// verde cuando está bien.
+const claseDeEntrada = ({ error, exito }) =>
+  [
+    "block w-full rounded-campo border-2 bg-tarjeta px-4 min-h-12 text-cuerpo",
+    "placeholder:text-tinta-suave",
+    error ? "border-rojo" : exito ? "border-completo" : "border-borde-fuerte",
+  ].join(" ");
+
 // Un campo por fila. La ayuda va debajo de la etiqueta, siempre visible.
 //
 // Va en 16 px y gris medio, no en los 15 px del gris suave: la cartilla
@@ -226,11 +235,7 @@ export function Campo({
           id={id}
           aria-describedby={[idAyuda, idError].filter(Boolean).join(" ") || undefined}
           aria-invalid={error ? "true" : undefined}
-          className={[
-            "mt-2 block w-full rounded-campo border-2 bg-tarjeta px-4 min-h-12 text-cuerpo",
-            "placeholder:text-tinta-suave",
-            error ? "border-rojo" : exito ? "border-completo" : "border-borde-fuerte",
-          ].join(" ")}
+          className={`mt-2 ${claseDeEntrada({ error, exito })}`}
           {...props}
         />
       )}
@@ -251,6 +256,39 @@ export function Campo({
         </p>
       )}
     </div>
+  );
+}
+
+// Un campo de contraseña con un ojo adentro para ver lo que se escribe. Lo
+// que se ve es lo escrito en este campo: la contraseña guardada no la puede
+// mostrar nadie, porque Supabase no la guarda, guarda una huella.
+export function CampoContrasena({ etiqueta, ayuda, error, ejemplo, exito, falta, id, ...props }) {
+  const [ver, setVer] = useState(false);
+  const accion = ver ? "Ocultar la contraseña" : "Mostrar la contraseña";
+
+  return (
+    <Campo id={id} etiqueta={etiqueta} ayuda={ayuda} error={error} ejemplo={ejemplo} exito={exito} falta={falta}>
+      <div className="relative mt-2">
+        <input
+          id={id}
+          type={ver ? "text" : "password"}
+          aria-describedby={[ayuda && `${id}-ayuda`, error && `${id}-error`].filter(Boolean).join(" ") || undefined}
+          aria-invalid={error ? "true" : undefined}
+          className={`${claseDeEntrada({ error, exito })} pr-14`}
+          {...props}
+        />
+        <button
+          type="button"
+          onClick={() => setVer((v) => !v)}
+          aria-label={accion}
+          aria-pressed={ver}
+          title={accion}
+          className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center rounded-r-campo text-tinta-media hover:text-azul"
+        >
+          <Icono nombre={ver ? "ojo-tachado" : "ojo"} />
+        </button>
+      </div>
+    </Campo>
   );
 }
 

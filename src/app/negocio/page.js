@@ -14,15 +14,18 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { ORDEN_ESTADOS, ESTADOS } from "@/lib/estados";
 import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
-import { LISTA_MODULOS, estaPrendido } from "@/lib/modulos";
+import { LISTA_MODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
 import { telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
+import SedesVinculadas from "@/componentes/SedesVinculadas";
+import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
+import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import ResumenRecordatorios from "@/componentes/ResumenRecordatorios";
 
 export default function MiNegocio() {
   const datos = useDatos();
@@ -192,41 +195,6 @@ export default function MiNegocio() {
         Cómo se llaman las cosas en tu oficio, y qué tenés cargado hasta ahora.
       </p>
 
-      {/* En el celular esta pantalla son varias pantallas de scroll, y para
-          llegar a la contraseña, que estaba al final, había que pasar por los
-          estados, los módulos y el rubro todas las veces (auditoría, H6).
-
-          La contraseña y los datos de la cuenta se mudaron a Mi perfil
-          (SCRUM-118). El último enlace sigue acá y lleva allá: quien la busque
-          en el lugar de siempre tiene que encontrar adónde se fue. */}
-      <nav aria-label="En esta pantalla" className="mb-8">
-        <ul className="flex flex-wrap gap-x-6 gap-y-1">
-          {[
-            ["#estados", "Los estados"],
-            ["#nombres", "Los nombres de los casos"],
-            ["#modulos", "Los módulos"],
-            ...(["duenio", "encargado"].includes(usuario?.rol) ? [["#integraciones", "Las integraciones"]] : []),
-            ...(estaPrendido("agenda", modulosActivos) ? [["#horarios", "Cuándo atendés"]] : []),
-            ["#rubro", "El rubro"],
-            ["/perfil", "Tu cuenta y tu contraseña, en Mi perfil"],
-          ].map(([href, texto]) => (
-            <li key={href}>
-              {/* Los "#" saltan dentro de esta pantalla; lo demás es otra
-                  pantalla, y va con Link para no recargar la aplicación. */}
-              {href.startsWith("#") ? (
-                <a href={href} className="inline-flex min-h-12 items-center font-bold text-azul">
-                  {texto}
-                </a>
-              ) : (
-                <Link href={href} className="inline-flex min-h-12 items-center font-bold text-azul">
-                  {texto}
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      </nav>
-
       <Tarjeta className="mb-12">
         {/* El input vive afuera de los dos modos: si se desmontara al entrar
             en edición, el explorador de archivos se abriría sobre un elemento
@@ -395,33 +363,20 @@ export default function MiNegocio() {
         </dl>
       </Tarjeta>
 
-      {["duenio", "encargado"].includes(usuario?.rol) && (
+      <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
+      {["duenio", "encargado"].includes(usuario?.rol) && <ConexionMercadoPago />}
+      <VincularGoogleCalendar comoIntegracion />
+
+      {/* La red de sedes (docs/red-de-sedes.md): con el submódulo prendido. */}
+      {hijosActivos("inventario", modulosActivos).some((h) => h.clave === "sedes") && (
         <>
-          <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
-          <ConexionMercadoPago />
+          <TituloSeccion id="sedes">Sedes vinculadas</TituloSeccion>
+          <SedesVinculadas />
         </>
       )}
 
       <TituloSeccion id="estados">Cómo se llaman los estados en tu rubro</TituloSeccion>
-      <ul className="mb-12 overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-        {ORDEN_ESTADOS.map((estado) => {
-          const e = ESTADOS[estado];
-          return (
-            <li
-              key={estado}
-              className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
-            >
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-etiqueta ${e.fondo} ${e.texto}`}
-              >
-                <Icono nombre={e.icono} className="size-5" />
-                {actual.etiquetas[estado]}
-              </span>
-              <p className="min-w-0 flex-1 text-tinta-media">{e.significado}</p>
-            </li>
-          );
-        })}
-      </ul>
+      <ConfiguracionEstados puedeConfigurar={puedeConfigurar} />
 
       {/* Con qué nombre nace cada caso nuevo (SCRUM-119). Se guarda al
           tocar: sólo cambia los casos que se abran después, así que no hay
@@ -485,6 +440,29 @@ export default function MiNegocio() {
         </div>
       </Tarjeta>
 
+      {/* La landing la arma sólo el dueño: el resto del equipo no tiene nada
+          que hacer en esa pantalla. */}
+      {puedeConfigurar && (
+        <>
+          <TituloSeccion id="landing">Tu landing</TituloSeccion>
+          <Tarjeta className="mb-12">
+            <p className="max-w-[65ch] text-tinta-media">
+              Elegí cómo se ve la página que van a ver tus clientes: el orden de las secciones,
+              los colores y la letra.
+            </p>
+            <div className="mt-4">
+              <Link
+                href="/negocio/landing"
+                className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+              >
+                <Icono nombre="pincel" />
+                Armar tu landing
+              </Link>
+            </div>
+          </Tarjeta>
+        </>
+      )}
+
       {/* Cuándo atiende. Sólo si la agenda está prendida: sin agenda no hay
           turnos que dar, y configurar horarios sería configurar algo que no
           se usa. */}
@@ -533,6 +511,12 @@ export default function MiNegocio() {
           </Tarjeta>
         </>
       )}
+
+      {/* Los mensajes que le llegan solos al cliente (R-4b): el de después
+          de entregar y, con la agenda prendida, el de antes del turno. Se
+          editan en su pantalla, como los horarios. */}
+      <TituloSeccion id="recordatorios">Recordatorios por WhatsApp</TituloSeccion>
+      <ResumenRecordatorios puedeConfigurar={puede(usuario?.rol, "cargarDatos")} />
 
       <TituloSeccion id="rubro">El rubro de tu negocio</TituloSeccion>
       <Tarjeta className="mb-12">

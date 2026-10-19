@@ -1,8 +1,7 @@
 // La foto del negocio (SCRUM-30).
 //
 // La foto se achica en el navegador y se guarda como texto en una columna,
-// no en un bucket de archivos. Es la decisión que hace que ande igual con
-// Supabase y en el modo de ejemplo, donde no hay servidor que reciba nada.
+// no en un bucket de archivos: viaja por la API como cualquier otro dato.
 //
 // Tiene un techo y conviene decirlo: a 256 píxeles una foto pesa unos 20 KB,
 // que en una columna no molestan. Para logos grandes o fotos de verdad esto

@@ -22,7 +22,6 @@ import {
   estaPrendido,
   hijosActivos,
   hijosDe,
-  motivoParaNoApagar,
 } from "@/lib/modulos";
 import { preset } from "@/lib/presets";
 import Icono from "@/componentes/Icono";
@@ -128,9 +127,6 @@ export default function Modulos() {
                     <ul className="mt-3 grid gap-3">
                       {hijosDe(m.clave).map((h) => {
                         const hijoPrendido = adentro.some((x) => x.clave === h.clave);
-                        const motivo = hijoPrendido
-                          ? motivoParaNoApagar(h.clave, activos)
-                          : null;
 
                         return (
                           <li
@@ -168,7 +164,6 @@ export default function Modulos() {
                                 <Boton
                                   variante="plano"
                                   icono={hijoPrendido ? "cruz" : "mas"}
-                                  motivo={motivo}
                                   onClick={() => alternar(h.clave)}
                                   aria-pressed={hijoPrendido}
                                 >

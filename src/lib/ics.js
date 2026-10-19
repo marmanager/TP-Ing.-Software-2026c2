@@ -16,9 +16,8 @@
 // negocio, y ahí entran las columnas google_evento_id/sincronizado_en que la
 // 023 ya dejó puestas. Es otra historia, no un parámetro de ésta.
 //
-// No tiene React ni Supabase adentro: lo usan el route handler (con datos de
-// la base) y el modo de ejemplo (con datos del navegador), y lo corre
-// `npm run test:unit`.
+// No tiene React ni Supabase adentro: lo usa el route handler (con datos de
+// la base) y lo corre `npm run test:unit`.
 
 import { duracionDe } from "./calendario";
 

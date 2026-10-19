@@ -12,6 +12,28 @@ export const emailValido = (valor = "") =>
 // La contraseña necesita al menos 8 caracteres.
 export const contrasenaValida = (valor = "") => valor.length >= 8;
 
+// Si la cuenta tiene contraseña: "tiene", "no tiene" o "no se sabe". Lo dice
+// la API (auth_usuario.tiene_contrasena, de la base: 045). Si no lo dice —una
+// API publicada antes de eso—, no se sabe, y no se adivina por los
+// proveedores: una cuenta de Google que creó su contraseña con el link del
+// mail sigue figurando sólo con "google", y la pantalla le decía que no tenía.
+export function estadoDeLaContrasena(authUsuario, { recienCreada = false } = {}) {
+  if (recienCreada || authUsuario?.tiene_contrasena === true) return "tiene";
+  if (authUsuario?.tiene_contrasena === false) return "no tiene";
+  return "no se sabe";
+}
+
+// Por qué no se puede guardar todavía una contraseña nueva, o null si se
+// puede. Se pide dos veces porque se escribe sin verla: sin repetirla, un
+// dedazo deja a alguien afuera de su propia cuenta. La usan Mi perfil y la
+// pantalla a la que lleva el link del mail.
+export const motivoDeContrasenaNueva = (nueva = "", repetida = "") =>
+  !contrasenaValida(nueva)
+    ? "necesita 8 caracteres o más"
+    : nueva !== repetida
+      ? "repetila igual abajo"
+      : null;
+
 // El monto va en números y sin puntos (cartilla, sección 05: «Escribí el
 // monto con números, sin puntos. Por ejemplo: 120000»). Cero no sirve: un
 // paso que no cuesta nada no es un paso del presupuesto.

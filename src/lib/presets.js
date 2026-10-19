@@ -54,6 +54,12 @@ export const PRESETS = {
     // que abre el link hay que decirle cuál de las dos es: si la pelota es
     // suya y la pantalla no se lo dice, no contesta nunca.
     espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
+    // Cada cuánto le toca volver al cliente (Recordatorios, R-1b): lo que el
+    // mecánico le dice en voz alta al entregar. Se usa para sugerir la fecha
+    // en el formulario de entrega; la API no lo necesita, así que vive sólo
+    // acá. En meses porque así se dice: "volvé en seis meses". null es "no
+    // hay un intervalo típico" y el campo queda vacío.
+    volver: { meses: 6 },
     motivos: [
       "Ruido raro",
       "Service de rutina",
@@ -72,6 +78,7 @@ export const PRESETS = {
     // entiende.
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
+      cita: { uno: "turno", varios: "turnos", genero: "m" },
     },
     // Las categorías con las que arranca el inventario. Un negocio agrega las
     // suyas con el "+" del alta, y ésas quedan guardadas en el producto.
@@ -120,6 +127,8 @@ export const PRESETS = {
       completado: "Te dimos el alta.",
     },
     espera: { cliente: "tu respuesta", negocio: "un estudio o un turno con el especialista" },
+    // El control anual.
+    volver: { meses: 12 },
     motivos: [
       "Primera consulta",
       "Control",
@@ -135,6 +144,8 @@ export const PRESETS = {
     // "productos", hay insumos.
     palabras: {
       articulo: { uno: "insumo", varios: "insumos", genero: "m" },
+      // En un consultorio no se saca un turno para "el turno": es la consulta.
+      cita: { uno: "consulta", varios: "consultas", genero: "f" },
     },
     categorias: ["Descartables", "Medicamentos", "Curaciones", "Instrumental", "Limpieza"],
     ejemplos: {
@@ -173,6 +184,8 @@ export const PRESETS = {
       completado: "Tu equipo está reparado y entregado.",
     },
     espera: { cliente: "tu respuesta al presupuesto", negocio: "un repuesto" },
+    // Un equipo vuelve cuando se rompe: no hay un "volvé en tanto".
+    volver: null,
     motivos: [
       "No enciende",
       "Pantalla rota",
@@ -187,6 +200,7 @@ export const PRESETS = {
     // Igual que el taller: el estante tiene más que repuestos.
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
+      cita: { uno: "turno", varios: "turnos", genero: "m" },
     },
     categorias: [
       "Repuestos",
@@ -233,12 +247,14 @@ export const PRESETS = {
       revision_final: "Revisión antes de entregar",
     },
     espera: { cliente: "tu respuesta al presupuesto", negocio: "algo que falta" },
+    volver: null,
     motivos: [],
     modulos: ["-clientes", "-historial"],
     identificador: { nombre: "Referencia", enFrase: "la referencia", ejemplo: "Orden 1520" },
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Colaborador" },
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
+      cita: { uno: "turno", varios: "turnos", genero: "m" },
     },
     categorias: [],
     ejemplos: {
@@ -288,6 +304,9 @@ export const ejemplosDe = (rubro) => preset(rubro).ejemplos;
 // frenado: la respuesta del cliente, o algo que tiene que conseguir el
 // negocio. Un taller espera un repuesto y un consultorio, un estudio.
 export const comoSeEspera = (rubro) => preset(rubro).espera;
+
+// Cada cuánto le toca volver al cliente en este rubro: { meses } o null.
+export const cadaCuantoVuelve = (rubro) => preset(rubro).volver ?? null;
 
 // ------------------------------------------------------------
 // El vocabulario del rubro
@@ -383,23 +402,3 @@ export function queSignificaPara(rubro, estado) {
   return (PRESETS[rubro]?.seguimiento ?? SEGUIMIENTO_GENERICO)[estado];
 }
 
-export function queFaltaPara(rubro, estado) {
-  const p = preset(rubro);
-  switch (estado) {
-    case "nuevo":
-      return "Asignar a alguien del equipo";
-    case "en_proceso":
-      return p.etiquetas.en_proceso;
-    case "revision_final":
-      return p.explica.revision_final;
-    case "esperando":
-      // Quien sabe qué se está esperando lo escribe más preciso —el flujo del
-      // insumo pone "El repuesto llega mañana"—, pero desde el desplegable no
-      // hay quién, así que vale lo genérico del rubro antes que un hueco.
-      return p.explica.esperando;
-    case "completado":
-      return "Nada, el caso está cerrado.";
-    default:
-      return "";
-  }
-}

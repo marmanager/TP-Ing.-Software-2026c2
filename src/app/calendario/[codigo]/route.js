@@ -34,9 +34,8 @@ export async function GET(_pedido, { params }) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const clave = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !clave) {
-    // En el modo de ejemplo los turnos viven en el navegador de cada uno y no
-    // hay ninguna base que este servidor pueda leer. La pantalla de horarios
-    // lo explica y ofrece bajar el archivo de una vez.
+    // Sin base conectada no hay turnos que leer. La pantalla de horarios lo
+    // explica y ofrece bajar el archivo de una vez.
     return vacio("Esta copia no tiene base de datos conectada.");
   }
 

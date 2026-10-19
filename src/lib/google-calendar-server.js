@@ -28,10 +28,11 @@ export async function usuarioAutenticado(request) {
   return data;
 }
 
-export function estadoOAuth(usuario, nonce) {
+export function estadoOAuth(usuario, nonce, volver = "calendario") {
   const payload = Buffer.from(JSON.stringify({
     usuario_id: usuario.id, negocio_id: usuario.negocio_id,
-    nonce, vence: Date.now() + 10 * 60_000,
+    nonce, volver: volver === "negocio" ? "negocio" : "calendario",
+    vence: Date.now() + 10 * 60_000,
   })).toString("base64url");
   const firma = createHmac("sha256", key).update(payload).digest("base64url");
   return `${payload}.${firma}`;

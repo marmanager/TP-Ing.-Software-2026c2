@@ -50,6 +50,15 @@ export const MODULOS = {
     queHace:
       "Qué tenés, qué se está por acabar y qué pediste que todavía no llegó. Cuando marcás que llegó algo que un caso estaba esperando, ese caso se destraba solo.",
   },
+  ecuaciones: {
+    clave: "ecuaciones",
+    nombre: "Ecuaciones personalizadas",
+    icono: "nota",
+    ruta: "/ecuaciones",
+    descripcion: "Tus fórmulas, guardadas para volver a usarlas.",
+    queHace:
+      "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
+  },
   // SCRUM-121. La clave sigue siendo "presupuesto" y no "aprobar": está
   // escrita en la lista de módulos de cada negocio que existe y en cada preset,
   // y cambiarla obligaba a migrar todo eso para decir lo mismo.
@@ -116,12 +125,12 @@ export const LISTA_MODULOS = Object.values(MODULOS);
 // POR QUÉ NO UNA MIGRACIÓN. Agregarlos a la lista de cada negocio con SQL
 // parece lo directo, pero las migraciones de este repo se pueden volver a
 // correr, y volver a correr ésa prendería de nuevo lo que un dueño apagó.
-// Taparlo pedía una columna de versión, repetir lo mismo para el modo de
-// ejemplo, y dejaba un caso donde la elección de alguien se deshace sola.
+// Taparlo pedía una columna de versión, y dejaba un caso donde la elección
+// de alguien se deshace sola.
 //
 // LO QUE SE HACE. Los "deFabrica" están prendidos salvo que alguien los haya
 // apagado, y apagarlos se anota explícito como "-clientes". Nada que migrar,
-// igual en Supabase y en el modo de ejemplo, y ningún negocio pierde nada.
+// y ningún negocio pierde nada.
 const apagado = (clave) => `-${clave}`;
 
 export function estaPrendido(clave, activos = []) {
@@ -196,6 +205,21 @@ export const SUBMODULOS = {
     queHace:
       "Lo que pediste y todavía no llegó, con el caso que lo está esperando. Pedís desde acá o desde el caso, el caso queda esperando, y cuando marcás que llegó se destraba solo.",
   },
+  // Ver el inventario de varias sedes de una vez (docs/red-de-sedes.md). A
+  // pedido: la mayoría de los negocios tiene una sola sede, así que no viene
+  // prendido, no lo prende Inventario y no entra en la regla de
+  // compatibilidad de hijosActivos().
+  sedes: {
+    clave: "sedes",
+    padre: "inventario",
+    nombre: "Todas las sedes",
+    icono: "tienda",
+    ruta: "/inventario/sedes",
+    aPedido: true,
+    descripcion: "El inventario de tus sedes vinculadas, junto.",
+    queHace:
+      "Cuánto hay de cada producto en cada una de tus sedes vinculadas, el total, y qué falta dónde. Las sedes se vinculan desde Mi negocio.",
+  },
 };
 
 export const LISTA_SUBMODULOS = Object.values(SUBMODULOS);
@@ -216,25 +240,15 @@ export function hijosActivos(clave, activos = []) {
   if (!estaPrendido(clave, activos)) return [];
   const hijos = hijosDe(clave);
   const escritos = hijos.filter((h) => activos.includes(h.clave));
-  return escritos.length ? escritos : hijos;
-}
-
-// Apagar el último hijo dejaría el módulo prendido y sin ninguna pantalla
-// adentro. Eso no es un estado que alguien quiera: es apagar el módulo, y
-// para eso está el interruptor del padre. El botón lo dice, como manda la
-// cartilla para todo botón apagado.
-export function motivoParaNoApagar(clave, activos = []) {
-  const def = SUBMODULOS[clave];
-  if (!def) return null;
-  const quedan = hijosActivos(def.padre, activos).filter((h) => h.clave !== clave);
-  return quedan.length ? null : `apagá ${MODULOS[def.padre].nombre}`;
+  return escritos.length ? escritos : hijos.filter((h) => !h.aPedido);
 }
 
 // Prender o apagar, devolviendo la lista nueva. Es una función suelta y no
-// dos líneas adentro de la pantalla porque tiene cuatro reglas que no se ven:
+// dos líneas adentro de la pantalla porque tiene cinco reglas que no se ven:
 // los de fábrica se apagan anotando que se apagaron, prender un padre prende a
-// sus hijos, apagarlo se los lleva, y tocar un hijo por primera vez tiene que
-// dejar escritos a los hermanos que hasta entonces valían sin estar.
+// sus hijos, apagarlo se los lleva, tocar un hijo por primera vez tiene que
+// dejar escritos a los hermanos que hasta entonces valían sin estar, y apagar
+// el último hijo apaga al padre.
 export function alternarModulo(clave, activos = []) {
   // Los de fábrica no tienen hijos (hay una prueba que lo cuida), así que no
   // hace falta cruzar esta regla con la de los submódulos.
@@ -250,12 +264,17 @@ export function alternarModulo(clave, activos = []) {
   if (hijos.length) {
     return activos.includes(clave)
       ? activos.filter((c) => c !== clave && !hijos.includes(c))
-      : [...activos, clave, ...hijos];
+      : [...activos, clave, ...hijosDe(clave).filter((h) => !h.aPedido).map((h) => h.clave)];
   }
 
   const def = SUBMODULOS[clave];
   if (def) {
     const hermanos = hijosActivos(def.padre, activos).map((h) => h.clave);
+    // Apagar el último hijo es apagar el módulo entero. Antes no se podía
+    // (el botón decía "apagá Inventario"). Y no alcanza con sacar al hijo:
+    // un padre prendido sin ningún hijo escrito vale como "los dos" (ver
+    // hijosActivos), y volvería a prender lo que se acababa de apagar.
+    if (hermanos.length === 1 && hermanos[0] === clave) return alternarModulo(def.padre, activos);
     const resto = activos.filter((c) => !hermanos.includes(c));
     return hermanos.includes(clave)
       ? [...resto, ...hermanos.filter((c) => c !== clave)]

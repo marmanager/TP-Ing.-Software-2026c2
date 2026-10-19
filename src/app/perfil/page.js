@@ -16,24 +16,23 @@
 // confirmación a la dirección nueva, y ese ida y vuelta es otro trabajo.
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { etiquetaRol } from "@/lib/presets";
-import { contrasenaValida, telefonoValido } from "@/lib/validaciones";
+import { estadoDeLaContrasena, motivoDeContrasenaNueva, telefonoValido } from "@/lib/validaciones";
 import { achicar, revisarArchivo } from "@/lib/imagen";
-import FilaNegocio from "@/componentes/FilaNegocio";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import TusNegocios from "./TusNegocios";
 
 export default function MiPerfil() {
   const router = useRouter();
   const datos = useDatos();
   const { cargando, negocio } = datos;
-  const { esDemo, sesion, usuario, cerrarSesion, definirContrasena, guardarPerfil } = useAuth();
+  const { sesion, usuario, cerrarSesion, definirContrasena, guardarPerfil, pedirResetContrasena } =
+    useAuth();
   useTitulo("Mi perfil");
 
   // Editar el perfil, sobre un borrador como la ficha del negocio: "Cancelar"
@@ -50,16 +49,23 @@ export default function MiPerfil() {
   const [guardando, setGuardando] = useState(false);
   const [errorPerfil, setErrorPerfil] = useState(null);
 
-  // Cambiar la contraseña con la sesión abierta (SCRUM-32). Supabase pide la
-  // sesión, no la contraseña vieja, y acá la sesión ya está.
-  const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
+  // La contraseña (SCRUM-32), sólo desde "Editar".
+  // - Sin contraseña (entra sólo con Google): se crea acá mismo, nueva y
+  //   repetida. La API lo deja si entró con Google hace poco.
+  // - Con contraseña: un menú chico con dos caminos, por mail (un link para
+  //   elegir la nueva) o escribiendo la anterior, que la API comprueba.
+  // "contrasenaPor": null (cerrado), "crear", "menu" o "anterior".
+  const [contrasenaPor, setContrasenaPor] = useState(null);
+  // Recién creada: hasta que la sesión se vuelva a leer, la cuenta todavía
+  // dice que no tiene, y la pantalla tiene que pasar a "Cambiar contraseña".
+  const [recienCreada, setRecienCreada] = useState(false);
+  const [anterior, setAnterior] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [repetida, setRepetida] = useState("");
   const [errorContrasena, setErrorContrasena] = useState(null);
   const [guardandoContrasena, setGuardandoContrasena] = useState(false);
-
-  // Sólo en el modo de ejemplo.
-  const [borrandoTodo, setBorrandoTodo] = useState(false);
+  const [mailMandado, setMailMandado] = useState(null);
+  const [mandandoMail, setMandandoMail] = useState(false);
 
   if (cargando) return <Cargando />;
 
@@ -83,6 +89,7 @@ export default function MiPerfil() {
     setMenuFoto(false);
     setErrorFoto(null);
     setErrorPerfil(null);
+    cerrarCambioDeContrasena();
   }
 
   // El teléfono es opcional, pero si se escribe tiene que servir.
@@ -138,28 +145,46 @@ export default function MiPerfil() {
     }
   }
 
-  // Se pide dos veces porque no se ve lo que se escribe: sin repetirla, un
-  // dedazo deja a alguien afuera de su propia cuenta.
-  const motivoContrasena = !contrasenaValida(contrasena)
-    ? "necesita 8 caracteres o más"
-    : contrasena !== repetida
-      ? "repetila igual abajo"
-      : null;
+  const motivoContrasena = guardandoContrasena
+    ? "guardando"
+    : contrasenaPor === "anterior" && !anterior
+      ? "falta tu contraseña anterior"
+      : motivoDeContrasenaNueva(contrasena, repetida);
 
   function cerrarCambioDeContrasena() {
-    setCambiandoContrasena(false);
+    setContrasenaPor(null);
+    setAnterior("");
     setContrasena("");
     setRepetida("");
     setErrorContrasena(null);
+    setMailMandado(null);
   }
 
   async function guardarContrasena() {
+    const creando = contrasenaPor === "crear";
     setGuardandoContrasena(true);
-    const r = await definirContrasena(contrasena);
+    const r = await definirContrasena(contrasena, creando ? {} : { anterior });
     setGuardandoContrasena(false);
     if (!r.ok) return setErrorContrasena(r.error);
     cerrarCambioDeContrasena();
-    datos.avisarExito("Listo, tu contraseña quedó guardada.");
+    if (creando) setRecienCreada(true);
+    datos.avisarExito(
+      creando
+        ? "Listo, ya tenés contraseña. Desde ahora también podés entrar con tu mail."
+        : "Listo, tu contraseña quedó cambiada."
+    );
+  }
+
+  // El mismo mail que "Me olvidé la contraseña": un link que se usa una sola
+  // vez y lleva a elegir la nueva.
+  async function mandarMailDeContrasena() {
+    setErrorContrasena(null);
+    setMandandoMail(true);
+    const r = await pedirResetContrasena(usuario?.email ?? "");
+    setMandandoMail(false);
+    setContrasenaPor(null);
+    if (!r.ok) return setErrorContrasena(r.error);
+    setMailMandado(usuario?.email ?? "tu mail");
   }
 
   async function salir() {
@@ -169,11 +194,11 @@ export default function MiPerfil() {
 
   const foto = editando ? borrador.foto : usuario?.foto;
 
-  // Quien entró sólo con Google no tiene contraseña: mostrarle puntos sería
-  // decirle que tiene una. Si no se sabe con qué entró, se asume la de
-  // siempre.
-  const proveedores = sesion?.user?.app_metadata?.providers;
-  const soloGoogle = Array.isArray(proveedores) && !proveedores.includes("email");
+  // "tiene", "no tiene" o "no se sabe" (lib/validaciones.js). Si no se sabe,
+  // no se afirma nada: ni los puntos ni "no tenés una". El botón es "Cambiar
+  // contraseña", y su opción "Por mail" sirve tenga o no.
+  const estadoContrasena = estadoDeLaContrasena(sesion?.user, { recienCreada });
+  const tieneContrasena = estadoContrasena !== "no tiene";
 
   return (
     <>
@@ -182,54 +207,7 @@ export default function MiPerfil() {
         Lo tuyo, aparte de lo del negocio: tus datos, tu foto y tu contraseña.
       </p>
 
-      {esDemo ? (
-        <Tarjeta className="mb-12">
-          <p className="flex items-center gap-2 font-bold text-espera">
-            <Icono nombre="alerta" className="size-6" />
-            Estás en el modo de ejemplo
-          </p>
-          <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Acá no hay una cuenta: lo que cargues vive sólo en este navegador y no lo ve
-            nadie más. Al salir volvés a la pantalla de entrada.
-          </p>
-          {/* Borrar todo dice qué se pierde antes de hacerlo (auditoría, H5). */}
-          {borrandoTodo ? (
-            <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-              <p className="font-bold text-cuerpo">¿Borrar todo lo que cargaste?</p>
-              <p className="mt-1 max-w-[65ch] text-tinta-media">
-                Se pierden el negocio, los casos, los clientes, la agenda y el inventario
-                de este navegador, y volvés a empezar desde crear el negocio. No se puede
-                deshacer.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Boton
-                  variante="peligro"
-                  icono="tacho"
-                  onClick={() => {
-                    setBorrandoTodo(false);
-                    datos.reiniciar();
-                  }}
-                >
-                  Sí, borrar todo
-                </Boton>
-                <Boton variante="plano" onClick={() => setBorrandoTodo(false)}>
-                  Dejarlo como está
-                </Boton>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Boton icono="salir" onClick={salir}>
-                Salir del modo de ejemplo
-              </Boton>
-              <Boton variante="plano" icono="tacho" onClick={() => setBorrandoTodo(true)}>
-                Borrar todo y empezar de nuevo
-              </Boton>
-            </div>
-          )}
-        </Tarjeta>
-      ) : (
-        <>
+      <>
           <TituloSeccion id="cuenta">Tu cuenta</TituloSeccion>
           <Tarjeta className="mb-12">
             {/* El input vive afuera de los dos modos: si se desmontara al
@@ -372,6 +350,154 @@ export default function MiPerfil() {
                     Cancelar
                   </Boton>
                 </div>
+
+                {/* La contraseña, sólo desde "Editar": afuera, a un toque, se la
+                    cambiaba cualquiera que encontrara la sesión abierta. Es un
+                    guardado aparte del de arriba, y por eso su botón no es azul:
+                    habría dos azules a la vez. */}
+                <div className="mt-8 border-t border-borde pt-6">
+                  <p className="font-bold text-cuerpo">Tu contraseña</p>
+                  {estadoContrasena === "tiene" && (
+                    <p className="mt-1 text-tinta-media">
+                      <span aria-hidden="true">••••••••</span>
+                      <span className="sr-only">Guardada</span>
+                    </p>
+                  )}
+                  {estadoContrasena === "no tiene" && (
+                    <p className="mt-1 text-tinta-media">
+                      Todavía no tenés una: entrás con Google. Si la creás, también vas a poder entrar
+                      con tu mail.
+                    </p>
+                  )}
+
+                  {mailMandado && (
+                    <p role="status" className="mt-3 flex items-start gap-2 font-bold text-completo">
+                      <Icono nombre="sobre" className="mt-0.5 size-6" />
+                      <span>
+                        Te mandamos un mail a {mailMandado}. Tocá «Restablecer contraseña» y elegí la
+                        nueva. El link sirve una sola vez.
+                      </span>
+                    </p>
+                  )}
+
+                  {contrasenaPor === "anterior" || contrasenaPor === "crear" ? (
+                    <div className="mt-4">
+                      {contrasenaPor === "anterior" && (
+                        <CampoContrasena
+                          id="contrasena-anterior"
+                          etiqueta="Tu contraseña anterior"
+                          ayuda="La que usás ahora para entrar."
+                          autoComplete="current-password"
+                          value={anterior}
+                          onChange={(e) => {
+                            setAnterior(e.target.value);
+                            setErrorContrasena(null);
+                          }}
+                        />
+                      )}
+                      <CampoContrasena
+                        id="contrasena-nueva"
+                        etiqueta="Tu contraseña nueva"
+                        ayuda={
+                          contrasenaPor === "crear"
+                            ? "Al menos 8 caracteres. Vas a poder entrar con tu mail y esta contraseña, o con Google."
+                            : "Al menos 8 caracteres. Desde que la cambiás, entrás con esta."
+                        }
+                        autoComplete="new-password"
+                        value={contrasena}
+                        onChange={(e) => {
+                          setContrasena(e.target.value);
+                          setErrorContrasena(null);
+                        }}
+                      />
+                      <CampoContrasena
+                        id="contrasena-repetida"
+                        etiqueta="Escribila de nuevo"
+                        error={repetida && contrasena !== repetida ? "Las dos no son iguales." : null}
+                        exito={repetida && contrasena === repetida ? "Coinciden." : null}
+                        autoComplete="new-password"
+                        value={repetida}
+                        onChange={(e) => {
+                          setRepetida(e.target.value);
+                          setErrorContrasena(null);
+                        }}
+                      />
+                      {errorContrasena && (
+                        <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
+                          <Icono nombre="alerta" className="size-6" />
+                          <span>{errorContrasena}</span>
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-3">
+                        <Boton icono="check" motivo={motivoContrasena} onClick={guardarContrasena}>
+                          {contrasenaPor === "crear" ? "Crear la contraseña" : "Cambiar la contraseña"}
+                        </Boton>
+                        <Boton variante="plano" onClick={cerrarCambioDeContrasena}>
+                          Mejor no
+                        </Boton>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative mt-3 inline-block">
+                      {/* Sin contraseña se crea acá mismo; con contraseña, se
+                          elige cómo cambiarla. */}
+                      <Boton
+                        icono="llave"
+                        motivo={mandandoMail ? "mandando el mail" : null}
+                        aria-expanded={tieneContrasena ? contrasenaPor === "menu" : undefined}
+                        onClick={() => {
+                          setMailMandado(null);
+                          setErrorContrasena(null);
+                          if (!tieneContrasena) setContrasenaPor("crear");
+                          else setContrasenaPor((p) => (p === "menu" ? null : "menu"));
+                        }}
+                      >
+                        {tieneContrasena ? "Cambiar contraseña" : "Crear una contraseña"}
+                      </Boton>
+                      {/* Las dos formas, en un menú chico que se abre debajo. */}
+                      {contrasenaPor === "menu" && (
+                        <ul className="absolute top-full left-0 z-20 mt-2 flex w-max flex-col gap-1 rounded-tarjeta border border-borde bg-tarjeta p-2 shadow-lg">
+                          <li>
+                            <button
+                              type="button"
+                              onClick={mandarMailDeContrasena}
+                              className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-campo px-3 text-left hover:bg-superficie"
+                            >
+                              <Icono nombre="sobre" />
+                              <span>
+                                <span className="block font-bold">Por mail</span>
+                                <span className="block text-apoyo text-tinta-media">
+                                  Te llega un link para elegir la nueva.
+                                </span>
+                              </span>
+                            </button>
+                          </li>
+                          <li>
+                            <button
+                              type="button"
+                              onClick={() => setContrasenaPor("anterior")}
+                              className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-campo px-3 text-left hover:bg-superficie"
+                            >
+                              <Icono nombre="llave" />
+                              <span>
+                                <span className="block font-bold">Con la contraseña anterior</span>
+                                <span className="block text-apoyo text-tinta-media">
+                                  La escribís, y después la nueva dos veces.
+                                </span>
+                              </span>
+                            </button>
+                          </li>
+                        </ul>
+                      )}
+                      {errorContrasena && (
+                        <p className="mt-3 flex items-start gap-2 font-bold text-rojo">
+                          <Icono nombre="alerta" className="size-6" />
+                          <span>{errorContrasena}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>
@@ -386,107 +512,33 @@ export default function MiPerfil() {
                   </div>
                   <div>
                     <dt className="text-apoyo text-tinta-suave">Contraseña</dt>
-                    <dd className="flex flex-wrap items-center gap-x-3">
-                      {soloGoogle ? (
-                        <span>Entrás con Google</span>
-                      ) : (
+                    {/* Sin botón acá afuera: se cambia desde "Editar". */}
+                    <dd>
+                      {estadoContrasena === "tiene" ? (
                         <>
                           <span aria-hidden="true">••••••••</span>
                           <span className="sr-only">Guardada</span>
                         </>
-                      )}
-                      {!cambiandoContrasena && (
-                        <Boton
-                          variante="plano"
-                          icono="llave"
-                          onClick={() => setCambiandoContrasena(true)}
-                        >
-                          {soloGoogle ? "Crear una" : "Cambiarla"}
-                        </Boton>
+                      ) : estadoContrasena === "no tiene" ? (
+                        "Todavía no tenés: entrás con Google"
+                      ) : (
+                        "Se cambia desde Editar"
                       )}
                     </dd>
                   </div>
                 </dl>
-
-                {cambiandoContrasena && (
-                  <div className="mt-6 max-w-[560px] border-t border-borde pt-6">
-                    {/* Los mismos dos campos de antes (SCRUM-32), que vivían en
-                        su propia sección. */}
-                    <Campo
-                      id="contrasena-nueva"
-                      etiqueta="Tu contraseña nueva"
-                      ayuda="Al menos 8 caracteres. Desde que la cambiás, entrás con esta."
-                      type="password"
-                      autoComplete="new-password"
-                      value={contrasena}
-                      onChange={(e) => {
-                        setContrasena(e.target.value);
-                        setErrorContrasena(null);
-                      }}
-                    />
-                    <Campo
-                      id="contrasena-repetida"
-                      etiqueta="Escribila de nuevo"
-                      error={repetida && contrasena !== repetida ? "Las dos no son iguales." : null}
-                      exito={repetida && contrasena === repetida ? "Coinciden." : null}
-                      type="password"
-                      autoComplete="new-password"
-                      value={repetida}
-                      onChange={(e) => {
-                        setRepetida(e.target.value);
-                        setErrorContrasena(null);
-                      }}
-                    />
-
-                    {errorContrasena && (
-                      <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
-                        <Icono nombre="alerta" className="size-6" />
-                        <span>{errorContrasena}</span>
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-3">
-                      <Boton
-                        variante="principal"
-                        icono="check"
-                        motivo={guardandoContrasena ? "guardando" : motivoContrasena}
-                        onClick={guardarContrasena}
-                      >
-                        {soloGoogle ? "Crear la contraseña" : "Cambiar la contraseña"}
-                      </Boton>
-                      <Boton variante="plano" onClick={cerrarCambioDeContrasena}>
-                        Mejor no
-                      </Boton>
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </Tarjeta>
-        </>
-      )}
+      </>
 
-      {/* Con cuenta, todos sus negocios (docs/multinegocio.md). En el modo de
-          ejemplo hay uno solo y no hay cuenta a la que atar otro. */}
-      <TituloSeccion id="negocios">{esDemo ? "Tu negocio" : "Tus negocios"}</TituloSeccion>
-      {esDemo ? (
-        negocio && (
-          <Link href="/negocio" className="mb-12 block">
-            <Tarjeta className="flex items-center gap-3 hover:bg-superficie">
-              <FilaNegocio negocio={negocio} />
-              <span className="font-bold text-azul">Ir a Mi negocio</span>
-            </Tarjeta>
-          </Link>
-        )
-      ) : (
-        <TusNegocios />
-      )}
+      {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
+      <TituloSeccion id="negocios">Tus negocios</TituloSeccion>
+      <TusNegocios />
 
-      {!esDemo && (
-        <Boton icono="salir" onClick={salir}>
-          Cerrar sesión
-        </Boton>
-      )}
+      <Boton icono="salir" onClick={salir}>
+        Cerrar sesión
+      </Boton>
     </>
   );
 }

@@ -16,6 +16,9 @@ import {
   categoriaExistente,
   categoriasDisponibles,
   enTotal,
+  formDeProducto,
+  igualAlEditar,
+  motivoDelProducto,
   limpiarProducto,
   productoParaLaApi,
   mismoProducto,
@@ -425,4 +428,53 @@ test("en Categorías, la búsqueda no mira mayúsculas ni tildes, y sin texto se
   assert.deepEqual(buscarEnCategorias(porCategoria(stock), "BUJIA").map((g) => g.categoria), ["Encendido"]);
   assert.equal(buscarEnCategorias(porCategoria(stock), "").length, porCategoria(stock).length);
   assert.deepEqual(buscarEnCategorias(porCategoria(stock), "nada que ver"), []);
+});
+
+// ------------------------------------------------------------
+// Editar y volver a pedir
+// ------------------------------------------------------------
+
+const deMann = {
+  id: "a", nombre: "Filtro de aceite", marca: "Mann", modelo: "W 712", categoria: "Filtros",
+  cantidad: 3, minimo: 2, unidad: "unidad", por_caja: null, estado: "en_stock",
+};
+
+test("el formulario de un producto trae todos sus datos, como texto", () => {
+  assert.deepEqual(formDeProducto(deMann), {
+    nombre: "Filtro de aceite", marca: "Mann", modelo: "W 712", categoria: "Filtros",
+    cantidad: "3", minimo: "2", unidad: "unidad", porCaja: "",
+  });
+  assert.deepEqual(
+    formDeProducto({ ...deMann, marca: null, modelo: null, categoria: null, unidad: "caja", por_caja: 100 }),
+    { nombre: "Filtro de aceite", marca: "", modelo: "", categoria: "", cantidad: "3", minimo: "2", unidad: "caja", porCaja: "100" }
+  );
+});
+
+test("para volver a pedirlo, el formulario trae sus datos y una cantidad de uno", () => {
+  assert.equal(formDeProducto(deMann, { cantidad: 1 }).cantidad, "1");
+  assert.equal(formDeProducto(deMann, { cantidad: 1 }).marca, "Mann");
+});
+
+test("al editar, avisa si queda igual a otro del stock, y nunca a sí mismo", () => {
+  const otro = { ...deMann, id: "b", marca: "Fram", cantidad: 1 };
+  const insumos = [deMann, otro];
+
+  assert.equal(igualAlEditar(insumos, otro, formDeProducto(otro)), null, "sin cambios no choca consigo mismo");
+  assert.equal(igualAlEditar(insumos, otro, { ...formDeProducto(otro), marca: " mann " }), deMann);
+});
+
+test("un pedido no se junta con el stock al editarlo", () => {
+  const pedido = { ...deMann, id: "p", marca: "Fram", estado: "pedido" };
+  assert.equal(igualAlEditar([deMann, pedido], pedido, { ...formDeProducto(pedido), marca: "Mann" }), null);
+});
+
+test("por qué no se puede guardar un producto todavía", () => {
+  const bien = formDeProducto(deMann);
+  assert.equal(motivoDelProducto(bien), null);
+  assert.equal(motivoDelProducto({ ...bien, nombre: "  " }), "falta el nombre");
+  assert.equal(motivoDelProducto({ ...bien, unidad: "caja", porCaja: "" }), "falta cuántos vienen en cada caja");
+  assert.equal(motivoDelProducto({ ...bien, unidad: "caja", porCaja: "0" }), "falta cuántos vienen en cada caja");
+  assert.equal(motivoDelProducto({ ...bien, cantidad: "0" }), null, "en el stock puede haber cero");
+  assert.equal(motivoDelProducto({ ...bien, cantidad: "0" }, { desdeUno: true }), "la cantidad va en números, desde 1");
+  assert.equal(motivoDelProducto({ ...bien, cantidad: "2.5" }, { desdeUno: true }), "la cantidad va en números, desde 1");
 });

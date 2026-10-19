@@ -169,6 +169,7 @@ export default function SeccionCobros({
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
+    window.sessionStorage.removeItem("marmanager.mp-desde");
     setVinculadoAhora(true);
     document.getElementById("cobros")?.scrollIntoView({ block: "start" });
     window.history.replaceState(null, "", window.location.pathname + "#cobros");
@@ -176,22 +177,21 @@ export default function SeccionCobros({
 
   const cuenta = cuentaDelCaso({ aprobado, cobros, descuento });
   const frase = fraseDeLaCuenta(cuenta);
-  const enLinea = datos.pagosEnLinea ?? { disponible: false, simulado: false, motivo: null };
+  const enLinea = datos.pagosEnLinea ?? { disponible: false, motivo: null };
   useEffect(() => {
-    if (enLinea.simulado) return;
     let vivo = true;
     datos.estadoMercadoPago().then(r => {
       if (vivo) setMercadoPagoConectado(Boolean(r.ok && r.conectado));
     });
     return () => { vivo = false; };
-  }, [enLinea.simulado, caso.id]);
+  }, [caso.id]);
 
   async function conectarMercadoPago() {
     setError(null);
     try {
       const r = await datos.conectarMercadoPago();
       if (!r.ok) throw new Error(r.error);
-      window.sessionStorage.setItem("marmanager.mp-caso", caso.id);
+      window.sessionStorage.setItem("marmanager.mp-desde", caso.id);
       window.location.assign(r.url);
     } catch (e) { setError(e.message); }
   }
@@ -199,7 +199,7 @@ export default function SeccionCobros({
   // Un pago por link entra del otro lado: el medio de pago le avisa a la API
   // y la API escribe la base. Acá no llega solo, así que mientras haya uno
   // esperando se pregunta cada tanto, y también al volver a la pestaña.
-  const esperandoAlgo = hayPagosEnCamino(cobros) && !enLinea.simulado;
+  const esperandoAlgo = hayPagosEnCamino(cobros);
   useEffect(() => {
     if (!esperandoAlgo) return;
     let vivo = true;
@@ -363,7 +363,6 @@ export default function SeccionCobros({
                   {c.estado === "pendiente" && MEDIOS_EN_LINEA.includes(c.medio) && (
                     <PagoEnCamino
                       cobro={c}
-                      simulado={enLinea.simulado || c.proveedor === "simulado"}
                       datos={datos}
                       cliente={cliente}
                       negocio={negocio}
@@ -449,15 +448,6 @@ export default function SeccionCobros({
         {puedeCargar && pidiendo && (
           <div className="mt-5 rounded-tarjeta border border-borde p-4 sm:p-5">
             <p className="mb-4 font-bold text-subtitulo">Pedir un pago</p>
-            {enLinea.simulado && (
-              <p className="mb-4 flex items-start gap-2 rounded-campo bg-superficie p-3 text-tinta-media">
-                <Icono nombre="nota" className="mt-0.5 size-5 shrink-0" />
-                <span>
-                  Estás en el modo de ejemplo: el pago se simula. Con el sistema de
-                  pagos conectado, acá se arma un link o un QR de verdad.
-                </span>
-              </p>
-            )}
             <Campo
               id="monto-pedido"
               etiqueta="¿Cuánto le pedís?"
@@ -528,7 +518,7 @@ export default function SeccionCobros({
               <Boton icono="mas" onClick={abrir}>
                 Anotar un cobro
               </Boton>
-              {enLinea.disponible && !enLinea.simulado && mercadoPagoConectado === false && (
+              {enLinea.disponible && mercadoPagoConectado === false && (
                 <Boton variante="plano" onClick={conectarMercadoPago}>
                   Vincular Mercado Pago
                 </Boton>
@@ -540,7 +530,7 @@ export default function SeccionCobros({
                   variante="neutro"
                   icono="sobre"
                   motivo={!enLinea.disponible ? enLinea.motivo :
-                    !enLinea.simulado && !mercadoPagoConectado ? "primero vinculá Mercado Pago" : null}
+                    !mercadoPagoConectado ? "primero vinculá Mercado Pago" : null}
                   onClick={abrirPedido}
                 >
                   Pedir un pago por link o QR
@@ -613,9 +603,8 @@ export default function SeccionCobros({
 }
 
 // Un pedido de pago que todavía no se pagó: el link para mandar, el QR para
-// mostrar y hasta cuándo vale. En el modo de ejemplo, los botones para hacer
-// de cuenta que el medio de pago avisó.
-function PagoEnCamino({ cobro, simulado, datos, cliente, negocio }) {
+// mostrar y hasta cuándo vale.
+function PagoEnCamino({ cobro, datos, cliente, negocio }) {
   const mensaje = cobro.link
     ? mensajeDePago({ negocio: negocio?.nombre, cliente: cliente?.nombre, monto: cobro.monto, link: cobro.link })
     : null;
@@ -625,23 +614,7 @@ function PagoEnCamino({ cobro, simulado, datos, cliente, negocio }) {
 
   return (
     <div className="mt-3 rounded-tarjeta bg-superficie p-4">
-      {simulado ? (
-        <>
-          <p className="max-w-[65ch] text-tinta-media">
-            Simulación: con el sistema de pagos conectado, acá aparece{" "}
-            {cobro.medio === "qr" ? "el QR para que lo escanee" : "el link para mandarle"}.
-            Hacé de cuenta que el medio de pago avisó:
-          </p>
-          <div className="mt-3 flex flex-wrap gap-3">
-            <Boton variante="neutro" icono="listo" onClick={() => datos.simularPago(cobro.id, "pagado")}>
-              Simular que pagó
-            </Boton>
-            <Boton variante="plano" icono="reloj" onClick={() => datos.simularPago(cobro.id, "vencido")}>
-              Simular que venció
-            </Boton>
-          </div>
-        </>
-      ) : cobro.medio === "qr" ? (
+      {cobro.medio === "qr" ? (
         cobro.qr_imagen ? (
           <div>
             <p className="mb-2 font-bold text-cuerpo">Mostrale este QR para que pague</p>

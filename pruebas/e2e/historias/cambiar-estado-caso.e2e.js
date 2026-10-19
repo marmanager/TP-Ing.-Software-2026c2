@@ -1,9 +1,9 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrarConDatosDePrueba, noVerTexto, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, verTexto } from "./ayudas.js";
 
 describe("Historia: Cambiar el estado desde el detalle del caso", () => {
   beforeEach(async () => {
-    await entrarConDatosDePrueba("/casos/k248");
+    await entrar("/casos/{k248}");
   });
 
   it("AC1: el estado actual abre un selector con los otros estados abiertos", async () => {

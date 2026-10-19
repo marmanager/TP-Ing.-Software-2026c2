@@ -70,8 +70,10 @@ const DESTINOS = [
     hijos: [
       { href: "/inventario", icono: "cajas", palabra: "En stock", modulo: "stock" },
       { href: "/inventario/en-camino", icono: "camion", palabra: "En camino", modulo: "en_camino" },
+      { href: "/inventario/sedes", icono: "tienda", palabra: "Todas las sedes", modulo: "sedes" },
     ],
   },
+  { href: "/ecuaciones", icono: "nota", palabra: "Ecuaciones", modulo: "ecuaciones" },
   { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },

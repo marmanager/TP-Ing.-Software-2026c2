@@ -9,6 +9,8 @@ import {
   telefonoValido,
   emailValido,
   contrasenaValida,
+  motivoDeContrasenaNueva,
+  estadoDeLaContrasena,
   montoValido,
   montoCobrado,
   cobroValido,
@@ -211,4 +213,29 @@ test("sin teléfono escrito todavía no se reconoce a nadie", () => {
 test("el teléfono se compara sólo por los números", () => {
   assert.equal(soloNumeros("341 456-7890"), "3414567890");
   assert.equal(soloNumeros(null), "");
+});
+
+// ---------------------------------------------------------------
+// La contraseña nueva: en Mi perfil y en la pantalla del link del mail
+// ---------------------------------------------------------------
+
+test("la contraseña nueva necesita 8 caracteres y repetirla igual", () => {
+  assert.equal(motivoDeContrasenaNueva("corta", "corta"), "necesita 8 caracteres o más");
+  assert.equal(motivoDeContrasenaNueva("larguita123", "larguita12"), "repetila igual abajo");
+  assert.equal(motivoDeContrasenaNueva("larguita123", ""), "repetila igual abajo");
+  assert.equal(motivoDeContrasenaNueva("larguita123", "larguita123"), null);
+});
+
+// Si la cuenta tiene contraseña lo dice la API (tiene_contrasena). Los
+// proveedores no sirven para adivinarlo: una cuenta de Google que creó su
+// contraseña con el link del mail sigue figurando sólo con "google".
+test("la contraseña: lo que dice la API, y si no lo dice, no se sabe", () => {
+  const google = { app_metadata: { providers: ["google"] } };
+  assert.equal(estadoDeLaContrasena({ ...google, tiene_contrasena: true }), "tiene");
+  assert.equal(estadoDeLaContrasena({ ...google, tiene_contrasena: false }), "no tiene");
+  assert.equal(estadoDeLaContrasena(google), "no se sabe");
+  assert.equal(estadoDeLaContrasena({ tiene_contrasena: null }), "no se sabe");
+  assert.equal(estadoDeLaContrasena(null), "no se sabe");
+  // Recién creada en esta pantalla: la sesión todavía no se volvió a leer.
+  assert.equal(estadoDeLaContrasena({ tiene_contrasena: false }, { recienCreada: true }), "tiene");
 });

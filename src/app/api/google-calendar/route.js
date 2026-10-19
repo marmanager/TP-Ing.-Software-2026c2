@@ -24,12 +24,13 @@ export async function POST(request) {
   if (!googleConfigurado) return Response.json({ error: "Google Calendar todavía no está configurado." }, { status: 503 });
   const usuario = await usuarioAutenticado(request);
   if (!usuario) return Response.json({ error: "Iniciá sesión." }, { status: 401 });
-  let action;
-  try { action = (await request.json()).action; } catch { return Response.json({ error: "Pedido inválido." }, { status: 400 }); }
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: "Pedido inválido." }, { status: 400 }); }
+  const { action } = body;
   try {
     if (action === "connect") {
       const nonce = randomBytes(24).toString("hex");
-      const state = estadoOAuth(usuario, nonce);
+      const state = estadoOAuth(usuario, nonce, body.volver);
       const response = Response.json({ url: urlAutorizacion(state) });
       response.headers.set("Set-Cookie", `google_oauth_state=${nonce}; HttpOnly; SameSite=Lax; Path=/api/google-calendar/callback; Max-Age=600${process.env.NODE_ENV === "production" ? "; Secure" : ""}`);
       return response;

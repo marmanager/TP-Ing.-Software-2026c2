@@ -1,0 +1,45 @@
+# Registro de pruebas — Sumar gente al equipo con un link
+
+Diseño: `docs/equipo-por-link.md`. Plan: `docs/equipo-por-link-plan.md`.
+
+Nota: desde el 12/10/2026 el front no tiene modo de ejemplo y las e2e entran con una cuenta sembrada por la API; las Tareas 3 a 8 del plan se re-planifican sobre eso.
+
+## Trazabilidad
+
+| Criterio de aceptación | Base (SQL) | API (contrato) | Jest | WebdriverIO |
+|---|---|---|---|---|
+| El dueño crea el link del equipo y lo puede cambiar; el viejo deja de servir | `equipo_por_link.sql` 1, 9 | `GET/POST /v1/equipo/link` | `mensajeDeInvitacion` | `sumar-gente-al-equipo.e2e.js`: «AC: cambiar el link deja sin efecto el anterior» (pendiente: rojo y verde de WebdriverIO el día de la publicación, necesita la 051) |
+| Quien usa el link queda pendiente y no ve nada del negocio | `equipo_por_link.sql` 2 | `POST /v1/invitaciones/:codigo/pedir` | — | `sumar-gente-al-equipo.e2e.js`: «AC: la dueña crea el link, otra cuenta pide entrar, la dueña la acepta y la cuenta entra» (pendiente: rojo y verde de WebdriverIO el día de la publicación, necesita la 051) |
+| Sólo quien tiene `sumar_al_equipo` ve pedidos, aprueba, rechaza y cambia el link | `equipo_por_link.sql` 3 | 403 de cada endpoint | `puede(…, "sumarAlEquipo")` | — |
+| Aprobar da el rol elegido y recién ahí el acceso | `equipo_por_link.sql` 4 | `POST …/aprobar` | — | `sumar-gente-al-equipo.e2e.js`: «AC: la dueña crea el link, otra cuenta pide entrar, la dueña la acepta y la cuenta entra» (pendiente: rojo y verde de WebdriverIO el día de la publicación, necesita la 051) |
+| Rechazar borra el pedido sin dar acceso | `equipo_por_link.sql` 5 | `POST …/rechazar` | — | — |
+| Nadie da un rol más alto que el suyo | `equipo_por_link.sql` 6 | 403 al aprobar | `rolesQuePuedeDar` | — |
+| No hay fichas sin cuenta ni se pueden crear | `equipo_por_link.sql` 7 | `POST /v1/equipo` → 404 | — | `sumar-gente-al-equipo.e2e.js`: «AC: Equipo ya no ofrece sumar a alguien sin cuenta ni invitar con rol» (pendiente: rojo y verde de WebdriverIO el día de la publicación, necesita la 051) |
+| No se crean invitaciones con rol | `equipo_por_link.sql` 8 | `POST /v1/invitaciones` → 404 | — | `sumar-gente-al-equipo.e2e.js`: «AC: la pantalla de invitaciones con rol ya no existe» (pendiente: rojo y verde de WebdriverIO el día de la publicación, necesita la 051) |
+
+## Corridas
+
+| Fecha | Qué | Comando | Resultado | TDD |
+|---|---|---|---|---|
+| 13/10/2026 | Base: `supabase/pruebas/equipo_por_link.sql`, antes de la 051 | SQL Editor de Supabase | Falla: `42883 function cambiar_link_de_equipo(integer) does not exist` (línea 27) | Rojo ✔ |
+| 13/10/2026 | Base: `supabase/pruebas/multinegocio.sql` (adaptada), antes de la 051 | SQL Editor de Supabase | Falla: `42883 function cambiar_link_de_equipo(integer) does not exist` (línea 93) | Rojo ✔ |
+| 13/10/2026 | Base: `supabase/pruebas/red_de_sedes.sql` (adaptada), antes de la 051 | SQL Editor de Supabase | Falla: `42883 function cambiar_link_de_equipo(integer) does not exist` (línea 37) | Rojo ✔ |
+| 14/10/2026 | Base: `supabase/pruebas/equipo_por_link.sql`, con la 051 corrida en producción | SQL Editor de Supabase | Success (los 9 casos pasan) | Verde ✔ |
+| 14/10/2026 | Base: `supabase/pruebas/multinegocio.sql` (adaptada), con la 051 | SQL Editor de Supabase | Success | Verde ✔ |
+| 14/10/2026 | Base: `supabase/pruebas/red_de_sedes.sql` (adaptada), con la 051 | SQL Editor de Supabase | Success | Verde ✔ |
+| 13/10/2026 | API (`equipo-por-link`): casos de uso y contrato del equipo por link, antes del código | `node --import tsx --test pruebas/casos-de-uso/clientes-y-equipo.test.ts pruebas/casos-de-uso/negocio-y-cuenta.test.ts pruebas/contrato/equipo-por-link.test.ts` | 36 pruebas, 17 pasan, 19 fallan: `Equipo.verLink`, `Equipo.verPedidos`, `Equipo.aprobarPedido`, `Cuenta.pedirEntrar` y `Cuenta.misPedidos` no existen; las rutas nuevas dan 404 y las que se sacan (`POST /v1/equipo`, `/v1/invitaciones`) todavía responden 201 | Rojo ✔ |
+| 13/10/2026 | API (`equipo-por-link`): las mismas tres pruebas, con el código | `node --import tsx --test pruebas/casos-de-uso/clientes-y-equipo.test.ts pruebas/casos-de-uso/negocio-y-cuenta.test.ts pruebas/contrato/equipo-por-link.test.ts` | 36 pruebas, 36 pasan, 0 fallan | Verde ✔ |
+| 13/10/2026 | API (`equipo-por-link`): tipos | `npm run tipos` | Limpio (`tsc --noEmit` y `tsc -p tsconfig.pruebas.json`) | Verde ✔ |
+| 13/10/2026 | API (`equipo-por-link`): toda la suite | `npm run test:pruebas` | 527 pruebas, 523 pasan, 2 fallan, 2 salteadas. Las 2 que fallan son `casos-de-uso/turnos.test.ts` y `casos-de-uso/recordatorio-turno.test.ts`, que no importan `apoyo/entorno.js` y no arrancan sin las variables de Mercado Pago (pasa igual en `master`, no es de este trabajo). Con el entorno de pruebas cargado (`--import ./pruebas/apoyo/entorno.ts`): 553 pasan, 0 fallan | Verde para las pruebas de este trabajo; 2 fallas previas de `master` (turnos y recordatorio-turno, sin `apoyo/entorno.js`) |
+| 13/10/2026 | Front (`equipo-por-link`), Tarea 4: `pruebas/historias/sumar-gente-al-equipo.test.js`, antes del código | `npm run test:unit -- pruebas/historias/sumar-gente-al-equipo.test.js` | 1 suite falla, 0 pruebas corren: `Cannot find module '../../src/lib/equipo.js'` | Rojo ✔ |
+| 13/10/2026 | Front (`equipo-por-link`), Tarea 4: la misma historia, con `equipo.js` y `permisos.js` | `npm run test:unit -- pruebas/historias/sumar-gente-al-equipo.test.js` | 5 pruebas, 5 pasan, 0 fallan, 0 omitidas | Verde ✔ |
+| 13/10/2026 | Front (`equipo-por-link`), Tarea 4: toda la suite (incluye `permisos.test.js` y `fronteras.test.js`) | `npm run test:unit` | 39 suites pasan; 619 pruebas: 614 pasan, 0 fallan, 5 omitidas (presets, `NO IMPLEMENTADA`) | Verde ✔ |
+| 13/10/2026 | Front (`equipo-por-link`), Tarea 5: toda la suite, con `auth.js` y `datos.js` sin las invitaciones con rol | `npm run test:unit` | 39 suites pasan; 619 pruebas: 614 pasan, 0 fallan, 5 omitidas (presets, `NO IMPLEMENTADA`) | Verde ✔ |
+| 13/10/2026 | Front (`equipo-por-link`), Tarea 6: toda la suite, con `SumarAlEquipo`, Equipo sin el alta a mano y `/equipo/invitaciones` redirigiendo | `npm run test:unit` | 39 suites pasan; 619 pruebas: 614 pasan, 0 fallan, 5 omitidas (presets, `NO IMPLEMENTADA`). Vista previa pendiente (la hace el controlador después de la Tarea 7); el repo no tiene ESLint configurado | Verde ✔ |
+| 13/10/2026 | Front (`equipo-por-link`), Tarea 7: toda la suite, con `/unirme/[codigo]` pidiendo entrar (`pedirEntrar`), y el aviso "Esperando que te acepten" en el selector y en crear-negocio | `npm run test:unit` | 39 suites pasan; 619 pruebas: 614 pasan, 0 fallan, 5 omitidas (presets, `NO IMPLEMENTADA`). Vista previa pendiente (la hace el controlador); el repo no tiene ESLint configurado, se revisaron imports y nombres sin usar a mano | Verde ✔ |
+| 13/10/2026 | Front (`equipo-por-link`): arreglos después de la revisión de las Tareas 4-7 (`SumarAlEquipo` con "Reintentar" y sin crear/cambiar si no cargó el link, `negocios` con `Promise.all`, comentarios) | `npm run test:unit` | 39 suites pasan; 619 pruebas: 614 pasan, 0 fallan, 5 omitidas (presets, `NO IMPLEMENTADA`) | Verde ✔ |
+| 13/10/2026 | Front (`equipo-por-link`), Tarea 8: e2e `sumar-gente-al-equipo.e2e.js` y helper `iniciarCon` en `ayudas.js` (`entrar` lo usa). WebdriverIO NO se corrió: necesita la API local con la siembra y la 051 aplicada (día de la publicación) | `node --input-type=module --check` sobre los dos archivos; `npm run test:unit` | Sintaxis OK; 39 suites pasan; 619 pruebas: 614 pasan, 0 fallan, 5 omitidas (presets, `NO IMPLEMENTADA`); Jest no levanta el `.e2e.js` | Jest verde ✔; WebdriverIO rojo/verde pendientes |
+| 13/10/2026 | Front (`equipo-por-link`): arreglos de la revisión final (`link_de_equipo` sin el link vencido, `pedir_entrar` con el nombre de la cuenta, textos de fecha y efecto de `SumarAlEquipo`, comentario de `datos.js`, docs) | `npm run test:unit` | 39 suites pasan; 619 pruebas: 614 pasan, 0 fallan, 5 omitidas (presets, `NO IMPLEMENTADA`) | Verde ✔ |
+| 13/10/2026 | API (`equipo-por-link`): arreglos de la revisión final (`email` nullable en `pedidos_de_ingreso`, `empleados(negocioId)` filtrado por negocio) | `node --import tsx --test pruebas/casos-de-uso/clientes-y-equipo.test.ts pruebas/casos-de-uso/negocio-y-cuenta.test.ts pruebas/contrato/equipo-por-link.test.ts` | 36 pruebas, 36 pasan, 0 fallan | Verde ✔ |
+| 13/10/2026 | API (`equipo-por-link`): tipos, después de los arreglos de la revisión final | `npm run tipos` | Limpio (`tsc --noEmit` y `tsc -p tsconfig.pruebas.json`) | Verde ✔ |
+| 13/10/2026 | Base: las pruebas SQL tras los arreglos de la revisión final (caso 9 de `equipo_por_link.sql` ahora afirma que `link_de_equipo()` no devuelve el link vencido; caso 7 cuenta sólo las fichas del negocio de la prueba). No se corrieron: el rojo anterior sigue valiendo (la 051 no existe en la base) y el verde espera a que el usuario corra la 051 | SQL Editor de Supabase | Pendiente de la 051 | Rojo ✔ vigente; verde pendiente |
