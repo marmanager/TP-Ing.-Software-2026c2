@@ -40,6 +40,7 @@ import {
 import { DIAS_DE_LA_SEMANA, MES_CORTO, MES_LARGO } from "@/lib/calendario";
 import { preset } from "@/lib/presets";
 import { diaPasado } from "@/lib/fechas";
+import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando } from "@/componentes/ui";
 
@@ -175,10 +176,10 @@ export default function PedirTurno() {
               <p className="mt-2 text-tinta-media">
                 Su teléfono es{" "}
                 <a
-                  href={`tel:${agenda.negocio_telefono.replace(/\s/g, "")}`}
+                  href={`tel:${telefonoParaLlamar(agenda.negocio_telefono)}`}
                   className="font-bold text-azul"
                 >
-                  {agenda.negocio_telefono}
+                  {telefonoLegible(agenda.negocio_telefono)}
                 </a>
                 .
               </p>

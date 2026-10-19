@@ -212,9 +212,11 @@ export function separarLoEscrito(texto, paisActual) {
 
 // Un teléfono guardado, separado para corregirlo en el campo. Uno de antes,
 // sin país, arranca en el país del negocio con sus dígitos de siempre: lo
-// más probable es que sólo haya que confirmar el país y guardar.
+// más probable es que sólo haya que confirmar el país y guardar. Sin país
+// del negocio todavía (null), el país queda null: el campo lo completa
+// cuando llegue el negocio.
 export function paraEditar(guardado, paisNegocio) {
-  const pais = paisPorCodigo(paisNegocio)?.codigo ?? POR_DEFECTO.codigo;
+  const pais = paisPorCodigo(paisNegocio)?.codigo ?? null;
   if (!String(guardado ?? "").trim()) return { pais, numero: "" };
   return separarDelGuardado(guardado) ?? { pais, numero: String(guardado).trim() };
 }

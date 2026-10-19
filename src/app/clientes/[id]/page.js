@@ -18,12 +18,19 @@ import { estaAbierto, pesos } from "@/lib/estados";
 import { comoSeIdentifica, mayuscula, vocabulario } from "@/lib/presets";
 import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
 import { bajaDeAvisos, proximaVisita } from "@/lib/recordatorios";
-import { telefonoValido } from "@/lib/validaciones";
+import {
+  FRASE_TELEFONO_INCOMPLETO,
+  paisInicial,
+  telefonoIncompleto,
+  telefonoLegible,
+  telefonoParaLlamar,
+} from "@/lib/telefono";
 import { saldoDelCaso } from "@/lib/cobros";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 
 export default function FichaDeCliente() {
   const { id } = useParams();
@@ -32,7 +39,8 @@ export default function FichaDeCliente() {
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [corrigiendo, setCorrigiendo] = useState(false);
-  const [telefono, setTelefono] = useState("");
+  const paisNegocio = paisInicial(negocio);
+  const tel = useTelefono("", paisNegocio);
   const [tocado, setTocado] = useState(false);
   const [revirtiendo, setRevirtiendo] = useState(false);
   const [errorBaja, setErrorBaja] = useState(null);
@@ -91,10 +99,8 @@ export default function FichaDeCliente() {
     .filter((t) => new Date(t.empieza_en) >= new Date(new Date().toDateString()))
     .sort((a, b) => new Date(a.empieza_en) - new Date(b.empieza_en));
 
-  const errorTelefono =
-    tocado && telefono.trim() && !telefonoValido(telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = tocado && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
+  const incompleto = telefonoIncompleto(cliente);
 
   return (
     <>
@@ -119,32 +125,25 @@ export default function FichaDeCliente() {
         <p className="font-bold text-cuerpo">Teléfono</p>
         {corrigiendo && puedeCargar ? (
           <div className="mt-2 max-w-[360px]">
-            <Campo
+            <CampoTelefono
               id="telefono"
               etiqueta="Teléfono"
-              ayuda="Con característica, sin el 0 ni el 15."
+              paisPorDefecto={paisNegocio}
               error={errorTelefono}
-              ejemplo="341 456 7890"
-              inputMode="tel"
-              autoComplete="tel"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
+              exito={tel.armado.ok ? "Listo. Le vamos a poder avisar por WhatsApp." : null}
+              valor={tel.valor}
+              onChange={tel.setValor}
               onBlur={() => setTocado(true)}
+              autoFocus
             />
             <div className="flex flex-wrap gap-3">
               <Boton
                 icono="check"
-                motivo={
-                  !telefono.trim()
-                    ? "falta el teléfono"
-                    : !telefonoValido(telefono)
-                      ? "el teléfono no es válido"
-                      : null
-                }
+                motivo={tel.vacio ? "falta el teléfono" : !tel.armado.ok ? "el teléfono no sirve todavía" : null}
                 onClick={() => {
-                  datos.corregirTelefono(cliente.id, telefono.trim());
+                  datos.corregirTelefono(cliente.id, tel.telefono);
                   datos.avisarExito(
-                    `Listo. El teléfono de ${cliente.nombre} ahora es ${telefono.trim()}.`
+                    `Listo. El teléfono de ${cliente.nombre} ahora es ${telefonoLegible(tel.telefono)}.`
                   );
                   setCorrigiendo(false);
                 }}
@@ -160,11 +159,11 @@ export default function FichaDeCliente() {
           <div className="mt-1 flex flex-wrap items-center gap-3">
             {cliente.telefono ? (
               <a
-                href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
                 className="inline-flex min-h-12 items-center gap-2 text-azul"
               >
                 <Icono nombre="telefono" className="size-5" />
-                {cliente.telefono}
+                {telefonoLegible(cliente.telefono)}
               </a>
             ) : (
               <p className="text-tinta-media">No tiene teléfono cargado.</p>
@@ -174,8 +173,10 @@ export default function FichaDeCliente() {
                 variante="plano"
                 icono="nota"
                 onClick={() => {
-                  setTelefono(cliente.telefono ?? "");
-                  setTocado(false);
+                  // Uno de antes, sin país, arranca en el país del negocio
+                  // con sus dígitos: casi siempre es confirmar y guardar.
+                  tel.cargar(cliente.telefono ?? "");
+                  setTocado(!!cliente.telefono);
                   setCorrigiendo(true);
                 }}
               >
@@ -183,6 +184,15 @@ export default function FichaDeCliente() {
               </Boton>
             )}
           </div>
+        )}
+
+        {/* Un teléfono de antes de B-1b, sin código de país: no le llegan
+            los WhatsApp. No es un error del cliente; se dice qué falta. */}
+        {incompleto && !corrigiendo && (
+          <p data-telefono-incompleto className="mt-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+            <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+            <span>{FRASE_TELEFONO_INCOMPLETO}</span>
+          </p>
         )}
 
         {/* La baja de avisos (R-8b). No es un error: el cliente ejerció un

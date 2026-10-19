@@ -7,18 +7,20 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
-import { telefonoValido } from "@/lib/validaciones";
+import { paisInicial, telefonoIncompleto, telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 
 export default function Clientes() {
-  const { cargando, clientes, casos, agregarCliente, avisarExito } = useDatos();
+  const { cargando, clientes, casos, negocio, agregarCliente, avisarExito } = useDatos();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario?.rol, "cargarDatos");
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
+  const paisNegocio = paisInicial(negocio);
+  const tel = useTelefono("", paisNegocio);
   const [tocado, setTocado] = useState(false);
   useTitulo("Clientes");
 
@@ -26,7 +28,7 @@ export default function Clientes() {
 
   const texto = busqueda.trim().toLowerCase();
   const visibles = clientes
-    .filter((c) => !texto || c.nombre.toLowerCase().includes(texto) || (c.telefono ?? "").includes(texto))
+    .filter((c) => !texto || c.nombre.toLowerCase().includes(texto) || porTelefono(c.telefono, texto))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
   // Quien pidió un turno y todavía no vino va aparte: la lista de clientes
@@ -35,22 +37,19 @@ export default function Clientes() {
   const vinieron = visibles.filter((c) => c.confirmado !== false);
   const porVenir = visibles.filter((c) => c.confirmado === false);
 
-  const errorTelefono =
-    tocado && telefono.trim() && !telefonoValido(telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = tocado && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   const motivo = !nombre.trim()
     ? "falta el nombre"
-    : !telefono.trim() || !telefonoValido(telefono)
+    : !tel.armado.ok
       ? "falta el teléfono"
       : null;
 
   function guardar() {
-    agregarCliente({ nombre: nombre.trim(), telefono: telefono.trim() });
+    agregarCliente({ nombre: nombre.trim(), telefono: tel.telefono });
     avisarExito(`Listo. ${nombre.trim()} ya está en la lista de clientes.`);
     setNombre("");
-    setTelefono("");
+    tel.cargar("");
     setTocado(false);
     setAbierto(false);
   }
@@ -81,21 +80,15 @@ export default function Clientes() {
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
-          <Campo
+          <CampoTelefono
             id="nuevo-telefono"
             etiqueta="Teléfono del cliente"
-            ayuda="Con característica, sin el 0 ni el 15."
+            paisPorDefecto={paisNegocio}
             error={errorTelefono}
-            ejemplo="341 456 7890"
-            exito={
-              telefono.trim() && telefonoValido(telefono)
-                ? "Listo. Le vamos a poder avisar por WhatsApp."
-                : null
-            }
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
+            exito={tel.armado.ok ? "Listo. Le vamos a poder avisar por WhatsApp." : null}
+            valor={tel.valor}
+            onChange={tel.setValor}
             onBlur={() => setTocado(true)}
-            inputMode="tel"
           />
           <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar}>
             Guardar el cliente
@@ -156,15 +149,7 @@ export default function Clientes() {
                     {cliente.nombre}
                     <Icono nombre="volver" className="size-5 rotate-180" />
                   </Link>
-                  {cliente.telefono && (
-                    <a
-                      href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
-                      className="mt-1 inline-flex min-h-12 items-center gap-2 text-azul"
-                    >
-                      <Icono nombre="telefono" className="size-5" />
-                      {cliente.telefono}
-                    </a>
-                  )}
+                  {cliente.telefono && <TelefonoDelCliente cliente={cliente} />}
                   <p className="mt-1 text-tinta-media">
                     {suyos.length} {suyos.length === 1 ? "caso" : "casos"}
                     {abiertos > 0 && ` · ${abiertos} sin cerrar`}
@@ -207,15 +192,7 @@ export default function Clientes() {
                     {cliente.nombre}
                     <Icono nombre="volver" className="size-5 rotate-180" />
                   </Link>
-                  {cliente.telefono && (
-                    <a
-                      href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
-                      className="mt-1 inline-flex min-h-12 items-center gap-2 text-azul"
-                    >
-                      <Icono nombre="telefono" className="size-5" />
-                      {cliente.telefono}
-                    </a>
-                  )}
+                  {cliente.telefono && <TelefonoDelCliente cliente={cliente} />}
                   <p className="mt-1 flex items-center gap-1.5 text-etiqueta text-tinta-suave">
                     <Icono nombre="reloj" className="size-5" />
                     Tiene turno, todavía no vino
@@ -239,5 +216,33 @@ function NoRecibeAvisos() {
       <Icono nombre="whatsapp" className="size-5" />
       Pidió no recibir avisos
     </p>
+  );
+}
+
+// Buscar por teléfono: "341 456" encuentra el 5493414567890 guardado.
+function porTelefono(telefono, texto) {
+  const buscado = texto.replace(/\D/g, "");
+  return !!buscado && String(telefono ?? "").replace(/\D/g, "").includes(buscado);
+}
+
+// El teléfono legible, con el código separado. Uno de antes, sin país, lo
+// dice: así no le llegan los WhatsApp, y se corrige desde la ficha.
+function TelefonoDelCliente({ cliente }) {
+  return (
+    <>
+      <a
+        href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
+        className="mt-1 inline-flex min-h-12 items-center gap-2 text-azul"
+      >
+        <Icono nombre="telefono" className="size-5" />
+        {telefonoLegible(cliente.telefono)}
+      </a>
+      {telefonoIncompleto(cliente) && (
+        <p className="flex items-center gap-1.5 text-etiqueta text-tinta-media">
+          <Icono nombre="alerta" className="size-5" />
+          Le falta el código de país
+        </p>
+      )}
+    </>
   );
 }

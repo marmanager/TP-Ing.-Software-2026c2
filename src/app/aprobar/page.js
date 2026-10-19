@@ -11,6 +11,7 @@ import { casosPorAprobar, pesos } from "@/lib/estados";
 import { cuantoHace, diasDesde } from "@/lib/fechas";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
+import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import { Cargando, Tarjeta, Vacio } from "@/componentes/ui";
 
@@ -91,11 +92,11 @@ export default function AAprobar() {
                       </Link>
                       {cliente?.telefono && (
                         <a
-                          href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                          href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
                           className="inline-flex min-h-12 items-center gap-2 px-3 font-bold text-azul hover:bg-azul-claro"
                         >
                           <Icono nombre="telefono" />
-                          Llamar al {cliente.telefono}
+                          Llamar al {telefonoLegible(cliente.telefono)}
                         </a>
                       )}
                     </div>

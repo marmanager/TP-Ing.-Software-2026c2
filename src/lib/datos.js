@@ -1047,7 +1047,9 @@ export function DatosProvider({ children }) {
       corregirTelefono(clienteId, telefono) {
         setDatos((d) => ({
           ...d,
-          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono } : c)),
+          // La marca de incompleto (055) la calcula la base: hasta que vuelva
+          // la fila de la API, la regla del front decide con el teléfono nuevo.
+          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono, telefono_incompleto: undefined } : c)),
         }));
         enLaApi((token) => parchar(`/clientes/${clienteId}`, { telefono, actualizado_en: version(datos.clientes, clienteId) }, token),
           ({ cliente }) => setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, cliente) })));

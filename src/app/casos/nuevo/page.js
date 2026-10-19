@@ -28,11 +28,12 @@ import {
   faltantesDelAlta,
   motivoDeFaltantes,
   sugerirClientes,
-  telefonoValido,
 } from "@/lib/validaciones";
+import { paisInicial, telefonoLegible } from "@/lib/telefono";
 import { horaYMinutos } from "@/lib/fechas";
 import { Boton, BotonPrincipalFijo, Campo, Cargando, MarcaFalta } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 
 // useSearchParams necesita un límite de Suspense para que la pantalla se
 // pueda seguir generando estática. Adentro no hay nada que esperar: el turno
@@ -60,7 +61,13 @@ function Formulario() {
   const delTurno = turno ? clientes.find((c) => c.id === turno.cliente_id) : null;
 
   const [nombre, setNombre] = useState(delTurno?.nombre ?? "");
-  const [telefono, setTelefono] = useState(delTurno?.telefono ?? "");
+  // El teléfono se escribe en el campo con selector de país (B-1b): acá se
+  // usa ya armado, internacional si sirve. Elegir un cliente de la lista
+  // carga el suyo.
+  const paisNegocio = paisInicial(negocio);
+  const tel = useTelefono(delTurno?.telefono ?? "", paisNegocio);
+  const telefono = tel.telefono;
+  const setTelefono = tel.cargar;
   // El cliente elegido de la lista de sugerencias, que es a quien va el caso
   // (las reglas están en lib/validaciones.js). El del turno cuenta como
   // elegido: el turno ya dice de quién es.
@@ -81,7 +88,7 @@ function Formulario() {
   // no cuentan como "escrito", porque siguen estando en el turno.
   const [alEntrar] = useState({
     nombre: delTurno?.nombre ?? "",
-    telefono: delTurno?.telefono ?? "",
+    telefono,
     servicio: turno?.motivo ?? "",
   });
   const hayAlgoEscrito =
@@ -137,10 +144,7 @@ function Formulario() {
     }
   }
 
-  const errorTelefono =
-    tocado.telefono && telefono.trim() && !telefonoValido(telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = tocado.telefono && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   // El botón apagado dice por qué está apagado, no sólo que lo está. Si
   // falta más de un dato dice cuántos, y los campos vacíos se marcan con un
@@ -157,7 +161,7 @@ function Formulario() {
       const caso = await abrirCaso({
         clienteId: yaEsCliente?.id ?? null,
         nombreCliente: nombre.trim(),
-        telefono: telefono.trim(),
+        telefono,
         servicio: servicio.trim(),
         identificador: identificador.trim(),
         responsableId: responsable || null,
@@ -301,32 +305,29 @@ function Formulario() {
                   ].join(" ")}
                 >
                   <span className="font-bold">{c.nombre}</span>
-                  <span className="text-tinta-media">· {c.telefono || "sin teléfono"}</span>
+                  <span className="text-tinta-media">· {telefonoLegible(c.telefono) || "sin teléfono"}</span>
                 </li>
               ))}
             </ul>
           )}
         </Campo>
 
-        <Campo
+        <CampoTelefono
           id="telefono"
           etiqueta="Teléfono del cliente"
           falta={marcar("telefono")}
-          ayuda="Con característica, sin el 0 ni el 15."
+          paisPorDefecto={paisNegocio}
           error={errorTelefono}
-          ejemplo="341 456 7890"
           exito={
             telefonoTraido && yaEsCliente
               ? `Es el teléfono que tenemos de ${yaEsCliente.nombre}. Si cambió, corregilo acá.`
-              : telefono.trim() && telefonoValido(telefono)
+              : tel.armado.ok
                 ? "Listo. Le vamos a poder avisar por WhatsApp."
                 : null
           }
-          value={telefono}
-          onChange={(e) => setTelefono(e.target.value)}
+          valor={tel.valor}
+          onChange={tel.setValor}
           onBlur={() => setTocado((t) => ({ ...t, telefono: true }))}
-          inputMode="tel"
-          autoComplete="tel"
         />
 
         {/* El identificador va acá y no "después": es lo más certero que
