@@ -92,3 +92,23 @@ Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.tes
 - Si el negocio tiene el seguimiento desactivado, el formulario permite activarlo
   con `PATCH /negocio/seguimiento` antes de solicitarlo para un caso.
 - Un fallo del envío se muestra aparte del cambio de estado o cierre confirmado.
+
+## Recordatorios por WhatsApp (R-4b)
+
+- `/negocio/recordatorios` edita los dos con el mismo `GET` y `PATCH /negocio/seguimiento`:
+  arriba el de después de entregar (`activo`, `dias`, `mensaje`) y en `turno` el de antes
+  del turno (`activo`, `horas` de 1 a 168, `mensaje`). El `PATCH` lleva sólo lo que cambió
+  (`cambiosDeRecordatorios()`), así que tocar uno no escribe el otro. El texto sugerido
+  según el rubro lo arma la API; el front no tiene copia.
+- Mover un turno es `PATCH /turnos/:id` con `empieza_en` (y `actualizado_en`). `POST /turnos`
+  devuelve `recordatorio` al lado del turno, y `PATCH`, `/atender` y `/desatender` dentro del
+  turno: `{ programado, motivo, mensaje, aviso }`. `datos.js` lo guarda con el turno.
+- Cada turno muestra su aviso con `avisoDelTurno()`: `turno.aviso` si viene, si no
+  `turno.recordatorio.aviso`. **Pendiente en la API** (seguimiento de R-4a): que `GET /turnos`
+  y `GET /datos` traigan en cada turno `aviso: { id, estado, enviar_en, procesado_en } | null`,
+  el último de la cola. Sin eso, "enviado" y "fallido" —que los marca el procesador después—
+  no llegan al front, y lo programado se deja de ver al recargar.
+- El texto de error de un envío fallido no se muestra nunca: la frase dice qué hacer.
+- Sin el número de WhatsApp configurado en la API (`KAPSO_API_KEY`, `KAPSO_PHONE_NUMBER_ID`),
+  los turnos se anotan igual y la respuesta trae `motivo: "whatsapp_no_configurado"`: el
+  alta lo avisa.

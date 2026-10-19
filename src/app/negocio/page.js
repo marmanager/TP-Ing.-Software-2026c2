@@ -25,6 +25,7 @@ import SedesVinculadas from "@/componentes/SedesVinculadas";
 import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import ResumenRecordatorios from "@/componentes/ResumenRecordatorios";
 
 export default function MiNegocio() {
   const datos = useDatos();
@@ -439,6 +440,29 @@ export default function MiNegocio() {
         </div>
       </Tarjeta>
 
+      {/* La landing la arma sólo el dueño: el resto del equipo no tiene nada
+          que hacer en esa pantalla. */}
+      {puedeConfigurar && (
+        <>
+          <TituloSeccion id="landing">Tu landing</TituloSeccion>
+          <Tarjeta className="mb-12">
+            <p className="max-w-[65ch] text-tinta-media">
+              Elegí cómo se ve la página que van a ver tus clientes: el orden de las secciones,
+              los colores y la letra.
+            </p>
+            <div className="mt-4">
+              <Link
+                href="/negocio/landing"
+                className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+              >
+                <Icono nombre="pincel" />
+                Armar tu landing
+              </Link>
+            </div>
+          </Tarjeta>
+        </>
+      )}
+
       {/* Cuándo atiende. Sólo si la agenda está prendida: sin agenda no hay
           turnos que dar, y configurar horarios sería configurar algo que no
           se usa. */}
@@ -487,6 +511,12 @@ export default function MiNegocio() {
           </Tarjeta>
         </>
       )}
+
+      {/* Los mensajes que le llegan solos al cliente (R-4b): el de después
+          de entregar y, con la agenda prendida, el de antes del turno. Se
+          editan en su pantalla, como los horarios. */}
+      <TituloSeccion id="recordatorios">Recordatorios por WhatsApp</TituloSeccion>
+      <ResumenRecordatorios puedeConfigurar={puede(usuario?.rol, "cargarDatos")} />
 
       <TituloSeccion id="rubro">El rubro de tu negocio</TituloSeccion>
       <Tarjeta className="mb-12">

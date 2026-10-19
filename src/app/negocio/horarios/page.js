@@ -13,7 +13,7 @@
 // módulos: son seis decisiones y cada una tiene su porqué. Se llega desde
 // "Mi negocio", no desde la navegación: el menú es para trabajar.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
@@ -31,11 +31,10 @@ import {
   normalizarHorarios,
   problemasDeHorarios,
 } from "@/lib/horarios";
-import { linkDeWhatsApp } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
+import LinkCompartido from "@/componentes/LinkCompartido";
 import {
   Boton,
-  Campo,
   Cargando,
   Tarjeta,
   TituloPantalla,
@@ -44,6 +43,23 @@ import {
 
 const comoHora = (fecha) =>
   `${fecha.getHours()}:${String(fecha.getMinutes()).padStart(2, "0")}`;
+
+// Las palabras del link para pedir turno. El bloque en sí es el de
+// LinkCompartido, el mismo del editor de la landing.
+const TEXTOS_DEL_LINK = {
+  etiqueta: "El link de tu agenda",
+  explicacion:
+    "Un link para poner en tu Instagram, en tu WhatsApp o donde quieras. Quien lo abra ve los horarios que te quedan libres y se anota solo, sin llamarte y sin crear ninguna cuenta.",
+  armar: "Armar el link",
+  armado: "Listo. Ya podés repartir el link para pedir turno.",
+  whatsapp: (nombre, link) =>
+    `Hola, te escribimos de ${nombre}. Podés pedir tu turno acá, sin llamar: ${link}`,
+  dejar: "Dejar de compartir la agenda",
+  pregunta: "¿Dejar de compartir la agenda?",
+  aviso:
+    "El link deja de funcionar ahora mismo y nadie va a poder pedir turno por ahí. Los turnos que ya te pidieron quedan como están.",
+  cortado: "Listo. Ese link dejó de funcionar.",
+};
 
 export default function Horarios() {
   const datos = useDatos();
@@ -55,13 +71,6 @@ export default function Horarios() {
   // "Cancelar" deshace de verdad y nadie deja la agenda a medio configurar
   // por irse de la pantalla.
   const [borrador, setBorrador] = useState(null);
-  const [compartiendo, setCompartiendo] = useState(false);
-  const [errorLink, setErrorLink] = useState(null);
-  const [cortando, setCortando] = useState(false);
-  // El origen sale del navegador: así el link anda igual en localhost y el
-  // día que esto se publique.
-  const [origen, setOrigen] = useState("");
-  useEffect(() => setOrigen(window.location.origin), []);
 
   if (cargando) return <Cargando />;
 
@@ -71,8 +80,6 @@ export default function Horarios() {
   const editando = borrador !== null;
 
   const problemas = problemasDeHorarios(actual);
-  const linkAgenda =
-    origen && negocio?.agenda_codigo ? origen + "/turnos/" + negocio.agenda_codigo : "";
   const cambiar = (que) => setBorrador((b) => ({ ...(b ?? guardado ?? HORARIOS_DE_FABRICA), ...que }));
 
   const alternarDia = (clave) => {
@@ -329,128 +336,16 @@ export default function Horarios() {
               {!editando && horariosListos(actual) && (
                 <>
                   <TituloSeccion>El link para pedir turno</TituloSeccion>
-                  <Tarjeta className="mb-8">
-                    {errorLink && (
-                      <p className="mb-3 flex items-start gap-2 font-bold text-rojo">
-                        <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                        <span>{errorLink}</span>
-                      </p>
-                    )}
-
-                    {!negocio?.agenda_codigo ? (
-                      <>
-                        <p className="max-w-[65ch] text-tinta-media">
-                          Un link para poner en tu Instagram, en tu WhatsApp o donde
-                          quieras. Quien lo abra ve los horarios que te quedan libres
-                          y se anota solo, sin llamarte y sin crear ninguna cuenta.
-                        </p>
-                        <div className="mt-4">
-                          <Boton
-                            icono="calendario"
-                            motivo={compartiendo ? "armando el link" : null}
-                            onClick={async () => {
-                              setErrorLink(null);
-                              setCompartiendo(true);
-                              const r = await datos.compartirAgenda();
-                              setCompartiendo(false);
-                              if (!r.ok) return setErrorLink(r.error);
-                              datos.avisarExito(
-                                "Listo. Ya podés repartir el link para pedir turno."
-                              );
-                            }}
-                          >
-                            Armar el link
-                          </Boton>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <Campo
-                          id="link-agenda"
-                          etiqueta="El link de tu agenda"
-                          ayuda="Es el mismo siempre. Podés repartirlo donde quieras."
-                          value={linkAgenda}
-                          readOnly
-                          onFocus={(ev) => ev.target.select()}
-                        />
-
-                        <div className="-mt-2 flex flex-wrap gap-3">
-                          <Boton
-                            icono="copiar"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(linkAgenda);
-                                datos.avisarExito(
-                                  "Copiamos el link. Pegalo donde lo quieras poner."
-                                );
-                              } catch {
-                                document.getElementById("link-agenda")?.select();
-                                datos.avisarExito("Quedó seleccionado. Copialo con Ctrl+C.");
-                              }
-                            }}
-                          >
-                            Copiar el link
-                          </Boton>
-                          <a
-                            href={linkDeWhatsApp(
-                              "Hola, te escribimos de " +
-                                (negocio?.nombre ?? "tu negocio") +
-                                ". Podés pedir tu turno acá, sin llamar: " +
-                                linkAgenda
-                            )}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
-                          >
-                            <Icono nombre="chat" />
-                            Mandarlo por WhatsApp
-                          </a>
-                        </div>
-
-                        {cortando ? (
-                          <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                            <p className="font-bold text-cuerpo">
-                              ¿Dejar de compartir la agenda?
-                            </p>
-                            <p className="mt-1 max-w-[65ch] text-tinta-media">
-                              El link deja de funcionar ahora mismo y nadie va a poder
-                              pedir turno por ahí. Los turnos que ya te pidieron quedan
-                              como están.
-                            </p>
-                            <div className="mt-4 flex flex-wrap gap-3">
-                              <Boton
-                                variante="peligro"
-                                icono="tacho"
-                                onClick={async () => {
-                                  setCortando(false);
-                                  const r = await datos.dejarDeCompartirAgenda();
-                                  if (!r.ok) return setErrorLink(r.error);
-                                  datos.avisarExito("Listo. Ese link dejó de funcionar.");
-                                }}
-                              >
-                                Sí, dejar de compartirla
-                              </Boton>
-                              <Boton variante="plano" onClick={() => setCortando(false)}>
-                                Seguir compartiéndola
-                              </Boton>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-2">
-                            <Boton
-                              variante="plano"
-                              icono="tacho"
-                              onClick={() => setCortando(true)}
-                            >
-                              Dejar de compartir la agenda
-                            </Boton>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </Tarjeta>
-
-
+                  <LinkCompartido
+                    id="link-agenda"
+                    codigo={negocio?.agenda_codigo}
+                    ruta="/turnos/"
+                    icono="calendario"
+                    nombre={negocio?.nombre}
+                    compartir={datos.compartirAgenda}
+                    dejarDeCompartir={datos.dejarDeCompartirAgenda}
+                    textos={TEXTOS_DEL_LINK}
+                  />
                 </>
               )}
 

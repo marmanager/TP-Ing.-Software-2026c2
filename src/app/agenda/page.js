@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
@@ -12,6 +12,8 @@ import { diaLargo, horaYMinutos } from "@/lib/fechas";
 import { casoEnFrase } from "@/lib/nombres";
 import Icono from "@/componentes/Icono";
 import AltaDeTurno from "@/componentes/AltaDeTurno";
+import AvisoDelTurno from "@/componentes/AvisoDelTurno";
+import MoverTurno from "@/componentes/MoverTurno";
 import Pestanas from "@/componentes/Pestanas";
 import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
@@ -26,9 +28,27 @@ export default function Agenda() {
   // La agenda mira para adelante. Los que ya pasaron se piden aparte: sirven
   // para saber si alguien faltó la semana pasada (auditoría, H7).
   const [cuando, setCuando] = useState("proximos");
+  // El turno al que se le está cambiando la hora.
+  const [moviendo, setMoviendo] = useState(null);
   useTitulo("Turnos");
 
+  // Si el recordatorio de turnos está prendido (R-4b): sólo entonces tiene
+  // sentido señalar el turno que no lo va a recibir.
+  const [recordatorioActivo, setRecordatorioActivo] = useState(false);
+  const acciones = useRef(datos);
+  acciones.current = datos;
+  const negocioId = datos.negocio?.id;
+  useEffect(() => {
+    if (!negocioId) return;
+    let vivo = true;
+    acciones.current.consultarSeguimiento().then((r) => {
+      if (vivo && r.ok) setRecordatorioActivo(Boolean(r.configuracion.turno?.activo));
+    });
+    return () => { vivo = false; };
+  }, [negocioId]);
+
   if (cargando) return <Cargando />;
+  const ahora = Date.now();
 
   const arrancaHoy = new Date(new Date().toDateString());
   const proximos =
@@ -133,6 +153,7 @@ export default function Agenda() {
                 return (
                   <li
                     key={t.id}
+                    data-turno={t.id}
                     className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
                   >
                     <p className="w-20 font-titulo font-extrabold text-subtitulo tabular-nums">
@@ -164,6 +185,13 @@ export default function Agenda() {
                           </>
                         )}
                       </p>
+                      <AvisoDelTurno
+                        turno={t}
+                        cliente={cliente}
+                        rubro={datos.negocio?.rubro}
+                        recordatorioActivo={recordatorioActivo}
+                        ahora={ahora}
+                      />
                     </div>
 
                     {/* El estado con su color, su ícono y su palabra, del
@@ -228,7 +256,11 @@ export default function Agenda() {
                         con 8 px entre una y otra: en una fila de 360 px se
                         partían en cuatro líneas desordenadas y quedaban
                         pegadas (auditoría, Responsive). */}
-                    {!cancelado && t.estado !== "atendido" && cancelando !== t.id && (
+                    {moviendo === t.id && (
+                      <MoverTurno turno={t} alTerminar={() => setMoviendo(null)} />
+                    )}
+
+                    {!cancelado && t.estado !== "atendido" && cancelando !== t.id && moviendo !== t.id && (
                       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                         {t.estado === "agendado" && (
                           <Boton
@@ -260,6 +292,16 @@ export default function Agenda() {
                               Vino · abrirle el caso
                             </span>
                           </Link>
+                        )}
+
+                        {puedeCargar && (
+                          <Boton
+                            icono="calendario"
+                            className="w-full sm:w-auto"
+                            onClick={() => { setCancelando(null); setMoviendo(t.id); }}
+                          >
+                            Cambiar la hora
+                          </Boton>
                         )}
 
                         <Boton
