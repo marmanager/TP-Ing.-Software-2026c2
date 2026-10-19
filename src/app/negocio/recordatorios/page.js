@@ -2,10 +2,11 @@
 
 // "Recordatorios por WhatsApp" — los mensajes que le llegan solos al cliente.
 //
-// Son tres: el de después de entregar, el de antes del turno (R-4b) y el de
-// cuando le toca volver (R-2b). Con dos, entraban en una pantalla: eran seis
-// campos, el máximo de la cartilla. El tercero no entra, y vienen más (R-5,
-// R-6), así que esta pantalla es la lista y cada uno se edita en la suya,
+// Son cuatro: el de después de entregar, el de antes del turno (R-4b), el de
+// cuando le toca volver (R-2b) y el del presupuesto sin respuesta (R-5b).
+// Con dos, entraban en una pantalla: eran seis campos, el máximo de la
+// cartilla. El tercero ya no entraba, y vienen más (R-6), así que esta
+// pantalla es la lista y cada uno se edita en la suya,
 // /negocio/recordatorios/[tipo], con sus tres campos y su botón.
 //
 // Cada fila dice cómo está y cuándo sale, para no tener que entrar a mirar.
