@@ -30,6 +30,7 @@ test("los submódulos no ensucian la lista de módulos", () => {
   assert.deepEqual(claves(LISTA_MODULOS), [
     "agenda",
     "clientes",
+    "dashboard",
     "ecuaciones",
     "equipo",
     "historial",
@@ -46,7 +47,7 @@ test("los módulos van en el orden de la barra lateral", () => {
   // lugar.
   assert.deepEqual(
     LISTA_MODULOS.map((m) => m.clave),
-    ["agenda", "clientes", "inventario", "ecuaciones", "presupuesto", "equipo", "historial"]
+    ["agenda", "clientes", "inventario", "ecuaciones", "presupuesto", "equipo", "historial", "dashboard"]
   );
 });
 

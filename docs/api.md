@@ -112,3 +112,20 @@ Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.tes
 - Sin el número de WhatsApp configurado en la API (`KAPSO_API_KEY`, `KAPSO_PHONE_NUMBER_ID`),
   los turnos se anotan igual y la respuesta trae `motivo: "whatsapp_no_configurado"`: el
   alta lo avisa.
+
+## Baja de avisos (R-8b)
+
+- El cliente pide la baja contestando BAJA por WhatsApp (R-8a, migración 054). La API la
+  registra en `cliente.avisos_baja_en`, que viaja en `GET /datos` y en las respuestas de
+  clientes: con eso la ficha dice cuándo la pidió y la lista lo marca. La fecha no se
+  escribe desde el front: la 054 no deja.
+- Revertirla es `POST /clientes/:id/revertir-baja` (dueño o encargado), con la acción
+  `revertirBajaDeAvisos()` de `datos.js`. Devuelve `{ cliente, evento }`; el cliente
+  reemplaza al que había. La API no le vuelve a programar el recordatorio a un turno que
+  ya estaba anotado: se programa si se mueve.
+- Entregar y cambiar de estado traen `sin_aviso: { motivo, mensaje }` cuando no se
+  programó el mensaje. El turno trae `recordatorio.motivo: "baja_de_avisos"`, y
+  `porQueNoHayAviso()` pone ese motivo antes que el teléfono, como la API.
+- Ni el `mensaje` de `sin_aviso` ni el de un error al revertir se muestran: las frases
+  salen de `porQueNoSeAviso()` y `errorAlRevertirBaja()` (`lib/recordatorios.js`), por
+  código, como pide la sección 07 de la cartilla.

@@ -14,9 +14,11 @@ import { useState } from "react";
 import { useDatos } from "@/lib/datos";
 import { ejemplosDe } from "@/lib/presets";
 import { paraInput } from "@/lib/fechas";
+import { paisInicial } from "@/lib/telefono";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 
-const VACIO = { nombreCliente: "", telefono: "", motivo: "", empiezaEn: "" };
+const VACIO = { nombreCliente: "", motivo: "", empiezaEn: "" };
 
 export default function AltaDeTurno({
   cuandoSugerido = "",
@@ -27,6 +29,10 @@ export default function AltaDeTurno({
   const datos = useDatos();
   const { clientes, negocio } = datos;
   const [form, setForm] = useState({ ...VACIO, empiezaEn: cuandoSugerido });
+  // El teléfono, con el selector de país (B-1b). Sólo cuenta si es alguien
+  // nuevo: al que ya está cargado no se le pide.
+  const paisNegocio = paisInicial(negocio);
+  const tel = useTelefono("", paisNegocio);
 
   // Si el nombre coincide con alguien ya cargado, se le suma el turno a esa
   // ficha; si no, se da de alta el cliente junto con el turno.
@@ -38,8 +44,13 @@ export default function AltaDeTurno({
   // anotaría otro turno.
   const [guardando, setGuardando] = useState(false);
 
+  const pideTelefono = !!form.nombreCliente.trim() && !yaEsCliente;
+  const errorTelefono = pideTelefono && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
+
   const motivoApagado = guardando
     ? "se está guardando"
+    : errorTelefono
+    ? "el teléfono no sirve todavía"
     : !form.motivo.trim()
     ? "falta el motivo"
     : !form.empiezaEn
@@ -48,7 +59,11 @@ export default function AltaDeTurno({
 
   async function guardar() {
     setGuardando(true);
-    const r = await datos.agregarTurno({ ...form, clienteId: yaEsCliente?.id ?? null });
+    const r = await datos.agregarTurno({
+      ...form,
+      telefono: pideTelefono && !tel.vacio ? tel.telefono : "",
+      clienteId: yaEsCliente?.id ?? null,
+    });
     setGuardando(false);
     // Si no se pudo (por ejemplo, ya hay un turno a esa hora), el aviso ya lo
     // dio datos.js y el formulario queda con lo escrito, para cambiar la hora.
@@ -57,6 +72,7 @@ export default function AltaDeTurno({
       [`Listo. El turno de ${form.motivo.trim()} quedó anotado.`, r.avisoDelRecordatorio].filter(Boolean).join(" ")
     );
     setForm({ ...VACIO, empiezaEn: cuandoSugerido });
+    tel.cargar("");
     alGuardar?.();
   }
 
@@ -82,16 +98,15 @@ export default function AltaDeTurno({
 
       {/* El teléfono sólo si es alguien nuevo: al que ya está cargado no
           hay que volver a pedírselo. */}
-      {form.nombreCliente.trim() && !yaEsCliente && (
-        <Campo
+      {pideTelefono && (
+        <CampoTelefono
           id="turno-telefono"
           etiqueta="Su teléfono"
           ayuda="Opcional. Sirve para avisarle si hay que mover el turno."
-          ejemplo="341 456 7890"
-          type="tel"
-          inputMode="tel"
-          value={form.telefono}
-          onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+          paisPorDefecto={paisNegocio}
+          error={errorTelefono}
+          valor={tel.valor}
+          onChange={tel.setValor}
         />
       )}
 

@@ -47,6 +47,7 @@ import {
   totalAprobado,
 } from "@/lib/seguimiento";
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
+import { telefonoLegible } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import Lienzo from "@/componentes/landing/Lienzo";
 import { Boton, Cargando } from "@/componentes/ui";
@@ -584,24 +585,28 @@ export default function Seguimiento() {
 
             {caso.negocio_telefono ? (
               <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
-                <a
-                  href={linkDeWhatsAppA(
-                    caso.negocio_telefono,
-                    mensajeDeConsulta({
-                      clienteNombre: caso.cliente_nombre,
-                      identificador: caso.identificador,
-                      servicio: caso.servicio,
-                      numero: caso.numero,
-                      paso: porResponder.length === 1 ? porResponder[0].nombre : null,
-                    })
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
-                >
-                  <Icono nombre="chat" />
-                  Escribirle por WhatsApp
-                </a>
+                {/* Un teléfono del negocio de antes de B-1b, sin código de
+                    país, no arma link de WhatsApp: se ofrece sólo llamar. */}
+                {linkDeWhatsAppA(caso.negocio_telefono, "") && (
+                  <a
+                    href={linkDeWhatsAppA(
+                      caso.negocio_telefono,
+                      mensajeDeConsulta({
+                        clienteNombre: caso.cliente_nombre,
+                        identificador: caso.identificador,
+                        servicio: caso.servicio,
+                        numero: caso.numero,
+                        paso: porResponder.length === 1 ? porResponder[0].nombre : null,
+                      })
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
+                  >
+                    <Icono nombre="chat" />
+                    Escribirle por WhatsApp
+                  </a>
+                )}
                 {/* El número escrito al lado y no sólo en el enlace: en una
                     computadora "Llamar" puede no hacer nada, y ahí lo que
                     salva es poder leerlo y marcarlo a mano. */}
@@ -610,7 +615,7 @@ export default function Seguimiento() {
                   className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
                 >
                   <Icono nombre="telefono" />
-                  Llamar al {caso.negocio_telefono}
+                  Llamar al {telefonoLegible(caso.negocio_telefono)}
                 </a>
               </div>
             ) : (

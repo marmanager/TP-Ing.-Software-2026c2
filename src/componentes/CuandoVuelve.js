@@ -10,13 +10,17 @@
 // El valor es el día tal como lo da el <input type="date">, "2027-04-13", y
 // así viaja hasta la API: no pasa por Date.
 
+import Icono from "./Icono";
 import { Boton, Campo } from "./ui";
 import { diaEnPalabras } from "@/lib/fechas";
 
 // "cada 90 días" se dice "cada 3 meses".
 const cadaCuanto = (dias) => (dias < 60 ? `${dias} días` : `${Math.round(dias / 30.4)} meses`);
 
-export default function CuandoVuelve({ id = "volver-en", valor, alCambiar, hoy, sugerencia, error, disabled }) {
+// "aviso" es lo que va a pasar con el aviso por WhatsApp de esa fecha
+// (R-2b, avisoAlAnotarVolver): si está apagado se dice acá, así nadie cree
+// que el sistema va a avisar cuando no.
+export default function CuandoVuelve({ id = "volver-en", valor, alCambiar, hoy, sugerencia, error, aviso, disabled }) {
   return (
     <div>
       <Campo
@@ -50,6 +54,12 @@ export default function CuandoVuelve({ id = "volver-en", valor, alCambiar, hoy, 
 
       {valor && (
         <div className="-mt-3 mb-6">
+          {aviso && (
+            <p id={`${id}-aviso`} role="status" className="mb-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+              <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+              <span>{aviso}</span>
+            </p>
+          )}
           <Boton variante="plano" icono="cruz" disabled={disabled} onClick={() => alCambiar("")}>
             No tiene que volver
           </Boton>

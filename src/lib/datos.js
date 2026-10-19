@@ -8,9 +8,17 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth";
-import { preset } from "./presets";
-import { productoParaLaApi } from "./inventario";
-import { sePuedeMarcarHecho } from "./estados";
+import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
+import { buscarIgual, limpiarProducto, productoParaLaApi } from "./inventario";
+import {
+  FIRMA_DEL_CLIENTE,
+  alLlegarInsumo,
+  alPedirInsumo,
+  elClienteDestraba,
+  elClienteVolvioADarTrabajo,
+  pesos,
+  sePuedeMarcarHecho,
+} from "./estados";
 import { normalizarInicio } from "./inicio";
 import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
@@ -21,7 +29,7 @@ import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./a
 import { instanteParaLaApi, turnoParaLaApi } from "./turnos.js";
 import { reemplazarUnicoPorId, unicosPorId } from "./listas.js";
 import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
-import { avisoAlAnotar, volverEnParaLaApi } from "./recordatorios.js";
+import { avisoAlAnotar, conAvisoDeVolver, errorAlRevertirBaja, porQueNoSeAviso, volverEnParaLaApi } from "./recordatorios.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -429,9 +437,13 @@ export function DatosProvider({ children }) {
     const sinVersionDelNegocio = (cambios) =>
       setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios, actualizado_en: undefined } }));
 
+    // Las respuestas de editar un caso no traen su aviso de volver (R-2a):
+    // sólo las lecturas. Lo que ya se sabía de él se conserva.
     const incorporarCasoApi = ({ caso, cliente, turno, evento, eventos = [] }) => setDatos((d) => ({
       ...d,
-      casos: caso ? reemplazarUnicoPorId(d.casos, caso) : unicosPorId(d.casos),
+      casos: caso
+        ? reemplazarUnicoPorId(d.casos, "aviso_volver" in caso ? caso : conAvisoDeVolver(caso, null, d.casos.find((c) => c.id === caso.id)))
+        : unicosPorId(d.casos),
       clientes: cliente ? (d.clientes.some((x) => x.id === cliente.id)
         ? d.clientes.map((x) => x.id === cliente.id ? cliente : x) : [...d.clientes, cliente]) : d.clientes,
       turnos: turno ? d.turnos.map((x) => x.id === turno.id ? turno : x) : d.turnos,
@@ -569,7 +581,7 @@ export function DatosProvider({ children }) {
           if (r.error.codigo === "choque") setRefresco((n) => n + 1);
           return { ok: false, error: r.error.mensaje };
         }
-        incorporarCasoApi(r.datos);
+        incorporarCasoApi({ ...r.datos, caso: conAvisoDeVolver(r.datos.caso, r.datos.volver, caso) });
         return { ok: true, caso: r.datos.caso };
       },
 
@@ -599,7 +611,12 @@ export function DatosProvider({ children }) {
           ? { estado, notificar_cliente: Boolean(notificarCliente) } : {});
         if (!r.ok) return setAviso(r.error.mensaje);
         incorporarCasoApi(r.datos);
-        if (r.datos.notificacion?.estado === "fallido") {
+        // Si el cliente pidió no recibir avisos (R-8a), el estado cambia
+        // igual: no es un error, se dice por qué no se le avisó.
+        if (r.datos.sin_aviso) {
+          setDeshacerExito(null);
+          setExito(`Listo, se cambió el estado. ${porQueNoSeAviso(r.datos.sin_aviso)}`);
+        } else if (r.datos.notificacion?.estado === "fallido") {
           setAviso("El estado se cambió, pero no pudimos enviar el aviso por WhatsApp.");
         } else if (r.datos.notificacion) {
           setDeshacerExito(null);
@@ -756,6 +773,49 @@ export function DatosProvider({ children }) {
         return { ok: true, cobro: anulado };
       },
 
+      // Los agregados se consultan por separado de las listas de la pantalla.
+      async consultarCasosDashboard(periodo) {
+        const r = await traer(`/dashboard/casos?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        if (!r.datos.cerrados || !Array.isArray(r.datos.cerrados.por_dia))
+          return { ok: false, error: "No pudimos consultar los cierres de casos. Volvé a intentarlo." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarCobrosDashboard(periodo) {
+        const r = await traer(`/dashboard/cobros?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarInventarioDashboard() {
+        const r = await traer("/dashboard/inventario", await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarClientesDashboard(periodo) {
+        const r = await traer(`/dashboard/clientes?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarResumenDashboard(periodo) {
+        const r = await traer(`/dashboard/resumen?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: "Cambiaste de negocio. Recargá la página para consultar sus estadísticas." };
+        return { ok: true, resumen: r.datos };
+      },
+
       // Los mensajes por WhatsApp: el de seguimiento que se manda al
       // entregar y el recordatorio de turno (R-4b).
       async consultarSeguimiento() {
@@ -763,9 +823,10 @@ export function DatosProvider({ children }) {
         return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
       },
 
-      // Los dos recordatorios van por el mismo camino: arriba el posventa
-      // ({ activo, dias, mensaje }) y en "turno" el de turnos
-      // ({ activo, horas, mensaje }). Se manda sólo lo que cambió.
+      // Los recordatorios van por el mismo camino: arriba el posventa
+      // ({ activo, dias, mensaje }), en "turno" el de turnos
+      // ({ activo, horas, mensaje }) y en "volver" el de cuándo le toca
+      // volver ({ activo, dias, mensaje }). Se manda sólo lo que cambió.
       async configurarSeguimiento(cambios) {
         const r = await parchar("/negocio/seguimiento", cambios, await tokenDeSesion());
         return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
@@ -788,13 +849,20 @@ export function DatosProvider({ children }) {
         // El campo dice en qué paso de la entrega mostrar el error.
         if (!r.ok) return { ok: false, error: r.error.mensaje, campo: r.error.campo };
         setDatos((d) => {
-          let siguiente = { ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso : c) };
+          let siguiente = {
+            ...d,
+            casos: d.casos.map((c) => c.id === casoId ? conAvisoDeVolver(r.datos.caso, r.datos.volver, c) : c),
+          };
           if (r.datos.cobro) siguiente = ponerCobro(siguiente, r.datos.cobro);
           if (r.datos.evento) siguiente = { ...siguiente, eventos: [r.datos.evento, ...siguiente.eventos] };
           return siguiente;
         });
         const avisos = [];
-        if (seguimiento?.enviar && !r.datos.seguimiento) {
+        // Sin mensaje porque el cliente pidió no recibir avisos (R-8a): no es
+        // un problema, va en el "Listo" de la entrega, y no se confunde con
+        // el seguimiento apagado.
+        const noSeAviso = porQueNoSeAviso(r.datos.sin_aviso);
+        if (!noSeAviso && seguimiento?.enviar && !r.datos.seguimiento) {
           avisos.push("El caso se cerró, pero no se programó el mensaje: el seguimiento está desactivado en el negocio.");
         } else if (r.datos.seguimiento?.estado === "fallido") {
           avisos.push("El caso se cerró, pero no pudimos enviar el mensaje de seguimiento por WhatsApp.");
@@ -812,7 +880,7 @@ export function DatosProvider({ children }) {
           }
         }
         if (avisos.length) setAviso(avisos.join(" "));
-        return { ok: true, ...r.datos };
+        return { ok: true, ...r.datos, noSeAviso };
       },
 
       // Marcar que un paso aprobado ya se hizo, o desmarcarlo (flujo, 7).
@@ -1120,11 +1188,24 @@ export function DatosProvider({ children }) {
       corregirTelefono(clienteId, telefono) {
         setDatos((d) => ({
           ...d,
-          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono } : c)),
+          // La marca de incompleto (055) la calcula la base: hasta que vuelva
+          // la fila de la API, la regla del front decide con el teléfono nuevo.
+          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono, telefono_incompleto: undefined } : c)),
         }));
         enLaApi((token) => parchar(`/clientes/${clienteId}`, { telefono, actualizado_en: version(datos.clientes, clienteId) }, token),
           ({ cliente }) => setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, cliente) })));
         return;
+      },
+
+      // Que el cliente vuelva a recibir avisos (R-8b). La baja la pidió él
+      // por WhatsApp y sólo se deshace por acá: la API saca la fecha y deja
+      // en su historial quién y cuándo. Se espera la respuesta, porque es el
+      // único camino y no hay nada que mostrar antes. El error va traducido.
+      async revertirBajaDeAvisos(clienteId) {
+        const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/revertir-baja`, {}, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: errorAlRevertirBaja(r.error) };
+        setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, r.datos.cliente) }));
+        return { ok: true };
       },
 
       // ---------- agenda ----------

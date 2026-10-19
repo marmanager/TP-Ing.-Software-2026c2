@@ -26,7 +26,14 @@ import {
 } from "@/lib/estados";
 import { cuando, cuantoHace, diaDeArgentina, diaEnPalabras, haceCuanto } from "@/lib/fechas";
 import { cadaCuantoVuelve, comoSeIdentifica, vocabulario } from "@/lib/presets";
-import { errorDeVolverEn, fechaSugerida, intervaloDeducido } from "@/lib/recordatorios";
+import {
+  avisoAlAnotarVolver,
+  avisoDeVolver,
+  errorDeVolverEn,
+  fechaSugerida,
+  intervaloDeducido,
+} from "@/lib/recordatorios";
+import { useRecordatorioVolver } from "@/lib/useRecordatorioVolver";
 import { presentacionEstado } from "@/lib/presentacion-estados";
 import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -37,6 +44,7 @@ import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
 import CuandoVuelve from "@/componentes/CuandoVuelve";
 import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
+import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import {
   Boton,
@@ -98,6 +106,9 @@ export default function VerCaso() {
   const [corrigiendoVolver, setCorrigiendoVolver] = useState(false);
   const [guardandoVolver, setGuardandoVolver] = useState(false);
   const [errorVolver, setErrorVolver] = useState(null);
+  // Cómo está el aviso de que le toca volver (R-2b): para decir, al anotar
+  // la fecha, si se le va a avisar, y en el caso cerrado, cuándo sale.
+  const recordatorioVolver = useRecordatorioVolver();
   // La entrega va en dos pasos: 1 el cobro, 2 lo que pasa después.
   const [pasoEntrega, setPasoEntrega] = useState(1);
 
@@ -138,6 +149,10 @@ export default function VerCaso() {
   // fecha ya pasó. Las fechas de volver son días, no instantes.
   const hoy = diaDeArgentina();
   const motivoVolver = errorDeVolverEn(volverEn, hoy);
+  // Qué va a pasar con el aviso de la fecha que se está anotando, y qué
+  // pasó con el del caso cerrado.
+  const avisoAlAnotar = motivoVolver ? null : avisoAlAnotarVolver({ volverEn, volver: recordatorioVolver, cliente, hoy });
+  const avisoVolver = avisoDeVolver({ caso, cliente, volver: recordatorioVolver, hoy });
   // Sólo para un rubro sin intervalo típico: si el cliente ya vino tres
   // veces o más con un ritmo parejo, se le ofrece esa fecha.
   const sugerenciaVolver = cadaCuantoVuelve(negocio?.rubro)
@@ -400,10 +415,10 @@ export default function VerCaso() {
             {cliente?.telefono && (
               <Dato icono="telefono" que="Teléfono">
                 <a
-                  href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                  href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
                   className="-mx-2 inline-flex min-h-12 items-center rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
                 >
-                  {cliente.telefono}
+                  {telefonoLegible(cliente.telefono)}
                 </a>
               </Dato>
             )}
@@ -1008,6 +1023,7 @@ export default function VerCaso() {
                   hoy={hoy}
                   sugerencia={sugerenciaVolver}
                   error={motivoVolver}
+                  aviso={avisoAlAnotar}
                   disabled={cerrando || cambiandoEstado}
                 />
 
@@ -1058,13 +1074,14 @@ export default function VerCaso() {
                         if (CAMPOS_DEL_COBRO.includes(r.campo)) setPasoEntrega(1);
                         return setErrorEntrega(r.error);
                       }
-                      datos.avisarExito(
-                        r.falta > 0
-                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
-                          : monto > 0
-                            ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
-                            : `Listo. El ${casoEnFrase(caso)} quedó entregado.`
-                      );
+                      const entregado = r.falta > 0
+                        ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
+                        : monto > 0
+                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
+                          : `Listo. El ${casoEnFrase(caso)} quedó entregado.`;
+                      // Si el cliente pidió no recibir avisos, se dice acá
+                      // mismo: es parte de cómo quedó, no un problema.
+                      datos.avisarExito(r.noSeAviso ? `${entregado} ${r.noSeAviso}` : entregado);
                       setEntregando(false);
                     }}
                   >
@@ -1123,6 +1140,14 @@ export default function VerCaso() {
                       "No anotaste cuándo le toca volver."
                     )}
                   </p>
+                  {/* Cuándo le sale el aviso, o por qué no sale (R-2b). Con
+                      la baja no se dice nada: la ficha ya lo dice. */}
+                  {avisoVolver && (
+                    <p className="mt-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+                      <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+                      <span>{avisoVolver.frase}</span>
+                    </p>
+                  )}
                   {puedeCargar && (
                     <div className="mt-3">
                       <Boton
@@ -1148,6 +1173,7 @@ export default function VerCaso() {
                     hoy={hoy}
                     sugerencia={sugerenciaVolver}
                     error={motivoVolver}
+                    aviso={avisoAlAnotar}
                     disabled={guardandoVolver}
                   />
                   {errorVolver && (

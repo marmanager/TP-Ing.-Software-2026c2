@@ -16,7 +16,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { emailValido, telefonoValido, contrasenaValida } from "@/lib/validaciones";
+import { emailValido, contrasenaValida } from "@/lib/validaciones";
+import { paisInicial } from "@/lib/telefono";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
@@ -28,7 +30,11 @@ export default function CrearCuenta() {
 
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
-  const [telefono, setTelefono] = useState("");
+  // Todavía no hay negocio del que sacar el país: arranca en Argentina, y se
+  // cambia en el selector.
+  const paisPorDefecto = paisInicial(null);
+  const tel = useTelefono("", paisPorDefecto);
+  const telefono = tel.telefono;
   const [contrasena, setContrasena] = useState("");
   const [verContrasena, setVerContrasena] = useState(false);
   const [tocado, setTocado] = useState({});
@@ -45,10 +51,7 @@ export default function CrearCuenta() {
     tocado.email && email.trim() && !emailValido(email)
       ? "El mail ingresado es incorrecto."
       : null;
-  const errorTelefono =
-    tocado.telefono && telefono.trim() && !telefonoValido(telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = tocado.telefono && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
   const errorContrasena =
     tocado.contrasena && contrasena && !contrasenaValida(contrasena)
       ? "La contraseña necesita al menos 8 caracteres."
@@ -60,9 +63,9 @@ export default function CrearCuenta() {
       ? "falta el mail"
       : !emailValido(email)
         ? "El mail ingresado no tiene el formato correcto"
-        : !telefono.trim()
+        : tel.vacio
           ? "Se necesita un teléfono"
-          : !telefonoValido(telefono)
+          : !tel.armado.ok
             ? "el teléfono no es válido"
             : !contrasena
               ? "Se necesita una contraseña"
@@ -124,22 +127,17 @@ export default function CrearCuenta() {
           onBlur={() => setTocado((t) => ({ ...t, email: true }))}
         />
 
-        <Campo
+        <CampoTelefono
           id="telefono"
           etiqueta="Tu teléfono"
-          ayuda="Con característica, sin el 0 ni el 15."
+          paisPorDefecto={paisPorDefecto}
           error={errorTelefono}
-          ejemplo="341 456 7890"
-          exito={
-            telefono.trim() && telefonoValido(telefono)
-              ? "Listo. Te vamos a poder avisar por acá."
-              : null
-          }
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          value={telefono}
-          onChange={alEscribir(setTelefono)}
+          exito={tel.armado.ok ? "Listo. Te vamos a poder avisar por acá." : null}
+          valor={tel.valor}
+          onChange={(v) => {
+            setErrorGeneral(null);
+            tel.setValor(v);
+          }}
           onBlur={() => setTocado((t) => ({ ...t, telefono: true }))}
         />
 
