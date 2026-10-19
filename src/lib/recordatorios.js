@@ -7,7 +7,9 @@
 // WhatsApp: cuándo sale y cómo se cuenta en el turno lo que pasó con él. La
 // tercera (R-8b) es la baja: cómo se dice que el cliente pidió no recibirlos.
 // La cuarta (R-2b) cierra la primera: el aviso de que le toca volver sale
-// solo, y acá se configura y se dice cuándo sale o por qué no.
+// solo, y acá se configura y se dice cuándo sale o por qué no. La quinta
+// (R-5b) es el aviso del presupuesto sin respuesta: una entrada más del
+// registro, y /aprobar dice en cada caso cuándo le llega o si ya se le avisó.
 //
 // Dos reglas que valen para todo el archivo:
 //
@@ -217,8 +219,9 @@ function diasAntesEnPalabras(n) {
 // Los recordatorios, por tipo
 // ------------------------------------------------------------
 // Uno por tipo de la API: "cierre" (el posventa, en días después de
-// entregar), "turno" (en horas antes del turno, R-4b) y "volver" (en días
-// antes del día que se anotó, R-2b). Todo lo que cambia de uno a otro está
+// entregar), "turno" (en horas antes del turno, R-4b), "volver" (en días
+// antes del día que se anotó, R-2b) y "presupuesto" (en días sin respuesta,
+// R-5b). Todo lo que cambia de uno a otro está
 // acá: dónde viaja en la API, cómo se llama y en qué unidad va su plazo,
 // cómo se dice cuándo sale y los textos de su pantalla. Las funciones de
 // abajo y las dos pantallas de /negocio/recordatorios recorren este mapa,
@@ -288,6 +291,26 @@ const RECORDATORIOS = {
       ayudaInterruptor: "Le llega a cada cliente con teléfono al que le anotaste cuándo le toca volver al entregar.",
       etiquetaPlazo: "¿Cuántos días antes de la fecha?",
       ayudaPlazo: "Poné 0 para mandarlo el mismo día. Hasta 90 días antes.",
+    }),
+  },
+  // Los días cuentan desde el paso sin contestar más viejo, y sale una sola
+  // vez. No depende de la agenda: el presupuesto se arma igual sin turnos.
+  presupuesto: {
+    enLaApi: "presupuesto",
+    plazo: "dias",
+    min: 1,
+    max: 90,
+    errorDelPlazo: "Elegí una cantidad de días enteros entre 1 y 90.",
+    cuandoSale: (n) =>
+      n === 1
+        ? "Le llega al cliente cuando pasó un día sin que conteste el presupuesto."
+        : `Le llega al cliente cuando pasaron ${enLetras(n)} días sin que conteste el presupuesto.`,
+    textos: () => ({
+      nombre: "Presupuesto sin respuesta",
+      interruptor: "Aviso del presupuesto sin respuesta",
+      ayudaInterruptor: "Le llega una sola vez a cada cliente con teléfono al que le compartiste el link del presupuesto.",
+      etiquetaPlazo: "¿Cuántos días sin respuesta?",
+      ayudaPlazo: "Cuentan desde el paso sin contestar más viejo. De 1 a 90 días.",
     }),
   },
 };
@@ -412,8 +435,8 @@ export function avisoAlAnotar(recordatorio) {
 // La configuración de los recordatorios
 // ------------------------------------------------------------
 // La API la manda con el posventa arriba ({ activo, dias, mensaje }), el de
-// turnos en "turno" ({ activo, horas, mensaje }) y el de volver en "volver"
-// ({ activo, dias, mensaje }). La pantalla edita todos igual, cada uno con
+// turnos en "turno" ({ activo, horas, mensaje }), el de volver en "volver"
+// y el del presupuesto en "presupuesto" ({ activo, dias, mensaje }). La pantalla edita todos igual, cada uno con
 // su plazo como texto del campo.
 
 const paraEditar = (c, plazo) => ({
@@ -558,16 +581,24 @@ export function avisoAlAnotarVolver({ volverEn, volver, cliente, hoy }) {
 
 // El caso como queda después de entregar o de corregir la fecha: la
 // respuesta trae "volver" ({ programado, motivo, aviso }), o null si no se
-// tocó la fecha; entonces sigue valiendo lo que el caso ya tenía.
+// tocó la fecha; entonces sigue valiendo lo que el caso ya tenía. El aviso
+// del presupuesto (R-5b) sólo viene en las lecturas: se conserva el de antes.
 export function conAvisoDeVolver(caso, volver, antes) {
+  const aviso_presupuesto = caso.aviso_presupuesto ?? antes?.aviso_presupuesto ?? null;
   if (!volver) {
     return {
       ...caso,
       aviso_volver: caso.aviso_volver ?? antes?.aviso_volver ?? null,
       motivo_sin_aviso_volver: antes?.motivo_sin_aviso_volver ?? null,
+      aviso_presupuesto,
     };
   }
-  return { ...caso, aviso_volver: volver.aviso ?? null, motivo_sin_aviso_volver: volver.aviso ? null : volver.motivo ?? null };
+  return {
+    ...caso,
+    aviso_volver: volver.aviso ?? null,
+    motivo_sin_aviso_volver: volver.aviso ? null : volver.motivo ?? null,
+    aviso_presupuesto,
+  };
 }
 
 // La próxima visita de la ficha, con el caso que la tiene y su aviso.
@@ -576,6 +607,63 @@ export function avisoDeLaProximaVisita({ casos, cliente, volver = null, hoy }) {
   if (!dia) return null;
   const caso = casos.find((c) => c.volver_en === dia);
   return { dia, caso, aviso: avisoDeVolver({ caso, cliente, volver, hoy }) };
+}
+
+// ------------------------------------------------------------
+// El aviso del presupuesto, en /aprobar (R-5b)
+// ------------------------------------------------------------
+// Programarlo, mandarlo y cancelarlo lo decide la API (R-5a,
+// seguimiento/reglas-presupuesto.ts), y el texto se arma al mandarlo. Acá
+// sólo se dice lo que ya decidió, para que el dueño sepa a quién llamar:
+// sale una sola vez, así que después del aviso insistir es cosa suya.
+//
+// El caso trae el último aviso en "aviso_presupuesto" ({ estado,
+// enviar_en, procesado_en, motivo }) o null. Sin fila no se dice nada: la
+// pantalla no lee la configuración, y adivinar por qué no hay aviso
+// (apagado, sin link, sin teléfono) diría cosas que pueden no ser ciertas.
+
+// Por qué no sale, por el código de la API. Su texto no se muestra nunca
+// (cartilla, 07).
+export const POR_QUE_NO_PRESUPUESTO = {
+  sin_cliente: "El caso no tiene cliente, así que no se le avisa del presupuesto.",
+  telefono_invalido: "Falta el teléfono del cliente, con código de país, para mandarle el aviso.",
+  desactivado: "El aviso del presupuesto sin respuesta está apagado: no se le va a avisar.",
+  whatsapp_no_configurado: "Falta configurar el WhatsApp del negocio para mandar avisos.",
+  sin_link: "Todavía no le compartiste el link del presupuesto, así que no se le avisa.",
+  todo_contestado: "Ya contestó todo lo que tenía para contestar, así que no se le avisó.",
+  caso_cerrado: "El caso se cerró, así que no se le avisó del presupuesto.",
+  ya_se_aviso: "Ya se le avisó una vez de este presupuesto: no se le manda otro.",
+};
+
+// Lo que /aprobar dice del aviso de un caso: { estado, frase } (y
+// "motivo" si no sale), o null si no hay nada que decir. Con la baja,
+// nada: la ficha del cliente ya la dice (R-8b).
+export function avisoDelPresupuesto({ caso, cliente, ahora }) {
+  const aviso = caso?.aviso_presupuesto;
+  if (!aviso || cliente?.avisos_baja_en || aviso.motivo === "baja_de_avisos") return null;
+
+  switch (aviso.estado) {
+    case "pendiente":
+      return { estado: "programado", frase: `Si no contesta antes, le llega un aviso por WhatsApp ${momentoEnPalabras(aviso.enviar_en, ahora)}.` };
+    case "enviado":
+      return {
+        estado: "enviado",
+        frase: `Ya le avisamos por WhatsApp ${momentoEnPalabras(aviso.procesado_en ?? aviso.enviar_en, ahora)}. No se le manda otro.`,
+      };
+    case "fallido":
+      return {
+        estado: "fallido",
+        frase: "No se pudo mandar el aviso del presupuesto. Revisá que el teléfono del cliente tenga código de país.",
+      };
+    case "cancelado":
+      return {
+        estado: "no_sale",
+        motivo: aviso.motivo,
+        frase: POR_QUE_NO_PRESUPUESTO[aviso.motivo] ?? "No se le va a mandar el aviso del presupuesto.",
+      };
+    default:
+      return null;
+  }
 }
 
 // ------------------------------------------------------------
