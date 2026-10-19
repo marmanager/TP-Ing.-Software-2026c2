@@ -26,6 +26,7 @@ import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import ResumenRecordatorios from "@/componentes/ResumenRecordatorios";
+import BorrarNegocio from "@/componentes/BorrarNegocio";
 
 export default function MiNegocio() {
   const datos = useDatos();
@@ -652,6 +653,8 @@ export default function MiNegocio() {
           </>
         )}
       </Tarjeta>
+
+      <BorrarNegocio />
     </>
   );
 }

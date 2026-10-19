@@ -554,6 +554,43 @@ begin
     perform set_config('role', 'authenticated', true);
     if n <> 0 then raise exception 'FALLÓ 12: volver a su sede no limpió la visita.'; end if;
 
+    -- ---- 13. Borrar el negocio ----
+    perform set_config('role', 'authenticated', true);
+
+    -- Edu (no es el creador) no lo borra, aunque fuera Dueño.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_a);
+    perform asignar_rol((select id from empleado where negocio_id = neg_a and nombre = 'Edu'),
+                        (select id from rol where negocio_id = neg_a and es_duenio));
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_a);
+    frenado := false;
+    begin perform borrar_negocio(neg_a, 'Roles A'); exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 13: un Dueño que no lo creó borró el negocio.'; end if;
+
+    -- Ana, con el nombre mal escrito, tampoco.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin perform borrar_negocio(neg_a, 'Roles');
+    exception when raise_exception then frenado := (sqlerrm = 'El nombre escrito no coincide con el del negocio.'); end;
+    if not frenado then raise exception 'FALLÓ 13: se borró con el nombre mal escrito.'; end if;
+
+    -- Con el nombre bien, se borra con todo adentro (fichas, roles, casos con
+    -- pasos aprobados y cobros).
+    perform set_config('role', 'postgres', true);
+    insert into cobro (negocio_id, caso_id, monto, medio, estado, pagado_en)
+      select negocio_id, id, 50, 'efectivo', 'pagado', now() from caso where numero = 901 and negocio_id = neg_a;
+    perform set_config('role', 'authenticated', true);
+    perform borrar_negocio(neg_a, 'Roles A');
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from negocio where id = neg_a;
+    if n <> 0 then raise exception 'FALLÓ 13: el negocio sigue.'; end if;
+    select count(*) into n from rol where negocio_id = neg_a;
+    if n <> 0 then raise exception 'FALLÓ 13: quedaron % roles.', n; end if;
+    select count(*) into n from usuario where id in (ana, edu, ivo, zoe) and (negocio_id = neg_a or visitando_desde = neg_a);
+    if n <> 0 then raise exception 'FALLÓ 13: quedaron % cuentas paradas en el negocio borrado.', n; end if;
+    perform set_config('role', 'authenticated', true);
+
     raise exception 'deshacer';
   exception when raise_exception then
     if sqlerrm <> 'deshacer' then raise; end if;

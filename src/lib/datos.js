@@ -1126,6 +1126,13 @@ export function DatosProvider({ children }) {
         return { ok: true, id: r.datos.id };
       },
 
+      // Sólo quien creó el negocio (lo decide la base, 058). El nombre va en el
+      // cuerpo del DELETE como confirmación. Al salir bien, la pantalla recarga.
+      async borrarNegocio(nombre) {
+        const r = await quitar("/negocio", await tokenDeSesion(), { cuerpo: { nombre } });
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+      },
+
       // El rubro se cambia sólo mientras el negocio no tiene casos (SCRUM-90):
       // sirve para corregir una elección equivocada al crearlo, no para pasar
       // un taller con patentes cargadas a consultorio. La base lo rechaza
