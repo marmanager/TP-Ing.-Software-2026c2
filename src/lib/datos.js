@@ -19,12 +19,6 @@ import {
   pesos,
   sePuedeMarcarHecho,
 } from "./estados";
-import { crearColaStock } from "./cambios-stock.js";
-import { estadisticasClientesDemo } from "./dashboard-clientes.js";
-import { estadisticasInventarioDemo } from "./dashboard-inventario.js";
-import { estadisticasCobrosDemo } from "./dashboard-cobros.js";
-import { estadisticasCasosDemo } from "./dashboard-casos.js";
-import { resumenDashboardDemo } from "./dashboard.js";
 import { normalizarInicio } from "./inicio";
 import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
@@ -146,8 +140,6 @@ export function DatosProvider({ children }) {
   // la manera de volver a correr el efecto de carga sin escribir la lectura
   // dos veces, una para entrar y otra para refrescar.
   const [refresco, setRefresco] = useState(0);
-  const colaStock = useRef(null);
-  if (!colaStock.current) colaStock.current = crearColaStock();
   const [aviso, setAviso] = useState(null);
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
@@ -301,89 +293,6 @@ export function DatosProvider({ children }) {
       setRefresco((n) => n + 1);
     };
 
-    // Se conserva el cambio optimista más reciente hasta que se confirme.
-    // Las respuestas anteriores de la cola no pisan clics posteriores.
-    const guardarCantidad = (insumoId, pedir) => {
-      const negocioId = datos.negocio?.id;
-      return colaStock.current.encolar(insumoId, async (esUltimo) => {
-        const r = await pedir(await tokenDeSesion());
-        if (!r.ok) {
-          setAviso(r.error.mensaje);
-          setRefresco((n) => n + 1);
-          return r;
-        }
-        if (esUltimo()) setDatos((d) => d.negocio?.id !== negocioId ? d : {
-          ...d, insumos: d.insumos.map((i) => i.id === insumoId ? { ...i, ...r.datos } : i),
-        });
-        return r;
-      }).catch(() => {
-        const mensaje = "No pudimos guardar la cantidad. Volvé a intentarlo.";
-        setAviso(mensaje);
-        setRefresco((n) => n + 1);
-        return { ok: false, error: { mensaje } };
-      });
-    };
-
-    // Quién firma el historial. La regla vive en permisos.js y tiene test.
-    const firma = () => quienEscribe({ esDemo, usuario, empleados: datos.empleados });
-
-    const escribirConColumnasNuevas = () => {};
-
-    // tipo y monto nacen en 014_evento_tipo.sql; estado, en 018_seguimiento.sql.
-    const escribirEvento = (evento) =>
-      escribirConColumnasNuevas("evento", evento, ["tipo", "monto", "estado"], {
-        insertar: true,
-      });
-
-    // No recibe autor: si se pudiera pasar de afuera, volverían los
-    // personajes. Lo firma siempre quien está usando el sistema.
-    //
-    // "tipo" es obligatorio en la práctica: es lo que usa el historial del
-    // negocio para filtrar (lib/historial.js). Un evento sin tipo sólo se ve
-    // en "Todo". "monto" va en los de plata.
-    // "estado" es a qué estado pasó el caso, y va sólo en los eventos que lo
-    // mueven. El título cuenta lo mismo con palabras, pero escritas para
-    // adentro del negocio: la línea de tiempo que ve el cliente necesita el
-    // estado pelado, porque las palabras se las pone el preset de su rubro
-    // (SCRUM-68).
-    const nuevoEvento = ({
-      casoId,
-      tipo,
-      titulo,
-      detalle,
-      icono = "carpeta",
-      monto = null,
-      estado = null,
-      cuando,
-    }) => ({
-      id: nuevoId(),
-      caso_id: casoId,
-      tipo,
-      titulo,
-      detalle,
-      autor: firma(),
-      icono,
-      monto: monto === null ? null : Number(monto),
-      estado,
-      ocurrido_en: cuando ?? new Date().toISOString(),
-    });
-
-    const anotar = (datosDelEvento) => {
-      const evento = nuevoEvento(datosDelEvento);
-      setDatos((d) => ({ ...d, eventos: [evento, ...d.eventos] }));
-      escribirEvento(evento);
-      return evento;
-    };
-
-    // "descuento" nace en 025_cobros.sql: si la base todavía no lo tiene,
-    // el resto del cambio (cerrar el caso, por ejemplo) se guarda igual.
-    const parchearCaso = (casoId, cambios) => {
-      setDatos((d) => ({
-        ...d,
-        casos: d.casos.map((c) => (c.id === casoId ? { ...c, ...cambios } : c)),
-      }));
-      escribirConColumnasNuevas("caso", { id: casoId, ...cambios }, ["descuento"]);
-    };
     // La versión que se ve en pantalla (actualizado_en). Con ella la API sabe
     // si otro cambió la fila mientras tanto (409); sin ella, escribe igual.
     const version = (lista, id) => lista.find((x) => x.id === id)?.actualizado_en;
@@ -729,7 +638,6 @@ export function DatosProvider({ children }) {
 
       // Los agregados se consultan por separado de las listas de la pantalla.
       async consultarCasosDashboard(periodo) {
-        if (!porLaApi()) return { ok: true, estadisticas: estadisticasCasosDemo(datos, periodo) };
         const r = await traer(`/dashboard/casos?${new URLSearchParams(periodo)}`, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         if (r.datos.negocio_id !== datos.negocio?.id)
@@ -740,7 +648,6 @@ export function DatosProvider({ children }) {
       },
 
       async consultarCobrosDashboard(periodo) {
-        if (!porLaApi()) return { ok: true, estadisticas: estadisticasCobrosDemo(datos, periodo) };
         const r = await traer(`/dashboard/cobros?${new URLSearchParams(periodo)}`, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         if (r.datos.negocio_id !== datos.negocio?.id)
@@ -749,8 +656,6 @@ export function DatosProvider({ children }) {
       },
 
       async consultarInventarioDashboard() {
-        if (!porLaApi()) return { ok: true, estadisticas: estadisticasInventarioDemo(datos) };
-        await colaStock.current.esperar();
         const r = await traer("/dashboard/inventario", await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         if (r.datos.negocio_id !== datos.negocio?.id)
@@ -759,7 +664,6 @@ export function DatosProvider({ children }) {
       },
 
       async consultarClientesDashboard(periodo) {
-        if (!porLaApi()) return { ok: true, estadisticas: estadisticasClientesDemo(datos, periodo) };
         const r = await traer(`/dashboard/clientes?${new URLSearchParams(periodo)}`, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         if (r.datos.negocio_id !== datos.negocio?.id)
@@ -768,8 +672,6 @@ export function DatosProvider({ children }) {
       },
 
       async consultarResumenDashboard(periodo) {
-        if (!porLaApi()) return { ok: true, resumen: resumenDashboardDemo(datos, periodo) };
-        await colaStock.current.esperar();
         const r = await traer(`/dashboard/resumen?${new URLSearchParams(periodo)}`, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         if (r.datos.negocio_id !== datos.negocio?.id)
