@@ -1,8 +1,12 @@
+import { normalizarTelefono } from "./telefono.js";
+
 export const SEGUIMIENTO_VACIO = { enviar: false, dias: "", mensaje: "", mensajeGuardado: null };
 
+// Si a este teléfono le puede llegar un WhatsApp: tiene que tener el código
+// de país (B-1b). Antes aceptaba de 8 a 15 dígitos, y un 3414567890 pasaba:
+// el sistema ofrecía mandar un mensaje que WhatsApp no sabe adónde llevar.
 export function telefonoWhatsAppValido(telefono) {
-  const limpio = String(telefono ?? "").trim().replace(/[\s()+.-]/g, "");
-  return /^[1-9]\d{7,14}$/.test(limpio);
+  return normalizarTelefono(telefono).ok;
 }
 
 export function erroresSeguimiento(valor) {

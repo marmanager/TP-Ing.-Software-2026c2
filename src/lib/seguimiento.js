@@ -14,6 +14,7 @@
 // Next, pero este archivo también lo importa Jest sobre Node, que sigue el
 // estándar y no adivina el ".js".
 import { ORDEN_ESTADOS } from "./estados.js";
+import { normalizarTelefono, telefonoParaLlamar } from "./telefono.js";
 
 // Lo que contesta la API, a la forma que ya conoce la pantalla.
 //
@@ -196,29 +197,22 @@ export const linkDeWhatsApp = (mensaje) =>
 // Lo mismo pero hacia un número concreto: el del negocio, para que el
 // cliente pueda preguntar antes de aprobar.
 //
-// El sistema pide los teléfonos como los dice la gente acá —"con
-// característica, sin el 0 ni el 15"—, o sea diez dígitos: 341 456 7890.
-// WhatsApp los quiere en formato internacional, y para un celular argentino
-// eso es 54 9 delante. Esa traducción vive sólo acá.
-//
-// Si el número ya viene con el 54, se respeta: alguien puede haber cargado
-// un número de otro país, y romperlo poniéndole otro 54 sería peor que no
-// ofrecer el botón.
+// WhatsApp quiere el número internacional, que es como se guarda desde B-1b
+// (5493414567890). Uno de antes, sin código de país, no arma link: antes se
+// le pegaba un 549 a ciegas, y si era de otro país el mensaje se iba a otro
+// lado. Mejor no ofrecer el botón que mandarlo mal.
 export function linkDeWhatsAppA(telefono, mensaje) {
-  const digitos = soloDigitos(telefono);
-  if (!digitos) return null;
-  const internacional = digitos.startsWith("54") ? digitos : `549${digitos}`;
-  return `https://wa.me/${internacional}?text=${encodeURIComponent(mensaje)}`;
+  const r = normalizarTelefono(telefono);
+  if (!r.ok) return null;
+  return `https://wa.me/${r.telefono}?text=${encodeURIComponent(mensaje)}`;
 }
 
 // Llamar. En una computadora puede no hacer nada, y por eso el número se
 // muestra escrito al lado: en el peor caso se copia a mano.
 export const linkDeLlamada = (telefono) => {
-  const digitos = soloDigitos(telefono);
-  return digitos ? `tel:${digitos}` : null;
+  const numero = telefonoParaLlamar(telefono);
+  return numero ? `tel:${numero}` : null;
 };
-
-const soloDigitos = (telefono) => (telefono ?? "").replace(/\D/g, "");
 
 // Lo que el cliente le escribe al negocio cuando no está seguro. Ya viene
 // escrito porque del otro lado alguien tiene que entender de qué caso le

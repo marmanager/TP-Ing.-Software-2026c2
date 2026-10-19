@@ -126,6 +126,8 @@ const PUROS = [
   "src/lib/horarios.js",
   "src/lib/presets.js",
   "src/lib/validaciones.js",
+  "src/lib/telefono.js",
+  "src/lib/seguimiento-whatsapp.js",
   "src/lib/seguimiento.js",
   "src/lib/inicio.js",
   "src/lib/turnos.js",
