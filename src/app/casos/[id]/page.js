@@ -64,10 +64,13 @@ export default function VerCaso() {
   const datos = useDatos();
   const { cargando, casos, clientes, empleados, pasos, eventos, insumos, negocio } = datos;
   const { usuario } = useAuth();
+  // Cada bloque pide el permiso que le exige la base (054): trabajar el caso y
+  // compartirlo, entregar y reabrir, cobrar, pedir insumos y asignar.
   const puedeCargar = puede(usuario, "avanzar_casos");
   const puedeEntregar = puede(usuario, "entregar_y_reabrir");
   const puedeCobrar = puede(usuario, "cobrar");
   const puedePedir = puede(usuario, "editar_inventario");
+  const puedeAsignar = puede(usuario, "asignar_casos");
   const [eligiendo, setEligiendo] = useState(false);
   // Identificador del rubro y notas sueltas (SCRUM-51/52). El diagnóstico
   // vive ahora en la pantalla de los pasos.
@@ -193,6 +196,7 @@ export default function VerCaso() {
   // nada trabado, porque volver a abrirlo está a un toque acá abajo.
   const abierto = estaAbierto(caso);
   const sePuedeEditar = puedeCargar && abierto;
+  const sePuedeAsignar = puedeAsignar && abierto;
 
   // Cómo se lee el encabezado (SCRUM-119). Lo que ya dice el título no se
   // repite en las líneas de abajo.
@@ -360,7 +364,7 @@ export default function VerCaso() {
           <dl className="mt-5 grid gap-x-6 gap-y-4 @2xl:grid-cols-2">
             <Dato icono="persona" que="Quién lo tiene">
               {quienLoTieneEnPalabras(caso, empleados)}
-              {sePuedeEditar && (
+              {sePuedeAsignar && (
                 <div className="mt-1 -ml-3">
                   <Boton
                     variante="plano"
@@ -426,7 +430,7 @@ export default function VerCaso() {
 
           {/* Lo que se abre, abajo y a lo ancho. Adentro de la grilla
               deformaba la fila entera. */}
-          {eligiendo && sePuedeEditar && (
+          {eligiendo && sePuedeAsignar && (
             <div className="mt-4 rounded-tarjeta bg-superficie p-4">
               <p className="font-bold text-cuerpo">¿Quién lo va a atender?</p>
               {empleados.length === 0 ? (
@@ -742,7 +746,7 @@ export default function VerCaso() {
         negocio={negocio}
       />
 
-      {puedeEntregar && (caso.estado === "revision_final" || caso.estado === "completado") && (
+      {puedeCargar && (caso.estado === "revision_final" || caso.estado === "completado") && (
         <AvisarleQueEstaListo
           caso={caso}
           cliente={cliente}
@@ -760,7 +764,7 @@ export default function VerCaso() {
           entrega. Antes estaban antes, y encima con una pinta distinta de la
           de todas las demás secciones: un título suelto con una línea arriba
           en vez de la tarjeta con título que usa el resto. */}
-      {abierto ? (
+      {abierto && !puedeEntregar ? null : abierto ? (
         <>
           <TituloSeccion className="mt-12">Terminar el caso</TituloSeccion>
           <Tarjeta>
@@ -1192,7 +1196,7 @@ export default function VerCaso() {
               )}
             </div>
 
-            {puedeCargar && (
+            {puedeEntregar && (
               <div className="mt-4">
                 <Boton
                   variante="neutro"
