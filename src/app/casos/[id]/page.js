@@ -26,7 +26,14 @@ import {
 } from "@/lib/estados";
 import { cuando, cuantoHace, diaDeArgentina, diaEnPalabras, haceCuanto } from "@/lib/fechas";
 import { cadaCuantoVuelve, comoSeIdentifica, vocabulario } from "@/lib/presets";
-import { errorDeVolverEn, fechaSugerida, intervaloDeducido } from "@/lib/recordatorios";
+import {
+  avisoAlAnotarVolver,
+  avisoDeVolver,
+  errorDeVolverEn,
+  fechaSugerida,
+  intervaloDeducido,
+} from "@/lib/recordatorios";
+import { useRecordatorioVolver } from "@/lib/useRecordatorioVolver";
 import { presentacionEstado } from "@/lib/presentacion-estados";
 import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -99,6 +106,9 @@ export default function VerCaso() {
   const [corrigiendoVolver, setCorrigiendoVolver] = useState(false);
   const [guardandoVolver, setGuardandoVolver] = useState(false);
   const [errorVolver, setErrorVolver] = useState(null);
+  // Cómo está el aviso de que le toca volver (R-2b): para decir, al anotar
+  // la fecha, si se le va a avisar, y en el caso cerrado, cuándo sale.
+  const recordatorioVolver = useRecordatorioVolver();
   // La entrega va en dos pasos: 1 el cobro, 2 lo que pasa después.
   const [pasoEntrega, setPasoEntrega] = useState(1);
 
@@ -139,6 +149,10 @@ export default function VerCaso() {
   // fecha ya pasó. Las fechas de volver son días, no instantes.
   const hoy = diaDeArgentina();
   const motivoVolver = errorDeVolverEn(volverEn, hoy);
+  // Qué va a pasar con el aviso de la fecha que se está anotando, y qué
+  // pasó con el del caso cerrado.
+  const avisoAlAnotar = motivoVolver ? null : avisoAlAnotarVolver({ volverEn, volver: recordatorioVolver, cliente, hoy });
+  const avisoVolver = avisoDeVolver({ caso, cliente, volver: recordatorioVolver, hoy });
   // Sólo para un rubro sin intervalo típico: si el cliente ya vino tres
   // veces o más con un ritmo parejo, se le ofrece esa fecha.
   const sugerenciaVolver = cadaCuantoVuelve(negocio?.rubro)
@@ -1009,6 +1023,7 @@ export default function VerCaso() {
                   hoy={hoy}
                   sugerencia={sugerenciaVolver}
                   error={motivoVolver}
+                  aviso={avisoAlAnotar}
                   disabled={cerrando || cambiandoEstado}
                 />
 
@@ -1125,6 +1140,14 @@ export default function VerCaso() {
                       "No anotaste cuándo le toca volver."
                     )}
                   </p>
+                  {/* Cuándo le sale el aviso, o por qué no sale (R-2b). Con
+                      la baja no se dice nada: la ficha ya lo dice. */}
+                  {avisoVolver && (
+                    <p className="mt-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+                      <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+                      <span>{avisoVolver.frase}</span>
+                    </p>
+                  )}
                   {puedeCargar && (
                     <div className="mt-3">
                       <Boton
@@ -1150,6 +1173,7 @@ export default function VerCaso() {
                     hoy={hoy}
                     sugerencia={sugerenciaVolver}
                     error={motivoVolver}
+                    aviso={avisoAlAnotar}
                     disabled={guardandoVolver}
                   />
                   {errorVolver && (
