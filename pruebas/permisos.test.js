@@ -7,7 +7,7 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, puede, queCambiaConElRol } from "../src/lib/permisos.js";
+import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, puede, queCambiaConElRol, rolesQuePuedeDar } from "../src/lib/permisos.js";
 
 const claves = PERMISOS.map((p) => p.clave);
 
@@ -62,4 +62,15 @@ test("pasar a Dueño gana todo lo que no tenía", () => {
   const { gana, pierde } = queCambiaConElRol({ es_duenio: false, permisos: ["cobrar"] }, { es_duenio: true, permisos: [] });
   assert.equal(gana.length, 22);
   assert.equal(pierde.length, 0);
+});
+
+test("se ofrecen sólo los roles dentro de lo propio, y Dueño sólo a un Dueño", () => {
+  const roles = [
+    { id: "d", nombre: "Dueño", es_duenio: true, permisos: [] },
+    { id: "c", nombre: "Caja", es_duenio: false, permisos: ["cobrar"] },
+    { id: "e", nombre: "Encargado", es_duenio: false, permisos: ["cobrar", "crear_casos"] },
+  ];
+  const recepcion = { es_duenio: false, permisos: ["manejar_roles", "cobrar"] };
+  assert.deepEqual(rolesQuePuedeDar(recepcion, roles).map((r) => r.id), ["c"]);
+  assert.deepEqual(rolesQuePuedeDar({ es_duenio: true, permisos: [] }, roles).map((r) => r.id), ["d", "c", "e"]);
 });

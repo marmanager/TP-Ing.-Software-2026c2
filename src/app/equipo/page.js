@@ -6,17 +6,15 @@
 // entrar y el dueño lo acepta (docs/equipo-por-link.md). Ya no se cargan
 // personas a mano, sin cuenta.
 //
-// Los tres roles son fijos porque la base no acepta otros; cómo se llaman sale
-// del preset del rubro.
+// Los roles son los del negocio (docs/roles.md): cada uno con sus permisos.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, queCambiaConElRol, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, queCambiaConElRol, QUIEN_PUEDE, rolesQuePuedeDar } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
-import { ORDEN_ROLES, etiquetaRol } from "@/lib/presets";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
@@ -43,9 +41,17 @@ export default function Equipo() {
   // diciendo qué gana y qué pierde la persona (auditoría, H5).
   const [cambiandoRol, setCambiandoRol] = useState(null);
 
+  // Se vuelven a pedir si una recarga de los datos los dejó sin leer.
+  const sinRoles = !datos.roles;
+  useEffect(() => {
+    if (sinRoles) datos.cargarRoles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinRoles]);
+
   if (cargando) return <Cargando />;
 
-  const rubro = negocio?.rubro;
+  const rolDe = (id) => datos.roles?.find((r) => r.id === id);
+  const ofrecidos = rolesQuePuedeDar(usuario, datos.roles);
   const sinAsignar = casos.filter((c) => estaAbierto(c) && !c.responsable_id);
 
   function sacar(persona) {
@@ -117,7 +123,7 @@ export default function Equipo() {
                     )}
                   </div>
 
-                  {puedeCambiarRol && !intocable ? (
+                  {puedeCambiarRol && !intocable && datos.roles ? (
                     <div className="mt-4">
                       <label
                         htmlFor={`rol-${e.id}`}
@@ -131,7 +137,7 @@ export default function Equipo() {
                           con el que figura, y cambia directo como siempre. */}
                       <select
                         id={`rol-${e.id}`}
-                        value={e.rol}
+                        value={e.rol_id}
                         onChange={(ev) => {
                           const nuevo = ev.target.value;
                           if (e.usuario_id) {
@@ -139,28 +145,29 @@ export default function Equipo() {
                             return;
                           }
                           datos.cambiarRolEmpleado(e.id, nuevo);
-                          avisarExito(
-                            `${e.nombre} ahora figura como ${etiquetaRol(rubro, nuevo).toLowerCase()}.`
-                          );
+                          avisarExito(`${e.nombre} ahora figura como ${rolDe(nuevo).nombre}.`);
                         }}
                         className="mt-1 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
                       >
-                        {ORDEN_ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {etiquetaRol(rubro, r)}
-                          </option>
-                        ))}
+                        {/* El rol actual siempre figura, aunque tenga más de lo propio. */}
+                        {(ofrecidos.some((r) => r.id === e.rol_id) ? ofrecidos : [rolDe(e.rol_id), ...ofrecidos])
+                          .filter(Boolean)
+                          .map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.nombre}
+                            </option>
+                          ))}
                       </select>
 
                       {cambiandoRol?.id === e.id && (
                         <ConfirmarRol
                           persona={e}
-                          nuevo={cambiandoRol.rol}
-                          rubro={rubro}
+                          antes={rolDe(e.rol_id)}
+                          despues={rolDe(cambiandoRol.rol)}
                           alConfirmar={() => {
                             datos.cambiarRolEmpleado(e.id, cambiandoRol.rol);
                             avisarExito(
-                              `Listo. ${e.nombre} ahora es ${etiquetaRol(rubro, cambiandoRol.rol).toLowerCase()}.`
+                              `${e.nombre} tiene ahora el rol ${rolDe(cambiandoRol.rol).nombre}.`
                             );
                             setCambiandoRol(null);
                           }}
@@ -170,7 +177,7 @@ export default function Equipo() {
                     </div>
                   ) : (
                     <p className="mt-2 text-apoyo text-tinta-suave">
-                      {etiquetaRol(rubro, e.rol)}
+                      {rolDe(e.rol_id)?.nombre}
                       {esFundador && !esVos && " · Creó el negocio"}
                     </p>
                   )}
@@ -296,16 +303,16 @@ export default function Equipo() {
 //
 // Bajar a alguien —que pierda algo— va en rojo, como "Sacar del equipo": deja
 // a una persona sin poder hacer parte de su trabajo.
-function ConfirmarRol({ persona, nuevo, rubro, alConfirmar, alCancelar }) {
-  const { gana, pierde } = queCambiaConElRol(persona.rol, nuevo);
+function ConfirmarRol({ persona, antes, despues, alConfirmar, alCancelar }) {
+  const { gana, pierde } = queCambiaConElRol(antes, despues);
   return (
     <div className="mt-3 rounded-tarjeta bg-superficie p-4">
       <p className="font-bold text-cuerpo">
-        ¿Pasar a {persona.nombre} a {etiquetaRol(rubro, nuevo).toLowerCase()}?
+        ¿Pasar a {persona.nombre} al rol {despues.nombre}?
       </p>
       {pierde.length > 0 && (
         <>
-          <p className="mt-2 font-bold text-tinta">Deja de poder:</p>
+          <p className="mt-2 font-bold text-tinta">Permisos que se quitan</p>
           <ul className="ml-5 list-disc text-tinta-media">
             {pierde.map((t) => (
               <li key={t}>{t}</li>
@@ -315,7 +322,7 @@ function ConfirmarRol({ persona, nuevo, rubro, alConfirmar, alCancelar }) {
       )}
       {gana.length > 0 && (
         <>
-          <p className="mt-2 font-bold text-tinta">Va a poder:</p>
+          <p className="mt-2 font-bold text-tinta">Permisos que se agregan</p>
           <ul className="ml-5 list-disc text-tinta-media">
             {gana.map((t) => (
               <li key={t}>{t}</li>

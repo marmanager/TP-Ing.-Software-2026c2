@@ -65,3 +65,12 @@ export function queCambiaConElRol(antes, despues) {
     pierde: PERMISOS.filter((p) => a.has(p.clave) && !d.has(p.clave)).map((p) => p.descripcion),
   };
 }
+
+// Los roles que alguien puede dar: los que no tienen nada que su rol no tenga.
+// El rol Dueño, sólo un Dueño. La base lo vuelve a controlar (056).
+export function rolesQuePuedeDar(quien, roles) {
+  const mios = new Set(efectivos(quien));
+  return (roles ?? []).filter((r) =>
+    r.es_duenio ? Boolean(quien?.es_duenio) : r.permisos.every((p) => mios.has(p))
+  );
+}

@@ -440,6 +440,22 @@ export default function MiNegocio() {
         </div>
       </Tarjeta>
 
+      {/* La lista de roles la puede mirar cualquier miembro; sólo se edita con
+          manejar_roles (docs/roles.md). */}
+      <TituloSeccion id="roles">Roles</TituloSeccion>
+      <Tarjeta className="mb-12">
+        <p className="max-w-[65ch] text-tinta-media">Qué puede hacer cada persona del equipo.</p>
+        <div className="mt-4">
+          <Link
+            href="/negocio/roles"
+            className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+          >
+            <Icono nombre="llave" />
+            {puede(usuario, "manejar_roles") ? "Ver y manejar los roles" : "Ver los roles"}
+          </Link>
+        </div>
+      </Tarjeta>
+
       {/* La landing la arma sólo el dueño: el resto del equipo no tiene nada
           que hacer en esa pantalla. */}
       {puedeConfigurar && (

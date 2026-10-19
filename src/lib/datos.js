@@ -931,14 +931,43 @@ export function DatosProvider({ children }) {
       // querer (auditoría, H5). Las fichas sin cuenta ya no se crean a mano (la 051
       // lo frena), pero siguen apareciendo: la siembra de datos de prueba las deja
       // y una cuenta borrada deja su ficha. Para ésas sirve el cambio directo.
-      cambiarRolEmpleado(empleadoId, rol) {
+      cambiarRolEmpleado(empleadoId, rolId) {
         setDatos((d) => ({
           ...d,
-          empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol } : e)),
+          empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol_id: rolId } : e)),
         }));
-        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol, actualizado_en: version(datos.empleados, empleadoId) }, token),
+        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol_id: rolId }, token),
           ({ empleado }) => setDatos((d) => ({ ...d, empleados: ponerFila(d.empleados, empleado) })));
         return;
+      },
+
+      // ---------- roles (docs/roles.md) ----------
+      // enLaApi no devuelve el resultado (sólo avisa), y la pantalla de un rol
+      // necesita saber si salió bien y qué mensaje mostrar: van directo, como
+      // crearEcuacion. Sin cuentas no hay equipo al que dar roles: la
+      // pantalla lo dice (api() contesta "sin_api" si se llegara a pedir).
+      roles: datos.roles,
+
+      async cargarRoles() {
+        const r = await traer("/roles", await tokenDeSesion());
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        else setAviso(r.error.mensaje);
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+      },
+
+      async guardarRol({ id, nombre, permisos }) {
+        const token = await tokenDeSesion();
+        const r = id
+          ? await parchar(`/roles/${encodeURIComponent(id)}`, { nombre, permisos }, token)
+          : await mandar("/roles", { nombre, permisos }, token);
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+      },
+
+      async borrarRol(id) {
+        const r = await quitar(`/roles/${encodeURIComponent(id)}`, await tokenDeSesion());
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
       },
 
       // Los casos que tenía quedan sin responsable, no se borran: la base los
