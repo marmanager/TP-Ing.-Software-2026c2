@@ -15,14 +15,26 @@ export default function BorrarNegocio() {
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [error, setError] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
 
   if (!negocio || negocio.creado_por !== usuario?.id) return null;
 
   async function borrar() {
+    if (eliminando) return;
     setError(null);
+    setEliminando(true);
     const r = await datos.borrarNegocio(nombre);
     if (r?.ok) window.location.assign("/");
-    else setError(r?.error ?? "No se pudo eliminar el negocio.");
+    else {
+      setError(r?.error ?? "No se pudo eliminar el negocio.");
+      setEliminando(false);
+    }
+  }
+
+  function cancelar() {
+    setAbierto(false);
+    setNombre("");
+    setError(null);
   }
 
   return (
@@ -42,14 +54,18 @@ export default function BorrarNegocio() {
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
-          <Boton
-            variante="peligro"
-            icono="tacho"
-            onClick={borrar}
-            motivo={nombre.trim() !== negocio.nombre.trim() ? "el nombre no coincide" : null}
-          >
-            Eliminar definitivamente
-          </Boton>
+          <div className="flex flex-wrap gap-3">
+            <Boton
+              variante="peligro"
+              icono="tacho"
+              onClick={borrar}
+              disabled={eliminando}
+              motivo={!eliminando && nombre.trim() !== negocio.nombre.trim() ? "el nombre no coincide" : null}
+            >
+              {eliminando ? "Eliminando" : "Eliminar definitivamente"}
+            </Boton>
+            <Boton variante="borde" onClick={cancelar} disabled={eliminando}>Cancelar</Boton>
+          </div>
         </>
       )}
     </Tarjeta>

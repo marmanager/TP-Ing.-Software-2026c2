@@ -12,9 +12,9 @@
 
 -- quitar_acceso_al_sacar (036, 038) frena que alguien se saque a sí mismo y
 -- que saquen al creador. Al borrar el negocio entero, sus fichas se borran
--- en cascada y las dos cosas pasan a propósito: borrar_negocio() lo avisa
--- con una variable de la transacción. Es la definición de la 038 tal cual,
--- con ese chequeo al principio.
+-- en cascada y las dos cosas pasan a propósito. Es la definición de la 038 tal
+-- cual, con un chequeo al principio: si el negocio ya no existe, no hay nada
+-- que proteger.
 create or replace function quitar_acceso_al_sacar()
 returns trigger
 language plpgsql
@@ -27,9 +27,12 @@ begin
     return old;
   end if;
 
-  -- borrar_negocio() (058) borra todas las fichas a propósito, la del
-  -- creador y la propia incluidas.
-  if current_setting('roles.borrando_negocio', true) = old.negocio_id::text then
+  -- Al borrar el negocio entero, la cascada borra sus fichas cuando la fila
+  -- del negocio ya no está (como supone el comentario de abajo, desde la 038):
+  -- la del creador y la propia incluidas, a propósito. Con el negocio vivo
+  -- este chequeo no frena nada, así que no se puede usar para saltearse las
+  -- reglas de abajo.
+  if not exists (select 1 from negocio where id = old.negocio_id) then
     return old;
   end if;
 
@@ -84,19 +87,21 @@ begin
     raise exception 'El nombre escrito no coincide con el del negocio.';
   end if;
 
-  -- Nadie queda parado en un negocio que no existe.
+  -- Nadie queda parado en un negocio que no existe. Quien estaba acá vuelve a
+  -- su sede de origen si andaba de visita, o a su predeterminado, o a ninguno.
+  -- En un UPDATE todas las expresiones leen la fila como estaba antes.
   update usuario
      set negocio_id = case
-           when negocio_id = p_negocio then nullif(negocio_predeterminado, p_negocio)
+           when negocio_id = p_negocio
+             then coalesce(nullif(visitando_desde, p_negocio), nullif(negocio_predeterminado, p_negocio))
            else negocio_id
          end,
-         visitando_desde = case when visitando_desde = p_negocio then null else visitando_desde end,
-         negocio_predeterminado = nullif(negocio_predeterminado, p_negocio)
+         visitando_desde = case when visitando_desde = p_negocio or negocio_id = p_negocio then null else visitando_desde end,
+         negocio_predeterminado = nullif(negocio_predeterminado, p_negocio),
+         inicio_rapido = case when negocio_predeterminado = p_negocio then false else inicio_rapido end
    where negocio_id = p_negocio or visitando_desde = p_negocio or negocio_predeterminado = p_negocio;
 
-  perform set_config('roles.borrando_negocio', p_negocio::text, true);
   delete from negocio where id = p_negocio;
-  perform set_config('roles.borrando_negocio', '', true);
 end;
 $$;
 

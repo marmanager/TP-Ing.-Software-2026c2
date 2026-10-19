@@ -575,6 +575,18 @@ begin
     exception when raise_exception then frenado := (sqlerrm = 'El nombre escrito no coincide con el del negocio.'); end;
     if not frenado then raise exception 'FALLÓ 13: se borró con el nombre mal escrito.'; end if;
 
+    -- Ivo anda de visita en B; Ana borra B. Ivo vuelve a su sede A, ya no de visita.
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    perform entrar_de_visita(neg_b);
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform borrar_negocio(neg_b, 'Roles B');
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from negocio where id = neg_b;
+    if n <> 0 then raise exception 'FALLÓ 13: el negocio B sigue.'; end if;
+    select count(*) into n from usuario where id = ivo and negocio_id = neg_a and visitando_desde is null;
+    if n <> 1 then raise exception 'FALLÓ 13: el visitante de la sede borrada no volvió a su sede.'; end if;
+    perform set_config('role', 'authenticated', true);
+
     -- Con el nombre bien, se borra con todo adentro (fichas, roles, casos con
     -- pasos aprobados y cobros).
     perform set_config('role', 'postgres', true);
@@ -589,6 +601,21 @@ begin
     if n <> 0 then raise exception 'FALLÓ 13: quedaron % roles.', n; end if;
     select count(*) into n from usuario where id in (ana, edu, ivo, zoe) and (negocio_id = neg_a or visitando_desde = neg_a);
     if n <> 0 then raise exception 'FALLÓ 13: quedaron % cuentas paradas en el negocio borrado.', n; end if;
+
+    -- Nadie se salta la regla del creador con una variable de sesión: Edu, Dueño
+    -- de un negocio que sigue vivo (el de Zoe), no le saca la ficha a Zoe.
+    insert into empleado (negocio_id, usuario_id, nombre, rol) values (neg_p, edu, 'Edu P', 'duenio');
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_p);
+    perform set_config('roles.borrando_negocio', neg_p::text, true);
+    begin
+      delete from empleado where usuario_id = zoe and negocio_id = neg_p;
+    exception when raise_exception then null;
+    end;
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from empleado where usuario_id = zoe and negocio_id = neg_p;
+    if n <> 1 then raise exception 'FALLÓ 13: una variable de sesión sacó al creador del equipo.'; end if;
     perform set_config('role', 'authenticated', true);
 
     raise exception 'deshacer';
