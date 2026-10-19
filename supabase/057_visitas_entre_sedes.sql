@@ -9,9 +9,10 @@
 -- los permisos de mirar, los que su rol ya tiene en su sede. Sin el permiso,
 -- las otras sedes no aparecen en ningún lado (docs/roles.md, "Visitas").
 --
--- Ninguna política cambia: todo pasa por permisos_efectivos(). Las tablas sin
--- un permiso de mirar propio (cobro, ecuacion, invitacion) ya piden ficha
--- desde la 054.
+-- Las políticas de datos siguen pasando por permisos_efectivos(). Lo que
+-- no tiene un permiso de mirar propio se corta con estoy_aca() (ficha o visita
+-- vigente: negocio, empleado, rol y fotos del equipo) o con la ficha (escribir
+-- en evento). Cobro, ecuacion e invitacion ya pedían ficha desde la 054.
 -- ============================================================
 
 -- Como el resto de usuario desde la 035: no se escribe desde el navegador.
@@ -162,3 +163,84 @@ $$;
 revoke all on function entrar_al_negocio(uuid) from public;
 revoke all on function entrar_al_negocio(uuid) from anon;
 grant execute on function entrar_al_negocio(uuid) to authenticated;
+
+-- ------------------------------------------------------------
+-- 5. Una visita que dejó de valer corta también lo que se lee por negocio_id
+-- ------------------------------------------------------------
+-- Si a quien visita se le quita la ficha de origen, se desvinculan las sedes o
+-- se le quita el permiso, permisos_efectivos() da {} pero negocio, empleado,
+-- rol y las fotos del equipo sólo miraban negocio_id = mi_negocio(). Con
+-- estoy_aca() quedan en vacío.
+create or replace function estoy_aca()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select mi_empleado() is not null
+      or cardinality(permisos_efectivos(mi_negocio())) > 0;
+$$;
+
+revoke all on function estoy_aca() from public;
+revoke all on function estoy_aca() from anon;
+grant execute on function estoy_aca() to authenticated;
+
+drop policy if exists negocio_ve_el_suyo on negocio;
+create policy negocio_ve_el_suyo on negocio
+  for select to authenticated
+  using (id = mi_negocio() and estoy_aca());
+
+drop policy if exists empleado_lo_ve_el_negocio on empleado;
+create policy empleado_lo_ve_el_negocio on empleado
+  for select to authenticated
+  using (negocio_id = mi_negocio() and estoy_aca());
+
+drop policy if exists rol_lo_ve_el_negocio on rol;
+create policy rol_lo_ve_el_negocio on rol
+  for select to authenticated
+  using (negocio_id = mi_negocio() and estoy_aca());
+
+-- Igual que en la 038; se suma estoy_aca().
+create or replace function fotos_del_equipo()
+returns table (usuario_id uuid, foto text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select u.id, u.foto
+    from empleado e
+    join usuario u on u.id = e.usuario_id
+   where e.negocio_id = mi_negocio()
+     and estoy_aca()
+     and u.foto is not null;
+$$;
+
+-- ------------------------------------------------------------
+-- 6. El historial de un caso no lo escribe quien está de visita
+-- ------------------------------------------------------------
+-- evento_de_mi_negocio (008) era "for all" y sólo miraba que el caso se viera.
+-- Ver el historial vale con permisos de mirar; escribirlo pide ficha.
+drop policy if exists evento_de_mi_negocio on evento;
+
+drop policy if exists evento_lo_ve_quien_ve_el_caso on evento;
+create policy evento_lo_ve_quien_ve_el_caso on evento
+  for select to authenticated
+  using (exists (select 1 from caso c where c.id = evento.caso_id));
+
+drop policy if exists evento_lo_agrega_el_equipo on evento;
+create policy evento_lo_agrega_el_equipo on evento
+  for insert to authenticated
+  with check (mi_empleado() is not null and exists (select 1 from caso c where c.id = evento.caso_id));
+
+drop policy if exists evento_lo_cambia_el_equipo on evento;
+create policy evento_lo_cambia_el_equipo on evento
+  for update to authenticated
+  using (mi_empleado() is not null and exists (select 1 from caso c where c.id = evento.caso_id))
+  with check (mi_empleado() is not null and exists (select 1 from caso c where c.id = evento.caso_id));
+
+drop policy if exists evento_lo_borra_el_equipo on evento;
+create policy evento_lo_borra_el_equipo on evento
+  for delete to authenticated
+  using (mi_empleado() is not null and exists (select 1 from caso c where c.id = evento.caso_id));

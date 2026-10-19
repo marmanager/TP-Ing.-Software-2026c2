@@ -500,6 +500,53 @@ begin
     select * into fila from jsonb_to_record(marcar_paso_hecho(pedido, true)) as x(ok boolean);
     if fila.ok then raise exception 'FALLÓ 12: de visita, Ivo marcó un paso hecho.'; end if;
 
+    -- Una visita que dejó de valer no deja leer nada de B: la dueña le quita el
+    -- permiso a Mecánico mientras Ivo está en B.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform guardar_rol((select id from rol where negocio_id = neg_a and nombre = 'Mecánico'), 'Mecánico',
+      permisos_de_clave('tecnico'));
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    select count(*) into n from empleado;
+    if n <> 0 then raise exception 'FALLÓ 12: la visita vencida lee % empleados de B.', n; end if;
+    select count(*) into n from rol;
+    if n <> 0 then raise exception 'FALLÓ 12: la visita vencida lee % roles de B.', n; end if;
+    select count(*) into n from negocio;
+    if n <> 0 then raise exception 'FALLÓ 12: la visita vencida lee el negocio B.'; end if;
+    select count(*) into n from fotos_del_equipo();
+    if n <> 0 then raise exception 'FALLÓ 12: la visita vencida lee las fotos del equipo de B.'; end if;
+    -- Con el permiso de vuelta, la visita vuelve a valer.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform guardar_rol((select id from rol where negocio_id = neg_a and nombre = 'Mecánico'), 'Mecánico',
+      permisos_de_clave('tecnico') || array['ver_sedes_vinculadas']);
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    select count(*) into n from negocio where id = neg_b;
+    if n <> 1 then raise exception 'FALLÓ 12: con el permiso de vuelta, Ivo no ve el negocio B.'; end if;
+
+    -- De visita se mira el historial de un caso, no se escribe.
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform guardar_rol((select id from rol where negocio_id = neg_a and nombre = 'Mecánico'), 'Mecánico',
+      permisos_de_clave('tecnico') || array['ver_sedes_vinculadas', 'ver_todos_los_casos']);
+    perform set_config('role', 'postgres', true);
+    insert into evento (caso_id, titulo) select id, 'Del caso de B' from caso where numero = 903;
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+    select count(*) into n from evento where titulo = 'Del caso de B';
+    if n <> 1 then raise exception 'FALLÓ 12: de visita, Ivo no ve el historial del caso de B.'; end if;
+    frenado := false;
+    begin insert into evento (caso_id, titulo) select id, 'De la visita' from caso where numero = 903;
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 12: de visita, Ivo escribió en el historial de B.'; end if;
+    update evento set titulo = 'Pisado' where titulo = 'Del caso de B';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FALLÓ 12: de visita, Ivo cambió el historial de B.'; end if;
+    delete from evento where titulo = 'Del caso de B';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FALLÓ 12: de visita, Ivo borró el historial de B.'; end if;
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+    perform guardar_rol((select id from rol where negocio_id = neg_a and nombre = 'Mecánico'), 'Mecánico',
+      permisos_de_clave('tecnico') || array['ver_sedes_vinculadas']);
+    perform set_config('request.jwt.claims', json_build_object('sub', ivo, 'role', 'authenticated')::text, true);
+
     -- Volver a su sede limpia la visita.
     perform entrar_al_negocio(neg_a);
     perform set_config('role', 'postgres', true);

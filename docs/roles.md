@@ -197,9 +197,10 @@ activo, `usuario.negocio_id` pasa a su predeterminado o a null.
 
 ## Visitas entre sedes
 
-- `sedes_que_veo()`: las sedes de la red donde se es miembro, más las demás de
-  la red si algún rol propio en la red tiene `ver_sedes_vinculadas`. Sin el
-  permiso, las otras sedes no aparecen en ningún lado.
+- `sedes_que_veo()`: parte de la red de la sede de origen (la activa, o aquella
+  desde la que empezó la visita) y lista las sedes donde se es miembro más, si
+  el rol de origen tiene `ver_sedes_vinculadas` o es Dueño, las demás sedes de
+  esa red. Sin el permiso, las otras sedes no aparecen en ningún lado.
 - `entrar_de_visita(p_sede)`: misma red, sin ficha en `p_sede`, y el rol en la
   sede activa tiene `ver_sedes_vinculadas`. Pone `usuario.negocio_id = p_sede`
   y `usuario.visitando_desde = <sede activa>`.
@@ -207,7 +208,14 @@ activo, `usuario.negocio_id` pasa a su predeterminado o a null.
 - **El visitante ve sólo lo que su rol ve en su sede:** de los permisos de
   mirar, los que su rol tiene. Si en su sede no ve clientes, en la otra
   tampoco. Ningún permiso de cambiar vale de visita, así que todas las
-  políticas de escritura lo frenan sin tocarlas.
+  políticas de escritura lo frenan sin tocarlas (salvo `evento`, ver abajo).
+- **Visita vencida:** si durante la visita se quita la ficha de origen, se
+  desvinculan las sedes o se quita el permiso, `estoy_aca()` da falso y el
+  negocio, el equipo, los roles y las fotos de la sede visitada quedan vacíos.
+  El historial de los casos (`evento`) sólo lo escribe quien tiene ficha.
+- **Límite conocido:** durante una visita legítima la fila de `negocio`
+  (incluidos los códigos de sus links públicos) se puede leer aunque el rol de
+  origen no tenga `ver_agenda`, porque RLS no filtra columnas.
 - La vista conjunta de inventario (047) no cambia: muestra sólo las sedes donde
   se es miembro.
 
