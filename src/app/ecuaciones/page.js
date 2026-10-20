@@ -5,7 +5,7 @@ import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import {
   entradasDeEcuacionEncadenada, errorDeVariables, filtrarEcuaciones,
-  nombreParaDependencia, ordenarEcuaciones, resolverEcuacionEncadenada,
+  nombreParaDependencia, ordenarEcuaciones, resolverEcuacionEncadenada, variablesHeredadas,
 } from "@/lib/ecuaciones";
 import { Boton, Campo, Cargando, ErrorGeneral, Tarjeta, TituloPantalla, TituloSeccion, Vacio } from "@/componentes/ui";
 
@@ -133,6 +133,7 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
   const [editandoVariable, setEditandoVariable] = useState(null);
   const [variable, setVariable] = useState({ tipo: "variable", nombre: "", descripcion: "", valor: "", unidad: "" });
   const [ecuacionElegida, setEcuacionElegida] = useState("");
+  const heredadas = variablesHeredadas(form, ecuaciones).variables ?? [];
 
   const cambiar = (campo, valor) => { setForm((f) => ({ ...f, [campo]: valor })); setErrores((e) => ({ ...e, [campo]: null, general: null })); setDuplicada(false); };
   const insertar = (texto) => cambiar("formula", `${form.formula}${texto}`);
@@ -255,6 +256,16 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
                   </li>;
                 })}
               </ul>}
+              {!!heredadas.length && <div className="mt-4">
+                <p className="mb-2 font-bold">Variables disponibles de las ecuaciones utilizadas</p>
+                <ul className="space-y-2">
+                  {heredadas.map((v) => <li key={`${v.ecuacion}-${v.id}`} className="rounded-campo border border-borde bg-superficie p-3">
+                    <p className="font-bold">{v.nombre} <span className="font-normal text-tinta-media">· {v.tipo} de {v.ecuacion}{v.unidad ? ` · ${v.unidad}` : ""}</span></p>
+                    {v.descripcion && <p className="text-etiqueta text-tinta-media">{v.descripcion}</p>}
+                    <Boton variante="plano" className="mt-2" onClick={() => insertar(v.nombre)}>Insertar</Boton>
+                  </li>)}
+                </ul>
+              </div>}
             </div>
           </Tarjeta>
         </div>

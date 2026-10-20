@@ -151,7 +151,7 @@ export function errorDeDependencias(variables = [], dependencias = []) {
   return null;
 }
 
-export function nuevaEcuacion({ nombre, formula, descripcion = "", categoria = "", variables = [], dependencias = [], unidad_resultado = "" }) {
+export function nuevaEcuacion({ nombre, formula, descripcion = "", categoria = "", variables = [], dependencias = [], unidad_resultado = "", id }, ecuaciones = []) {
   const nombreLimpio = String(nombre ?? "").trim();
   const formulaLimpia = String(formula ?? "").trim();
   if (!nombreLimpio) return { error: "El nombre es obligatorio.", campo: "nombre" };
@@ -163,7 +163,13 @@ export function nuevaEcuacion({ nombre, formula, descripcion = "", categoria = "
   const dependenciasLimpias = limpiarDependencias(dependencias);
   const errorDependencias = errorDeDependencias(limpias, dependenciasLimpias);
   if (errorDependencias) return { error: errorDependencias, campo: "dependencias" };
-  const definidas = new Set([...limpias.map((variable) => clave(variable.nombre)), ...dependenciasLimpias.map((d) => clave(d.nombre))]);
+  const heredadas = variablesHeredadas({ id, variables: limpias, dependencias: dependenciasLimpias }, ecuaciones);
+  if (heredadas.error) return { error: heredadas.error, campo: "dependencias" };
+  const definidas = new Set([
+    ...limpias.map((variable) => clave(variable.nombre)),
+    ...dependenciasLimpias.map((d) => clave(d.nombre)),
+    ...heredadas.variables.map((variable) => clave(variable.nombre)),
+  ]);
   const indefinida = analisis.usadas.find((usada) => !definidas.has(usada));
   if (indefinida) return { error: `La variable ${indefinida} se usa en la fórmula pero no está definida.`, campo: "formula" };
   return { ecuacion: {
@@ -231,6 +237,23 @@ export function entradasDeEcuacionEncadenada(ecuacion, ecuaciones = []) {
   return { entradas };
 }
 
+export function variablesHeredadas(ecuacion, ecuaciones = []) {
+  const cadena = ordenarEcuaciones(ecuacion, ecuaciones);
+  if (cadena.error) return cadena;
+  const vistas = new Set();
+  const variables = [];
+  for (const actual of cadena.orden) {
+    if (actual === ecuacion || (ecuacion?.id && actual.id === ecuacion.id)) continue;
+    for (const variable of actual.variables ?? []) {
+      if (!vistas.has(variable.id)) {
+        vistas.add(variable.id);
+        variables.push({ ...variable, ecuacion: actual.nombre });
+      }
+    }
+  }
+  return { variables };
+}
+
 export function resolverEcuacionEncadenada(ecuacion, ecuaciones = [], entradas = {}) {
   const cadena = ordenarEcuaciones(ecuacion, ecuaciones);
   if (cadena.error) return cadena;
@@ -238,6 +261,7 @@ export function resolverEcuacionEncadenada(ecuacion, ecuaciones = [], entradas =
   const intermedios = [];
 
   for (const actual of cadena.orden) {
+    const heredadas = variablesHeredadas(actual, ecuaciones).variables ?? [];
     const calculadas = (actual.dependencias ?? []).map((dependencia) => ({
       id: `ecuacion:${dependencia.ecuacion_id}`,
       tipo: "variable",
@@ -250,7 +274,7 @@ export function resolverEcuacionEncadenada(ecuacion, ecuaciones = [], entradas =
     for (const dependencia of actual.dependencias ?? []) {
       valores[`ecuacion:${dependencia.ecuacion_id}`] = resultados.get(dependencia.ecuacion_id);
     }
-    const salida = resolverEcuacion({ ...actual, variables: [...(actual.variables ?? []), ...calculadas] }, valores);
+    const salida = resolverEcuacion({ ...actual, variables: [...heredadas, ...(actual.variables ?? []), ...calculadas] }, valores);
     if (salida.error) return { ...salida, error: `${actual.nombre}: ${salida.error}`, ecuacion: actual.nombre };
     resultados.set(actual.id, salida.resultado);
     if (actual.id !== ecuacion.id) intermedios.push({

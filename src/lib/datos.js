@@ -461,7 +461,7 @@ export function DatosProvider({ children }) {
     return {
       ecuaciones: datos.ecuaciones ?? [],
       async crearEcuacion(form) {
-        const creada = nuevaEcuacion(form);
+        const creada = nuevaEcuacion(form, datos.ecuaciones ?? []);
         if (creada.error) return { ok: false, error: creada.error, campo: creada.campo };
         const duplicada = datos.ecuaciones?.find((e) => mismaExpresion(e.formula, creada.ecuacion.formula));
         if (duplicada && !form.confirmarVariante) {
@@ -479,7 +479,7 @@ export function DatosProvider({ children }) {
         return { ok: true, ecuacion: r.datos.ecuacion };
       },
       async editarEcuacion(id, form) {
-        const editada = nuevaEcuacion(form);
+        const editada = nuevaEcuacion(form, datos.ecuaciones ?? []);
         if (editada.error) return { ok: false, error: editada.error, campo: editada.campo };
         const duplicada = datos.ecuaciones?.find((e) => e.id !== id && mismaExpresion(e.formula, editada.ecuacion.formula));
         if (duplicada && !form.confirmarVariante) return { ok: false, duplicada: true };
