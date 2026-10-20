@@ -603,6 +603,15 @@ begin
     perform entrar_de_visita(neg_c);
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
 
+    -- Zoe, de visita en C desde A, tiene de predeterminado su propio negocio
+    -- (P): al borrar A pasa a P. Para ver C, la dueña la pasa a Mecánico.
+    perform asignar_rol((select id from empleado where negocio_id = neg_a and usuario_id = zoe),
+                        (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
+    perform set_config('request.jwt.claims', json_build_object('sub', zoe, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_a);
+    perform entrar_de_visita(neg_c);
+    perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
+
     -- Con el nombre bien, se borra con todo adentro (fichas, roles, casos con
     -- pasos aprobados y cobros).
     perform set_config('role', 'postgres', true);
@@ -619,6 +628,9 @@ begin
     if n <> 0 then raise exception 'FALLÓ 13: quedaron % cuentas paradas en el negocio borrado.', n; end if;
     select count(*) into n from usuario where id = edu and negocio_id is null and visitando_desde is null;
     if n <> 1 then raise exception 'FALLÓ 13: quien visitaba otra sede desde el negocio borrado quedó en ella sin ficha.'; end if;
+    select count(*) into n from usuario
+     where id = zoe and negocio_id = neg_p and negocio_predeterminado = neg_p and visitando_desde is null;
+    if n <> 1 then raise exception 'FALLÓ 13: quien visitaba otra sede desde el negocio borrado no pasó a su predeterminado.'; end if;
 
     -- Nadie se salta la regla del creador con una variable de sesión: Edu, Dueño
     -- de un negocio que sigue vivo (el de Zoe), no le saca la ficha a Zoe.

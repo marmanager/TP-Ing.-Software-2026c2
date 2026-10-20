@@ -92,9 +92,12 @@ todo en el navegador; se fue porque obligaba a tener las reglas copiadas acá.
    de `supabase/`, del `001_schema.sql` al `059_roles_limpieza.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
-   correr cuantas veces haga falta, salvo que una vez corrida la `059` no se
-   vuelve a correr ninguna anterior: escribirían otra vez el rol viejo
-   (`empleado.rol`, `usuario.rol`, `rol.clave`), que la `059` borra.
+   correr cuantas veces haga falta, con una condición: en una base que ya
+   tiene la `059`, volver a correr cualquier migración anterior obliga a
+   correr la `059` otra vez al final. Algunas anteriores fallan (usan el rol
+   viejo, que la `059` borró) y otras vuelven a instalar funciones o
+   políticas de antes de los roles por negocio; la `059` es idempotente y
+   deja la base como estaba en los dos casos.
 
    Las pruebas de `supabase/pruebas/` se corren al final, enteras, en el SQL
    Editor; no dejan nada guardado y, si pasan, dan "Success. No rows returned":

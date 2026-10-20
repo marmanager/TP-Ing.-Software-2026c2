@@ -376,6 +376,15 @@ drop function if exists mi_rol();
 -- de la API la llama. Por si quedó en alguna base.
 drop function if exists aceptar_invitacion(text, text);
 
+-- Las políticas abiertas de la 005 (todo el negocio puede todo). Las borraba
+-- la 008, que ya no se puede volver a correr (usa mi_rol()): si alguien vuelve
+-- a correr la 005, la 059 las saca de nuevo. Las de hoy son las de la 054.
+drop policy if exists cliente_de_mi_negocio on cliente;
+drop policy if exists empleado_de_mi_negocio on empleado;
+drop policy if exists insumo_de_mi_negocio on insumo;
+drop policy if exists paso_de_mi_negocio on paso;
+drop policy if exists turno_de_mi_negocio on turno;
+
 alter table empleado drop column if exists rol;
 alter table usuario drop column if exists rol;
 drop index if exists rol_clave_unica;
