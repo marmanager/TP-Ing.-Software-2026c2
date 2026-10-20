@@ -26,6 +26,7 @@ import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import Suscripcion from "./Suscripcion";
 import TusNegocios from "./TusNegocios";
 import Tema from "./Tema";
 
@@ -535,6 +536,9 @@ export default function MiPerfil() {
 
       <TituloSeccion id="tema">Tema</TituloSeccion>
       <Tema />
+
+      <TituloSeccion id="suscripcion">Suscripción</TituloSeccion>
+      <Suscripcion />
 
       {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
       <TituloSeccion id="negocios">Tus negocios</TituloSeccion>
