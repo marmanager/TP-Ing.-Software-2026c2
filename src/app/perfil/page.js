@@ -20,7 +20,9 @@ import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { estadoDeLaContrasena, motivoDeContrasenaNueva, telefonoValido } from "@/lib/validaciones";
+import { estadoDeLaContrasena, motivoDeContrasenaNueva } from "@/lib/validaciones";
+import { paisInicial, telefonoLegible } from "@/lib/telefono";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
@@ -41,7 +43,11 @@ export default function MiPerfil() {
   // llevar a los 48 px de área táctil que pide la cartilla.
   const inputFoto = useRef(null);
   const [editando, setEditando] = useState(false);
-  const [borrador, setBorrador] = useState({ nombre: "", telefono: "", foto: null });
+  const [borrador, setBorrador] = useState({ nombre: "", foto: null });
+  // El teléfono va aparte, en el campo con selector de país (B-1b), que
+  // arranca en el país del negocio.
+  const paisNegocio = paisInicial(datos.negocio);
+  const tel = useTelefono("", paisNegocio);
   const [menuFoto, setMenuFoto] = useState(false);
   const [errorFoto, setErrorFoto] = useState(null);
   const [achicandoFoto, setAchicandoFoto] = useState(false);
@@ -74,9 +80,9 @@ export default function MiPerfil() {
     cerrarCambioDeContrasena();
     setBorrador({
       nombre: usuario?.nombre ?? "",
-      telefono: usuario?.telefono ?? "",
       foto: usuario?.foto ?? null,
     });
+    tel.cargar(usuario?.telefono ?? "");
     setErrorFoto(null);
     setErrorPerfil(null);
     setMenuFoto(false);
@@ -92,10 +98,7 @@ export default function MiPerfil() {
   }
 
   // El teléfono es opcional, pero si se escribe tiene que servir.
-  const errorTelefono =
-    borrador.telefono.trim() && !telefonoValido(borrador.telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   const motivoPerfil = !borrador.nombre.trim()
     ? "falta tu nombre"
@@ -110,7 +113,7 @@ export default function MiPerfil() {
   async function guardar() {
     setGuardando(true);
     setErrorPerfil(null);
-    const r = await guardarPerfil(borrador);
+    const r = await guardarPerfil({ ...borrador, telefono: tel.vacio ? "" : tel.telefono });
     setGuardando(false);
     if (!r.ok) return setErrorPerfil(r.error);
     // La base ya cambió la cuenta y la ficha; esto lo refleja en Equipo sin
@@ -317,16 +320,14 @@ export default function MiPerfil() {
                   value={borrador.nombre}
                   onChange={(e) => setBorrador((b) => ({ ...b, nombre: e.target.value }))}
                 />
-                <Campo
+                <CampoTelefono
                   id="perfil-telefono"
                   etiqueta="Tu teléfono"
-                  ayuda="Opcional. Con característica, sin el 0 ni el 15."
+                  ayuda="Opcional."
+                  paisPorDefecto={paisNegocio}
                   error={errorTelefono}
-                  ejemplo="341 456 7890"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  value={borrador.telefono}
-                  onChange={(e) => setBorrador((b) => ({ ...b, telefono: e.target.value }))}
+                  valor={tel.valor}
+                  onChange={tel.setValor}
                 />
                 {/* El mail se ve pero no se toca: es con lo que entrás. */}
                 <p className="mb-6 text-tinta-media">
@@ -507,7 +508,7 @@ export default function MiPerfil() {
                   </div>
                   <div>
                     <dt className="text-apoyo text-tinta-suave">Teléfono</dt>
-                    <dd>{usuario?.telefono || "Sin cargar"}</dd>
+                    <dd>{telefonoLegible(usuario?.telefono) || "Sin cargar"}</dd>
                   </div>
                   <div>
                     <dt className="text-apoyo text-tinta-suave">Contraseña</dt>

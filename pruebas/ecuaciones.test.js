@@ -9,6 +9,7 @@ import {
   resolverEcuacion,
   resolverEcuacionEncadenada,
   validarFormula,
+  variablesHeredadas,
 } from "../src/lib/ecuaciones.js";
 
 const variable = (id) => ({ id, nombre: id, tipo: "variable" });
@@ -83,6 +84,25 @@ test("resuelve una ecuación que utiliza el resultado de otra", () => {
   const salida = resolverEcuacionEncadenada(riesgo, [imc, riesgo], { peso: 80, altura: 2, factor: 1.5 });
   expect(salida.resultado).toBe(30);
   expect(salida.intermedios).toEqual([{ id: "imc", nombre: "IMC", resultado: 20, unidad: "" }]);
+});
+
+test("permite usar en una ecuación las variables de sus precedentes", () => {
+  const f1 = ecuacion("f1", "F1", "a+b", [variable("a"), variable("b")]);
+  const f2 = ecuacion("f2", "F2", "f1*a", [], [{ ecuacion_id: "f1", nombre: "f1" }]);
+
+  expect(variablesHeredadas(f2, [f1, f2]).variables.map((v) => [v.nombre, v.ecuacion]))
+    .toEqual([["a", "F1"], ["b", "F1"]]);
+  expect(nuevaEcuacion(f2, [f1, f2]).error).toBeUndefined();
+  expect(resolverEcuacionEncadenada(f2, [f1, f2], { a: 2, b: 3 }).resultado).toBe(10);
+});
+
+test("expone también las variables heredadas transitivamente sin duplicarlas", () => {
+  const base = ecuacion("base", "Base", "x+1", [variable("x")]);
+  const media = ecuacion("media", "Media", "base+y", [variable("y")], [{ ecuacion_id: "base", nombre: "base" }]);
+  const final = ecuacion("final", "Final", "media*x", [], [{ ecuacion_id: "media", nombre: "media" }]);
+
+  expect(variablesHeredadas(final, [base, media, final]).variables.map((v) => v.nombre)).toEqual(["x", "y"]);
+  expect(resolverEcuacionEncadenada(final, [base, media, final], { x: 2, y: 3 }).resultado).toBe(12);
 });
 
 test("ordena y resuelve una cadena de tres ecuaciones una sola vez", () => {

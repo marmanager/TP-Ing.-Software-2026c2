@@ -17,7 +17,8 @@ import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
 import { LISTA_MODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
-import { telefonoValido } from "@/lib/validaciones";
+import { paisInicial, telefonoLegible } from "@/lib/telefono";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
@@ -52,9 +53,11 @@ export default function MiNegocio() {
   const [borrador, setBorrador] = useState({
     nombre: "",
     descripcion: "",
-    telefono: "",
     foto: null,
   });
+  // El teléfono va aparte, en el campo con selector de país (B-1b).
+  const paisNegocio = paisInicial(negocio);
+  const tel = useTelefono("", paisNegocio);
   const [menuFoto, setMenuFoto] = useState(false);
   const [errorFoto, setErrorFoto] = useState(null);
   const [achicandoFoto, setAchicandoFoto] = useState(false);
@@ -65,9 +68,9 @@ export default function MiNegocio() {
     setBorrador({
       nombre: negocio?.nombre ?? "",
       descripcion: negocio?.descripcion ?? "",
-      telefono: negocio?.telefono ?? "",
       foto: negocio?.foto ?? null,
     });
+    tel.cargar(negocio?.telefono ?? "");
     setErrorFoto(null);
     setMenuFoto(false);
     setEditandoFicha(true);
@@ -82,10 +85,7 @@ export default function MiNegocio() {
   // El teléfono es opcional, pero si se escribe tiene que servir: uno mal
   // cargado deja al cliente con un botón que no llama a nadie, y eso es peor
   // que no ofrecerlo.
-  const errorTelefono =
-    borrador.telefono.trim() && !telefonoValido(borrador.telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   const motivoFicha = !borrador.nombre.trim()
     ? "falta el nombre"
@@ -98,7 +98,7 @@ export default function MiNegocio() {
           : null;
 
   function guardarFicha() {
-    datos.guardarNegocio(borrador);
+    datos.guardarNegocio({ ...borrador, telefono: tel.vacio ? "" : tel.telefono });
     setEditandoFicha(false);
     setMenuFoto(false);
     datos.avisarExito("Listo, los datos de tu negocio quedaron guardados.");
@@ -252,7 +252,7 @@ export default function MiNegocio() {
                   <p className="mt-1 max-w-[65ch] text-tinta-media">{negocio.descripcion}</p>
                 )}
                 {negocio?.telefono && (
-                  <p className="mt-1 text-tinta-media">Teléfono {negocio.telefono}</p>
+                  <p className="mt-1 text-tinta-media">Teléfono {telefonoLegible(negocio.telefono)}</p>
                 )}
               </>
             )}
@@ -326,16 +326,14 @@ export default function MiNegocio() {
                 es el del cartel. Lo ve el cliente en el link de seguimiento,
                 para poder preguntar antes de aprobar un presupuesto
                 (SCRUM-68). */}
-            <Campo
+            <CampoTelefono
               id="negocio-telefono"
               etiqueta="Teléfono del negocio"
-              ayuda="Opcional. Con característica, sin el 0 ni el 15. Lo va a ver el cliente en el link de seguimiento, para poder preguntarte antes de aprobar algo."
+              ayuda="Opcional. Lo va a ver el cliente en el link de seguimiento, para poder preguntarte antes de aprobar algo."
+              paisPorDefecto={paisNegocio}
               error={errorTelefono}
-              ejemplo="341 456 7890"
-              value={borrador.telefono}
-              onChange={(e) => setBorrador((b) => ({ ...b, telefono: e.target.value }))}
-              inputMode="tel"
-              autoComplete="tel"
+              valor={tel.valor}
+              onChange={tel.setValor}
             />
 
             <div className="flex flex-wrap gap-3">

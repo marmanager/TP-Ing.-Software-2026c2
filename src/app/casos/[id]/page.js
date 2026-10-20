@@ -26,7 +26,14 @@ import {
 } from "@/lib/estados";
 import { cuando, cuantoHace, diaDeArgentina, diaEnPalabras, haceCuanto } from "@/lib/fechas";
 import { cadaCuantoVuelve, comoSeIdentifica, vocabulario } from "@/lib/presets";
-import { errorDeVolverEn, fechaSugerida, intervaloDeducido } from "@/lib/recordatorios";
+import {
+  avisoAlAnotarVolver,
+  avisoDeVolver,
+  errorDeVolverEn,
+  fechaSugerida,
+  intervaloDeducido,
+} from "@/lib/recordatorios";
+import { useRecordatorioVolver } from "@/lib/useRecordatorioVolver";
 import { presentacionEstado } from "@/lib/presentacion-estados";
 import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
@@ -35,8 +42,9 @@ import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } fr
 import SelectorEstado from "@/componentes/SelectorEstado";
 import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
 import CuandoVuelve from "@/componentes/CuandoVuelve";
-import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
+import { erroresSeguimiento, linkDelAvisoDeAvance, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
+import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import {
   Boton,
@@ -101,12 +109,18 @@ export default function VerCaso() {
   const [cerrando, setCerrando] = useState(false);
   const [notificarCliente, setNotificarCliente] = useState(false);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  // Generar el link desde "Notificar", para que el aviso de avance lo lleve (R-11).
+  const [generandoLink, setGenerandoLink] = useState(false);
+  const [errorLink, setErrorLink] = useState(null);
   const [seguimientoEntrega, setSeguimientoEntrega] = useState(SEGUIMIENTO_VACIO);
   // Cuándo le toca volver (R-1b): al entregar, y para corregirlo después.
   const [volverEn, setVolverEn] = useState("");
   const [corrigiendoVolver, setCorrigiendoVolver] = useState(false);
   const [guardandoVolver, setGuardandoVolver] = useState(false);
   const [errorVolver, setErrorVolver] = useState(null);
+  // Cómo está el aviso de que le toca volver (R-2b): para decir, al anotar
+  // la fecha, si se le va a avisar, y en el caso cerrado, cuándo sale.
+  const recordatorioVolver = useRecordatorioVolver();
   // La entrega va en dos pasos: 1 el cobro, 2 lo que pasa después.
   const [pasoEntrega, setPasoEntrega] = useState(1);
 
@@ -141,12 +155,18 @@ export default function VerCaso() {
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const nombreEstado = (estado) => presentacionEstado(negocio, estado).nombre;
   const puedeNotificar = telefonoWhatsAppValido(cliente?.telefono);
+  // Sin link, el aviso de avance sale sin él: se dice antes y se ofrece generarlo.
+  const sinLinkEnElAviso = notificarCliente && puedeNotificar ? linkDelAvisoDeAvance({ caso, pasos }) : null;
   const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega))[0];
 
   // El día de hoy en Argentina, el mismo que usa la API para decidir si una
   // fecha ya pasó. Las fechas de volver son días, no instantes.
   const hoy = diaDeArgentina();
   const motivoVolver = errorDeVolverEn(volverEn, hoy);
+  // Qué va a pasar con el aviso de la fecha que se está anotando, y qué
+  // pasó con el del caso cerrado.
+  const avisoAlAnotar = motivoVolver ? null : avisoAlAnotarVolver({ volverEn, volver: recordatorioVolver, cliente, hoy });
+  const avisoVolver = avisoDeVolver({ caso, cliente, volver: recordatorioVolver, hoy });
   // Sólo para un rubro sin intervalo típico: si el cliente ya vino tres
   // veces o más con un ritmo parejo, se le ofrece esa fecha.
   const sugerenciaVolver = cadaCuantoVuelve(negocio?.rubro)
@@ -155,6 +175,23 @@ export default function VerCaso() {
         casos.filter((c) => c.cliente_id === caso.cliente_id && c.id !== caso.id).map((c) => diaDeArgentina(c.abierto_en)),
         hoy
       );
+
+  async function generarLinkDelAviso() {
+    if (generandoLink) return;
+    setErrorLink(null);
+    setGenerandoLink(true);
+    try {
+      // compartirCaso() devuelve el mismo código si ya hubiera uno: nunca
+      // genera otro, y el que el cliente tenga sigue andando.
+      const r = await datos.compartirCaso(caso.id);
+      if (!r.ok) return setErrorLink(r.error);
+      datos.avisarExito(r.quedaEsperando
+        ? "Listo. El aviso va a llevar el link, y el caso quedó esperando la respuesta del cliente."
+        : "Listo. El aviso va a llevar el link del caso.");
+    } finally {
+      setGenerandoLink(false);
+    }
+  }
 
   async function cambiarEstadoDelCaso(nuevo) {
     if (cambiandoEstado || cerrando) return;
@@ -307,6 +344,31 @@ export default function VerCaso() {
                     : "Avisar al cliente al cambiar el estado."}
                 </p>
               )}
+              {sePuedeEditar && sinLinkEnElAviso && (
+                <div className="mt-2 max-w-[36ch]">
+                  <p className="flex items-start gap-2 text-tinta-media">
+                    <Icono nombre="sobre" className="mt-1 size-5 shrink-0" />
+                    <span>{sinLinkEnElAviso.frase}</span>
+                  </p>
+                  {sinLinkEnElAviso.consecuencia && (
+                    <p className="mt-1 text-apoyo text-tinta-media">{sinLinkEnElAviso.consecuencia}</p>
+                  )}
+                  {errorLink && (
+                    <p role="alert" className="mt-1 flex items-start gap-2 font-bold text-rojo">
+                      <Icono nombre="alerta" className="mt-1 size-5 shrink-0" />
+                      <span>{errorLink}</span>
+                    </p>
+                  )}
+                  <Boton
+                    className="mt-2"
+                    icono="sobre"
+                    motivo={generandoLink ? "generándolo" : cambiandoEstado ? "cambiando el estado" : null}
+                    onClick={generarLinkDelAviso}
+                  >
+                    {sinLinkEnElAviso.boton}
+                  </Boton>
+                </div>
+              )}
             </div>
           </div>
 
@@ -410,10 +472,10 @@ export default function VerCaso() {
             {cliente?.telefono && (
               <Dato icono="telefono" que="Teléfono">
                 <a
-                  href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                  href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
                   className="-mx-2 inline-flex min-h-12 items-center rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
                 >
-                  {cliente.telefono}
+                  {telefonoLegible(cliente.telefono)}
                 </a>
               </Dato>
             )}
@@ -1019,6 +1081,7 @@ export default function VerCaso() {
                   hoy={hoy}
                   sugerencia={sugerenciaVolver}
                   error={motivoVolver}
+                  aviso={avisoAlAnotar}
                   disabled={cerrando || cambiandoEstado}
                 />
 
@@ -1069,13 +1132,14 @@ export default function VerCaso() {
                         if (CAMPOS_DEL_COBRO.includes(r.campo)) setPasoEntrega(1);
                         return setErrorEntrega(r.error);
                       }
-                      datos.avisarExito(
-                        r.falta > 0
-                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
-                          : monto > 0
-                            ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
-                            : `Listo. El ${casoEnFrase(caso)} quedó entregado.`
-                      );
+                      const entregado = r.falta > 0
+                        ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
+                        : monto > 0
+                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
+                          : `Listo. El ${casoEnFrase(caso)} quedó entregado.`;
+                      // Si el cliente pidió no recibir avisos, se dice acá
+                      // mismo: es parte de cómo quedó, no un problema.
+                      datos.avisarExito(r.noSeAviso ? `${entregado} ${r.noSeAviso}` : entregado);
                       setEntregando(false);
                     }}
                   >
@@ -1134,6 +1198,14 @@ export default function VerCaso() {
                       "No anotaste cuándo le toca volver."
                     )}
                   </p>
+                  {/* Cuándo le sale el aviso, o por qué no sale (R-2b). Con
+                      la baja no se dice nada: la ficha ya lo dice. */}
+                  {avisoVolver && (
+                    <p className="mt-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+                      <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+                      <span>{avisoVolver.frase}</span>
+                    </p>
+                  )}
                   {puedeCargar && (
                     <div className="mt-3">
                       <Boton
@@ -1159,6 +1231,7 @@ export default function VerCaso() {
                     hoy={hoy}
                     sugerencia={sugerenciaVolver}
                     error={motivoVolver}
+                    aviso={avisoAlAnotar}
                     disabled={guardandoVolver}
                   />
                   {errorVolver && (

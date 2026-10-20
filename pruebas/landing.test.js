@@ -80,6 +80,33 @@ test("sin la lista de módulos, las secciones de turnos no aparecen", () => {
   assert.equal(sinLista.find((s) => s.clave === "mis_casos").visible, true);
 });
 
+test("con Agenda prendida pero sin horarios publicados, los turnos no aparecen y dicen por qué", () => {
+  const sinHorarios = estadoDeSecciones(PRESET.orden, ["agenda"], false);
+  for (const clave of ["sacar_turno", "mis_turnos"]) {
+    const s = sinHorarios.find((x) => x.clave === clave);
+    assert.equal(s.visible, false, clave);
+    assert.equal(s.motivo, "Aparece cuando publicás tus horarios.", clave);
+  }
+  // Las que no dependen de la Agenda no se enteran.
+  for (const clave of ["negocio", "mis_casos"]) {
+    const s = sinHorarios.find((x) => x.clave === clave);
+    assert.equal(s.visible, true, clave);
+    assert.equal(s.motivo, null, clave);
+  }
+});
+
+test("con Agenda apagada, el motivo es el módulo aunque tampoco haya horarios", () => {
+  const turno = estadoDeSecciones(PRESET.orden, [], false).find((s) => s.clave === "sacar_turno");
+  assert.equal(turno.visible, false);
+  assert.equal(turno.motivo, "Aparece cuando prendés el módulo Agenda.");
+});
+
+test("sin decir nada de los horarios se da por hecho que están: lo de antes no cambia", () => {
+  assert.ok(estadoDeSecciones(PRESET.orden, ["agenda"]).every((s) => s.visible));
+  assert.ok(estadoDeSecciones(PRESET.orden, ["agenda"], true).every((s) => s.visible));
+  assert.ok(estadoDeSecciones(PRESET.orden, ["agenda"], undefined).every((s) => s.visible));
+});
+
 test("las secciones salen en el orden elegido", () => {
   const orden = ["mis_turnos", "mis_casos", "sacar_turno", "negocio"];
   assert.deepEqual(estadoDeSecciones(orden, ["agenda"]).map((s) => s.clave), orden);

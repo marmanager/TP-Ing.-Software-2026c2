@@ -15,15 +15,23 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto, pesos } from "@/lib/estados";
-import { comoSeIdentifica } from "@/lib/presets";
+import { comoSeIdentifica, mayuscula, vocabulario } from "@/lib/presets";
 import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
-import { proximaVisita } from "@/lib/recordatorios";
-import { telefonoValido } from "@/lib/validaciones";
+import { avisoDeLaProximaVisita, bajaDeAvisos } from "@/lib/recordatorios";
+import { useRecordatorioVolver } from "@/lib/useRecordatorioVolver";
+import {
+  FRASE_TELEFONO_INCOMPLETO,
+  paisInicial,
+  telefonoIncompleto,
+  telefonoLegible,
+  telefonoParaLlamar,
+} from "@/lib/telefono";
 import { saldoDelCaso } from "@/lib/cobros";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 
 export default function FichaDeCliente() {
   const { id } = useParams();
@@ -32,8 +40,12 @@ export default function FichaDeCliente() {
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario, "editar_clientes");
   const [corrigiendo, setCorrigiendo] = useState(false);
-  const [telefono, setTelefono] = useState("");
+  const paisNegocio = paisInicial(negocio);
+  const tel = useTelefono("", paisNegocio);
   const [tocado, setTocado] = useState(false);
+  const [revirtiendo, setRevirtiendo] = useState(false);
+  const [errorBaja, setErrorBaja] = useState(null);
+  const recordatorioVolver = useRecordatorioVolver();
 
   const cliente = clientes.find((c) => c.id === id);
   useTitulo(cliente ? cliente.nombre : "Cliente");
@@ -74,21 +86,22 @@ export default function FichaDeCliente() {
 
   // Se calcula con los casos que ya están en memoria: no hace falta pedir
   // nada más a la API.
-  const diaDeVolver = proximaVisita(suyos, diaDeArgentina());
-  const proximaVuelta = diaDeVolver && {
-    dia: diaDeVolver,
-    caso: suyos.find((c) => c.volver_en === diaDeVolver),
-  };
+  // Con su aviso por WhatsApp (R-2b): cuándo le llega o por qué no.
+  const proximaVuelta = avisoDeLaProximaVisita({
+    casos: suyos, cliente, volver: recordatorioVolver, hoy: diaDeArgentina(),
+  });
+
+  // Si pidió no recibir avisos (R-8a), cuándo y qué quiere decir.
+  const baja = bajaDeAvisos({ cliente, rubro: negocio?.rubro });
+  const { cita } = vocabulario(negocio?.rubro);
 
   const proximos = turnos
     .filter((t) => t.cliente_id === cliente.id && t.estado !== "cancelado")
     .filter((t) => new Date(t.empieza_en) >= new Date(new Date().toDateString()))
     .sort((a, b) => new Date(a.empieza_en) - new Date(b.empieza_en));
 
-  const errorTelefono =
-    tocado && telefono.trim() && !telefonoValido(telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = tocado && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
+  const incompleto = telefonoIncompleto(cliente);
 
   return (
     <>
@@ -113,32 +126,25 @@ export default function FichaDeCliente() {
         <p className="font-bold text-cuerpo">Teléfono</p>
         {corrigiendo && puedeCargar ? (
           <div className="mt-2 max-w-[360px]">
-            <Campo
+            <CampoTelefono
               id="telefono"
               etiqueta="Teléfono"
-              ayuda="Con característica, sin el 0 ni el 15."
+              paisPorDefecto={paisNegocio}
               error={errorTelefono}
-              ejemplo="341 456 7890"
-              inputMode="tel"
-              autoComplete="tel"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
+              exito={tel.armado.ok ? "Listo. Le vamos a poder avisar por WhatsApp." : null}
+              valor={tel.valor}
+              onChange={tel.setValor}
               onBlur={() => setTocado(true)}
+              autoFocus
             />
             <div className="flex flex-wrap gap-3">
               <Boton
                 icono="check"
-                motivo={
-                  !telefono.trim()
-                    ? "falta el teléfono"
-                    : !telefonoValido(telefono)
-                      ? "el teléfono no es válido"
-                      : null
-                }
+                motivo={tel.vacio ? "falta el teléfono" : !tel.armado.ok ? "el teléfono no sirve todavía" : null}
                 onClick={() => {
-                  datos.corregirTelefono(cliente.id, telefono.trim());
+                  datos.corregirTelefono(cliente.id, tel.telefono);
                   datos.avisarExito(
-                    `Listo. El teléfono de ${cliente.nombre} ahora es ${telefono.trim()}.`
+                    `Listo. El teléfono de ${cliente.nombre} ahora es ${telefonoLegible(tel.telefono)}.`
                   );
                   setCorrigiendo(false);
                 }}
@@ -154,11 +160,11 @@ export default function FichaDeCliente() {
           <div className="mt-1 flex flex-wrap items-center gap-3">
             {cliente.telefono ? (
               <a
-                href={`tel:${cliente.telefono.replace(/\s/g, "")}`}
+                href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
                 className="inline-flex min-h-12 items-center gap-2 text-azul"
               >
                 <Icono nombre="telefono" className="size-5" />
-                {cliente.telefono}
+                {telefonoLegible(cliente.telefono)}
               </a>
             ) : (
               <p className="text-tinta-media">No tiene teléfono cargado.</p>
@@ -168,13 +174,71 @@ export default function FichaDeCliente() {
                 variante="plano"
                 icono="nota"
                 onClick={() => {
-                  setTelefono(cliente.telefono ?? "");
-                  setTocado(false);
+                  // Uno de antes, sin país, arranca en el país del negocio
+                  // con sus dígitos: casi siempre es confirmar y guardar.
+                  tel.cargar(cliente.telefono ?? "");
+                  setTocado(!!cliente.telefono);
                   setCorrigiendo(true);
                 }}
               >
                 {cliente.telefono ? "Corregir el teléfono" : "Cargar el teléfono"}
               </Boton>
+            )}
+          </div>
+        )}
+
+        {/* Un teléfono de antes de B-1b, sin código de país: no le llegan
+            los WhatsApp. No es un error del cliente; se dice qué falta. */}
+        {incompleto && !corrigiendo && (
+          <p data-telefono-incompleto className="mt-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+            <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+            <span>{FRASE_TELEFONO_INCOMPLETO}</span>
+          </p>
+        )}
+
+        {/* La baja de avisos (R-8b). No es un error: el cliente ejerció un
+            derecho, y la ficha lo informa sin rojo ni ícono de alerta.
+            Revertirla es para cuando el cliente pide volver, y el botón lo
+            aclara al lado en vez de preguntar "¿está seguro?". */}
+        {baja && (
+          <div data-baja-de-avisos className="mt-6 max-w-[65ch]">
+            <p className="font-bold text-cuerpo">Avisos por WhatsApp</p>
+            <p className="mt-1 flex items-start gap-2 text-tinta-media">
+              <Icono nombre="whatsapp" className="mt-0.5 size-5 shrink-0" />
+              <span>
+                {baja.frase} {baja.consecuencia}
+              </span>
+            </p>
+            {puedeCargar && (
+              <div className="mt-3">
+                <Boton
+                  icono="deshacer"
+                  motivo={revirtiendo ? "guardando" : null}
+                  onClick={async () => {
+                    setErrorBaja(null);
+                    setRevirtiendo(true);
+                    const r = await datos.revertirBajaDeAvisos(cliente.id);
+                    setRevirtiendo(false);
+                    if (!r.ok) return setErrorBaja(r.error);
+                    datos.avisarExito(
+                      proximos.length
+                        ? `Listo. ${cliente.nombre} va a volver a recibir avisos. ${mayuscula(cita.el(2))} que ya tenía no tienen recordatorio: si ${cita.segun("los", "las")} movés, se programa.`
+                        : `Listo. ${cliente.nombre} va a volver a recibir avisos.`
+                    );
+                  }}
+                >
+                  Volver a mandarle avisos
+                </Boton>
+                <p className="mt-2 text-apoyo text-tinta-suave">
+                  Usalo sólo si el cliente te pidió volver a recibirlos. Queda anotado quién lo hizo.
+                </p>
+                {errorBaja && (
+                  <p role="alert" className="mt-2 flex items-start gap-2 font-bold text-rojo">
+                    <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                    {errorBaja}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -245,12 +309,18 @@ export default function FichaDeCliente() {
           <TituloSeccion>Le toca volver</TituloSeccion>
           <Link
             href={`/casos/${proximaVuelta.caso.id}`}
-            className="mb-12 flex min-h-14 items-center gap-3 rounded-tarjeta border border-borde bg-tarjeta px-4 hover:bg-superficie"
+            className="mb-12 flex min-h-14 items-center gap-3 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 hover:bg-superficie"
           >
             <Icono nombre="calendario" className="size-5 text-tinta-media" />
             <span className="flex-1">
               <span className="font-bold">El {diaEnPalabras(proximaVuelta.dia)}</span>{" "}
               · {tituloDelCaso(proximaVuelta.caso)}
+              {proximaVuelta.aviso && (
+                <span className="mt-1 flex items-start gap-2 text-tinta-media">
+                  <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+                  <span>{proximaVuelta.aviso.frase}</span>
+                </span>
+              )}
             </span>
           </Link>
         </>

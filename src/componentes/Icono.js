@@ -139,6 +139,7 @@ const TRAZOS = {
     </>
   ),
   mas: <path d="M12 5v14M5 12h14" />,
+  grafico: <path d="M4 20h16M7 16v-5M12 16V4M17 16V8" />,
   "flecha-izq": <path d="M14.5 6l-6 6 6 6" />,
   "flecha-der": <path d="M9.5 6l6 6-6 6" />,
   diagnostico: (

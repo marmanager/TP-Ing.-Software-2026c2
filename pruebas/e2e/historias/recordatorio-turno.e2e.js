@@ -49,11 +49,11 @@ async function prenderLaAgenda() {
 }
 
 async function prenderElRecordatorioDeTurnos(horas = "24") {
-  await browser.url("/negocio/recordatorios");
+  await browser.url("/negocio/recordatorios/turno");
   await $('button[role="switch"]*=Recordatorio del turno').click();
   await reemplazarTexto("#turno-plazo", horas);
-  await $("button*=Guardar los recordatorios").click();
-  await verTexto("Quedaron prendidos el de antes del turno");
+  await $("button*=Guardar el recordatorio").click();
+  await verTexto("«Antes del turno» quedó prendido");
 }
 
 async function anotarTurno({ cliente, telefono = null, motivo, cuando }) {
@@ -83,6 +83,9 @@ describe("Historia: recordarle el turno al cliente", () => {
     await browser.url("/negocio");
     await expect($("#recordatorios")).toBeDisplayed();
     await $("a=Ver y cambiar los recordatorios").click();
+    // La lista tiene una fila por recordatorio; cada uno se edita en la suya.
+    await verTexto("Antes del turno");
+    await $('a[href="/negocio/recordatorios/turno"]').click();
 
     await $('button[role="switch"]*=Recordatorio del turno').click();
     await expect($("#turno-plazo")).toHaveValue("24");
@@ -95,8 +98,8 @@ describe("Historia: recordarle el turno al cliente", () => {
 
     // AC5: vacío, el botón se apaga y dice por qué.
     await reemplazarTexto("#turno-mensaje", " ");
-    await expect($("button*=Guardar los recordatorios")).toBeDisabled();
-    await expect($("button*=Guardar los recordatorios")).toHaveText(expect.stringContaining("falta el texto del mensaje"));
+    await expect($("button*=Guardar el recordatorio")).toBeDisabled();
+    await expect($("button*=Guardar el recordatorio")).toHaveText(expect.stringContaining("falta el texto del mensaje"));
   });
 
   it("AC2: prender el de turnos no toca el de después de entregar", async () => {
@@ -105,7 +108,7 @@ describe("Historia: recordarle el turno al cliente", () => {
     await prenderElRecordatorioDeTurnos();
     await browser.url("/negocio");
     await expect($("#recordatorios + div")).toHaveText(expect.stringContaining("Después de entregar: apagado."));
-    await expect($("#recordatorios + div")).toHaveText(expect.stringContaining("Antes del turno: prendido, el día anterior."));
+    await expect($("#recordatorios + div")).toHaveText(expect.stringContaining("Antes del turno: prendido."));
   });
 
   it("AC10: un turno de un cliente sin teléfono lo señala y ofrece completarlo", async () => {
