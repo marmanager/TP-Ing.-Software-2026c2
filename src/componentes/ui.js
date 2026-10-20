@@ -189,7 +189,7 @@ export function MarcaFalta() {
 
 // El recuadro de un campo de texto. El borde dice el estado: rojo con error,
 // verde cuando está bien.
-const claseDeEntrada = ({ error, exito }) =>
+export const claseDeEntrada = ({ error, exito }) =>
   [
     "block w-full rounded-campo border-2 bg-tarjeta px-4 min-h-12 text-cuerpo",
     "placeholder:text-tinta-suave",

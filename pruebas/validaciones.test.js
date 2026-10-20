@@ -24,13 +24,14 @@ import {
   motivoDeFaltantes,
 } from "../src/lib/validaciones.js";
 
-test("el teléfono va con característica, sin el 0 ni el 15", () => {
-  assert.equal(telefonoValido("341 456 7890"), true);
-  assert.equal(telefonoValido("3414567890"), true);
-  assert.equal(telefonoValido("11 5555 1234"), true);
-  assert.equal(telefonoValido("0341 15 456789"), false, "sobran dígitos");
-  assert.equal(telefonoValido("456 7890"), false, "faltan dígitos");
-  assert.equal(telefonoValido("0111234567"), false, "no arranca en 0");
+// Desde B-1b el teléfono va con código de país: lo arma el campo con el país
+// del selector (pruebas/historias/telefono-internacional.test.js).
+test("el teléfono va completo, con el código de país", () => {
+  assert.equal(telefonoValido("5493414567890"), true);
+  assert.equal(telefonoValido("+54 9 11 5555 1234"), true);
+  assert.equal(telefonoValido("3414567890"), false, "sin país no le llega un WhatsApp");
+  assert.equal(telefonoValido("+54 9 0341 15 456789"), false, "con el 0 y el 15");
+  assert.equal(telefonoValido("+54 9 456 7890"), false, "faltan dígitos");
   assert.equal(telefonoValido(""), false);
 });
 
@@ -98,7 +99,7 @@ test("el cobro acepta que no haya monto, pero no acepta cualquier cosa", () => {
 
 const completo = {
   nombre: "Marcela Suárez",
-  telefono: "341 456 7890",
+  telefono: "5493414567890",
   identificador: "AB 123 CD",
   servicio: "Frenos",
 };

@@ -92,3 +92,40 @@ Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.tes
 - Si el negocio tiene el seguimiento desactivado, el formulario permite activarlo
   con `PATCH /negocio/seguimiento` antes de solicitarlo para un caso.
 - Un fallo del envío se muestra aparte del cambio de estado o cierre confirmado.
+
+## Recordatorios por WhatsApp (R-4b)
+
+- `/negocio/recordatorios` edita los dos con el mismo `GET` y `PATCH /negocio/seguimiento`:
+  arriba el de después de entregar (`activo`, `dias`, `mensaje`) y en `turno` el de antes
+  del turno (`activo`, `horas` de 1 a 168, `mensaje`). El `PATCH` lleva sólo lo que cambió
+  (`cambiosDeRecordatorios()`), así que tocar uno no escribe el otro. El texto sugerido
+  según el rubro lo arma la API; el front no tiene copia.
+- Mover un turno es `PATCH /turnos/:id` con `empieza_en` (y `actualizado_en`). `POST /turnos`
+  devuelve `recordatorio` al lado del turno, y `PATCH`, `/atender` y `/desatender` dentro del
+  turno: `{ programado, motivo, mensaje, aviso }`. `datos.js` lo guarda con el turno.
+- Cada turno muestra su aviso con `avisoDelTurno()`: `turno.aviso` si viene, si no
+  `turno.recordatorio.aviso`. **Pendiente en la API** (seguimiento de R-4a): que `GET /turnos`
+  y `GET /datos` traigan en cada turno `aviso: { id, estado, enviar_en, procesado_en } | null`,
+  el último de la cola. Sin eso, "enviado" y "fallido" —que los marca el procesador después—
+  no llegan al front, y lo programado se deja de ver al recargar.
+- El texto de error de un envío fallido no se muestra nunca: la frase dice qué hacer.
+- Sin el número de WhatsApp configurado en la API (`KAPSO_API_KEY`, `KAPSO_PHONE_NUMBER_ID`),
+  los turnos se anotan igual y la respuesta trae `motivo: "whatsapp_no_configurado"`: el
+  alta lo avisa.
+
+## Baja de avisos (R-8b)
+
+- El cliente pide la baja contestando BAJA por WhatsApp (R-8a, migración 054). La API la
+  registra en `cliente.avisos_baja_en`, que viaja en `GET /datos` y en las respuestas de
+  clientes: con eso la ficha dice cuándo la pidió y la lista lo marca. La fecha no se
+  escribe desde el front: la 054 no deja.
+- Revertirla es `POST /clientes/:id/revertir-baja` (dueño o encargado), con la acción
+  `revertirBajaDeAvisos()` de `datos.js`. Devuelve `{ cliente, evento }`; el cliente
+  reemplaza al que había. La API no le vuelve a programar el recordatorio a un turno que
+  ya estaba anotado: se programa si se mueve.
+- Entregar y cambiar de estado traen `sin_aviso: { motivo, mensaje }` cuando no se
+  programó el mensaje. El turno trae `recordatorio.motivo: "baja_de_avisos"`, y
+  `porQueNoHayAviso()` pone ese motivo antes que el teléfono, como la API.
+- Ni el `mensaje` de `sin_aviso` ni el de un error al revertir se muestran: las frases
+  salen de `porQueNoSeAviso()` y `errorAlRevertirBaja()` (`lib/recordatorios.js`), por
+  código, como pide la sección 07 de la cartilla.

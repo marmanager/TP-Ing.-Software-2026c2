@@ -1,9 +1,12 @@
 // Validaciones compartidas entre pantallas. Sin dependencias ni "use client":
 // se pueden probar con Jest (pruebas/validaciones.test.js).
 
-// "Con característica, sin el 0 ni el 15": diez dígitos que no arrancan en 0.
-export const telefonoValido = (valor = "") =>
-  /^\d{10}$/.test(valor.replace(/\D/g, "")) && !valor.trim().startsWith("0");
+import { normalizarTelefono } from "./telefono.js";
+
+// Un teléfono completo, con código de país: el que arma el campo de teléfono
+// (src/lib/telefono.js) con el país del selector. Antes eran diez dígitos sin
+// país, que la API ya no acepta y WhatsApp no sabe adónde mandar (B-1b).
+export const telefonoValido = (valor = "") => normalizarTelefono(valor).ok;
 
 // Forma mínima de un mail: algo, arroba, algo, punto, algo.
 export const emailValido = (valor = "") =>

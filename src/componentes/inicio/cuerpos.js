@@ -24,6 +24,7 @@ import { filtrarHistorial } from "@/lib/historial";
 import { estadoDeTurno } from "@/lib/turnos";
 import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
+import { telefonoLegible } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 
 // ---------- piezas compartidas ----------
@@ -458,7 +459,7 @@ function CuerpoClientes({ filtro, filas }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">{cliente.nombre}</span>
               <span className="block truncate text-apoyo text-tinta-suave">
-                {cliente.telefono || "Sin teléfono"}
+                {telefonoLegible(cliente.telefono) || "Sin teléfono"}
               </span>
             </span>
             {cuantos > 0 && (

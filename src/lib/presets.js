@@ -78,6 +78,7 @@ export const PRESETS = {
     // entiende.
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
+      cita: { uno: "turno", varios: "turnos", genero: "m" },
     },
     // Las categorías con las que arranca el inventario. Un negocio agrega las
     // suyas con el "+" del alta, y ésas quedan guardadas en el producto.
@@ -143,6 +144,8 @@ export const PRESETS = {
     // "productos", hay insumos.
     palabras: {
       articulo: { uno: "insumo", varios: "insumos", genero: "m" },
+      // En un consultorio no se saca un turno para "el turno": es la consulta.
+      cita: { uno: "consulta", varios: "consultas", genero: "f" },
     },
     categorias: ["Descartables", "Medicamentos", "Curaciones", "Instrumental", "Limpieza"],
     ejemplos: {
@@ -197,6 +200,7 @@ export const PRESETS = {
     // Igual que el taller: el estante tiene más que repuestos.
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
+      cita: { uno: "turno", varios: "turnos", genero: "m" },
     },
     categorias: [
       "Repuestos",
@@ -250,6 +254,7 @@ export const PRESETS = {
     roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Colaborador" },
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
+      cita: { uno: "turno", varios: "turnos", genero: "m" },
     },
     categorias: [],
     ejemplos: {

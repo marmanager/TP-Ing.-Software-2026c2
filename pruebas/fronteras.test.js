@@ -114,11 +114,20 @@ test("la dirección de la API se nombra en un solo lugar", () => {
 // haber que desenredarla.
 
 const PUROS = [
+  "src/lib/cambios-stock.js",
+  "src/lib/dashboard.js",
+  "src/lib/dashboard-casos.js",
+  "src/lib/dashboard-clientes.js",
+  "src/lib/dashboard-cobros.js",
+  "src/lib/dashboard-inventario.js",
+  "src/lib/dashboard-periodos.js",
   "src/lib/estados.js",
   "src/lib/cobros.js",
   "src/lib/horarios.js",
   "src/lib/presets.js",
   "src/lib/validaciones.js",
+  "src/lib/telefono.js",
+  "src/lib/seguimiento-whatsapp.js",
   "src/lib/seguimiento.js",
   "src/lib/inicio.js",
   "src/lib/turnos.js",
@@ -128,6 +137,7 @@ const PUROS = [
   "src/lib/modulos.js",
   "src/lib/fechas.js",
   "src/lib/recordatorios.js",
+  "src/lib/llave-landing.js",
 ];
 
 for (const archivo of PUROS) {
