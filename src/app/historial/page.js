@@ -104,9 +104,12 @@ export default function Historial() {
         </div>
       </fieldset>
 
-      <dl className="mb-8 grid gap-3 @xl:grid-cols-3">
+      {/* En celular los dos números van de a dos y la plata abajo, a todo el
+          ancho: apiladas una por línea, las tres tarjetas ocupaban la
+          pantalla entera antes de llegar a la lista. */}
+      <dl className="mb-8 grid grid-cols-2 gap-3 @xl:grid-cols-3">
         {numeros.map(([que, cuanto, unidad]) => (
-          <div key={que} className="rounded-tarjeta border border-borde bg-tarjeta p-4">
+          <div key={que} className="min-w-0 rounded-tarjeta border border-borde bg-tarjeta p-4">
             <dt className="text-tinta-media">{que}</dt>
             <dd className="font-titulo font-extrabold text-dato tabular-nums">
               {cuanto} <span className="text-cuerpo font-normal text-tinta-media">{unidad}</span>
@@ -115,7 +118,7 @@ export default function Historial() {
         ))}
         {/* La plata que los clientes dijeron que sí. Sale de los pasos: lo
             aprobado ya no se deshace, así que cada paso cuenta una vez. */}
-        <div className="rounded-tarjeta border border-borde bg-tarjeta p-4">
+        <div className="col-span-2 rounded-tarjeta border border-borde bg-tarjeta p-4 @xl:col-span-1">
           <dt className="text-tinta-media">Aprobaron los clientes</dt>
           <dd className="font-titulo font-extrabold text-dato text-completo tabular-nums">
             {pesos(aprobado.total)}
@@ -188,23 +191,29 @@ export default function Historial() {
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-superficie text-tinta-media">
                         <Icono nombre={e.icono} className="size-5" />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-bold">{e.titulo}</span>
-                        {e.detalle && (
-                          <span className="block text-tinta-media">{e.detalle}</span>
+                      {/* En celular la plata va debajo del texto: a su lado,
+                          con el ícono y el botón de filtrar, al texto le
+                          quedaba una columna de dos palabras. Desde sm vuelve
+                          a la derecha. */}
+                      <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
+                        <span className="min-w-0 sm:flex-1">
+                          <span className="block font-bold [overflow-wrap:anywhere]">{e.titulo}</span>
+                          {e.detalle && (
+                            <span className="block text-tinta-media">{e.detalle}</span>
+                          )}
+                          <span className="mt-1 block text-apoyo text-tinta-suave">
+                            {horaYMinutos(e.ocurrido_en)} · {e.autor}
+                            {caso && ` · ${tituloDelCaso(caso)}`}
+                            {cliente && cliente.nombre !== (caso && tituloDelCaso(caso)) &&
+                              ` de ${cliente.nombre}`}
+                          </span>
+                        </span>
+                        {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
+                          <span className="shrink-0 font-titulo font-extrabold text-subtitulo tabular-nums">
+                            {pesos(e.monto)}
+                          </span>
                         )}
-                        <span className="mt-1 block text-apoyo text-tinta-suave">
-                          {horaYMinutos(e.ocurrido_en)} · {e.autor}
-                          {caso && ` · ${tituloDelCaso(caso)}`}
-                          {cliente && cliente.nombre !== (caso && tituloDelCaso(caso)) &&
-                            ` de ${cliente.nombre}`}
-                        </span>
                       </span>
-                      {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
-                        <span className="shrink-0 font-titulo font-extrabold text-subtitulo tabular-nums">
-                          {pesos(e.monto)}
-                        </span>
-                      )}
                     </Link>
                     {/* Afuera del enlace: un botón adentro de un enlace no se
                         puede tocar por separado. */}

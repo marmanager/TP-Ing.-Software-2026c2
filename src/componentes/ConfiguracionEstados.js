@@ -118,12 +118,19 @@ export default function ConfiguracionEstados({ puedeConfigurar }) {
         {ORDEN_ESTADOS.map((estado) => {
           const e = presentacionEstado(negocio, estado);
           return (
-            <li key={estado} className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0">
+            // En celular el estado arriba y lo que significa debajo, a todo el
+            // ancho: al lado del estado (con el texto en flex-1) quedaba una
+            // columna angosta de dos o tres palabras por línea. Desde sm
+            // vuelve la fila.
+            <li
+              key={estado}
+              className="flex flex-col items-start gap-2 border-b border-borde p-4 last:border-b-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4"
+            >
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-etiqueta ${e.fondo} ${e.texto}`}>
                 <Icono nombre={e.icono} className="size-5" />
                 {e.nombre}
               </span>
-              <p className="min-w-0 flex-1 text-tinta-media">{e.significado}</p>
+              <p className="min-w-0 text-tinta-media sm:flex-1">{e.significado}</p>
             </li>
           );
         })}
