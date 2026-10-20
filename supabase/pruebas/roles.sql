@@ -19,6 +19,15 @@ declare
   edu  uuid := gen_random_uuid();  -- encargado de A
   ivo  uuid := gen_random_uuid();  -- técnico de A
   zoe  uuid := gen_random_uuid();  -- crea un negocio personalizable
+  leo  uuid := gen_random_uuid();  -- crea el taller D (secciones 15 a 20)
+  mia  uuid := gen_random_uuid();  -- de D, con el rol a medida rol_x
+  noa  uuid := gen_random_uuid();  -- tiene su negocio N y es Mecánico en D
+  neg_d uuid;
+  neg_e uuid;
+  neg_n uuid;
+  rol_x uuid;
+  ficha_mia uuid;
+  ficha_noa uuid;
   neg_a uuid;
   neg_p uuid;
   neg_b uuid;
@@ -661,6 +670,175 @@ begin
        and p.proname in ('mi_rol', 'puedo_cargar', 'rango_del_rol', 'rol_de_clave', 'rol_id_de_la_clave',
                          'rol_de_la_ficha_da_permisos', 'aceptar_invitacion');
     if n <> 0 then raise exception 'FALLÓ 14: quedan % funciones del rol viejo.', n; end if;
+    perform set_config('role', 'authenticated', true);
+
+    -- ---- 15. Permisos que vienen con otro (guardar_rol, 056) ----
+    -- Leo crea el taller D; Mia y Noa entran como Mecánico. Noa ya tenía su
+    -- negocio N, que queda de predeterminado.
+    perform set_config('role', 'postgres', true);
+    insert into auth.users (id, email) values
+      (leo, 'prueba-leo-' || leo || '@ejemplo.test'),
+      (mia, 'prueba-mia-' || mia || '@ejemplo.test'),
+      (noa, 'prueba-noa-' || noa || '@ejemplo.test');
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', noa, 'role', 'authenticated')::text, true);
+    neg_n := crear_mi_negocio('Roles N', 'taller', '[]'::jsonb);
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    neg_d := crear_mi_negocio('Roles D', 'taller', '[]'::jsonb);
+    select codigo into link from cambiar_link_de_equipo(30);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    perform pedir_entrar(link, 'Mia');
+    perform set_config('request.jwt.claims', json_build_object('sub', noa, 'role', 'authenticated')::text, true);
+    perform pedir_entrar(link, 'Noa');
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Mia'),
+                              (select id from rol where negocio_id = neg_d and nombre = 'Mecánico'));
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Noa'),
+                              (select id from rol where negocio_id = neg_d and nombre = 'Mecánico'));
+    select id into ficha_mia from empleado where negocio_id = neg_d and usuario_id = mia;
+    select id into ficha_noa from empleado where negocio_id = neg_d and usuario_id = noa;
+
+    -- Un rol con sólo editar_clientes guarda también ver_clientes.
+    rol_x := guardar_rol(null, 'A medida', array['editar_clientes']);
+    perform asignar_rol(ficha_mia, rol_x);
+    perform set_config('role', 'postgres', true);
+    if (select permisos from rol where id = rol_x) is distinct from array['editar_clientes', 'ver_clientes'] then
+      raise exception 'FALLÓ 15: el rol con editar_clientes guardó %.', (select permisos from rol where id = rol_x);
+    end if;
+
+    -- El tope mira también los que vienen con otro: con editar_clientes pero
+    -- sin ver_clientes (armado a mano), editar_clientes no se da.
+    update rol set permisos = array['editar_clientes', 'manejar_roles'] where id = rol_x;
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin perform guardar_rol(null, 'Sin mirar', array['editar_clientes']);
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 15: se dio un permiso cuyo permiso de mirar no se tiene.'; end if;
+
+    -- ---- 16. Columnas del caso: descuento y que_falta (054) ----
+    perform set_config('role', 'postgres', true);
+    insert into caso (negocio_id, numero, servicio) values (neg_d, 950, 'Columnas') returning id into pedido;
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform guardar_rol(rol_x, 'A medida', array['armar_presupuesto', 'ver_todos_los_casos']);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    update caso set descuento = 10 where id = pedido;
+    get diagnostics n = row_count;
+    if n <> 1 then raise exception 'FALLÓ 16: con armar_presupuesto no se cambió el descuento.'; end if;
+    frenado := false;
+    begin update caso set descuento = 20, servicio = 'Otro' where id = pedido;
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 16: con armar_presupuesto se cambió algo más que el descuento.'; end if;
+
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform guardar_rol(rol_x, 'A medida', array['ver_todos_los_casos']);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin update caso set descuento = 30 where id = pedido;
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 16: sin armar_presupuesto ni avanzar_casos se cambió el descuento.'; end if;
+
+    -- que_falta viaja libre con el responsable, y sólo con él.
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform guardar_rol(rol_x, 'A medida', array['asignar_casos', 'ver_todos_los_casos']);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    update caso set responsable_id = ficha_noa, que_falta = 'Un repuesto' where id = pedido;
+    get diagnostics n = row_count;
+    if n <> 1 then raise exception 'FALLÓ 16: con asignar_casos no viajó que_falta junto con el responsable.'; end if;
+    frenado := false;
+    begin update caso set que_falta = 'Otra cosa' where id = pedido;
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 16: con asignar_casos se cambió que_falta sin el responsable.'; end if;
+
+    -- ---- 17. Sacar del equipo con tope (059) ----
+    -- Mia puede sacar gente pero no tiene lo de Mecánico: no saca a Noa.
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform guardar_rol(rol_x, 'A medida', array['sacar_del_equipo', 'ver_clientes']);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin delete from empleado where id = ficha_noa;
+    exception when insufficient_privilege then
+      frenado := (sqlerrm = 'Esta persona tiene permisos que el rol propio no incluye.');
+    end;
+    if not frenado then raise exception 'FALLÓ 17: se sacó a alguien con permisos que el rol propio no tiene.'; end if;
+
+    -- Con todo el catálogo pero sin ser Dueño, no saca a un Dueño.
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform guardar_rol(rol_x, 'A medida', permisos_conocidos());
+    perform asignar_rol(ficha_noa, (select id from rol where negocio_id = neg_d and es_duenio));
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    frenado := false;
+    begin delete from empleado where id = ficha_noa;
+    exception when insufficient_privilege then
+      frenado := (sqlerrm = 'Solo un Dueño puede sacar del equipo a otro Dueño.');
+    end;
+    if not frenado then raise exception 'FALLÓ 17: quien no es Dueño sacó a un Dueño.'; end if;
+
+    -- ---- 18. Sacar a quien estaba de visita desde ese negocio ----
+    -- Leo crea la sede E y la vincula con D. Noa, Mecánico de D con
+    -- ver_sedes_vinculadas, entra de visita a E. Mia (con lo de Mecánico y
+    -- sacar_del_equipo) la saca de D: Noa pierde la visita y pasa a N.
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform asignar_rol(ficha_noa, (select id from rol where negocio_id = neg_d and nombre = 'Mecánico'));
+    perform guardar_rol((select id from rol where negocio_id = neg_d and nombre = 'Mecánico'), 'Mecánico',
+      permisos_de_clave('tecnico') || array['ver_sedes_vinculadas']);
+    perform guardar_rol(rol_x, 'A medida',
+      permisos_de_clave('tecnico') || array['ver_sedes_vinculadas', 'sacar_del_equipo']);
+    neg_e := crear_mi_negocio('Roles E', 'taller', '[]'::jsonb);
+    perform entrar_al_negocio(neg_d);
+    perform vincular_sede(neg_e);
+    perform set_config('request.jwt.claims', json_build_object('sub', noa, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_d);
+    perform entrar_de_visita(neg_e);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    delete from empleado where id = ficha_noa;
+    get diagnostics n = row_count;
+    if n <> 1 then raise exception 'FALLÓ 18: dentro del tope no se pudo sacar a Noa.'; end if;
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from usuario where id = noa and negocio_id = neg_n and visitando_desde is null;
+    if n <> 1 then raise exception 'FALLÓ 18: quien visitaba otra sede desde el negocio que la sacó no volvió a su predeterminado.'; end if;
+    perform set_config('role', 'authenticated', true);
+
+    -- ---- 19. Aprobar a quien estaba de visita en esa sede (059) ----
+    -- Mia pide entrar a E y entra de visita desde D; Leo la aprueba: queda en
+    -- E como miembro, ya no de visita.
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_e);
+    select codigo into link from cambiar_link_de_equipo(30);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    perform pedir_entrar(link, 'Mia E');
+    perform entrar_de_visita(neg_e);
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Mia E'),
+                              (select id from rol where negocio_id = neg_e and nombre = 'Mecánico'));
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from usuario where id = mia and negocio_id = neg_e and visitando_desde is null;
+    if n <> 1 then raise exception 'FALLÓ 19: aprobar a quien estaba de visita no terminó la visita.'; end if;
+    perform set_config('role', 'authenticated', true);
+
+    -- ---- 20. Las políticas del panel, reescritas por la 054 ----
+    -- Sólo si negocio_seguimiento tiene una política reescrita (en el arnés,
+    -- pg-local/panel.sql; en Supabase, si las del panel usaban puedo_cargar()).
+    perform set_config('role', 'postgres', true);
+    if exists (select 1 from pg_policies
+                where schemaname = 'public' and tablename = 'negocio_seguimiento' and cmd = 'INSERT'
+                  and with_check like '%puede_aca(''entregar_y_reabrir''%') then
+      perform set_config('role', 'authenticated', true);
+      perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+      perform entrar_al_negocio(neg_d);
+      perform guardar_rol(rol_x, 'A medida', array['entregar_y_reabrir']);
+      perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+      perform entrar_al_negocio(neg_d);
+      insert into negocio_seguimiento (negocio_id, tipo, activo, dias, mensaje) values (neg_d, 'cierre', true, 1, 'Gracias');
+      perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+      perform guardar_rol(rol_x, 'A medida', array['ver_clientes']);
+      perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+      frenado := false;
+      begin insert into negocio_seguimiento (negocio_id, tipo, activo, horas, mensaje) values (neg_d, 'turno', true, 2, 'Mañana');
+      exception when insufficient_privilege then frenado := true; end;
+      if not frenado then raise exception 'FALLÓ 20: sin entregar_y_reabrir se escribió negocio_seguimiento.'; end if;
+    end if;
     perform set_config('role', 'authenticated', true);
 
     raise exception 'deshacer';

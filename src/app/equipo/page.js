@@ -219,7 +219,10 @@ export default function Equipo() {
                     </Boton>
                   )}
 
-                  {!puedeSacar || intocable ? null : sacando === e.id ? (
+                  {/* El tope de la 059: a alguien con cuenta se lo saca sólo si su
+                      rol es uno que se podría dar (un Dueño, sólo otro Dueño). */}
+                  {!puedeSacar || intocable || (e.usuario_id && !ofrecidos.some((r) => r.id === e.rol_id))
+                    ? null : sacando === e.id ? (
                     <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                       <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
                       {/* Con cuenta, sacarlo también le quita el acceso (036): es

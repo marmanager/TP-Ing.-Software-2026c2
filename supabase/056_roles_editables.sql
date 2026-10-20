@@ -103,7 +103,17 @@ begin
     raise exception 'El rol necesita un nombre.';
   end if;
 
-  limpio := array(select distinct x from unnest(coalesce(p_permisos, '{}')) x order by 1);
+  -- Algunos permisos no sirven sin el de mirar lo mismo (src/lib/permisos.js,
+  -- "implica"): se suman acá, antes del tope, así el tope también los mira.
+  limpio := array(
+    select distinct x from (
+      select unnest(coalesce(p_permisos, '{}')) as x
+      union
+      select i.implicado
+        from (values ('crear_casos', 'ver_todos_los_casos'), ('editar_clientes', 'ver_clientes'),
+                     ('editar_inventario', 'ver_inventario'), ('manejar_turnos', 'ver_agenda')) i(clave, implicado)
+       where i.clave = any(coalesce(p_permisos, '{}'))
+    ) t order by 1);
   if not limpio <@ permisos_conocidos() then
     raise exception 'Hay un permiso que no existe.';
   end if;

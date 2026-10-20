@@ -99,6 +99,28 @@ todo en el navegador; se fue porque obligaba a tener las reglas copiadas acá.
    políticas de antes de los roles por negocio; la `059` es idempotente y
    deja la base como estaba en los dos casos.
 
+   **Los roles por negocio (053 a 059) van en dos tandas, con la publicación
+   en el medio:**
+
+   1. Correr de la `053` a la `058`, en orden.
+   2. Publicar la API y el front de los roles **juntos** (la API en Render y
+      `main` del front en Vercel).
+   3. Antes de la `059`, mirar las políticas que se crearon desde el panel:
+
+      ```sql
+      select tablename, policyname, qual, with_check from pg_policies
+       where tablename in ('negocio_seguimiento', 'seguimiento_whatsapp');
+      ```
+
+      Ninguna puede nombrar `mi_rol()` ni `puedo_cargar()`. La `054` ya
+      reescribe las de esas dos tablas con `puede_aca('entregar_y_reabrir')`
+      y frena, nombrándola, si encuentra otra en cualquier tabla.
+   4. Correr la `059`. Empieza con una guardia: si algo todavía depende de
+      `mi_rol()` o `puedo_cargar()`, frena antes de tocar nada y dice qué es.
+
+   Volver a correr cualquier migración anterior después de la `059` obliga a
+   correr la `059` otra vez al final.
+
    Las pruebas de `supabase/pruebas/` se corren al final, enteras, en el SQL
    Editor; no dejan nada guardado y, si pasan, dan "Success. No rows returned":
    `multinegocio.sql` (el aislamiento y los permisos, desde la 038),

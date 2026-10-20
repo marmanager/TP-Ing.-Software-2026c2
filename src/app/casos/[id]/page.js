@@ -69,7 +69,10 @@ export default function VerCaso() {
   const puedeCargar = puede(usuario, "avanzar_casos");
   const puedeEntregar = puede(usuario, "entregar_y_reabrir");
   const puedeCobrar = puede(usuario, "cobrar");
-  const puedePedir = puede(usuario, "editar_inventario");
+  // Pedir algo para el caso o marcar que llegó también mueve el caso: la API
+  // pide los dos permisos.
+  const puedePedir = puede(usuario, "editar_inventario") && puede(usuario, "avanzar_casos");
+  const puedeDescontar = puede(usuario, "armar_presupuesto");
   const puedeAsignar = puede(usuario, "asignar_casos");
   const [eligiendo, setEligiendo] = useState(false);
   // Identificador del rubro y notas sueltas (SCRUM-51/52). El diagnóstico
@@ -707,8 +710,8 @@ export default function VerCaso() {
       {/* Pedir algo para este caso (SCRUM-113) va al lado de marcar que
           llegó: son las dos puntas de lo mismo. Lleva a "En camino" con el
           caso ya elegido, y sólo si el negocio tiene esa pantalla. */}
-      {abierto &&
-        (insumosDelCaso.some((i) => i.estado !== "en_stock") || (conEnCamino && puedePedir)) && (
+      {abierto && puedePedir &&
+        (insumosDelCaso.some((i) => i.estado !== "en_stock") || conEnCamino) && (
         <div className="mt-12 flex flex-wrap items-start gap-3">
           {insumosDelCaso
             .filter((i) => i.estado !== "en_stock")
@@ -717,7 +720,7 @@ export default function VerCaso() {
                 Marcar que llegó {i.nombre.toLowerCase()}
               </Boton>
             ))}
-          {conEnCamino && puedePedir && (
+          {conEnCamino && (
             <Link
               href={`/inventario/en-camino?caso=${caso.id}`}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
@@ -741,6 +744,7 @@ export default function VerCaso() {
         cobros={cobrosDeEste}
         descuento={descuento}
         puedeCargar={puedeCobrar}
+        puedeDescontar={puedeDescontar}
         datos={datos}
         cliente={cliente}
         negocio={negocio}

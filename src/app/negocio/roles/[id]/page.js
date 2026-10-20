@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { GRUPOS, PERMISOS, puede, QUIEN_PUEDE, rolesQuePuedeDar } from "@/lib/permisos";
+import { conImplicados, GRUPOS, implicadoPor, PERMISOS, puede, QUIEN_PUEDE, rolesQuePuedeDar } from "@/lib/permisos";
 import Icono from "@/componentes/Icono";
 import {
   Boton,
@@ -80,8 +80,9 @@ export default function EditarRol() {
           ? "Este rol tiene permisos que el rol propio no incluye."
           : null;
 
+  // Prender uno prende también el de mirar que va con él (056 hace lo mismo).
   const alternar = (clave, prendido) =>
-    setPermisos((l) => (prendido ? [...l, clave] : l.filter((c) => c !== clave)));
+    setPermisos((l) => (prendido ? conImplicados([...l, clave]) : l.filter((c) => c !== clave)));
 
   async function guardar() {
     setGuardando(true);
@@ -119,7 +120,7 @@ export default function EditarRol() {
             onChange={(e) => {
               const origen = datos.roles.find((r) => r.id === e.target.value);
               // Sólo los que se pueden dar: copiar el Dueño trae los propios.
-              if (origen) setPermisos(origen.permisos.filter((c) => puede(usuario, c)));
+              if (origen) setPermisos(conImplicados(origen.permisos.filter((c) => puede(usuario, c))));
             }}
           >
             <option value="">Empezar sin permisos</option>
@@ -145,20 +146,29 @@ export default function EditarRol() {
         <section key={grupo} className="mb-8">
           <TituloSeccion>{grupo}</TituloSeccion>
           <ul className="grid gap-2">
-            {PERMISOS.filter((p) => p.grupo === grupo).map((p) => (
-              <li key={p.clave}>
-                <Interruptor
-                  prendido={rol?.es_duenio || permisos.includes(p.clave)}
-                  onChange={(v) => alternar(p.clave, v)}
-                  ayuda={p.descripcion}
-                  palabras={["Desactivado", "Activado"]}
-                  disabled={soloLectura}
-                  motivo={!soloLectura && !puede(usuario, p.clave) ? "Este permiso no está incluido en su rol" : null}
-                >
-                  {p.nombre}
-                </Interruptor>
-              </li>
-            ))}
+            {PERMISOS.filter((p) => p.grupo === grupo).map((p) => {
+              // Lo trae otro que está prendido: queda prendido y fijo mientras tanto.
+              const incluidoPor = !soloLectura && !rol?.es_duenio && implicadoPor(permisos, p.clave);
+              return (
+                <li key={p.clave}>
+                  <Interruptor
+                    prendido={rol?.es_duenio || permisos.includes(p.clave) || Boolean(incluidoPor)}
+                    onChange={(v) => alternar(p.clave, v)}
+                    ayuda={p.descripcion}
+                    palabras={["Desactivado", "Activado"]}
+                    disabled={soloLectura}
+                    motivo={
+                      soloLectura ? null
+                        : !puede(usuario, p.clave) ? "Este permiso no está incluido en su rol"
+                          : incluidoPor ? `Incluido por «${incluidoPor.nombre}»`
+                            : null
+                    }
+                  >
+                    {p.nombre}
+                  </Interruptor>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))}

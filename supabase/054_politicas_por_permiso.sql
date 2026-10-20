@@ -117,7 +117,9 @@ create policy caso_lo_borra_quien_puede on caso
 -- 'esperando' de una) no pide más. Un cambio de estado solo pide
 -- avanzar_casos, igual que cualquier otra columna (nombre, servicio,
 -- diagnóstico, que_falta, …); que_falta viaja libre sólo si cambia con el
--- estado. actualizado_en lo mueve un trigger que corre antes (001).
+-- estado o con el responsable. El descuento solo también lo cambia quien arma
+-- el presupuesto (armar_presupuesto, como la API). actualizado_en lo mueve un
+-- trigger que corre antes (001).
 create or replace function caso_cambio_permitido()
 returns trigger
 language plpgsql
@@ -148,11 +150,12 @@ begin
 
   v_nuevo := to_jsonb(new) - 'responsable_id' - 'estado' - 'actualizado_en';
   v_viejo := to_jsonb(old) - 'responsable_id' - 'estado' - 'actualizado_en';
-  if new.estado is distinct from old.estado then
+  if new.estado is distinct from old.estado or new.responsable_id is distinct from old.responsable_id then
     v_nuevo := v_nuevo - 'que_falta';
     v_viejo := v_viejo - 'que_falta';
   end if;
-  if v_nuevo is distinct from v_viejo and not puede_aca('avanzar_casos') then
+  if v_nuevo is distinct from v_viejo and not puede_aca('avanzar_casos')
+     and not ((v_nuevo - 'descuento') = (v_viejo - 'descuento') and puede_aca('armar_presupuesto')) then
     raise exception 'Este rol no permite modificar casos.' using errcode = '42501';
   end if;
 
@@ -846,5 +849,48 @@ begin
     'cobro', pago->'cobro',
     'evento', to_jsonb(nuevo_evento)
   );
+end;
+$$;
+
+-- ------------------------------------------------------------
+-- Las políticas creadas desde el panel (050, sección 2)
+-- ------------------------------------------------------------
+-- negocio_seguimiento y la cola de cierre de seguimiento_whatsapp se crearon
+-- desde el panel de Supabase, sin migración: sus políticas no tienen nombre
+-- conocido y usan puedo_cargar(). Se reescriben donde estén, con el permiso
+-- de los mensajes de WhatsApp (entregar_y_reabrir). Si después de esto queda
+-- alguna política en public que use mi_rol() o puedo_cargar(), la migración
+-- frena y la nombra: la 059 borra esas funciones.
+do $$
+declare
+  p record;
+  nueva text := '(select puede_aca(''entregar_y_reabrir''))';
+  sentencia text;
+begin
+  for p in
+    select tablename, policyname, qual, with_check from pg_policies
+     where schemaname = 'public'
+       and tablename in ('negocio_seguimiento', 'seguimiento_whatsapp')
+       and (qual ~ '\mpuedo_cargar\(\)' or with_check ~ '\mpuedo_cargar\(\)')
+  loop
+    sentencia := format('alter policy %I on %I', p.policyname, p.tablename);
+    if p.qual is not null then
+      sentencia := sentencia || format(' using (%s)', regexp_replace(p.qual, '\mpuedo_cargar\(\)', nueva, 'g'));
+    end if;
+    if p.with_check is not null then
+      sentencia := sentencia || format(' with check (%s)', regexp_replace(p.with_check, '\mpuedo_cargar\(\)', nueva, 'g'));
+    end if;
+    execute sentencia;
+  end loop;
+
+  for p in
+    select tablename, policyname from pg_policies
+     where schemaname = 'public'
+       and (qual ~ '\m(mi_rol|puedo_cargar)\(\)' or with_check ~ '\m(mi_rol|puedo_cargar)\(\)')
+     order by tablename, policyname
+  loop
+    raise exception 'La política % de la tabla % todavía usa el rol viejo (mi_rol() o puedo_cargar()). Hay que reescribirla con puede_aca() antes de seguir.',
+      p.policyname, p.tablename;
+  end loop;
 end;
 $$;

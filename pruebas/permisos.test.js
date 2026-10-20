@@ -7,7 +7,7 @@
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, puede, queCambiaConElRol, rolPorDefecto, rolesQuePuedeDar } from "../src/lib/permisos.js";
+import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, conImplicados, implicadoPor, puede, queCambiaConElRol, rolPorDefecto, rolesQuePuedeDar } from "../src/lib/permisos.js";
 
 const claves = PERMISOS.map((p) => p.clave);
 
@@ -85,4 +85,23 @@ test("el rol por defecto de un pedido nunca es Dueño: el de menos permisos, o n
   assert.equal(rolPorDefecto(undefined), null);
   assert.equal(rolPorDefecto([d, a, b]), "b");
   assert.equal(rolPorDefecto([a, b, c]), "b");
+});
+
+// Algunos permisos no sirven sin el de mirar lo mismo: guardar_rol (056) los
+// suma en la base y el editor los prende y explica.
+test("conImplicados suma el permiso de mirar que va con cada uno", () => {
+  assert.deepEqual(conImplicados(["editar_clientes"]), ["ver_clientes", "editar_clientes"]);
+  assert.deepEqual(conImplicados(["crear_casos", "manejar_turnos", "editar_inventario"]),
+    ["ver_todos_los_casos", "crear_casos", "ver_agenda", "manejar_turnos", "ver_inventario", "editar_inventario"]);
+  assert.deepEqual(conImplicados(["cobrar"]), ["cobrar"]);
+  assert.equal(implicadoPor(["editar_clientes", "ver_clientes"], "ver_clientes")?.clave, "editar_clientes");
+  assert.equal(implicadoPor(["ver_clientes"], "ver_clientes"), null);
+});
+
+test("los implícitos son los mismos que suma guardar_rol en la 056", () => {
+  const sql = readFileSync(new URL("../supabase/056_roles_editables.sql", import.meta.url), "utf8");
+  const bloque = sql.slice(sql.indexOf("function guardar_rol"), sql.indexOf("i(clave, implicado)"));
+  const deLaBase = [...bloque.matchAll(/\('([a-z_]+)', '([a-z_]+)'\)/g)].map((m) => `${m[1]}>${m[2]}`).sort();
+  const deAca = PERMISOS.flatMap((p) => (p.implica ?? []).map((i) => `${p.clave}>${i}`)).sort();
+  assert.deepEqual(deAca, deLaBase);
 });

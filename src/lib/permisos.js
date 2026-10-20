@@ -12,7 +12,7 @@ export const GRUPOS = ["Casos", "Presupuesto", "Cobros", "Clientes", "Agenda", "
 
 export const PERMISOS = [
   { clave: "ver_todos_los_casos", grupo: "Casos", nombre: "Ver todos los casos", descripcion: "Ver todos los casos del negocio. Sin este permiso, solo los casos asignados." },
-  { clave: "crear_casos", grupo: "Casos", nombre: "Abrir casos", descripcion: "Abrir casos nuevos." },
+  { clave: "crear_casos", grupo: "Casos", nombre: "Abrir casos", descripcion: "Abrir casos nuevos.", implica: ["ver_todos_los_casos"] },
   { clave: "avanzar_casos", grupo: "Casos", nombre: "Trabajar los casos", descripcion: "Cambiar el estado, editar los datos, anotar y compartir el seguimiento." },
   { clave: "asignar_casos", grupo: "Casos", nombre: "Asignar casos", descripcion: "Elegir o cambiar el responsable de un caso." },
   { clave: "entregar_y_reabrir", grupo: "Casos", nombre: "Entregar y reabrir", descripcion: "Entregar casos, reabrirlos y configurar los mensajes de WhatsApp." },
@@ -21,11 +21,11 @@ export const PERMISOS = [
   { clave: "cobrar", grupo: "Cobros", nombre: "Cobrar", descripcion: "Registrar y anular cobros, y generar el QR o link de pago." },
   { clave: "conectar_mercadopago", grupo: "Cobros", nombre: "Conectar Mercado Pago", descripcion: "Vincular y desvincular la cuenta de cobro del negocio." },
   { clave: "ver_clientes", grupo: "Clientes", nombre: "Ver clientes", descripcion: "Ver la lista de clientes y sus datos." },
-  { clave: "editar_clientes", grupo: "Clientes", nombre: "Editar clientes", descripcion: "Agregar y modificar clientes." },
+  { clave: "editar_clientes", grupo: "Clientes", nombre: "Editar clientes", descripcion: "Agregar y modificar clientes.", implica: ["ver_clientes"] },
   { clave: "ver_agenda", grupo: "Agenda", nombre: "Ver la agenda", descripcion: "Ver los turnos." },
-  { clave: "manejar_turnos", grupo: "Agenda", nombre: "Manejar turnos", descripcion: "Dar, mover, cancelar y marcar turnos, con sus recordatorios." },
+  { clave: "manejar_turnos", grupo: "Agenda", nombre: "Manejar turnos", descripcion: "Dar, mover, cancelar y marcar turnos, con sus recordatorios.", implica: ["ver_agenda"] },
   { clave: "ver_inventario", grupo: "Inventario", nombre: "Ver el inventario", descripcion: "Ver productos y stock." },
-  { clave: "editar_inventario", grupo: "Inventario", nombre: "Editar el inventario", descripcion: "Cargar productos, cambiar el stock y hacer pedidos." },
+  { clave: "editar_inventario", grupo: "Inventario", nombre: "Editar el inventario", descripcion: "Cargar productos, cambiar el stock y hacer pedidos.", implica: ["ver_inventario"] },
   { clave: "ver_inventario_de_sedes", grupo: "Inventario", nombre: "Ver el inventario de las sedes", descripcion: "Ver el inventario conjunto de las sedes vinculadas donde se es miembro." },
   { clave: "ver_sedes_vinculadas", grupo: "Sedes", nombre: "Ver las sedes vinculadas", descripcion: "Entrar en modo solo lectura a las sedes vinculadas donde no se es miembro." },
   { clave: "vincular_sedes", grupo: "Sedes", nombre: "Vincular sedes", descripcion: "Vincular y desvincular este negocio con otras sedes." },
@@ -37,6 +37,20 @@ export const PERMISOS = [
 ];
 
 const CLAVES = new Set(PERMISOS.map((p) => p.clave));
+
+// `implica`: el permiso de mirar sin el cual otro no sirve (abrir un caso
+// muestra los casos; editar clientes, la lista). guardar_rol (056) los suma
+// en la base; el editor los prende con el que los implica.
+export function conImplicados(lista) {
+  const todos = new Set(lista);
+  for (const p of PERMISOS) if (todos.has(p.clave)) for (const i of p.implica ?? []) todos.add(i);
+  return PERMISOS.filter((p) => todos.has(p.clave)).map((p) => p.clave);
+}
+
+// El permiso prendido en `lista` que trae a `clave` con él, o null.
+export function implicadoPor(lista, clave) {
+  return PERMISOS.find((p) => p.implica?.includes(clave) && lista.includes(p.clave)) ?? null;
+}
 
 export const PERMISOS_DE_MIRAR = ["ver_todos_los_casos", "ver_clientes", "ver_agenda", "ver_inventario", "ver_historial"];
 

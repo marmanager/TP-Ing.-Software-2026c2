@@ -185,6 +185,27 @@ Quien tiene `manejar_roles` (o es Dueño):
   negocio.
 - **El rol Dueño** lo da sólo un Dueño.
 - `aprobar_solicitud` (051) aplica la misma regla en lugar de `rango_del_rol`.
+- **Saca del equipo** (`sacar_del_equipo`) a alguien con cuenta sólo si el rol
+  de esa persona está dentro de los propios; a un Dueño, sólo otro Dueño
+  (`quitar_acceso_al_sacar`, 059).
+
+### Acciones compuestas
+
+Una acción que hace más de una cosa pide el permiso de cada una:
+
+- **Permisos que vienen con otro.** `guardar_rol` suma el de mirar sin el cual
+  otro no sirve: `crear_casos` → `ver_todos_los_casos`, `editar_clientes` →
+  `ver_clientes`, `editar_inventario` → `ver_inventario`, `manejar_turnos` →
+  `ver_agenda`. Se suman antes del tope. El editor los prende con el que los
+  trae y los muestra fijos: "Incluido por «<nombre>»".
+- **Abrir un caso** con un cliente nuevo pide además `editar_clientes`; desde un
+  turno, `manejar_turnos`. **Dar un turno** a un cliente nuevo pide además
+  `editar_clientes`.
+- **Pedir algo para un caso o marcar que llegó** pide `editar_inventario` y
+  `avanzar_casos`.
+- **El descuento** de un caso lo cambia también quien arma el presupuesto
+  (`armar_presupuesto`), solo. `que_falta` viaja libre con el estado y con el
+  responsable (`asignar_casos`).
 
 Errores con `errcode = '42501'` (sin permiso) o `P0001` (regla de negocio, con
 el mensaje para mostrar).

@@ -13,6 +13,44 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- 0. Guardia: nada puede depender todavía del rol viejo
+-- ------------------------------------------------------------
+-- La sección 2 borra mi_rol() y puedo_cargar(). Si alguna política (por
+-- ejemplo, una creada desde el panel) o cualquier otro objeto las usa, se
+-- frena acá, antes de tocar nada, y se nombra qué es. La 054 reescribe las de
+-- negocio_seguimiento y seguimiento_whatsapp; lo que quede hay que
+-- reescribirlo con puede_aca() a mano.
+do $$
+declare
+  p record;
+begin
+  for p in
+    select tablename, policyname from pg_policies
+     where schemaname = 'public'
+       and (qual ~ '\m(mi_rol|puedo_cargar)\(\)' or with_check ~ '\m(mi_rol|puedo_cargar)\(\)')
+     order by tablename, policyname
+  loop
+    raise exception 'La 059 no puede seguir: la política % de la tabla % todavía usa mi_rol() o puedo_cargar(). Hay que correr la 054 o reescribirla con puede_aca().',
+      p.policyname, p.tablename;
+  end loop;
+
+  for p in
+    select pg_describe_object(d.classid, d.objid, d.objsubid) as objeto, f.proname
+      from pg_depend d
+      join pg_proc f on f.oid = d.refobjid
+     where d.refclassid = 'pg_proc'::regclass
+       and f.pronamespace = 'public'::regnamespace
+       and f.proname in ('mi_rol', 'puedo_cargar')
+       and f.pronargs = 0
+     order by 1
+  loop
+    raise exception 'La 059 no puede seguir: % depende de %(). Hay que reescribirlo con puede_aca().',
+      p.objeto, p.proname;
+  end loop;
+end;
+$$;
+
+-- ------------------------------------------------------------
 -- 1. Las funciones que todavía escribían la palabra vieja
 -- ------------------------------------------------------------
 -- Todo lo de esta sección va ANTES de la sección 2: la sección 2 borra
@@ -146,8 +184,32 @@ begin
     raise exception 'A quien creó el negocio no se lo puede sacar del equipo.';
   end if;
 
+  -- El tope, como asignar_rol (056): con sesión, sólo un Dueño saca a un
+  -- Dueño, y nadie saca a quien tiene permisos que el rol propio no incluye.
+  -- La función es security definer (current_user es el dueño de las tablas):
+  -- quién llama lo dice el rol de la sesión. Sin sesión (la clave de servicio,
+  -- el SQL Editor) no se mira.
+  if current_setting('role', true) in ('authenticated', 'anon') then
+    if (select r.es_duenio from rol r where r.id = old.rol_id)
+       and not exists (select 1 from empleado e join rol r on r.id = e.rol_id
+                        where e.negocio_id = old.negocio_id and e.usuario_id = auth.uid() and r.es_duenio) then
+      raise exception 'Solo un Dueño puede sacar del equipo a otro Dueño.' using errcode = '42501';
+    end if;
+    if not permisos_del_rol(old.rol_id) <@ permisos_efectivos(old.negocio_id) then
+      raise exception 'Esta persona tiene permisos que el rol propio no incluye.' using errcode = '42501';
+    end if;
+  end if;
+
+  -- Todo se calcula con la fila de antes. Quien estaba de visita en otra sede
+  -- desde este negocio pierde la visita: pasa a su predeterminado (si no era
+  -- éste) o a ninguno.
   update usuario
-     set negocio_id = case when negocio_id = old.negocio_id then null else negocio_id end,
+     set negocio_id = case
+           when visitando_desde = old.negocio_id then nullif(negocio_predeterminado, old.negocio_id)
+           when negocio_id = old.negocio_id then null
+           else negocio_id
+         end,
+         visitando_desde = case when visitando_desde = old.negocio_id then null else visitando_desde end,
          negocio_predeterminado = case
            when negocio_predeterminado = old.negocio_id then null
            else negocio_predeterminado
@@ -157,7 +219,8 @@ begin
            else inicio_rapido
          end
    where id = old.usuario_id
-     and (negocio_id = old.negocio_id or negocio_predeterminado = old.negocio_id);
+     and (negocio_id = old.negocio_id or negocio_predeterminado = old.negocio_id
+          or visitando_desde = old.negocio_id);
 
   return old;
 end;
@@ -212,11 +275,13 @@ begin
      where id = s.usuario_id;
   end if;
 
-  -- Si no estaba en ningún negocio, entra directo a éste.
+  -- Si no estaba en ningún negocio, entra directo a éste. Si estaba acá de
+  -- visita, ahora es miembro: deja de ser visita.
   update usuario
-     set negocio_id = activo
+     set negocio_id      = activo,
+         visitando_desde = null
    where id = s.usuario_id
-     and negocio_id is null;
+     and (negocio_id is null or negocio_id = activo);
 end;
 $$;
 
