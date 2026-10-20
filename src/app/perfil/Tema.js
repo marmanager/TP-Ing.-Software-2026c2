@@ -9,6 +9,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ACENTOS,
+  COLORES_CAJA,
+  MODOS_CAJA,
+  PATRONES,
+  dibujo,
   DE_FABRICA,
   LETRAS,
   REDONDEOS,
@@ -158,6 +162,19 @@ export default function Tema() {
             </div>
           </Parte>
 
+          <Parte titulo="Cajas y rebordes" ayuda="El interior y el borde de las tarjetas, como la de acá. El interior va traslúcido para que el texto se siga leyendo.">
+            <EditorCaja
+              titulo="Color de cajas"
+              valor={borrador.caja}
+              cambiar={(c) => cambiar("caja", c)}
+            />
+            <EditorCaja
+              titulo="Color de rebordes"
+              valor={borrador.reborde}
+              cambiar={(c) => cambiar("reborde", c)}
+            />
+          </Parte>
+
           <div className="flex flex-wrap gap-3">
             <Boton variante="principal" icono="check" onClick={guardar}>
               Guardar
@@ -272,5 +289,65 @@ function Ventana({ fondo, tarjeta, tinta }) {
         <span className="mt-auto block h-3 w-1/3 rounded-sm bg-azul" />
       </span>
     </span>
+  );
+}
+
+// Un color o dos en degradé, para el interior o el borde de las tarjetas.
+function EditorCaja({ titulo, valor, cambiar }) {
+  const poner = (parte, clave) => cambiar({ ...valor, [parte]: clave });
+  const dos = valor.modo === "degrade";
+
+  return (
+    <div className="mb-6">
+      <h4 className="mb-2 font-bold">{titulo}</h4>
+      <Grupo nombre={titulo} className="mb-4 flex flex-wrap gap-2">
+        {MODOS_CAJA.map((m) => (
+          <button
+            key={m.clave}
+            type="button"
+            aria-pressed={valor.modo === m.clave}
+            onClick={() => poner("modo", m.clave)}
+            className={`min-h-12 cursor-pointer rounded-full border-2 px-4 text-etiqueta ${
+              valor.modo === m.clave
+                ? "border-azul bg-azul-claro font-bold text-azul"
+                : "border-borde bg-tarjeta text-tinta-media hover:bg-superficie"
+            }`}
+          >
+            {m.palabra}
+          </button>
+        ))}
+      </Grupo>
+
+      {valor.modo !== "fabrica" && (
+        <>
+          <p className="mb-1 text-apoyo text-tinta-media">{dos ? "Primer color" : "Color"}</p>
+          <Grupo nombre={`${titulo}: ${dos ? "primer color" : "color"}`} className="mb-3 flex flex-wrap gap-2">
+            {COLORES_CAJA.map((c) => (
+              <Muestra key={c.clave} elegida={valor.c1 === c.clave} onClick={() => poner("c1", c.clave)} palabra={c.palabra} color={c.color} />
+            ))}
+          </Grupo>
+        </>
+      )}
+
+      {dos && (
+        <>
+          <p className="mb-1 text-apoyo text-tinta-media">Segundo color</p>
+          <Grupo nombre={`${titulo}: segundo color`} className="mb-3 flex flex-wrap gap-2">
+            {COLORES_CAJA.map((c) => (
+              <Muestra key={c.clave} elegida={valor.c2 === c.clave} onClick={() => poner("c2", c.clave)} palabra={c.palabra} color={c.color} />
+            ))}
+          </Grupo>
+
+          <p className="mb-1 text-apoyo text-tinta-media">Patrón del degradé</p>
+          <Grupo nombre={`${titulo}: patrón`} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {PATRONES.map((p) => (
+              <Opcion key={p.clave} elegida={valor.patron === p.clave} onClick={() => poner("patron", p.clave)} palabra={p.palabra}>
+                <span aria-hidden="true" className="block h-12 rounded-campo" style={{ background: dibujo({ ...valor, patron: p.clave }) }} />
+              </Opcion>
+            ))}
+          </Grupo>
+        </>
+      )}
+    </div>
   );
 }

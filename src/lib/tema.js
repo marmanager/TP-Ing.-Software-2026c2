@@ -55,9 +55,90 @@ export const ACENTOS = [
   { clave: "grafito", palabra: "Grafito", solido: "#3f4b57", apretado: "#2d3741", claro: "#e7eaee", texto: "#b9c3cd", textoApretado: "#d3dae1", claroOscuro: "#2a3038" },
 ];
 
-export const DE_FABRICA = { tema: "claro", letra: "clasica", tinta: "calida", redondeo: "suaves", acento: "azul" };
+// Cajas y rebordes: el interior y el borde de las tarjetas. Cada uno va de
+// fábrica, de un color o de dos en degradé. Son tonos medios para que el
+// reborde se vea sobre fondo claro y oscuro; el interior los usa traslúcidos
+// (MEZCLA_CAJA) encima del color de tarjeta, así el texto sigue legible.
+export const COLORES_CAJA = [
+  { clave: "azul", palabra: "Azul", color: "#3b6fc4" },
+  { clave: "verde", palabra: "Verde", color: "#2f9e5f" },
+  { clave: "turquesa", palabra: "Turquesa", color: "#1a9aa6" },
+  { clave: "violeta", palabra: "Violeta", color: "#7c5cc4" },
+  { clave: "rosa", palabra: "Rosa", color: "#d0457f" },
+  { clave: "terracota", palabra: "Terracota", color: "#c8643c" },
+  { clave: "ambar", palabra: "Ámbar", color: "#d99a1e" },
+  { clave: "grafito", palabra: "Grafito", color: "#6b7785" },
+];
+
+export const MODOS_CAJA = [
+  { clave: "fabrica", palabra: "De fábrica" },
+  { clave: "base", palabra: "Un color" },
+  { clave: "degrade", palabra: "Dos colores" },
+];
+
+export const PATRONES = [
+  { clave: "horizontal", palabra: "Horizontal" },
+  { clave: "vertical", palabra: "Vertical" },
+  { clave: "diagonal", palabra: "Diagonal" },
+  { clave: "radial", palabra: "Radial" },
+];
+
+export const MEZCLA_CAJA = "14%";
+
+const CAJA_DE_FABRICA = { modo: "fabrica", c1: "azul", c2: "violeta", patron: "diagonal" };
+
+export const DE_FABRICA = {
+  tema: "claro",
+  letra: "clasica",
+  tinta: "calida",
+  redondeo: "suaves",
+  acento: "azul",
+  caja: CAJA_DE_FABRICA,
+  reborde: CAJA_DE_FABRICA,
+};
 
 const OPCIONES = { tema: TEMAS, letra: LETRAS, tinta: TINTAS, redondeo: REDONDEOS, acento: ACENTOS };
+const OPCIONES_CAJA = { modo: MODOS_CAJA, c1: COLORES_CAJA, c2: COLORES_CAJA, patron: PATRONES };
+const MAPA_COLORES = Object.fromEntries(COLORES_CAJA.map((c) => [c.clave, c.color]));
+
+// El dibujo de un degradé (o de un color, con c1 y c2 iguales). Con "alfa",
+// los colores van traslúcidos. Es una función suelta, sin nada de afuera,
+// porque también se escribe tal cual en el script del <head>.
+function degrade(c, colores, alfa) {
+  var x = colores[c.c1];
+  var y = c.modo === "degrade" ? colores[c.c2] : x;
+  if (alfa) {
+    x = "color-mix(in srgb, " + x + " " + alfa + ", transparent)";
+    y = "color-mix(in srgb, " + y + " " + alfa + ", transparent)";
+  }
+  if (c.patron === "radial") return "radial-gradient(circle at top left, " + x + ", " + y + ")";
+  var dir = c.patron === "horizontal" ? "to right" : c.patron === "vertical" ? "to bottom" : "135deg";
+  return "linear-gradient(" + dir + ", " + x + ", " + y + ")";
+}
+
+// Pone en <html> el fondo de las tarjetas (--caja) y data-cajas, que la
+// regla de CSS_APARIENCIA lee. Suelta por lo mismo que degrade().
+function pintarCajas(raiz, a, colores, degrade, alfa) {
+  function vale(c) {
+    return !!c && (c.modo === "base" || c.modo === "degrade") && !!colores[c.c1] && (c.modo === "base" || !!colores[c.c2]);
+  }
+  var cj = vale(a.caja) ? a.caja : null;
+  var rb = vale(a.reborde) ? a.reborde : null;
+  if (!cj && !rb) {
+    raiz.removeAttribute("data-cajas");
+    raiz.style.removeProperty("--caja");
+    return;
+  }
+  var lleno = "linear-gradient(var(--color-tarjeta), var(--color-tarjeta)) padding-box";
+  var borde = rb ? degrade(rb, colores) : "linear-gradient(var(--color-borde), var(--color-borde))";
+  raiz.setAttribute("data-cajas", rb ? "reborde" : "caja");
+  raiz.style.setProperty("--caja", (cj ? degrade(cj, colores, alfa) + " padding-box, " : "") + lleno + ", " + borde + " border-box");
+}
+
+export const pintar = (ap, raiz = document.documentElement) => pintarCajas(raiz, ap, MAPA_COLORES, degrade, MEZCLA_CAJA);
+
+// Para las muestras de la pantalla: el mismo dibujo que va a tener la caja.
+export const dibujo = (c, alfa) => degrade(c, MAPA_COLORES, alfa);
 const LLAVE = "apariencia";
 const OSCURO = "(prefers-color-scheme: dark)";
 
@@ -68,6 +149,14 @@ export function limpiar(guardado) {
   const ap = { ...DE_FABRICA };
   for (const campo of Object.keys(OPCIONES)) {
     if (guardado && opcion(campo, guardado[campo])) ap[campo] = guardado[campo];
+  }
+  for (const campo of ["caja", "reborde"]) {
+    const c = { ...CAJA_DE_FABRICA };
+    for (const parte of Object.keys(OPCIONES_CAJA)) {
+      const valor = guardado?.[campo]?.[parte];
+      if (OPCIONES_CAJA[parte].some((o) => o.clave === valor)) c[parte] = valor;
+    }
+    ap[campo] = c;
   }
   return ap;
 }
@@ -97,6 +186,7 @@ export function aplicarApariencia(ap = leerApariencia()) {
     if (ap[campo] !== DE_FABRICA[campo]) raiz.setAttribute(`data-${campo}`, ap[campo]);
     else raiz.removeAttribute(`data-${campo}`);
   }
+  pintar(ap, raiz);
 }
 
 // Si eligió "del sistema" y el sistema cambia con la app abierta, la sigue.
@@ -114,7 +204,7 @@ export function seguirAlSistema() {
 // antes de que se pinte la pantalla: sin esto, quien eligió oscuro vería un
 // destello claro en cada carga. Confía en lo guardado: un valor que no existe
 // pone un atributo que ninguna regla de CSS lee, y se ve lo de fábrica.
-export const SCRIPT_APARIENCIA = `(function(){try{var a=JSON.parse(localStorage.getItem("${LLAVE}"))||{},r=document.documentElement;if(a.tema==="oscuro"||(a.tema==="sistema"&&matchMedia("${OSCURO}").matches))r.setAttribute("data-tema","oscuro");["letra","tinta","redondeo","acento"].forEach(function(c){if(typeof a[c]==="string")r.setAttribute("data-"+c,a[c])})}catch(e){}})()`;
+export const SCRIPT_APARIENCIA = `(function(){try{var a=JSON.parse(localStorage.getItem("${LLAVE}"))||{},r=document.documentElement;if(a.tema==="oscuro"||(a.tema==="sistema"&&matchMedia("${OSCURO}").matches))r.setAttribute("data-tema","oscuro");["letra","tinta","redondeo","acento"].forEach(function(c){if(typeof a[c]==="string")r.setAttribute("data-"+c,a[c])});(${pintarCajas})(r,a,${JSON.stringify(MAPA_COLORES)},${degrade},"${MEZCLA_CAJA}")}catch(e){}})()`;
 
 // Las reglas de cada opción, armadas desde las listas de arriba para no
 // escribir dos veces los mismos colores. Va en un <style> del <head>.
@@ -143,6 +233,12 @@ function armarCss() {
     r.push(`${selOscuro} .bg-azul{--color-azul:${a.solido}}`);
     r.push(`${selOscuro} .hover\\:bg-azul-apretado{--color-azul-apretado:${a.apretado}}`);
   }
+  // Cajas y rebordes: sólo las tarjetas (redondeo de tarjeta y fondo de
+  // tarjeta), no los botones. El borde es un fondo recortado al border-box
+  // detrás del interior: así un borde también puede ser degradé.
+  const tarjeta = ".rounded-tarjeta.bg-tarjeta:not(button)";
+  r.push(`:root[data-cajas] ${tarjeta}{background:var(--caja);border-color:transparent}`);
+  r.push(`:root[data-cajas="reborde"] ${tarjeta}{border-width:2px}`);
   return r.join("\n");
 }
 
