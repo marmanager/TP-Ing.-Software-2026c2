@@ -21,6 +21,7 @@ import FranjaDeVisita from "./FranjaDeVisita";
 import Link from "next/link";
 import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
+import { seguirAlSistema } from "@/lib/tema";
 
 // Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
 // acá porque con la verificación prendida el alta no deja sesión abierta.
@@ -107,6 +108,10 @@ export default function Guardia({ children }) {
   const { cargando: datosCargando, negocio } = useDatos();
   const ruta = usePathname();
   const router = useRouter();
+
+  // Guardia está en todas las pantallas: acá se escucha el cambio de tema
+  // del sistema, para quien eligió seguirlo.
+  useEffect(seguirAlSistema, []);
 
   const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta);
   const hayEntrada = Boolean(sesion);

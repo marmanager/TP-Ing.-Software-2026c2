@@ -220,7 +220,7 @@ export function accionDeFila(caso, { pasos = [], insumos = [] } = {}) {
 // así que nadie va a contestarlos: sumarlos a "esperando respuesta" infla
 // una plata que ya no está en juego.
 //
-// Vive acá y no en cada pantalla porque la usan dos: "A aprobar" y el módulo
+// Vive acá y no en cada pantalla porque la usan dos: "Pendientes de aprobación" y el módulo
 // del Inicio. Es plata a la vista, y tiene test.
 export function casosPorAprobar(casos, pasos) {
   return casos

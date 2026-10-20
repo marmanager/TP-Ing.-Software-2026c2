@@ -935,7 +935,7 @@ export function DatosProvider({ children }) {
       // Mandar el link es pasarle la pelota al cliente, así que el caso queda
       // esperando su respuesta. Si no, el tablero seguiría diciendo que el
       // trabajo avanza mientras en realidad no se puede hacer nada hasta que
-      // conteste, y "A aprobar" no lo mostraría.
+      // conteste, y "Pendientes de aprobación" no lo mostraría.
       //
       // Son dos escrituras y no una: el código lo genera la base con su
       // propia función, y el estado va por el camino de siempre, con sus

@@ -6,9 +6,11 @@
 // otra y desvincular ésta. La base vuelve a verificar todo: los botones sólo
 // evitan ofrecer lo que va a rechazar.
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
+import { SUBMODULOS } from "@/lib/modulos";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { candidatosParaVincular, desvincularSede, misSedes, vincularSede, visitarSede } from "@/lib/sedes";
 import Icono from "./Icono";
@@ -25,6 +27,8 @@ export default function SedesVinculadas() {
   const [confirmando, setConfirmando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState(null);
+  // El nombre de la sede recién vinculada, mientras se muestra lo que destrabó.
+  const [desbloqueo, setDesbloqueo] = useState(null);
 
   useEffect(() => {
     let vivo = true;
@@ -53,7 +57,7 @@ export default function SedesVinculadas() {
     if (!r.ok) return setError(r.error);
     setSedes(r.sedes);
     setCandidatos(null);
-    avisarExito(`Listo. ${negocio?.nombre} y ${otro.nombre} quedaron vinculadas.`);
+    setDesbloqueo(otro.nombre);
   }
 
   // Entra a mirar otra sede (sólo lectura). Se recarga la aplicación entera,
@@ -80,6 +84,37 @@ export default function SedesVinculadas() {
 
   return (
     <Tarjeta className="mb-12">
+      {/* Arriba y no abajo como los otros avisos: no es una confirmación sino
+          una novedad, y lo que destraba hay que prenderlo en Módulos
+          ("Todas las sedes" es a pedido). */}
+      {desbloqueo && (
+        <div
+          role="status"
+          className="fixed inset-x-3 top-3 z-40 flex flex-wrap items-start gap-3 rounded-tarjeta border border-borde border-l-4 border-l-completo bg-completo-fondo p-4 text-completo shadow-lg md:inset-x-auto md:left-1/2 md:w-[min(36rem,calc(100vw-3rem))] md:-translate-x-1/2"
+        >
+          <Icono nombre="tienda" className="size-6" />
+          <div className="min-w-0 flex-1 text-cuerpo">
+            <p className="font-bold">
+              {negocio?.nombre} y {desbloqueo} quedaron vinculadas. Desbloqueaste:
+            </p>
+            <ul className="mt-1 list-disc pl-5">
+              <li>
+                {SUBMODULOS.sedes.nombre}, en Inventario: {SUBMODULOS.sedes.descripcion.toLowerCase()}
+              </li>
+              <li>Entrar a mirar las otras sedes, en sólo lectura.</li>
+            </ul>
+            <Link
+              href="/negocio/modulos"
+              className="mt-2 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+            >
+              <Icono nombre="cajas" /> Ir a Módulos a ver lo nuevo
+            </Link>
+          </div>
+          <Boton variante="plano" onClick={() => setDesbloqueo(null)}>
+            Entendido
+          </Boton>
+        </div>
+      )}
       {sedes === null ? (
         <p className="text-tinta-media">Buscando tus sedes…</p>
       ) : sedes.length === 0 && error ? null : sedes.length === 0 && !error ? (

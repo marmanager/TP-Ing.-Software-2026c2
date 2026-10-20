@@ -27,6 +27,7 @@ import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import TusNegocios from "./TusNegocios";
+import Tema from "./Tema";
 
 export default function MiPerfil() {
   const router = useRouter();
@@ -531,6 +532,9 @@ export default function MiPerfil() {
             )}
           </Tarjeta>
       </>
+
+      <TituloSeccion id="tema">Tema</TituloSeccion>
+      <Tema />
 
       {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
       <TituloSeccion id="negocios">Tus negocios</TituloSeccion>

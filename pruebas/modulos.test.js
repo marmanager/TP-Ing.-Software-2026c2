@@ -59,8 +59,8 @@ test("Ecuaciones personalizadas apunta a su pantalla y empieza apagado", () => {
 
 test("el módulo de /aprobar se llama como en el menú", () => {
   // SCRUM-121. Se llamaba "Presupuesto" y apagarlo no apagaba ningún
-  // presupuesto: sólo la pantalla "A aprobar".
-  assert.equal(MODULOS.presupuesto.nombre, "A aprobar");
+  // presupuesto: sólo la pantalla "Pendientes de aprobación".
+  assert.equal(MODULOS.presupuesto.nombre, "Pendientes de aprobación");
   assert.equal(MODULOS.presupuesto.ruta, "/aprobar");
 });
 

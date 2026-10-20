@@ -74,10 +74,10 @@ const DESTINOS = [
     ],
   },
   { href: "/ecuaciones", icono: "nota", palabra: "Ecuaciones", modulo: "ecuaciones" },
-  { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
+  { href: "/aprobar", icono: "persona-check", palabra: "Pendientes de aprobación", modulo: "presupuesto" },
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
-  { href: "/dashboard", icono: "grafico", palabra: "Dashboard", modulo: "dashboard", permiso: "ver_todos_los_casos" },
+  { href: "/dashboard", icono: "grafico", palabra: "Estadísticas", modulo: "dashboard", permiso: "ver_todos_los_casos" },
   // "alPie": van separados, abajo de todo. Son la configuración, no el
   // trabajo del día.
   { href: "/negocio", icono: "tienda", palabra: "Mi negocio", alPie: true },

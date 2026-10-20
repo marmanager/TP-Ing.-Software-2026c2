@@ -1,6 +1,6 @@
 "use client";
 
-// "A aprobar" — los casos donde falta que el cliente conteste.
+// "Pendientes de aprobación" — los casos donde falta que el cliente conteste.
 // No es una pantalla vacía: es la misma consulta del Inicio filtrada por
 // los pasos que todavía esperan respuesta.
 //
@@ -22,7 +22,7 @@ import { Cargando, Tarjeta, Vacio } from "@/componentes/ui";
 
 export default function AAprobar() {
   const { cargando, casos, clientes, pasos } = useDatos();
-  useTitulo("A aprobar");
+  useTitulo("Pendientes de aprobación");
 
   if (cargando) return <Cargando />;
 
@@ -33,7 +33,7 @@ export default function AAprobar() {
 
   return (
     <>
-      <h1 className="text-pantalla">A aprobar</h1>
+      <h1 className="text-pantalla">Pendientes de aprobación</h1>
       <p className="mt-1 mb-8 max-w-[65ch] text-tinta-media">
         Los casos donde falta que el cliente diga que sí. Están ordenados por lo que hay en
         juego, no por fecha.
