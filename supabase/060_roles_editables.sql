@@ -1,7 +1,7 @@
 -- ============================================================
--- 056_roles_editables.sql — crear, editar, borrar y asignar roles
+-- 060_roles_editables.sql — crear, editar, borrar y asignar roles
 --
--- Correr entero en el SQL Editor de Supabase, después de la 055.
+-- Correr entero en el SQL Editor de Supabase, después de la 059.
 -- Es idempotente. Va junto con la API de la Tarea 9 (docs/roles-plan.md):
 -- cambia la firma de aprobar_solicitud.
 --
@@ -15,7 +15,7 @@
 -- ------------------------------------------------------------
 -- 1. La palabra vieja deja de ser obligatoria
 -- ------------------------------------------------------------
--- Un rol a medida no tiene palabra vieja. Las columnas se van en la 059.
+-- Un rol a medida no tiene palabra vieja. Las columnas se van en la 063.
 alter table empleado alter column rol drop not null;
 alter table usuario alter column rol drop not null;
 
@@ -240,8 +240,8 @@ begin
     raise exception 'Solo se pueden otorgar permisos incluidos en el rol propio.' using errcode = '42501';
   end if;
 
-  -- La palabra vieja acompaña mientras exista (059): la del rol, o ninguna.
-  -- Va con rol_id en el mismo update, así el trigger de la 053 no la pisa.
+  -- La palabra vieja acompaña mientras exista (063): la del rol, o ninguna.
+  -- Va con rol_id en el mismo update, así el trigger de la 057 no la pisa.
   update empleado set rol_id = p_rol, rol = nuevo.clave where id = p_empleado;
 end;
 $$;

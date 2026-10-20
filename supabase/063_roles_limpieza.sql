@@ -1,7 +1,7 @@
 -- ============================================================
--- 059_roles_limpieza.sql — se va el rol viejo
+-- 063_roles_limpieza.sql — se va el rol viejo
 --
--- Correr entero en el SQL Editor de Supabase, después de la 058, y SÓLO con
+-- Correr entero en el SQL Editor de Supabase, después de la 062, y SÓLO con
 -- la API y el front de las etapas 2 a 5 ya publicados: después de esto, nada
 -- puede leer empleado.rol ni usuario.rol.
 -- Es idempotente.
@@ -17,7 +17,7 @@
 -- ------------------------------------------------------------
 -- La sección 2 borra mi_rol() y puedo_cargar(). Si alguna política (por
 -- ejemplo, una creada desde el panel) o cualquier otro objeto las usa, se
--- frena acá, antes de tocar nada, y se nombra qué es. La 054 reescribe las de
+-- frena acá, antes de tocar nada, y se nombra qué es. La 058 reescribe las de
 -- negocio_seguimiento y seguimiento_whatsapp; lo que quede hay que
 -- reescribirlo con puede_aca() a mano.
 do $$
@@ -30,7 +30,7 @@ begin
        and (qual ~ '\m(mi_rol|puedo_cargar)\(\)' or with_check ~ '\m(mi_rol|puedo_cargar)\(\)')
      order by tablename, policyname
   loop
-    raise exception 'La 059 no puede seguir: la política % de la tabla % todavía usa mi_rol() o puedo_cargar(). Hay que correr la 054 o reescribirla con puede_aca().',
+    raise exception 'La 063 no puede seguir: la política % de la tabla % todavía usa mi_rol() o puedo_cargar(). Hay que correr la 058 o reescribirla con puede_aca().',
       p.policyname, p.tablename;
   end loop;
 
@@ -44,8 +44,20 @@ begin
        and f.pronargs = 0
      order by 1
   loop
-    raise exception 'La 059 no puede seguir: % depende de %(). Hay que reescribirlo con puede_aca().',
+    raise exception 'La 063 no puede seguir: % depende de %(). Hay que reescribirlo con puede_aca().',
       p.objeto, p.proname;
+  end loop;
+
+  -- pg_depend no ve adentro de una función plpgsql: se mira el cuerpo.
+  for p in
+    select f.proname from pg_proc f
+     where f.pronamespace = 'public'::regnamespace
+       and f.proname not in ('mi_rol', 'puedo_cargar', 'rango_del_rol')
+       and f.prosrc ~ '\m(mi_rol|puedo_cargar)\(\)'
+     order by 1
+  loop
+    raise exception 'La 063 no puede seguir: la función %() todavía llama a mi_rol() o puedo_cargar(). Hay que reescribirla con puede_aca().',
+      p.proname;
   end loop;
 end;
 $$;
@@ -57,7 +69,7 @@ $$;
 -- rol.clave y empleado.rol, que estas funciones nombraban.
 
 -- crear_mi_negocio (038), sin la palabra vieja. La ficha va al rol Dueño, que
--- ya existe: lo creó el trigger de la 053 al insertar el negocio. Crear un
+-- ya existe: lo creó el trigger de la 057 al insertar el negocio. Crear un
 -- negocio estando de visita en otra sede termina la visita.
 create or replace function crear_mi_negocio(p_nombre text, p_rubro text, p_modulos jsonb)
 returns uuid
@@ -125,7 +137,7 @@ revoke all on function crear_mi_negocio(text, text, jsonb) from public;
 revoke all on function crear_mi_negocio(text, text, jsonb) from anon;
 grant execute on function crear_mi_negocio(text, text, jsonb) to authenticated;
 
--- entrar_al_negocio (057), sin copiar la palabra vieja a usuario.
+-- entrar_al_negocio (061), sin copiar la palabra vieja a usuario.
 create or replace function entrar_al_negocio(p_negocio uuid)
 returns void
 language plpgsql
@@ -154,7 +166,7 @@ revoke all on function entrar_al_negocio(uuid) from public;
 revoke all on function entrar_al_negocio(uuid) from anon;
 grant execute on function entrar_al_negocio(uuid) to authenticated;
 
--- quitar_acceso_al_sacar (058), sin la línea que volvía a poner 'duenio'.
+-- quitar_acceso_al_sacar (062), sin la línea que volvía a poner 'duenio'.
 create or replace function quitar_acceso_al_sacar()
 returns trigger
 language plpgsql
@@ -184,7 +196,7 @@ begin
     raise exception 'A quien creó el negocio no se lo puede sacar del equipo.';
   end if;
 
-  -- El tope, como asignar_rol (056): con sesión, sólo un Dueño saca a un
+  -- El tope, como asignar_rol (060): con sesión, sólo un Dueño saca a un
   -- Dueño, y nadie saca a quien tiene permisos que el rol propio no incluye.
   -- La función es security definer (current_user es el dueño de las tablas):
   -- quién llama lo dice el rol de la sesión. Sin sesión (la clave de servicio,
@@ -226,7 +238,7 @@ begin
 end;
 $$;
 
--- aprobar_solicitud (056): la ficha sólo con rol_id.
+-- aprobar_solicitud (060): la ficha sólo con rol_id.
 create or replace function aprobar_solicitud(p_id uuid, p_rol uuid)
 returns void
 language plpgsql
@@ -289,7 +301,7 @@ revoke all on function aprobar_solicitud(uuid, uuid) from public;
 revoke all on function aprobar_solicitud(uuid, uuid) from anon;
 grant execute on function aprobar_solicitud(uuid, uuid) to authenticated;
 
--- asignar_rol (056): el update sólo toca rol_id.
+-- asignar_rol (060): el update sólo toca rol_id.
 create or replace function asignar_rol(p_empleado uuid, p_rol uuid)
 returns void
 language plpgsql
@@ -341,7 +353,7 @@ revoke all on function asignar_rol(uuid, uuid) from public;
 revoke all on function asignar_rol(uuid, uuid) from anon;
 grant execute on function asignar_rol(uuid, uuid) to authenticated;
 
--- roles_base (053) deja de devolver la clave: cambia el tipo que devuelve,
+-- roles_base (057) deja de devolver la clave: cambia el tipo que devuelve,
 -- así que se borra y se vuelve a crear. El nombre sigue saliendo de
 -- nombre_de_clave() y los permisos de permisos_de_clave().
 drop function if exists roles_base(text);
@@ -356,7 +368,7 @@ as $$
    where p_rubro in ('taller', 'medicina', 'service');
 $$;
 
--- crear_roles_del_negocio (053), sin clave.
+-- crear_roles_del_negocio (057), sin clave.
 create or replace function crear_roles_del_negocio()
 returns trigger
 language plpgsql
@@ -374,7 +386,7 @@ begin
 end;
 $$;
 
--- borrar_negocio (058). Además: quien visitaba otra sede DESDE el negocio que
+-- borrar_negocio (062). Además: quien visitaba otra sede DESDE el negocio que
 -- se borra no se queda en esa sede sin ficha; pasa a su predeterminado (si no
 -- es el borrado) o a ninguno.
 create or replace function borrar_negocio(p_negocio uuid, p_nombre text)
@@ -443,7 +455,7 @@ drop function if exists aceptar_invitacion(text, text);
 
 -- Las políticas abiertas de la 005 (todo el negocio puede todo). Las borraba
 -- la 008, que ya no se puede volver a correr (usa mi_rol()): si alguien vuelve
--- a correr la 005, la 059 las saca de nuevo. Las de hoy son las de la 054.
+-- a correr la 005, la 063 las saca de nuevo. Las de hoy son las de la 058.
 drop policy if exists cliente_de_mi_negocio on cliente;
 drop policy if exists empleado_de_mi_negocio on empleado;
 drop policy if exists insumo_de_mi_negocio on insumo;

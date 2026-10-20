@@ -1122,7 +1122,7 @@ export function DatosProvider({ children }) {
       },
 
       // OJO AL CAMBIAR ESTO. El rol de la ficha (rol_id) es el que da los
-      // permisos en ese negocio (053, 056).
+      // permisos en ese negocio (057, 060).
       //
       // Por eso Equipo, antes de llamar acá por alguien con cuenta, pide
       // confirmación diciendo qué gana y qué pierde esa persona: en un
@@ -1338,7 +1338,7 @@ export function DatosProvider({ children }) {
         return { ok: true, id: r.datos.id };
       },
 
-      // Sólo quien creó el negocio (lo decide la base, 058). El nombre va en el
+      // Sólo quien creó el negocio (lo decide la base, 062). El nombre va en el
       // cuerpo del DELETE como confirmación. Al salir bien, la pantalla recarga.
       async borrarNegocio(nombre) {
         const r = await quitar("/negocio", await tokenDeSesion(), { cuerpo: { nombre } });

@@ -2,7 +2,7 @@
 
 // Un rol: su nombre y sus permisos, agrupados como en el catálogo. Un permiso
 // que el rol propio no tiene se muestra apagado y dice por qué (cartilla:
-// un control apagado explica el motivo). La base vuelve a controlar todo (056).
+// un control apagado explica el motivo). La base vuelve a controlar todo (060).
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -67,7 +67,7 @@ export default function EditarRol() {
   }
 
   const esPropio = !nuevo && rol.id === usuario?.rol_id;
-  // Un rol con permisos que el propio no tiene tampoco se toca (056).
+  // Un rol con permisos que el propio no tiene tampoco se toca (060).
   const excedeAlPropio = !nuevo && rolesQuePuedeDar(usuario, [rol]).length === 0;
   const soloLectura = !puede(usuario, "manejar_roles") || rol?.es_duenio || esPropio || excedeAlPropio;
   const motivoGeneral = rol?.es_duenio
@@ -80,7 +80,7 @@ export default function EditarRol() {
           ? "Este rol tiene permisos que el rol propio no incluye."
           : null;
 
-  // Prender uno prende también el de mirar que va con él (056 hace lo mismo).
+  // Prender uno prende también el de mirar que va con él (060 hace lo mismo).
   const alternar = (clave, prendido) =>
     setPermisos((l) => (prendido ? conImplicados([...l, clave]) : l.filter((c) => c !== clave)));
 

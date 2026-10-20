@@ -219,7 +219,7 @@ export default function Equipo() {
                     </Boton>
                   )}
 
-                  {/* El tope de la 059: a alguien con cuenta se lo saca sólo si su
+                  {/* El tope de la 063: a alguien con cuenta se lo saca sólo si su
                       rol es uno que se podría dar (un Dueño, sólo otro Dueño). */}
                   {!puedeSacar || intocable || (e.usuario_id && !ofrecidos.some((r) => r.id === e.rol_id))
                     ? null : sacando === e.id ? (

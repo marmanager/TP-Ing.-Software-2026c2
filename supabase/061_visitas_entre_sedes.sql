@@ -1,7 +1,7 @@
 -- ============================================================
--- 057_visitas_entre_sedes.sql — entrar a mirar una sede vinculada
+-- 061_visitas_entre_sedes.sql — entrar a mirar una sede vinculada
 --
--- Correr entero en el SQL Editor de Supabase, después de la 056.
+-- Correr entero en el SQL Editor de Supabase, después de la 060.
 -- Es idempotente. Después, correr supabase/pruebas/roles.sql.
 --
 -- Quien es miembro de una sede y su rol tiene ver_sedes_vinculadas puede
@@ -12,7 +12,7 @@
 -- Las políticas de datos siguen pasando por permisos_efectivos(). Lo que
 -- no tiene un permiso de mirar propio se corta con estoy_aca() (ficha o visita
 -- vigente: negocio, empleado, rol y fotos del equipo) o con la ficha (escribir
--- en evento). Cobro, ecuacion e invitacion ya pedían ficha desde la 054.
+-- en evento). Cobro, ecuacion e invitacion ya pedían ficha desde la 058.
 -- ============================================================
 
 -- Como el resto de usuario desde la 035: no se escribe desde el navegador.
@@ -29,7 +29,7 @@ security definer
 set search_path = public
 as $$
   select coalesce(
-    -- Miembro: los de su rol (053).
+    -- Miembro: los de su rol (057).
     (select case when r.es_duenio then permisos_conocidos() else r.permisos end
        from empleado e
        join rol r on r.id = e.rol_id

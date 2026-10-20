@@ -74,6 +74,15 @@ que el pasaje no le quite nada: las ecuaciones del presupuesto van con
 recordatorio de turno) con `entregar_y_reabrir`; compartir el link de
 seguimiento de un caso con `avanzar_casos`.
 
+**Lo que sumó el equipo mientras tanto (053 a 056 y el Dashboard)**, con el
+mismo criterio de no cambiarle el acceso a nadie: compartir y dejar de
+compartir la landing, con `configurar_negocio`; revertir la baja de avisos de
+un cliente, con `editar_clientes` (cambia su ficha); el aviso de volver y los
+del presupuesto, como los demás mensajes de WhatsApp, con
+`entregar_y_reabrir`; el Dashboard (API y pantalla), con
+`ver_todos_los_casos`: son números de todo el negocio, y sin ese permiso la
+RLS de caso sólo dejaría contar los asignados.
+
 **`ver_historial`** habilita la pantalla Historial del negocio. Los eventos de
 un caso se siguen viendo con el caso (la base los muestra a quien ve el caso).
 
@@ -187,7 +196,7 @@ Quien tiene `manejar_roles` (o es Dueño):
 - `aprobar_solicitud` (051) aplica la misma regla en lugar de `rango_del_rol`.
 - **Saca del equipo** (`sacar_del_equipo`) a alguien con cuenta sólo si el rol
   de esa persona está dentro de los propios; a un Dueño, sólo otro Dueño
-  (`quitar_acceso_al_sacar`, 059).
+  (`quitar_acceso_al_sacar`, 063).
 
 ### Acciones compuestas
 

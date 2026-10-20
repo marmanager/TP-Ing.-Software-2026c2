@@ -1,5 +1,5 @@
 -- ============================================================
--- pruebas/roles.sql — prueba los roles (053 a 059) contra la base de verdad
+-- pruebas/roles.sql — prueba los roles (057 a 063) contra la base de verdad
 --
 -- Correr entero en el SQL Editor de Supabase. Cada etapa suma secciones; una
 -- sección de una migración que todavía no se corrió falla con "function ...
@@ -19,7 +19,7 @@ declare
   edu  uuid := gen_random_uuid();  -- encargado de A
   ivo  uuid := gen_random_uuid();  -- técnico de A
   zoe  uuid := gen_random_uuid();  -- crea un negocio personalizable
-  leo  uuid := gen_random_uuid();  -- crea el taller D (secciones 15 a 20)
+  leo  uuid := gen_random_uuid();  -- crea el taller D (secciones 15 a 21)
   mia  uuid := gen_random_uuid();  -- de D, con el rol a medida rol_x
   noa  uuid := gen_random_uuid();  -- tiene su negocio N y es Mecánico en D
   neg_d uuid;
@@ -672,7 +672,7 @@ begin
     if n <> 0 then raise exception 'FALLÓ 14: quedan % funciones del rol viejo.', n; end if;
     perform set_config('role', 'authenticated', true);
 
-    -- ---- 15. Permisos que vienen con otro (guardar_rol, 056) ----
+    -- ---- 15. Permisos que vienen con otro (guardar_rol, 060) ----
     -- Leo crea el taller D; Mia y Noa entran como Mecánico. Noa ya tenía su
     -- negocio N, que queda de predeterminado.
     perform set_config('role', 'postgres', true);
@@ -716,7 +716,7 @@ begin
     exception when insufficient_privilege then frenado := true; end;
     if not frenado then raise exception 'FALLÓ 15: se dio un permiso cuyo permiso de mirar no se tiene.'; end if;
 
-    -- ---- 16. Columnas del caso: descuento y que_falta (054) ----
+    -- ---- 16. Columnas del caso: descuento y que_falta (058) ----
     perform set_config('role', 'postgres', true);
     insert into caso (negocio_id, numero, servicio) values (neg_d, 950, 'Columnas') returning id into pedido;
     perform set_config('role', 'authenticated', true);
@@ -751,7 +751,7 @@ begin
     exception when insufficient_privilege then frenado := true; end;
     if not frenado then raise exception 'FALLÓ 16: con asignar_casos se cambió que_falta sin el responsable.'; end if;
 
-    -- ---- 17. Sacar del equipo con tope (059) ----
+    -- ---- 17. Sacar del equipo con tope (063) ----
     -- Mia puede sacar gente pero no tiene lo de Mecánico: no saca a Noa.
     perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
     perform guardar_rol(rol_x, 'A medida', array['sacar_del_equipo', 'ver_clientes']);
@@ -800,7 +800,7 @@ begin
     if n <> 1 then raise exception 'FALLÓ 18: quien visitaba otra sede desde el negocio que la sacó no volvió a su predeterminado.'; end if;
     perform set_config('role', 'authenticated', true);
 
-    -- ---- 19. Aprobar a quien estaba de visita en esa sede (059) ----
+    -- ---- 19. Aprobar a quien estaba de visita en esa sede (063) ----
     -- Mia pide entrar a E y entra de visita desde D; Leo la aprueba: queda en
     -- E como miembro, ya no de visita.
     perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
@@ -817,7 +817,7 @@ begin
     if n <> 1 then raise exception 'FALLÓ 19: aprobar a quien estaba de visita no terminó la visita.'; end if;
     perform set_config('role', 'authenticated', true);
 
-    -- ---- 20. Las políticas del panel, reescritas por la 054 ----
+    -- ---- 20. Las políticas del panel, reescritas por la 058 ----
     -- Sólo si negocio_seguimiento tiene una política reescrita (en el arnés,
     -- pg-local/panel.sql; en Supabase, si las del panel usaban puedo_cargar()).
     perform set_config('role', 'postgres', true);
@@ -839,6 +839,71 @@ begin
       exception when insufficient_privilege then frenado := true; end;
       if not frenado then raise exception 'FALLÓ 20: sin entregar_y_reabrir se escribió negocio_seguimiento.'; end if;
     end if;
+    perform set_config('role', 'authenticated', true);
+
+    -- ---- 21. Lo del equipo (053, 054 y 056), por permiso desde la 058 ----
+    -- Compartir la landing pide configurar_negocio; revertir la baja de avisos,
+    -- editar_clientes; el aviso de volver, entregar_y_reabrir. Mia, con el rol
+    -- a medida rol_x en D, prueba cada uno con y sin el permiso.
+    perform set_config('role', 'postgres', true);
+    insert into cliente (negocio_id, nombre, avisos_baja_en) values (neg_d, 'Baja', now()) returning id into pedido;
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_d);
+    perform guardar_rol(rol_x, 'A medida', array['ver_clientes']);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    perform entrar_al_negocio(neg_d);
+    frenado := false;
+    begin perform compartir_landing(); exception when raise_exception then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 21: sin configurar_negocio se compartió la landing.'; end if;
+    frenado := false;
+    begin perform dejar_de_compartir_landing(); exception when raise_exception then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 21: sin configurar_negocio se dejó de compartir la landing.'; end if;
+    if revertir_baja_de_avisos(pedido)->>'motivo' is distinct from 'sin_permiso' then
+      raise exception 'FALLÓ 21: sin editar_clientes se revirtió la baja de avisos.';
+    end if;
+
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform guardar_rol(rol_x, 'A medida', array['configurar_negocio', 'editar_clientes', 'ver_todos_los_casos']);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    if compartir_landing() is null then raise exception 'FALLÓ 21: con configurar_negocio no se compartió la landing.'; end if;
+    perform dejar_de_compartir_landing();
+    if not (revertir_baja_de_avisos(pedido)->>'ok')::boolean then
+      raise exception 'FALLÓ 21: con editar_clientes no se revirtió la baja de avisos.';
+    end if;
+
+    -- El aviso de volver cuelga de un caso entregado con fecha. Mia ve todos
+    -- los casos en las dos vueltas: lo único que cambia es entregar_y_reabrir.
+    perform set_config('role', 'postgres', true);
+    insert into caso (negocio_id, numero, servicio, estado, volver_en)
+      values (neg_d, 951, 'Service', 'completado', current_date + 60) returning id into pedido;
+    perform set_config('role', 'authenticated', true);
+    frenado := false;
+    begin
+      insert into seguimiento_whatsapp (caso_id, negocio_id, cerrado_en, enviar_en, mensaje, numero_emisor_id, telefono, tipo)
+      values (pedido, neg_d, now(), now() + interval '50 days', 'Le toca volver', 'e', '5493410000000', 'volver');
+    exception when insufficient_privilege then frenado := true; end;
+    if not frenado then raise exception 'FALLÓ 21: sin entregar_y_reabrir se programó el aviso de volver.'; end if;
+    perform set_config('request.jwt.claims', json_build_object('sub', leo, 'role', 'authenticated')::text, true);
+    perform guardar_rol(rol_x, 'A medida', array['entregar_y_reabrir', 'ver_todos_los_casos']);
+    perform set_config('request.jwt.claims', json_build_object('sub', mia, 'role', 'authenticated')::text, true);
+    insert into seguimiento_whatsapp (caso_id, negocio_id, cerrado_en, enviar_en, mensaje, numero_emisor_id, telefono, tipo)
+    values (pedido, neg_d, now(), now() + interval '50 days', 'Le toca volver', 'e', '5493410000000', 'volver');
+    update seguimiento_whatsapp set estado = 'cancelado', motivo = 'sin_fecha' where caso_id = pedido and tipo = 'volver';
+    get diagnostics n = row_count;
+    if n <> 1 then raise exception 'FALLÓ 21: con entregar_y_reabrir no se canceló el aviso de volver.'; end if;
+
+    -- Después de toda la cadena, nada en public nombra el rol viejo: ni una
+    -- política ni el cuerpo de una función (las secciones 7 y 8 lo miran a
+    -- mitad de camino; esto, al final).
+    perform set_config('role', 'postgres', true);
+    select count(*) into n from pg_policies
+     where coalesce(qual, '') ~ '\m(mi_rol|puedo_cargar)\(\)' or coalesce(with_check, '') ~ '\m(mi_rol|puedo_cargar)\(\)';
+    if n <> 0 then raise exception 'FALLÓ 21: quedan % políticas con mi_rol() o puedo_cargar().', n; end if;
+    select count(*) into n
+      from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+     where s.nspname = 'public' and p.prosrc ~ '\m(mi_rol|puedo_cargar)\(\)';
+    if n <> 0 then raise exception 'FALLÓ 21: quedan % funciones que nombran mi_rol() o puedo_cargar().', n; end if;
     perform set_config('role', 'authenticated', true);
 
     raise exception 'deshacer';

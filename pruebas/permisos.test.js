@@ -1,6 +1,6 @@
 // Correr con: npm test
 //
-// Los permisos de la interfaz: el mismo catálogo que la base (053_roles.sql)
+// Los permisos de la interfaz: el mismo catálogo que la base (057_roles.sql)
 // y la API (src/compartido/permisos.ts). Si acá sobra un permiso, se ofrece un
 // botón que la base va a rechazar; si falta, se esconde algo que sí se podía.
 
@@ -11,8 +11,8 @@ import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, conImplicados, implic
 
 const claves = PERMISOS.map((p) => p.clave);
 
-test("son las mismas 23 claves que la 053, en el mismo orden", () => {
-  const sql = readFileSync(new URL("../supabase/053_roles.sql", import.meta.url), "utf8");
+test("son las mismas 23 claves que la 057, en el mismo orden", () => {
+  const sql = readFileSync(new URL("../supabase/057_roles.sql", import.meta.url), "utf8");
   const bloque = sql.slice(sql.indexOf("function permisos_conocidos()"), sql.indexOf("]::text[]"));
   assert.deepEqual(claves, [...bloque.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
 });
@@ -87,7 +87,7 @@ test("el rol por defecto de un pedido nunca es Dueño: el de menos permisos, o n
   assert.equal(rolPorDefecto([a, b, c]), "b");
 });
 
-// Algunos permisos no sirven sin el de mirar lo mismo: guardar_rol (056) los
+// Algunos permisos no sirven sin el de mirar lo mismo: guardar_rol (060) los
 // suma en la base y el editor los prende y explica.
 test("conImplicados suma el permiso de mirar que va con cada uno", () => {
   assert.deepEqual(conImplicados(["editar_clientes"]), ["ver_clientes", "editar_clientes"]);
@@ -98,8 +98,8 @@ test("conImplicados suma el permiso de mirar que va con cada uno", () => {
   assert.equal(implicadoPor(["ver_clientes"], "ver_clientes"), null);
 });
 
-test("los implícitos son los mismos que suma guardar_rol en la 056", () => {
-  const sql = readFileSync(new URL("../supabase/056_roles_editables.sql", import.meta.url), "utf8");
+test("los implícitos son los mismos que suma guardar_rol en la 060", () => {
+  const sql = readFileSync(new URL("../supabase/060_roles_editables.sql", import.meta.url), "utf8");
   const bloque = sql.slice(sql.indexOf("function guardar_rol"), sql.indexOf("i(clave, implicado)"));
   const deLaBase = [...bloque.matchAll(/\('([a-z_]+)', '([a-z_]+)'\)/g)].map((m) => `${m[1]}>${m[2]}`).sort();
   const deAca = PERMISOS.flatMap((p) => (p.implica ?? []).map((i) => `${p.clave}>${i}`)).sort();

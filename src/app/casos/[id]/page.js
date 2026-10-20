@@ -72,7 +72,7 @@ export default function VerCaso() {
   const datos = useDatos();
   const { cargando, casos, clientes, empleados, pasos, eventos, insumos, negocio } = datos;
   const { usuario } = useAuth();
-  // Cada bloque pide el permiso que le exige la base (054): trabajar el caso y
+  // Cada bloque pide el permiso que le exige la base (058): trabajar el caso y
   // compartirlo, entregar y reabrir, cobrar, pedir insumos y asignar.
   const puedeCargar = puede(usuario, "avanzar_casos");
   const puedeEntregar = puede(usuario, "entregar_y_reabrir");

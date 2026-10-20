@@ -1,8 +1,8 @@
 // Qué puede hacer un rol (docs/roles.md).
 //
-// El catálogo es el mismo que la base (supabase/053_roles.sql) y la API
+// El catálogo es el mismo que la base (supabase/057_roles.sql) y la API
 // (src/compartido/permisos.ts), con las mismas claves en el mismo orden: la
-// prueba lo verifica contra la 053. Acá sólo sirve para no ofrecer botones
+// prueba lo verifica contra la 057. Acá sólo sirve para no ofrecer botones
 // que van a rechazar: **la que manda es la base**. Esconder un botón no
 // protege nada.
 //
@@ -39,7 +39,7 @@ export const PERMISOS = [
 const CLAVES = new Set(PERMISOS.map((p) => p.clave));
 
 // `implica`: el permiso de mirar sin el cual otro no sirve (abrir un caso
-// muestra los casos; editar clientes, la lista). guardar_rol (056) los suma
+// muestra los casos; editar clientes, la lista). guardar_rol (060) los suma
 // en la base; el editor los prende con el que los implica.
 export function conImplicados(lista) {
   const todos = new Set(lista);
@@ -81,7 +81,7 @@ export function queCambiaConElRol(antes, despues) {
 }
 
 // Los roles que alguien puede dar: los que no tienen nada que su rol no tenga.
-// El rol Dueño, sólo un Dueño. La base lo vuelve a controlar (056).
+// El rol Dueño, sólo un Dueño. La base lo vuelve a controlar (060).
 export function rolesQuePuedeDar(quien, roles) {
   const mios = new Set(efectivos(quien));
   return (roles ?? []).filter((r) =>

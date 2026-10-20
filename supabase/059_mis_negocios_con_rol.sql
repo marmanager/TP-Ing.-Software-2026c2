@@ -1,7 +1,7 @@
 -- ============================================================
--- 055_mis_negocios_con_rol.sql — los negocios de la cuenta, con su rol nuevo
+-- 059_mis_negocios_con_rol.sql — los negocios de la cuenta, con su rol nuevo
 --
--- Correr entero en el SQL Editor de Supabase, después de la 054.
+-- Correr entero en el SQL Editor de Supabase, después de la 058.
 -- Es idempotente. Va junto con la API que lee rol_nombre (docs/roles-plan.md,
 -- Tarea 6): correrla antes deja al selector de negocios sin el nombre del rol.
 --

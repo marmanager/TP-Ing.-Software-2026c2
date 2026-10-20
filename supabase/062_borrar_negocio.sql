@@ -1,7 +1,7 @@
 -- ============================================================
--- 058_borrar_negocio.sql — quien creó el negocio lo puede borrar
+-- 062_borrar_negocio.sql — quien creó el negocio lo puede borrar
 --
--- Correr entero en el SQL Editor de Supabase, después de la 057.
+-- Correr entero en el SQL Editor de Supabase, después de la 061.
 -- Es idempotente.
 --
 -- Sólo quien lo creó (negocio.creado_por, 038), escribiendo el nombre del
