@@ -14,6 +14,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
+import { bloquea, RUTAS_SIN_SUSCRIPCION } from "@/lib/suscripcion";
+import { ContextoSuscripcion, useSuscripcion } from "@/lib/useSuscripcion";
 import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
@@ -106,6 +108,7 @@ const moduloApagado = (ruta, negocio) => {
 export default function Guardia({ children }) {
   const { cargando, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
   const { cargando: datosCargando, negocio } = useDatos();
+  const suscripcion = useSuscripcion();
   const ruta = usePathname();
   const router = useRouter();
 
@@ -118,7 +121,7 @@ export default function Guardia({ children }) {
   const tieneNegocio = Boolean(usuario?.negocio_id);
 
   // A dónde tendría que estar parada la persona según su estado.
-  const esperando = cargando || datosCargando;
+  const esperando = cargando || datosCargando || suscripcion.cargando;
 
   let destino = null;
   if (!esperando && !publica) {
@@ -144,6 +147,13 @@ export default function Guardia({ children }) {
       // iniciado sesión recién —así se vuelve de Google—: toca elegir
       // negocio. /crear-negocio y /negocios se pueden visitar teniendo negocio.
       destino = RUTA_NEGOCIOS;
+    } else if (
+      bloquea(suscripcion.datos) &&
+      !RUTAS_SIN_SUSCRIPCION.includes(ruta) &&
+      !esInvitacion(ruta)
+    ) {
+      // Sin suscripción, el negocio sólo llega a donde se paga (Mi perfil).
+      destino = "/perfil";
     }
   }
 
@@ -182,7 +192,7 @@ export default function Guardia({ children }) {
   const apagado = moduloApagado(ruta, negocio);
 
   return (
-    <>
+    <ContextoSuscripcion.Provider value={suscripcion}>
       {/* Lo primero de la página, para quien usa teclado o lector de
           pantalla: sin esto, en cada pantalla había que pasar por las nueve
           secciones de la barra antes de llegar a lo que se vino a hacer
@@ -225,6 +235,6 @@ export default function Guardia({ children }) {
         </main>
       </div>
       <BarraCelular />
-    </>
+    </ContextoSuscripcion.Provider>
   );
 }
