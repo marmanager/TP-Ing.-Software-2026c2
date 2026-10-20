@@ -30,18 +30,17 @@ describe("ecuaciones encadenadas", () => {
     await reemplazarTexto("#ecuacion-nombre", "Nivel de riesgo");
     await $("select[aria-label='Ecuación para utilizar']").selectByVisibleText("IMC");
     await $("//h2[normalize-space()='Ecuaciones calculadas']/following::button[normalize-space()='Agregar'][1]").click();
-    await reemplazarTexto("#ecuacion-formula", "imc*factor");
-    await agregarVariable("factor");
+    await reemplazarTexto("#ecuacion-formula", "imc*");
+    await $("//li[contains(.,'peso') and contains(.,'IMC')]//button[normalize-space()='Insertar']").click();
     await boton("Guardar ecuación").click();
 
     await $("//li[.//*[contains(text(),'Nivel de riesgo')]]//button[normalize-space()='Resolver']").click();
     await completar("peso", "80");
     await completar("altura", "2");
-    await completar("factor", "1.5");
     await boton("Calcular").click();
 
     await expect($("body")).toHaveText(expect.stringContaining("Resultado"));
-    await expect($("body")).toHaveText(expect.stringContaining("30"));
+    await expect($("body")).toHaveText(expect.stringContaining("1600"));
     await expect($("body")).toHaveText(expect.stringContaining("Resultados intermedios"));
     await expect($("body")).toHaveText(expect.stringContaining("IMC: 20"));
   });
