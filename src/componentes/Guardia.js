@@ -45,6 +45,10 @@ const RUTA_NEGOCIOS = "/negocios";
 // columna angosta y centrada, y la landing va a sangre completa.
 const RUTA_BIENVENIDA = "/bienvenida";
 
+// Elegir un plan y el mes de prueba (lib/suscripcion.js).
+const RUTA_PLANES = "/planes";
+const RUTA_PRUEBA = "/prueba";
+
 // "/unirme/<código>" se abre desde el link de una invitación, así que tiene
 // que ser alcanzable en cualquier estado: sin cuenta, con cuenta y sin
 // negocio, o con negocio. La pantalla explica qué pasa en cada caso.
@@ -152,8 +156,9 @@ export default function Guardia({ children }) {
       !RUTAS_SIN_SUSCRIPCION.includes(ruta) &&
       !esInvitacion(ruta)
     ) {
-      // Sin suscripción, el negocio sólo llega a donde se paga (Mi perfil).
-      destino = "/perfil";
+      // Sin suscripción ni prueba, el negocio va a elegir un plan. Es también
+      // lo primero que ve después de crear el negocio.
+      destino = RUTA_PLANES;
     }
   }
 
@@ -187,6 +192,12 @@ export default function Guardia({ children }) {
     esInvitacion(ruta);
 
   if (enEntrada) return <PantallaEntrada>{children}</PantallaEntrada>;
+
+  // Planes y Prueba van sin la navegación: con el negocio bloqueado, cada
+  // link de la barra rebotaría de vuelta acá.
+  if (ruta === RUTA_PLANES || ruta === RUTA_PRUEBA) {
+    return <ContextoSuscripcion.Provider value={suscripcion}>{children}</ContextoSuscripcion.Provider>;
+  }
 
   // Con la navegación puesta, así se puede ir a otro lado sin volver atrás.
   const apagado = moduloApagado(ruta, negocio);
