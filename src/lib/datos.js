@@ -54,6 +54,9 @@ const VACIO = {
   // [{ usuario_id, foto }]. Se cruza con empleado.usuario_id en Equipo.
   fotosEquipo: [],
   ecuaciones: [],
+  // La lista de "Editar categorías" (064), o null si el negocio nunca la
+  // editó y usa las de fábrica de su rubro.
+  categorias: null,
 };
 
 const Contexto = createContext(null);
@@ -1106,6 +1109,23 @@ export function DatosProvider({ children }) {
             .map((i) => (i.id === insumo.id ? insumo : i)),
         }));
         return resultado;
+      },
+
+      // "Editar categorías": la lista entera. Los productos de una categoría
+      // borrada vuelven de la API sin categoría. Devuelve true si se guardó.
+      async guardarCategorias(lista) {
+        const r = await reemplazar("/categorias", { valor: lista }, await tokenDeSesion());
+        if (!r.ok) {
+          setAviso(r.error.mensaje);
+          return false;
+        }
+        const { categorias, insumos } = r.datos;
+        setDatos((d) => ({
+          ...d,
+          categorias,
+          insumos: d.insumos.map((i) => insumos.find((x) => x.id === i.id) ?? i),
+        }));
+        return true;
       },
 
       eliminarInsumo(insumoId) {

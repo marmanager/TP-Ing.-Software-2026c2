@@ -229,6 +229,11 @@ test("las del negocio van después de las de fábrica, en orden alfabético", ()
   assert.deepEqual(propias, ["Correas", "Juntas"]);
 });
 
+test("la lista guardada reemplaza a las de fábrica, y siguen las que usan los productos", () => {
+  const cs = categoriasDisponibles("taller", [{ categoria: "Juntas" }], [], ["Correas"]);
+  assert.deepEqual(cs, ["Correas", "Juntas"]);
+});
+
 test("un producto sin categoría no agrega una categoría vacía", () => {
   const cs = categoriasDisponibles("taller", [{ categoria: null }, { categoria: "  " }]);
   assert.ok(!cs.some((c) => !c.trim()));

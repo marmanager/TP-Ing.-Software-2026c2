@@ -159,7 +159,10 @@ export const igualAlEditar = (insumos, insumo, form) =>
 // queda la primera forma que aparece, que es la del rubro si es una de ésas.
 // Las de fábrica van primero y en su orden; las del negocio, después y en
 // orden alfabético.
-export function categoriasDisponibles(rubro, insumos = [], agregadas = []) {
+//
+// "guardadas" es la lista que el negocio armó con "Editar categorías" (064):
+// si existe, reemplaza a las de fábrica. null es que nunca la editó.
+export function categoriasDisponibles(rubro, insumos = [], agregadas = [], guardadas = null) {
   const vistas = new Set();
   const quedarse = (lista) =>
     lista.filter((c) => {
@@ -169,7 +172,7 @@ export function categoriasDisponibles(rubro, insumos = [], agregadas = []) {
       return true;
     });
 
-  const deFabrica = quedarse(categoriasDe(rubro));
+  const deFabrica = quedarse(Array.isArray(guardadas) ? guardadas : categoriasDe(rubro));
   const propias = quedarse([...insumos.map((i) => i.categoria), ...agregadas]).sort((a, b) =>
     a.localeCompare(b, "es")
   );

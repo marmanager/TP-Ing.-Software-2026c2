@@ -24,12 +24,15 @@ import {
   alternarFiltro,
   buscarEnCategorias,
   buscarIgual,
+  categoriaExistente,
+  categoriasDisponibles,
   cuantosFiltros,
   enTotal,
   filtrarProductos,
   filtrosDisponibles,
   limpiarProducto,
   motivoDelProducto,
+  normalizar,
   porCategoria,
   presentacion,
   soloVigentes,
@@ -53,6 +56,7 @@ export default function Inventario() {
   const puedeCargar = puede(usuario, "editar_inventario");
   const { cargando, insumos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
+  const [editandoCategorias, setEditandoCategorias] = useState(false);
   // Cómo se mira el stock: todos juntos, o agrupados por categoría.
   //
   // ponytail: no se guarda; volver a entrar arranca en la lista. Igual que
@@ -119,18 +123,33 @@ export default function Inventario() {
             abierta el botón se apaga en su lugar, en gris, y dice por qué. No
             cambia de texto ni cierra el alta: el lugar de "Agregar" siempre
             hace lo mismo, y no se pueden abrir dos. Salir es "Cancelar". */}
-        {puedeCargar && (
+        {/* En Categorías el lugar del botón es para editar la lista: agregar
+            un producto ya está en la otra vista. */}
+        {puedeCargar && vista === "categorias" ? (
           <Boton
-            icono="mas"
-            motivo={abierto ? `ya estás agregando ${articulo.segun("uno", "una")}` : null}
-            onClick={() => setAbierto(true)}
+            icono="pincel"
+            motivo={editandoCategorias ? "ya las estás editando" : null}
+            onClick={() => setEditandoCategorias(true)}
           >
-            Agregar {articulo.un()}
+            Editar categorías
           </Boton>
+        ) : (
+          puedeCargar && (
+            <Boton
+              icono="mas"
+              motivo={abierto ? `ya estás agregando ${articulo.segun("uno", "una")}` : null}
+              onClick={() => setAbierto(true)}
+            >
+              Agregar {articulo.un()}
+            </Boton>
+          )
         )}
       </div>
 
-      {abierto && puedeCargar && <AltaDeProducto alCerrar={() => setAbierto(false)} />}
+      {abierto && puedeCargar && vista === "productos" && <AltaDeProducto alCerrar={() => setAbierto(false)} />}
+      {editandoCategorias && puedeCargar && vista === "categorias" && (
+        <EdicionDeCategorias alCerrar={() => setEditandoCategorias(false)} />
+      )}
 
       {enStock.length === 0 ? (
         <Vacio icono="cajas" titulo="Todavía no hay nada cargado">
@@ -411,6 +430,125 @@ function AltaDeProducto({ alCerrar }) {
           {igual ? "Sumarlo a lo que hay" : `Guardar ${articulo.el()}`}
         </Boton>
         <Boton variante="peligro" icono="tacho" className="w-full sm:w-auto" onClick={alCerrar}>
+          Cancelar
+        </Boton>
+      </div>
+    </Tarjeta>
+  );
+}
+
+// ------------------------------------------------------------
+// Editar categorías
+// ------------------------------------------------------------
+// La lista entera: las que ofrece el alta de un producto. Se borra y se
+// agrega sobre un borrador, y recién "Guardar" la manda. Lo que tenía una
+// categoría borrada queda en "Sin categoría" (lo hace la API), y se avisa
+// en la fila antes de guardar.
+
+function EdicionDeCategorias({ alCerrar }) {
+  const datos = useDatos();
+  const { insumos, negocio } = datos;
+  const [lista, setLista] = useState(() =>
+    categoriasDisponibles(negocio?.rubro, insumos, [], datos.categorias)
+  );
+  const [nueva, setNueva] = useState("");
+  const [aviso, setAviso] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const { articulo } = vocabulario(negocio?.rubro);
+  const cuantos = (c) => insumos.filter((i) => normalizar(i.categoria) === normalizar(c)).length;
+  const borradas = categoriasDisponibles(negocio?.rubro, insumos, [], datos.categorias).filter(
+    (c) => !categoriaExistente(c, lista)
+  );
+  const quedanSin = borradas.reduce((n, c) => n + cuantos(c), 0);
+
+  function agregar() {
+    const texto = nueva.trim().replace(/\s+/g, " ");
+    if (!texto) return;
+    const existente = categoriaExistente(texto, lista);
+    setAviso(existente ? `«${existente}» ya estaba.` : null);
+    if (!existente) setLista((l) => [...l, texto]);
+    setNueva("");
+  }
+
+  async function guardar() {
+    setGuardando(true);
+    const ok = await datos.guardarCategorias(lista);
+    setGuardando(false);
+    if (!ok) return;
+    datos.avisarExito("Listo. Las categorías quedaron guardadas.");
+    alCerrar();
+  }
+
+  return (
+    <Tarjeta className="mb-8 max-w-[640px]">
+      <TituloSeccion>Editar categorías</TituloSeccion>
+
+      {lista.length === 0 ? (
+        <p className="mb-4 text-tinta-media">No queda ninguna. Agregá una abajo.</p>
+      ) : (
+        <ul className="mb-4 overflow-hidden rounded-tarjeta border border-borde">
+          {lista.map((c) => {
+            const n = cuantos(c);
+            return (
+              <li key={c} className="flex flex-wrap items-center gap-3 border-b border-borde p-3 last:border-b-0">
+                <span className="min-w-0 flex-1">
+                  <span className="font-bold">{c}</span>
+                  {n > 0 && <span className="text-apoyo text-tinta-suave"> · {articulo.cuantos(n)}</span>}
+                </span>
+                <Boton
+                  variante="peligro"
+                  icono="tacho"
+                  aria-label={`Borrar la categoría ${c}`}
+                  onClick={() => setLista((l) => l.filter((x) => x !== c))}
+                >
+                  Borrar
+                </Boton>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <label htmlFor="categoria-nueva-lista" className="block font-bold text-cuerpo">
+        Nueva categoría
+      </label>
+      <div className="mt-2 mb-4 flex flex-wrap gap-2">
+        <input
+          id="categoria-nueva-lista"
+          value={nueva}
+          onChange={(e) => setNueva(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && agregar()}
+          placeholder="Juntas, correas, cables…"
+          maxLength={60}
+          className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-borde bg-tarjeta px-4 text-cuerpo"
+        />
+        <Boton icono="mas" motivo={!nueva.trim() ? "falta el nombre" : null} onClick={agregar}>
+          Agregar
+        </Boton>
+      </div>
+      {aviso && <p className="mb-4 font-bold text-azul">{aviso}</p>}
+
+      {quedanSin > 0 && (
+        <p className="mb-6 flex items-start gap-2 rounded-campo bg-azul-claro p-3 font-bold text-azul">
+          <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+          <span>
+            Al guardar, {articulo.cuantos(quedanSin)} de las categorías borradas quedan en «Sin categoría».
+          </span>
+        </p>
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Boton
+          variante="principal"
+          icono="check"
+          motivo={guardando ? "se está guardando" : null}
+          className="w-full sm:w-auto"
+          onClick={guardar}
+        >
+          Guardar las categorías
+        </Boton>
+        <Boton variante="plano" className="w-full sm:w-auto" onClick={alCerrar}>
           Cancelar
         </Boton>
       </div>
