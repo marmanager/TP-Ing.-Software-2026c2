@@ -3,7 +3,7 @@
 // "Sumar gente al equipo" y "Quieren entrar" (docs/equipo-por-link.md).
 //
 // Un solo link por negocio, para mandar al grupo de WhatsApp. Quien lo usa no
-// entra: queda pendiente hasta que alguien con sumarAlEquipo (hoy, el dueño)
+// entra: queda pendiente hasta que alguien con sumar_al_equipo
 // lo acepta y le da un rol. La base vuelve a controlar todo; acá sólo se
 // muestra lo que se puede hacer.
 
@@ -11,8 +11,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { cuando } from "@/lib/fechas";
-import { puede, rolesQuePuedeDar } from "@/lib/permisos";
-import { etiquetaRol } from "@/lib/presets";
+import { puede, rolPorDefecto, rolesQuePuedeDar } from "@/lib/permisos";
 import {
   aprobarPedido,
   cambiarLinkDeEquipo,
@@ -27,10 +26,10 @@ import { Boton, ErrorGeneral, Tarjeta, TituloSeccion } from "./ui";
 
 export default function SumarAlEquipo() {
   const { usuario, sesion } = useAuth();
-  const { negocio, avisarExito, reemplazarEmpleados } = useDatos();
+  const { negocio, avisarExito, reemplazarEmpleados, roles: rolesDelNegocio } = useDatos();
   const token = sesion?.access_token;
   const hayToken = Boolean(token); // el efecto depende de si hay, no de su valor: un refresco de sesión no reinicia la pantalla
-  const puedeSumar = puede(usuario?.rol, "sumarAlEquipo");
+  const puedeSumar = puede(usuario, "sumar_al_equipo");
   const [link, setLink] = useState(undefined); // undefined: cargando; null: no hay
   const [linkFallo, setLinkFallo] = useState(false); // no se pudo saber si hay link
   const [pedidos, setPedidos] = useState([]);
@@ -76,7 +75,10 @@ export default function SumarAlEquipo() {
 
   const url = link && origen ? linkDeInvitacion(link.codigo, origen) : null;
   const mensaje = url ? mensajeDeInvitacion(negocio?.nombre ?? "tu negocio", url) : "";
-  const roles = rolesQuePuedeDar(usuario?.rol);
+  const roles = rolesQuePuedeDar(usuario, rolesDelNegocio);
+  // Sin elegir otro, entra con el rol de menos permisos; nunca Dueño de entrada.
+  const porDefecto = rolPorDefecto(roles);
+  const elegidoPara = (p) => rolDe[p.id] ?? porDefecto ?? "";
 
   async function cambiarLink() {
     setOcupado(true);
@@ -100,15 +102,16 @@ export default function SumarAlEquipo() {
   }
 
   async function aceptar(p) {
-    const rol = rolDe[p.id] ?? "tecnico";
+    const rolId = elegidoPara(p);
+    if (!rolId) return;
     setOcupado(true);
     setError(null);
-    const r = await aprobarPedido(p.id, rol, token);
+    const r = await aprobarPedido(p.id, rolId, token);
     setOcupado(false);
     if (!r.ok) return setError(r.error);
     reemplazarEmpleados(r.empleados);
     setPedidos((lista) => lista.filter((x) => x.id !== p.id));
-    avisarExito(`Listo. ${p.nombre} entró como ${etiquetaRol(negocio?.rubro, rol).toLowerCase()}.`);
+    avisarExito(`Rol asignado a ${p.nombre}: ${roles.find((x) => x.id === rolId)?.nombre}.`);
   }
 
   async function rechazar(p) {
@@ -226,18 +229,19 @@ export default function SumarAlEquipo() {
                       </label>
                       <select
                         id={`rol-pedido-${p.id}`}
-                        value={rolDe[p.id] ?? "tecnico"}
+                        value={elegidoPara(p)}
                         onChange={(e) => setRolDe((r) => ({ ...r, [p.id]: e.target.value }))}
                         className="mt-2 block min-h-12 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
                       >
+                        <option value="">Elegir un rol</option>
                         {roles.map((r) => (
-                          <option key={r} value={r}>
-                            {etiquetaRol(negocio?.rubro, r)}
+                          <option key={r.id} value={r.id}>
+                            {r.nombre}
                           </option>
                         ))}
                       </select>
                     </div>
-                    <Boton icono="check" motivo={ocupado ? "esperando" : null} onClick={() => aceptar(p)}>
+                    <Boton icono="check" motivo={ocupado ? "esperando" : !elegidoPara(p) ? "elegir un rol" : null} onClick={() => aceptar(p)}>
                       Aceptar
                     </Boton>
                     <Boton variante="peligro" disabled={ocupado} onClick={() => rechazar(p)}>

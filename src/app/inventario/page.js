@@ -50,7 +50,7 @@ import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui
 export default function Inventario() {
   const datos = useDatos();
   const { usuario } = useAuth();
-  const puedeCargar = puede(usuario?.rol, "cargarDatos");
+  const puedeCargar = puede(usuario, "editar_inventario");
   const { cargando, insumos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
   // Cómo se mira el stock: todos juntos, o agrupados por categoría.

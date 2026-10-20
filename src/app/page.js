@@ -392,11 +392,11 @@ export default function Inicio() {
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
             Tu negocio arranca con lo justo: los casos.{" "}
-            {puede(usuario?.rol, "configurarNegocio")
+            {puede(usuario, "configurar_negocio")
               ? "Elegí qué más usar —la agenda, los clientes, el inventario, el equipo— desde Mi negocio → Módulos."
               : "Qué más usar —la agenda, los clientes, el inventario, el equipo— lo elige el dueño desde Mi negocio → Módulos."}
           </p>
-          {puede(usuario?.rol, "configurarNegocio") && (
+          {puede(usuario, "configurar_negocio") && (
             <Link
               href="/negocio/modulos"
               className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
+import { puede } from "@/lib/permisos";
 import Icono from "./Icono";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
@@ -16,7 +17,7 @@ export default function ConexionMercadoPago() {
   const [desvinculando, setDesvinculando] = useState(false);
   const [error, setError] = useState(null);
 
-  const puedeConfigurar = usuario?.rol === "duenio" || usuario?.rol === "encargado";
+  const puedeConfigurar = puede(usuario, "conectar_mercadopago");
 
   // La vuelta de Mercado Pago, que pasa por Casos (vueltaDeMercadoPago).
   useEffect(() => {

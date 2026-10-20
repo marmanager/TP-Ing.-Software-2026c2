@@ -37,7 +37,7 @@ export default function Modulos() {
 
   const activos = negocio?.modulos_activos ?? [];
   const recomendados = preset(negocio?.rubro).modulos ?? [];
-  const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
+  const puedeConfigurar = puede(usuario, "configurar_negocio");
 
   // Las tres reglas de prender y apagar —que prender un módulo prenda sus
   // pantallas, que apagarlo se las lleve, y que apagar una deje escrita la
@@ -59,7 +59,7 @@ export default function Modulos() {
       <p className="mb-8 max-w-[65ch] text-tinta-media">
         {puedeConfigurar
           ? "Inicio, Casos y Mi negocio están siempre. El resto los prendés y apagás según te sirvan. Apagar uno lo saca del menú: no borra nada de lo que ya cargaste."
-          : `Inicio, Casos y Mi negocio están siempre. El resto los tiene o no tu negocio. ${QUIEN_PUEDE.configurarNegocio}`}
+          : `Inicio, Casos y Mi negocio están siempre. El resto los tiene o no tu negocio. ${QUIEN_PUEDE.configurar_negocio}`}
       </p>
 
       <ul className="grid gap-4">

@@ -1121,10 +1121,8 @@ export function DatosProvider({ children }) {
         setDatos((d) => ({ ...d, empleados: lista }));
       },
 
-      // OJO AL CAMBIAR ESTO. Desde la 037 el rol de la ficha es el que da los
-      // permisos: si la ficha es de una cuenta, la base pasa este rol a
-      // usuario.rol, que es de donde lee mi_rol() (008_permisos.sql). Antes
-      // era sólo el nombre con el que figuraba en la lista.
+      // OJO AL CAMBIAR ESTO. El rol de la ficha (rol_id) es el que da los
+      // permisos en ese negocio (057, 060).
       //
       // Por eso Equipo, antes de llamar acá por alguien con cuenta, pide
       // confirmación diciendo qué gana y qué pierde esa persona: en un
@@ -1132,14 +1130,43 @@ export function DatosProvider({ children }) {
       // querer (auditoría, H5). Las fichas sin cuenta ya no se crean a mano (la 051
       // lo frena), pero siguen apareciendo: la siembra de datos de prueba las deja
       // y una cuenta borrada deja su ficha. Para ésas sirve el cambio directo.
-      cambiarRolEmpleado(empleadoId, rol) {
+      cambiarRolEmpleado(empleadoId, rolId) {
         setDatos((d) => ({
           ...d,
-          empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol } : e)),
+          empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol_id: rolId } : e)),
         }));
-        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol, actualizado_en: version(datos.empleados, empleadoId) }, token),
+        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol_id: rolId }, token),
           ({ empleado }) => setDatos((d) => ({ ...d, empleados: ponerFila(d.empleados, empleado) })));
         return;
+      },
+
+      // ---------- roles (docs/roles.md) ----------
+      // enLaApi no devuelve el resultado (sólo avisa), y la pantalla de un rol
+      // necesita saber si salió bien y qué mensaje mostrar: van directo, como
+      // crearEcuacion. Sin cuentas no hay equipo al que dar roles: la
+      // pantalla lo dice (api() contesta "sin_api" si se llegara a pedir).
+      roles: datos.roles,
+
+      async cargarRoles() {
+        const r = await traer("/roles", await tokenDeSesion());
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        else setAviso(r.error.mensaje);
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+      },
+
+      async guardarRol({ id, nombre, permisos }) {
+        const token = await tokenDeSesion();
+        const r = id
+          ? await parchar(`/roles/${encodeURIComponent(id)}`, { nombre, permisos }, token)
+          : await mandar("/roles", { nombre, permisos }, token);
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+      },
+
+      async borrarRol(id) {
+        const r = await quitar(`/roles/${encodeURIComponent(id)}`, await tokenDeSesion());
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
       },
 
       // Los casos que tenía quedan sin responsable, no se borran: la base los
@@ -1309,6 +1336,13 @@ export function DatosProvider({ children }) {
         );
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         return { ok: true, id: r.datos.id };
+      },
+
+      // Sólo quien creó el negocio (lo decide la base, 062). El nombre va en el
+      // cuerpo del DELETE como confirmación. Al salir bien, la pantalla recarga.
+      async borrarNegocio(nombre) {
+        const r = await quitar("/negocio", await tokenDeSesion(), { cuerpo: { nombre } });
+        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
       },
 
       // El rubro se cambia sólo mientras el negocio no tiene casos (SCRUM-90):

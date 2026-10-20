@@ -2,7 +2,7 @@
 
 // "Sedes vinculadas", en Mi negocio (docs/red-de-sedes.md).
 //
-// La lista de sedes de la red y, para quien puede (vincularSedes), vincular
+// La lista de sedes de la red y, para quien puede (vincular_sedes), vincular
 // otra y desvincular ésta. La base vuelve a verificar todo: los botones sólo
 // evitan ofrecer lo que va a rechazar.
 
@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { candidatosParaVincular, desvincularSede, misSedes, vincularSede } from "@/lib/sedes";
+import { candidatosParaVincular, desvincularSede, misSedes, vincularSede, visitarSede } from "@/lib/sedes";
+import Icono from "./Icono";
 import FilaNegocio from "./FilaNegocio";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
@@ -18,7 +19,7 @@ export default function SedesVinculadas() {
   const { usuario, sesion, misNegocios } = useAuth();
   const { negocio, avisarExito } = useDatos();
   const token = sesion?.access_token;
-  const puedeVincular = puede(usuario?.rol, "vincularSedes");
+  const puedeVincular = puede(usuario, "vincular_sedes");
   const [sedes, setSedes] = useState(null);
   const [candidatos, setCandidatos] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
@@ -55,6 +56,17 @@ export default function SedesVinculadas() {
     avisarExito(`Listo. ${negocio?.nombre} y ${otro.nombre} quedaron vinculadas.`);
   }
 
+  // Entra a mirar otra sede (sólo lectura). Se recarga la aplicación entera,
+  // como al cambiar de negocio: todos los datos son de la otra sede.
+  async function visitar(id) {
+    setOcupado(true);
+    setError(null);
+    const r = await visitarSede(id, token);
+    if (r.ok) return window.location.assign("/");
+    setOcupado(false);
+    setError(r.error);
+  }
+
   async function desvincular() {
     setOcupado(true);
     setError(null);
@@ -81,6 +93,16 @@ export default function SedesVinculadas() {
             <li key={s.id} className="flex items-center gap-3">
               <FilaNegocio negocio={s} />
               {s.id === negocio?.id && <span className="text-tinta-media">(ésta)</span>}
+              {s.soy_miembro === false && (
+                <>
+                  <span className="flex items-center gap-1 font-bold text-tinta-media">
+                    <Icono nombre="ojo" className="size-5" /> Solo lectura
+                  </span>
+                  <Boton motivo={ocupado ? "entrando" : null} onClick={() => visitar(s.id)}>
+                    Ver la sede
+                  </Boton>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -93,7 +115,7 @@ export default function SedesVinculadas() {
       )}
 
       {!puedeVincular ? (
-        <p className="mt-4 text-tinta-media">{QUIEN_PUEDE.vincularSedes}</p>
+        <p className="mt-4 text-tinta-media">{QUIEN_PUEDE.vincular_sedes}</p>
       ) : candidatos ? (
         <div className="mt-4 rounded-tarjeta bg-superficie p-4">
           <p className="font-bold">¿Con cuál la vinculás?</p>

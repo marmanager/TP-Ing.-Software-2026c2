@@ -31,7 +31,7 @@ const ClientesDashboard = dynamic(() => import("@/componentes/dashboard/Clientes
 
 export default function Dashboard() {
   const { cargando, negocio } = useDatos();
-  const { usuario, esDemo } = useAuth();
+  const { usuario } = useAuth();
   const [periodo, setPeriodo] = useState(() => periodoDashboard());
   const [elegida, setElegida] = useState("resumen");
   useTitulo("Dashboard");
@@ -45,8 +45,8 @@ export default function Dashboard() {
   const actual = categorias.find((categoria) => categoria.clave === elegida) ?? categorias[0];
 
   if (cargando) return <Cargando />;
-  if (!puede(usuario?.rol ?? (esDemo ? "duenio" : "sin_rol"), "verEstadisticas"))
-    return <Vacio icono="grafico" titulo="No tenés permiso para consultar el Dashboard">{QUIEN_PUEDE.verEstadisticas}</Vacio>;
+  if (!puede(usuario, "ver_todos_los_casos"))
+    return <Vacio icono="grafico" titulo="No tenés permiso para consultar el Dashboard">{QUIEN_PUEDE.ver_todos_los_casos}</Vacio>;
 
   return (
     <>

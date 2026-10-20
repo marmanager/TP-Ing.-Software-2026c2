@@ -20,7 +20,6 @@ import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { etiquetaRol } from "@/lib/presets";
 import { estadoDeLaContrasena, motivoDeContrasenaNueva } from "@/lib/validaciones";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
@@ -260,9 +259,9 @@ export default function MiPerfil() {
                     <p className="font-titulo font-extrabold text-subtitulo">
                       {usuario?.nombre || "Sin nombre todavía"}
                     </p>
-                    {usuario?.rol && (
+                    {usuario?.rol_nombre && (
                       <p className="text-tinta-media">
-                        {etiquetaRol(negocio?.rubro, usuario.rol)}
+                        {usuario.rol_nombre}
                         {negocio?.nombre && ` en ${negocio.nombre}`}
                       </p>
                     )}

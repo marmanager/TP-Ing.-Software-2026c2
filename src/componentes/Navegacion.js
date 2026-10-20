@@ -77,7 +77,7 @@ const DESTINOS = [
   { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
-  { href: "/dashboard", icono: "grafico", palabra: "Dashboard", modulo: "dashboard", permiso: "verEstadisticas" },
+  { href: "/dashboard", icono: "grafico", palabra: "Dashboard", modulo: "dashboard", permiso: "ver_todos_los_casos" },
   // "alPie": van separados, abajo de todo. Son la configuración, no el
   // trabajo del día.
   { href: "/negocio", icono: "tienda", palabra: "Mi negocio", alPie: true },
@@ -101,10 +101,10 @@ const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(hr
 // Lo que sí sigue acá es a dónde lleva "Agenda": al primer hijo prendido. Si
 // el negocio apagó Turnos y dejó el Calendario, tocar "Agenda" tiene que
 // llevar al calendario y no a una pantalla que ese negocio no tiene.
-const conModulo = (destinos, negocio, rol) => {
+const conModulo = (destinos, negocio, quien) => {
   const activos = negocio?.modulos_activos ?? [];
   return destinos
-    .filter((d) => (!d.modulo || estaPrendido(d.modulo, activos)) && (!d.permiso || puede(rol, d.permiso)))
+    .filter((d) => (!d.modulo || estaPrendido(d.modulo, activos)) && (!d.permiso || puede(quien, d.permiso)))
     .map((d) => {
       if (!d.hijos) return d;
       const prendidos = hijosActivos(d.modulo, activos).map((h) => h.clave);
@@ -118,8 +118,8 @@ const conModulo = (destinos, negocio, rol) => {
 // respetando el orden en que están escritos. El cuarto lugar es "Más".
 const DIRECTOS_EN_CELULAR = 3;
 
-const paraCelular = (destinos, negocio, rol) => {
-  const disponibles = conModulo(destinos, negocio, rol);
+const paraCelular = (destinos, negocio, quien) => {
+  const disponibles = conModulo(destinos, negocio, quien);
   const elegidos = disponibles.filter((d) => d.celular);
 
   for (const d of disponibles) {
@@ -173,9 +173,8 @@ const LLAVE_BARRA = "marmanager.barra-cerrada";
 export function BarraLateral() {
   const ruta = usePathname();
   const { negocio } = useDatos();
-  const { usuario, esDemo } = useAuth();
-  const rol = usuario?.rol ?? (esDemo ? "duenio" : "sin_rol");
-  const [arriba, alPie] = partir(conModulo(DESTINOS, negocio, rol));
+  const { usuario } = useAuth();
+  const [arriba, alPie] = partir(conModulo(DESTINOS, negocio, usuario));
   const [cerrada, setCerrada] = useState(false);
   const boton = useRef(null);
   const recienTocado = useRef(false);
@@ -305,10 +304,9 @@ const CLASE_DESTINO =
 export function BarraCelular() {
   const ruta = usePathname();
   const { negocio } = useDatos();
-  const { usuario, esDemo } = useAuth();
-  const rol = usuario?.rol ?? (esDemo ? "duenio" : "sin_rol");
-  const directos = paraCelular(DESTINOS, negocio, rol);
-  const todos = conModulo(DESTINOS, negocio, rol);
+  const { usuario } = useAuth();
+  const directos = paraCelular(DESTINOS, negocio, usuario);
+  const todos = conModulo(DESTINOS, negocio, usuario);
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
   const botonMas = useRef(null);

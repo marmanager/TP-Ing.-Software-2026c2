@@ -27,8 +27,8 @@ export async function pedidosDeIngreso(token) {
   return r.ok ? { ok: true, pedidos: r.datos.pedidos } : conError(r);
 }
 
-export async function aprobarPedido(id, rol, token) {
-  const r = await mandar(`/equipo/pedidos/${encodeURIComponent(id)}/aprobar`, { rol }, token);
+export async function aprobarPedido(id, rolId, token) {
+  const r = await mandar(`/equipo/pedidos/${encodeURIComponent(id)}/aprobar`, { rol_id: rolId }, token);
   return r.ok ? { ok: true, empleados: r.datos.empleados } : conError(r);
 }
 

@@ -71,7 +71,6 @@ export const PRESETS = {
     ],
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Patente", enFrase: "la patente", ejemplo: "AB 123 CD" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
     // Lo que el taller tiene en stock. Era "repuesto", y pasó a "producto"
     // porque en el estante hay más que repuestos: tornillos, herramientas,
     // lubricantes, y "Agregar un repuesto" para cargar una llave de 13 no se
@@ -139,7 +138,6 @@ export const PRESETS = {
     ],
     modulos: ["agenda", "presupuesto"],
     identificador: { nombre: "DNI", enFrase: "el DNI", ejemplo: "30123456" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
     // Guantes, jeringas, gasas: en un consultorio no hay "repuestos" ni
     // "productos", hay insumos.
     palabras: {
@@ -196,7 +194,6 @@ export const PRESETS = {
     ],
     modulos: ["inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Número de serie", enFrase: "el número de serie", ejemplo: "SN-48219" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
     // Igual que el taller: el estante tiene más que repuestos.
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
@@ -251,7 +248,6 @@ export const PRESETS = {
     motivos: [],
     modulos: ["-clientes", "-historial"],
     identificador: { nombre: "Referencia", enFrase: "la referencia", ejemplo: "Orden 1520" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Colaborador" },
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
       cita: { uno: "turno", varios: "turnos", genero: "m" },
@@ -269,10 +265,6 @@ export const PRESETS = {
   },
 };
 
-// Los tres roles del equipo son fijos, igual que los cinco estados: la base
-// no acepta otros. Lo que cambia por rubro es cómo se llaman.
-export const ORDEN_ROLES = ["duenio", "encargado", "tecnico"];
-
 export const RUBROS = Object.values(PRESETS);
 
 export const preset = (rubro) => PRESETS[rubro] ?? PRESETS.taller;
@@ -280,10 +272,6 @@ export const preset = (rubro) => PRESETS[rubro] ?? PRESETS.taller;
 // La palabra que ve el usuario para un estado, en el idioma de su rubro.
 export const etiquetaEstado = (rubro, estado) =>
   preset(rubro).etiquetas[estado] ?? estado;
-
-// Lo mismo para los roles del equipo: el que arregla autos es "Mecánico" en
-// un taller y "Profesional" en un consultorio.
-export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
 
 // Cómo llama cada rubro a lo que identifica el caso: la patente del auto, el
 // DNI del paciente, el número de serie del equipo.

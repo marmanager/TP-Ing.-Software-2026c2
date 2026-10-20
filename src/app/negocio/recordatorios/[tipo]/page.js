@@ -113,7 +113,7 @@ export default function Recordatorio() {
     );
   }
 
-  const puedeConfigurar = puede(usuario?.rol, "cargarDatos");
+  const puedeConfigurar = puede(usuario, "entregar_y_reabrir");
   // Los errores sólo cuentan si está prendido: lo apagado no se manda.
   const errores = borrador.activo ? erroresDelRecordatorio({ tipo, ...borrador }) : {};
   const cambios = cambiosDelRecordatorio(tipo, guardado, borrador);
@@ -155,7 +155,7 @@ export default function Recordatorio() {
       </TituloPantalla>
 
       {!puedeConfigurar && (
-        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.cargarDatos}</p>
+        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.entregar_y_reabrir}</p>
       )}
 
       <fieldset disabled={!puedeConfigurar || guardando}>

@@ -76,7 +76,7 @@ export default function EditorDeLanding() {
 
   if (cargando) return <Cargando />;
 
-  const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
+  const puedeConfigurar = puede(usuario, "configurar_negocio");
   const guardada = normalizarLanding(negocio?.landing);
   const actual = borrador ?? guardada;
   const hayCambios = borrador !== null && JSON.stringify(borrador) !== JSON.stringify(guardada);
@@ -129,7 +129,7 @@ export default function EditorDeLanding() {
 
       {!puedeConfigurar ? (
         <Tarjeta>
-          <p className="max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.configurarNegocio}</p>
+          <p className="max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.configurar_negocio}</p>
         </Tarjeta>
       ) : (
         // Las columnas por el ancho del bloque (@container de Guardia.js) y no

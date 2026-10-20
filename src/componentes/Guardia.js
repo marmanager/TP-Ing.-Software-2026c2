@@ -17,6 +17,7 @@ import { useDatos } from "@/lib/datos";
 import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
+import FranjaDeVisita from "./FranjaDeVisita";
 import Link from "next/link";
 import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
@@ -196,6 +197,7 @@ export default function Guardia({ children }) {
           tabIndex={-1}
           className="min-w-0 flex-1 pb-[calc(var(--alto-barra,4rem)+1rem)] focus:outline-none md:pb-0"
         >
+          <FranjaDeVisita />
           {/* "@container": las grillas de las pantallas eligen sus columnas por el
                 ancho de ESTE bloque y no por el de la ventana. En escritorio la
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
