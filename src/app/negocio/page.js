@@ -14,7 +14,14 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
+import {
+  RUBROS,
+  preset,
+  ejemplosDe,
+  comoSeIdentifica,
+  mayuscula,
+  vocabulario,
+} from "@/lib/presets";
 import { LISTA_MODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { DIAS, normalizarHorarios } from "@/lib/horarios";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
@@ -133,6 +140,9 @@ export default function MiNegocio() {
   const prendidos = LISTA_MODULOS.filter((m) => estaPrendido(m.clave, modulosActivos));
   const nuevo = rubroElegido ? preset(rubroElegido) : null;
   const horarios = normalizarHorarios(negocio?.horarios);
+  // "Insumos" se escribía a mano: en un taller esa palabra es "productos".
+  // Sale del preset del rubro, como en el resto de las pantallas.
+  const { articulo } = vocabulario(negocio?.rubro);
 
   // Cómo nacen los nombres de los casos (SCRUM-119). Un negocio de antes de
   // esta opción no la tiene guardada: es "por número", como siempre fue.
@@ -346,14 +356,18 @@ export default function MiNegocio() {
           </div>
         )}
 
-        <dl className="mt-6 grid gap-4 @lg:grid-cols-4">
+        {/* Cuatro cifras cortas: en celular van de a dos, y desde que la
+            tarjeta es ancha (@lg) en una sola fila de cuatro. Apiladas una
+            por línea ocupaban media pantalla para decir muy poco. La línea de
+            arriba las separa de la ficha, para que no parezcan parte de ella. */}
+        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-borde pt-5 @lg:grid-cols-4">
           {[
             ["Casos", casos.length],
             ["Clientes", clientes.length],
-            ["Insumos", insumos.length],
+            [mayuscula(articulo.palabra(2)), insumos.length],
             ["Turnos", turnos.length],
           ].map(([que, cuanto]) => (
-            <div key={que}>
+            <div key={que} className="min-w-0">
               <dt className="text-apoyo text-tinta-suave">{que}</dt>
               <dd className="font-titulo font-extrabold text-subtitulo tabular-nums">{cuanto}</dd>
             </div>

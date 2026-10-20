@@ -151,19 +151,31 @@ export default function Agenda() {
                   t.cliente_id &&
                   casos.find((c) => c.cliente_id === t.cliente_id && estaAbierto(c));
                 return (
+                  // En celular es una grilla de dos columnas: arriba la hora y
+                  // el estado en una sola línea, debajo el texto a todo el
+                  // ancho y al final las acciones. Con el flex de antes el
+                  // texto (flex-1) se achicaba hasta quedar una palabra por
+                  // línea. Desde sm vuelve la fila horizontal de siempre.
+                  // Todos los hijos llevan order-* porque en una grilla los
+                  // que no lo tienen se colocarían antes que los que sí.
                   <li
                     key={t.id}
                     data-turno={t.id}
-                    className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
+                    className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 border-b border-borde p-4 last:border-b-0 sm:flex sm:flex-wrap sm:items-center sm:gap-4"
                   >
-                    <p className="w-20 font-titulo font-extrabold text-subtitulo tabular-nums">
+                    <p className="order-1 font-titulo font-extrabold text-subtitulo tabular-nums sm:order-none sm:w-20">
                       {horaYMinutos(t.empieza_en)}
                     </p>
-                    <div className="min-w-0 flex-1">
-                      <p className={`font-bold ${cancelado ? estadoDeTurno("cancelado").texto : ""}`}>
+                    {/* min-w-0 deja que el texto se encoja en vez de empujar
+                        la tarjeta, y overflow-wrap corta lo que no tiene
+                        espacios. */}
+                    <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-1">
+                      <p
+                        className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado").texto : ""}`}
+                      >
                         {t.motivo}
                       </p>
-                      <p className="text-tinta-media">
+                      <p className="text-tinta-media [overflow-wrap:anywhere]">
                         {cliente?.nombre ?? "Sin cliente todavía"}
                         {/* Un turno que pidió el cliente desde el link no lo
                             vio nadie del negocio todavía: no hubo llamada, no
@@ -197,7 +209,7 @@ export default function Agenda() {
                     {/* El estado con su color, su ícono y su palabra, del
                         vocabulario de turnos (lib/turnos.js). */}
                     <p
-                      className={`flex items-center gap-1.5 font-bold text-etiqueta ${estadoDeTurno(t.estado).texto}`}
+                      className={`order-2 flex items-center gap-1.5 whitespace-nowrap font-bold text-etiqueta sm:order-none ${estadoDeTurno(t.estado).texto}`}
                     >
                       <Icono nombre={estadoDeTurno(t.estado).icono} className="size-5" />
                       {estadoDeTurno(t.estado).palabra}
@@ -215,7 +227,7 @@ export default function Agenda() {
                         cancelaba el turno de otra persona sin ninguna red
                         (auditoría, H5). */}
                     {cancelando === t.id && (
-                      <div className="w-full rounded-tarjeta bg-superficie p-4">
+                      <div className="order-4 col-span-2 w-full rounded-tarjeta bg-superficie p-4 sm:order-none sm:col-span-1">
                         <p className="font-bold text-cuerpo">
                           ¿Cancelar el turno de {cliente?.nombre ?? "esta persona"} de las{" "}
                           {horaYMinutos(t.empieza_en)}?
@@ -256,12 +268,16 @@ export default function Agenda() {
                         con 8 px entre una y otra: en una fila de 360 px se
                         partían en cuatro líneas desordenadas y quedaban
                         pegadas (auditoría, Responsive). */}
+                    {/* Como el resto de los hijos de la grilla, lleva su
+                        order-* para quedar debajo del texto en celular. */}
                     {moviendo === t.id && (
-                      <MoverTurno turno={t} alTerminar={() => setMoviendo(null)} />
+                      <div className="order-4 col-span-2 w-full sm:order-none sm:col-span-1">
+                        <MoverTurno turno={t} alTerminar={() => setMoviendo(null)} />
+                      </div>
                     )}
 
                     {!cancelado && t.estado !== "atendido" && cancelando !== t.id && moviendo !== t.id && (
-                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                      <div className="order-4 col-span-2 flex w-full flex-col gap-2 sm:order-none sm:col-span-1 sm:w-auto sm:flex-row sm:flex-wrap">
                         {t.estado === "agendado" && (
                           <Boton
                             icono="check"
@@ -322,6 +338,7 @@ export default function Agenda() {
                       <Boton
                         variante="plano"
                         icono="deshacer"
+                        className="order-4 col-span-2 w-full sm:order-none sm:col-span-1 sm:w-auto"
                         onClick={() => {
                           datos.desmarcarTurnoAtendido(t.id);
                           // Si quedó en pantalla el "queda anotado que vino",

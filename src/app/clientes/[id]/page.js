@@ -286,9 +286,11 @@ export default function FichaDeCliente() {
           <ul className="mb-12 overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
             {proximos.map((t) => (
               <li key={t.id} className="border-b border-borde last:border-b-0">
-                <Link href="/agenda" className="flex min-h-14 items-center gap-3 px-4 hover:bg-superficie">
-                  <Icono nombre="calendario" className="size-5 text-tinta-media" />
-                  <span className="flex-1">
+                {/* py-3: en celular la fecha y el motivo ocupan dos líneas, y
+                    sin aire arriba y abajo quedaban pegadas al borde. */}
+                <Link href="/agenda" className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-superficie">
+                  <Icono nombre="calendario" className="size-5 shrink-0 text-tinta-media" />
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                     <span className="font-bold first-letter:uppercase">
                       {diaLargo(t.empieza_en)} a las {horaYMinutos(t.empieza_en)}
                     </span>{" "}
@@ -311,8 +313,8 @@ export default function FichaDeCliente() {
             href={`/casos/${proximaVuelta.caso.id}`}
             className="mb-12 flex min-h-14 items-center gap-3 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 hover:bg-superficie"
           >
-            <Icono nombre="calendario" className="size-5 text-tinta-media" />
-            <span className="flex-1">
+            <Icono nombre="calendario" className="size-5 shrink-0 text-tinta-media" />
+            <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
               <span className="font-bold">El {diaEnPalabras(proximaVuelta.dia)}</span>{" "}
               · {tituloDelCaso(proximaVuelta.caso)}
               {proximaVuelta.aviso && (
