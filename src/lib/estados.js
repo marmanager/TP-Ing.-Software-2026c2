@@ -249,8 +249,8 @@ export function casosPorAprobar(casos, pasos) {
     .sort((a, b) => b.plata - a.plata);
 }
 
-export const pesos = (n) =>
-  "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
+export const pesos = (n, locale = "es-AR") =>
+  "$" + Number(n || 0).toLocaleString(locale, { maximumFractionDigits: 0 });
 
 // Con qué firma el historial lo que contestó el cliente desde su link.
 //

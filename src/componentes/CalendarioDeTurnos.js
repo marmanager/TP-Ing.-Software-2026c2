@@ -21,12 +21,14 @@ import { useState } from "react";
 import { enFranjas, mesesConLugar, semanasDelMes } from "@/lib/horarios";
 import { DIAS_DE_LA_SEMANA, MES_CORTO, MES_LARGO } from "@/lib/calendario";
 import { diaPasado } from "@/lib/fechas";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "@/componentes/Icono";
 
 export const comoHora = (fecha) =>
   `${fecha.getHours()}:${String(fecha.getMinutes()).padStart(2, "0")}`;
 
 export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 }) {
+  const { locale } = useIdioma();
   const Titulo = `h${nivel}`;
   const Franja = `h${nivel + 1}`;
   // El día que está mirando, como toDateString(). null = el primero que
@@ -69,7 +71,7 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
 
       <div className="mt-6 rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-5">
         <Titulo className="text-subtitulo font-bold first-letter:uppercase">
-          {diaPasado(delDia.fecha)}
+          {diaPasado(delDia.fecha, locale)}
         </Titulo>
         <p className="text-tinta-media">
           {delDia.huecos.length === 1
@@ -90,7 +92,7 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
                     <button
                       type="button"
                       aria-pressed={Boolean(puesto)}
-                      aria-label={`${diaPasado(delDia.fecha)} a las ${comoHora(h)}`}
+                      aria-label={`${diaPasado(delDia.fecha, locale)} a las ${comoHora(h)}`}
                       onClick={() => onElegir(h.toISOString())}
                       className={[
                         "flex min-h-12 w-full cursor-pointer items-center justify-center gap-1.5 rounded-campo border-2 font-bold text-cuerpo tabular-nums",
@@ -121,10 +123,11 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
 // demás van tachados y no se tocan. Abajo, en palabras, qué quiere decir
 // cada cosa: el tachado solo no alcanza para saber por qué no se puede.
 function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultimo }) {
+  const { locale } = useIdioma();
   // "Octubre 2026", sin el "de": con el "de" no entra en una línea al lado
   // de las flechas.
   const titulo =
-    new Intl.DateTimeFormat("es-AR", { month: "long" }).format(new Date(mes.anio, mes.mes, 1)) +
+    new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(mes.anio, mes.mes, 1)) +
     " " +
     mes.anio;
 
@@ -205,7 +208,7 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
                     <button
                       type="button"
                       aria-pressed={esEste}
-                      aria-label={diaPasado(fecha)}
+                      aria-label={diaPasado(fecha, locale)}
                       onClick={() => onDia(clave)}
                       className={[
                         "mx-auto flex size-12 cursor-pointer items-center justify-center rounded-full font-bold text-cuerpo tabular-nums",
@@ -238,7 +241,7 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
           lleno, cuando lo que pasa es que todavía no se dan turnos para
           esos días. */}
       <p className="mt-1 pl-2 text-apoyo text-tinta-media">
-        Se dan turnos hasta el {diaPasado(ultimo).toLowerCase()}.
+        Se dan turnos hasta el {diaPasado(ultimo, locale).toLowerCase()}.
       </p>
     </div>
   );

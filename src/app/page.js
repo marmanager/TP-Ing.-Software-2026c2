@@ -27,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
 import { casosPorAprobar, casosQueContestoElCliente, estaAbierto, pesos } from "@/lib/estados";
 import { turnosSinVer } from "@/lib/turnos";
 import { casosConSaldo } from "@/lib/cobros";
@@ -69,6 +70,7 @@ const enAlgoQueSeToca = (destino) =>
   destino instanceof Element && destino.closest("button, select, input, a, label");
 
 export default function Inicio() {
+  const { locale } = useIdioma();
   const {
     cargando,
     casos,
@@ -212,7 +214,7 @@ export default function Inicio() {
       texto: `${articulo.cuantos(bajoMinimo)} por debajo del mínimo`,
     },
   ].filter(Boolean);
-  const fecha = new Intl.DateTimeFormat("es-AR", {
+  const fecha = new Intl.DateTimeFormat(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",

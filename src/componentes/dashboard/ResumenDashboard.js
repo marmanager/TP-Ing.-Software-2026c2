@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useIdioma } from "@/lib/useIdioma";
+import { formatoNumero } from "@/lib/formatoNumero";
 import { useDatos } from "@/lib/datos";
 import { hijosActivos } from "@/lib/modulos";
 import { destinoDashboard } from "@/lib/dashboard";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, ErrorGeneral, Tarjeta } from "@/componentes/ui";
 
-const numero = new Intl.NumberFormat("es-AR");
-const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
+const numero = (locale) => formatoNumero(locale);
+const pesos = (locale) => formatoNumero(locale, { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
 
 export default function ResumenDashboard({ periodo }) {
+  const { locale } = useIdioma();
   const { negocio, consultarResumenDashboard } = useDatos();
   const consultar = useRef(consultarResumenDashboard);
   consultar.current = consultarResumenDashboard;
@@ -67,7 +70,7 @@ export default function ResumenDashboard({ periodo }) {
                   <h3 className="font-bold text-cuerpo">{t.nombre}</h3>
                 </div>
                 <p className="mt-4 break-words text-3xl font-bold tabular-nums sm:text-4xl">
-                  {t.clave === "total_cobrado" ? pesos.format(resumen[t.clave]) : numero.format(resumen[t.clave])}
+                  {t.clave === "total_cobrado" ? pesos(locale).format(resumen[t.clave]) : numero(locale).format(resumen[t.clave])}
                 </p>
                 <p className="mt-1 text-etiqueta text-tinta-media">{t.unidad}</p>
                 <p className="mt-4 font-bold text-etiqueta text-azul">{t.periodo ? "En el período seleccionado" : "Situación actual"}</p>
@@ -76,7 +79,7 @@ export default function ResumenDashboard({ periodo }) {
             ))}
           </div>
           <p className="mt-4 text-etiqueta text-tinta-media">
-            Consultado a las {new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(resumen.actualizado_en))} (Argentina).
+            Consultado a las {new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(resumen.actualizado_en))} (Argentina).
           </p>
         </>
       )}

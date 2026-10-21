@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
 import { agruparPlanes, ahorroAnual, diasQueQuedan, monto } from "@/lib/suscripcion";
 import { useSuscripcionCompartida } from "@/lib/useSuscripcion";
 import { Boton, Cargando, ErrorGeneral, Tarjeta, TituloPantalla, TituloSeccion } from "@/componentes/ui";
@@ -53,6 +54,7 @@ function encabezado(datos) {
 }
 
 export default function Planes() {
+  const { locale } = useIdioma();
   useTitulo("Planes");
   const router = useRouter();
   const { usuario } = useAuth();
@@ -133,8 +135,8 @@ export default function Planes() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {lista.map((p) => {
             const precio = p[periodo];
-            const texto = monto(precio, moneda);
-            const ahorro = periodo === "anual" ? ahorroAnual(p.mensual, p.anual, moneda) : null;
+            const texto = monto(precio, moneda, locale);
+            const ahorro = periodo === "anual" ? ahorroAnual(p.mensual, p.anual, moneda, locale) : null;
             return (
               <Tarjeta key={p.plan} className="flex flex-col">
                 <p className="text-subtitulo font-bold">{p.plan}</p>
@@ -182,7 +184,7 @@ export default function Planes() {
         />
         <p className="mt-3 text-apoyo text-tinta-suave">
           {planes?.dolar
-            ? `Dólar oficial: $ ${planes.dolar.toLocaleString("es-AR")}. `
+            ? `Dólar oficial: $ ${planes.dolar.toLocaleString(locale)}. `
             : ""}
           Mercado Pago cobra en pesos, al dólar oficial del día en que te suscribís.
         </p>

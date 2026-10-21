@@ -2,11 +2,16 @@ import { textoPeriodo } from "./dashboard.js";
 
 const DIA = 86_400_000;
 const fechaISO = (instante) => new Date(instante).toISOString().slice(0, 10);
-const corta = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" });
-const mes = new Intl.DateTimeFormat("es-AR", { month: "short", year: "numeric", timeZone: "UTC" });
+// Un par de formatos por locale, armados la primera vez que se piden.
+const formatos = {};
+const formatosDe = (locale) => formatos[locale] ??= {
+  corta: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }),
+  mes: new Intl.DateTimeFormat(locale, { month: "short", year: "numeric", timeZone: "UTC" }),
+};
 
 // Semanas desde el lunes. Los extremos se recortan al período seleccionado.
-export function intervalosDashboard(periodo, agrupacion) {
+export function intervalosDashboard(periodo, agrupacion, locale = "es-AR") {
+  const { corta, mes } = formatosDe(locale);
   const inicio = Date.parse(`${periodo.desde}T00:00:00Z`);
   const fin = Date.parse(`${periodo.hasta}T00:00:00Z`);
   const puntos = [];
@@ -21,7 +26,7 @@ export function intervalosDashboard(periodo, agrupacion) {
     puntos.push({
       desde, hasta,
       etiqueta: agrupacion === "año" ? desde.slice(0, 4) : agrupacion === "mes" ? mes.format(new Date(cursor)) : corta.format(new Date(cursor)),
-      detalle: textoPeriodo({ desde, hasta }),
+      detalle: textoPeriodo({ desde, hasta }, locale),
     });
     cursor = siguiente.getTime();
   }

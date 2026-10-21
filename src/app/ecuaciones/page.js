@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
 import {
   entradasDeEcuacionEncadenada, errorDeVariables, filtrarEcuaciones,
   nombreParaDependencia, ordenarEcuaciones, resolverEcuacionEncadenada, variablesHeredadas,
@@ -279,6 +280,7 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
 }
 
 function Resolver({ ecuacion, ecuaciones, alCerrar }) {
+  const { locale } = useIdioma();
   const preparacion = entradasDeEcuacionEncadenada(ecuacion, ecuaciones);
   const variables = preparacion.entradas ?? [];
   const cadena = ordenarEcuaciones(ecuacion, ecuaciones);
@@ -317,10 +319,10 @@ function Resolver({ ecuacion, ecuaciones, alCerrar }) {
           <Campo key={v.id} id={`resolver-${v.id}`} etiqueta={`${v.nombre}${v.unidad ? ` (${v.unidad})` : ""}`} ayuda={v.descripcion || `Entrada de ${v.ecuacion}.`} type="number" step="any" value={entradas[v.id]} onChange={(e) => { setMostrarErrores(true); setEntradas((actual) => ({ ...actual, [v.id]: e.target.value })); }} error={mostrarErrores && salida?.campo === v.id ? salida.error : undefined} />
         ))}
         {mostrarErrores && salida?.error && !salida.campo && <ErrorGeneral>{salida.error}</ErrorGeneral>}
-        {salida && !salida.error && <div aria-live="polite" className="mb-6 rounded-tarjeta bg-azul-claro p-5"><p className="text-etiqueta text-tinta-media">Resultado</p><p className="mt-1 text-pantalla text-azul">{new Intl.NumberFormat("es-AR", { maximumFractionDigits: 10 }).format(salida.resultado)}{ecuacion.unidad_resultado ? ` ${ecuacion.unidad_resultado}` : ""}</p></div>}
+        {salida && !salida.error && <div aria-live="polite" className="mb-6 rounded-tarjeta bg-azul-claro p-5"><p className="text-etiqueta text-tinta-media">Resultado</p><p className="mt-1 text-pantalla text-azul">{new Intl.NumberFormat(locale, { maximumFractionDigits: 10 }).format(salida.resultado)}{ecuacion.unidad_resultado ? ` ${ecuacion.unidad_resultado}` : ""}</p></div>}
         {!!salida?.intermedios?.length && <div className="mb-6">
           <TituloSeccion>Resultados intermedios</TituloSeccion>
-          <ul className="space-y-2">{salida.intermedios.map((intermedio) => <li key={intermedio.id} className="rounded-campo bg-superficie p-3"><strong>{intermedio.nombre}:</strong> {new Intl.NumberFormat("es-AR", { maximumFractionDigits: 10 }).format(intermedio.resultado)}{intermedio.unidad ? ` ${intermedio.unidad}` : ""}</li>)}</ul>
+          <ul className="space-y-2">{salida.intermedios.map((intermedio) => <li key={intermedio.id} className="rounded-campo bg-superficie p-3"><strong>{intermedio.nombre}:</strong> {new Intl.NumberFormat(locale, { maximumFractionDigits: 10 }).format(intermedio.resultado)}{intermedio.unidad ? ` ${intermedio.unidad}` : ""}</li>)}</ul>
         </div>}
         <div className="flex flex-wrap gap-2"><Boton variante="principal" onClick={() => calcular()}>Calcular</Boton><Boton onClick={alCerrar}>Volver al listado</Boton></div>
       </Tarjeta>

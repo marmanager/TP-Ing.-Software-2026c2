@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useIdioma } from "@/lib/useIdioma";
 import { errorPeriodo, periodoDashboard, PERIODOS_DASHBOARD, textoPeriodo } from "@/lib/dashboard";
 import { Boton, Campo, ErrorGeneral, Tarjeta } from "@/componentes/ui";
 
 export default function PeriodoDashboard({ periodo, cambiar }) {
+  const { locale } = useIdioma();
   const [opcion, setOpcion] = useState("mes");
   const [borrador, setBorrador] = useState(periodo);
   const [error, setError] = useState(null);
@@ -31,7 +33,7 @@ export default function PeriodoDashboard({ periodo, cambiar }) {
           className="min-h-12 max-w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-3 text-cuerpo">
           {PERIODOS_DASHBOARD.map((p) => <option key={p.clave} value={p.clave}>{p.nombre}</option>)}
         </select>
-        <p className="text-etiqueta text-tinta-media">{textoPeriodo(periodo)} · Hora de Argentina</p>
+        <p className="text-etiqueta text-tinta-media">{textoPeriodo(periodo, locale)} · Hora de Argentina</p>
       </div>
       {opcion === "personalizado" && (
         <form onSubmit={aplicar} noValidate className="mt-5">

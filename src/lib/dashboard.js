@@ -87,8 +87,8 @@ export function periodoDashboard(clave = "mes", ahora = new Date()) {
   return { desde, hasta };
 }
 
-export function textoPeriodo({ desde, hasta }) {
-  const formato = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+export function textoPeriodo({ desde, hasta }, locale = "es-AR") {
+  const formato = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   const fecha = (valor) => formato.format(new Date(`${valor}T12:00:00Z`));
   return desde === hasta ? fecha(desde) : `${fecha(desde)} al ${fecha(hasta)}`;
 }

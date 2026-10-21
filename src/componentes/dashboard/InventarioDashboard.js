@@ -1,32 +1,35 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useIdioma } from "@/lib/useIdioma";
+import { formatoNumero } from "@/lib/formatoNumero";
 import { Bar, BarChart, CartesianGrid, LabelList, Rectangle, Tooltip, XAxis, YAxis } from "recharts";
 import { useDatos } from "@/lib/datos";
 import { presentacion } from "@/lib/inventario";
 import { Boton, Cargando, ErrorGeneral, Tarjeta } from "@/componentes/ui";
 
-const numero = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 6 });
-const fecha = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" });
-const cantidadConUnidad = (producto, cantidad) => `${numero.format(cantidad)} ${producto.unidad === "caja" && !producto.por_caja ? (cantidad === 1 ? "caja" : "cajas") : presentacion(producto, cantidad)}`;
+const numero = (locale) => formatoNumero(locale, { maximumFractionDigits: 6 });
+const fecha = (locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" });
+const cantidadConUnidad = (producto, cantidad, locale) => `${numero(locale).format(cantidad)} ${producto.unidad === "caja" && !producto.por_caja ? (cantidad === 1 ? "caja" : "cajas") : presentacion(producto, cantidad)}`;
 
 function ListaPedidos({ pedidos }) {
+  const { locale } = useIdioma();
   function lista(filas) {
     return <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {filas.map((producto) => <li key={producto.id} className="min-w-0 rounded-campo border border-borde p-3 text-etiqueta">
         <p className="break-words font-bold">{producto.nombre}</p>
         {(producto.marca || producto.modelo) && <p className="mt-1 break-words text-tinta-media">{[producto.marca, producto.modelo].filter(Boolean).join(" · ")}</p>}
         <dl className="mt-2">
-          <div className="flex flex-wrap justify-between gap-x-3"><dt>Por llegar</dt><dd className="ml-auto break-words text-right font-bold tabular-nums">{cantidadConUnidad(producto, producto.cantidad)}</dd></div>
+          <div className="flex flex-wrap justify-between gap-x-3"><dt>Por llegar</dt><dd className="ml-auto break-words text-right font-bold tabular-nums">{cantidadConUnidad(producto, producto.cantidad, locale)}</dd></div>
         </dl>
-        {producto.creado_en && <p className="mt-2 text-tinta-media">Pedido el {fecha.format(new Date(producto.creado_en))}</p>}
+        {producto.creado_en && <p className="mt-2 text-tinta-media">Pedido el {fecha(locale).format(new Date(producto.creado_en))}</p>}
       </li>)}
     </ul>;
   }
   return <>
     {lista(pedidos.slice(0, 3))}
     {pedidos.length > 3 && <details className="mt-3 border-t border-borde pt-2">
-      <summary className="min-h-12 cursor-pointer py-3 text-etiqueta font-bold text-azul">Ver {numero.format(pedidos.length - 3)} {pedidos.length === 4 ? "pedido más" : "pedidos más"}</summary>
+      <summary className="min-h-12 cursor-pointer py-3 text-etiqueta font-bold text-azul">Ver {numero(locale).format(pedidos.length - 3)} {pedidos.length === 4 ? "pedido más" : "pedidos más"}</summary>
       {lista(pedidos.slice(3))}
     </details>}
   </>;
@@ -50,11 +53,12 @@ function BarraIndicador(props) {
 }
 
 function DetalleIndicador({ active, payload }) {
+  const { locale } = useIdioma();
   const punto = payload?.[0]?.payload;
   if (!active || !punto) return null;
   return <div className="max-w-64 rounded-campo border border-borde bg-tarjeta p-3 text-etiqueta shadow-sm">
     <p className="font-bold">{punto.nombre}</p>
-    <p className="mt-1">{numero.format(punto.cantidad)} {punto.unidad}{punto.cantidad === 1 ? "" : "s"}</p>
+    <p className="mt-1">{numero(locale).format(punto.cantidad)} {punto.unidad}{punto.cantidad === 1 ? "" : "s"}</p>
   </div>;
 }
 
@@ -66,15 +70,17 @@ function EtiquetaCategoria({ x, y, payload }) {
 }
 
 function DetalleCategoria({ active, payload }) {
+  const { locale } = useIdioma();
   const punto = payload?.[0]?.payload;
   if (!active || !punto) return null;
   return <div className="max-w-64 break-words rounded-campo border border-borde bg-tarjeta p-3 text-etiqueta shadow-sm">
     <p className="font-bold">{punto.categoria}</p>
-    <p className="mt-1">{numero.format(punto.cantidad)} {punto.cantidad === 1 ? "producto registrado" : "productos registrados"}</p>
+    <p className="mt-1">{numero(locale).format(punto.cantidad)} {punto.cantidad === 1 ? "producto registrado" : "productos registrados"}</p>
   </div>;
 }
 
 export default function InventarioDashboard() {
+  const { locale } = useIdioma();
   const { negocio, consultarInventarioDashboard } = useDatos();
   const consultar = useRef(consultarInventarioDashboard);
   consultar.current = consultarInventarioDashboard;
@@ -122,15 +128,15 @@ export default function InventarioDashboard() {
           <figure aria-labelledby="inventario-categorias-titulo" aria-describedby="inventario-categorias-descripcion">
             <h3 id="inventario-categorias-titulo" className="text-subtitulo font-bold">Productos por categoría</h3>
             <figcaption id="inventario-categorias-descripcion" className="mt-2 text-etiqueta text-tinta-media">Catálogo actual de En stock, incluidos los productos con cantidad cero. Los pedidos se cuentan aparte. Unidad: productos registrados.</figcaption>
-            <p className="mt-4 text-2xl font-bold tabular-nums">{numero.format(stock.total_productos)} {stock.total_productos === 1 ? "producto registrado" : "productos registrados"}</p>
+            <p className="mt-4 text-2xl font-bold tabular-nums">{numero(locale).format(stock.total_productos)} {stock.total_productos === 1 ? "producto registrado" : "productos registrados"}</p>
             {stock.total_productos === 0 ? <p className="mt-4 text-tinta-media">Todavía no hay productos registrados en el stock.</p> : <div className="mt-5 min-w-0">
               <BarChart responsive style={{ width: "100%", minWidth: 0 }} height={Math.max(240, stock.por_categoria.length * 46)} data={stock.por_categoria} layout="vertical" accessibilityLayer aria-label="Cantidad actual de productos registrados por categoría" margin={{ top: 8, right: 32, left: 0, bottom: 8 }}>
                 <CartesianGrid stroke="var(--color-borde)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" allowDecimals={false} tickFormatter={(n) => numero.format(n)} tick={{ fill: "var(--color-tinta-media)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                <XAxis type="number" allowDecimals={false} tickFormatter={(n) => numero(locale).format(n)} tick={{ fill: "var(--color-tinta-media)", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="categoria" width={128} interval={0} tick={<EtiquetaCategoria />} axisLine={false} tickLine={false} />
                 <Tooltip content={<DetalleCategoria />} cursor={{ fill: "var(--color-superficie)" }} />
                 <Bar dataKey="cantidad" name="Productos registrados" fill="var(--color-azul)" maxBarSize={28} radius={[0, 5, 5, 0]} isAnimationActive={false}>
-                  <LabelList dataKey="cantidad" position="right" fill="var(--color-tinta)" fontSize={13} formatter={(n) => numero.format(n)} />
+                  <LabelList dataKey="cantidad" position="right" fill="var(--color-tinta)" fontSize={13} formatter={(n) => numero(locale).format(n)} />
                 </Bar>
               </BarChart>
             </div>}
@@ -143,11 +149,11 @@ export default function InventarioDashboard() {
             <div className="mt-5 min-w-0">
               <BarChart responsive style={{ width: "100%", minWidth: 0 }} height={280} data={indicadores} layout="vertical" accessibilityLayer aria-label="Cantidad actual de productos sin stock, en mínimo y pedidos pendientes" margin={{ top: 8, right: 32, left: 0, bottom: 8 }}>
                 <CartesianGrid stroke="var(--color-borde)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" allowDecimals={false} domain={[0, "auto"]} tickFormatter={(n) => numero.format(n)} tick={{ fill: "var(--color-tinta-media)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                <XAxis type="number" allowDecimals={false} domain={[0, "auto"]} tickFormatter={(n) => numero(locale).format(n)} tick={{ fill: "var(--color-tinta-media)", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="nombre" width={130} interval={0} tick={<EtiquetaIndicador />} axisLine={false} tickLine={false} />
                 <Tooltip content={<DetalleIndicador />} cursor={{ fill: "var(--color-superficie)" }} />
                 <Bar dataKey="cantidad" name="Cantidad" fill="var(--color-azul)" maxBarSize={28} radius={[0, 5, 5, 0]} shape={<BarraIndicador />} isAnimationActive={false}>
-                  <LabelList dataKey="cantidad" position="right" fill="var(--color-tinta)" fontSize={13} formatter={(n) => numero.format(n)} />
+                  <LabelList dataKey="cantidad" position="right" fill="var(--color-tinta)" fontSize={13} formatter={(n) => numero(locale).format(n)} />
                 </Bar>
               </BarChart>
             </div>
@@ -160,7 +166,7 @@ export default function InventarioDashboard() {
         <p className="mb-4 mt-2 text-etiqueta text-tinta-media">Pedidos pendientes de llegada, del más antiguo al más reciente. Cada cantidad conserva su unidad.</p>
         {pedidos.total ? <ListaPedidos pedidos={pedidos.pedidos} /> : <p className="text-tinta-media">No hay pedidos pendientes de llegada.</p>}
       </Tarjeta> : <p className="text-etiqueta text-tinta-media">En camino está apagado para este negocio.</p>}
-      <p className="mt-4 text-etiqueta text-tinta-media">Consultado el {fecha.format(new Date(estadisticas.actualizado_en))} a las {new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(estadisticas.actualizado_en))} (Argentina).</p>
+      <p className="mt-4 text-etiqueta text-tinta-media">Consultado el {fecha(locale).format(new Date(estadisticas.actualizado_en))} a las {new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(estadisticas.actualizado_en))} (Argentina).</p>
     </>}
   </div>;
 }

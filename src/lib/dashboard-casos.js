@@ -6,12 +6,12 @@ const fechaISO = (instante) => new Date(instante).toISOString().slice(0, 10);
 
 // Ambas líneas comparten los mismos intervalos; agrupar no altera sus totales.
 // Los intervalos de los extremos se recortan al período pedido.
-export function serieActividadCasos(periodo, porDia, cierresPorDia = []) {
+export function serieActividadCasos(periodo, porDia, cierresPorDia = [], locale = "es-AR") {
   const inicio = Date.parse(`${periodo.desde}T00:00:00Z`);
   const fin = Date.parse(`${periodo.hasta}T00:00:00Z`);
   const dias = (fin - inicio) / DIA + 1;
   const agrupacion = dias <= 62 ? "día" : dias <= 366 ? "semana" : dias <= 1826 ? "mes" : "año";
-  const puntos = intervalosDashboard(periodo, agrupacion).map((punto) => ({ ...punto, cantidad: 0, cerrados: 0 }));
+  const puntos = intervalosDashboard(periodo, agrupacion, locale).map((punto) => ({ ...punto, cantidad: 0, cerrados: 0 }));
   for (const [filas, campo] of [[porDia, "cantidad"], [cierresPorDia, "cerrados"]]) {
     let indice = 0;
     for (const fila of [...filas].sort((a, b) => a.fecha.localeCompare(b.fecha))) {

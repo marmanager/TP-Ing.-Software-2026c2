@@ -5,13 +5,15 @@
 
 import { useRouter } from "next/navigation";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
 import { diasQueQuedan } from "@/lib/suscripcion";
 import { useSuscripcionCompartida } from "@/lib/useSuscripcion";
 import { Boton, Cargando, Tarjeta, TituloPantalla } from "@/componentes/ui";
 
-const fecha = (iso) => new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "long" });
+const fecha = (iso, locale) => new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "long" });
 
 export default function Prueba() {
+  const { locale } = useIdioma();
   useTitulo("Mes de prueba");
   const router = useRouter();
   const { cargando, datos } = useSuscripcionCompartida();
@@ -26,7 +28,7 @@ export default function Prueba() {
     <div className="mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
       {activa ? (
         <>
-          <TituloPantalla apoyo={`Te ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}: hasta el ${fecha(hasta)}.`}>
+          <TituloPantalla apoyo={`Te ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}: hasta el ${fecha(hasta, locale)}.`}>
             Tu mes de prueba está activo
           </TituloPantalla>
           <Tarjeta>
@@ -44,7 +46,7 @@ export default function Prueba() {
       ) : (
         <>
           <TituloPantalla
-            apoyo={hasta ? `Terminó el ${fecha(hasta)}. Para seguir, elegí un plan.` : "Lo podés empezar desde los planes."}
+            apoyo={hasta ? `Terminó el ${fecha(hasta, locale)}. Para seguir, elegí un plan.` : "Lo podés empezar desde los planes."}
           >
             {hasta ? "Tu mes de prueba terminó" : "Todavía no empezaste tu mes de prueba"}
           </TituloPantalla>
