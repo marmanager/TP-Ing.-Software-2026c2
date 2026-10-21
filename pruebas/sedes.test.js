@@ -9,10 +9,10 @@ import assert from "node:assert/strict";
 import { candidatosParaVincular } from "../src/lib/sedes.js";
 
 const negocios = [
-  { id: "a", nombre: "Centro", rol: "duenio" },
-  { id: "b", nombre: "Norte", rol: "duenio" },
-  { id: "c", nombre: "Sur", rol: "encargado" },
-  { id: "d", nombre: "Oeste", rol: "duenio" },
+  { id: "a", nombre: "Centro", es_duenio: true, permisos: [] },
+  { id: "b", nombre: "Norte", es_duenio: true, permisos: [] },
+  { id: "c", nombre: "Sur", es_duenio: false, permisos: ["ver_agenda"] },
+  { id: "d", nombre: "Oeste", es_duenio: true, permisos: [] },
 ];
 
 test("ofrece los otros negocios donde puede vincular", () => {

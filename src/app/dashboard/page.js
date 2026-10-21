@@ -31,10 +31,10 @@ const ClientesDashboard = dynamic(() => import("@/componentes/dashboard/Clientes
 
 export default function Dashboard() {
   const { cargando, negocio } = useDatos();
-  const { usuario, esDemo } = useAuth();
+  const { usuario } = useAuth();
   const [periodo, setPeriodo] = useState(() => periodoDashboard());
   const [elegida, setElegida] = useState("resumen");
-  useTitulo("Dashboard");
+  useTitulo("Estadísticas");
 
   useEffect(() => {
     setElegida("resumen");
@@ -45,16 +45,16 @@ export default function Dashboard() {
   const actual = categorias.find((categoria) => categoria.clave === elegida) ?? categorias[0];
 
   if (cargando) return <Cargando />;
-  if (!puede(usuario?.rol ?? (esDemo ? "duenio" : "sin_rol"), "verEstadisticas"))
-    return <Vacio icono="grafico" titulo="No tenés permiso para consultar el Dashboard">{QUIEN_PUEDE.verEstadisticas}</Vacio>;
+  if (!puede(usuario, "ver_todos_los_casos"))
+    return <Vacio icono="grafico" titulo="No tenés permiso para consultar las Estadísticas">{QUIEN_PUEDE.ver_todos_los_casos}</Vacio>;
 
   return (
     <>
       <TituloPantalla apoyo="La actividad de tu negocio, organizada por categoría.">
-        Dashboard
+        Estadísticas
       </TituloPantalla>
 
-      <div role="group" aria-label="Categorías del Dashboard" className="mb-6 flex flex-wrap gap-2">
+      <div role="group" aria-label="Categorías de Estadísticas" className="mb-6 flex flex-wrap gap-2">
         {categorias.map((categoria) => {
           const seleccionada = actual.clave === categoria.clave;
           return (

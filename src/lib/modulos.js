@@ -66,11 +66,11 @@ export const MODULOS = {
   // Lo que cambió es el nombre, porque el de antes prometía algo que no
   // hacía. Se llamaba "Presupuesto" y apagarlo no apagaba ningún presupuesto:
   // los pasos se siguen armando y aprobando adentro de cada caso. Lo único que
-  // prende y apaga es la pantalla "A aprobar" y su tarjeta del Inicio. Ahora
+  // prende y apaga es la pantalla "Pendientes de aprobación" y su tarjeta del Inicio. Ahora
   // se llama como lo que hace, y es el mismo nombre que tiene en el menú.
   presupuesto: {
     clave: "presupuesto",
-    nombre: "A aprobar",
+    nombre: "Pendientes de aprobación",
     icono: "persona-check",
     ruta: "/aprobar",
     descripcion: "Los casos que esperan que el cliente conteste.",
@@ -99,7 +99,7 @@ export const MODULOS = {
   },
   dashboard: {
     clave: "dashboard",
-    nombre: "Dashboard",
+    nombre: "Estadísticas",
     icono: "grafico",
     ruta: "/dashboard",
     descripcion: "La actividad del negocio, organizada por categoría.",

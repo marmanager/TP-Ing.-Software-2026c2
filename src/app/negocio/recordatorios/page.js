@@ -53,7 +53,7 @@ export default function Recordatorios() {
 
   if (cargando || (!configuracion && !error)) return <Cargando />;
 
-  const puedeConfigurar = puede(usuario?.rol, "cargarDatos");
+  const puedeConfigurar = puede(usuario, "entregar_y_reabrir");
   const conAgenda = estaPrendido("agenda", negocio?.modulos_activos ?? []);
 
   const volver = (
@@ -84,7 +84,7 @@ export default function Recordatorios() {
       </TituloPantalla>
 
       {!puedeConfigurar && (
-        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.cargarDatos}</p>
+        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.entregar_y_reabrir}</p>
       )}
 
       <ul className="flex flex-col gap-4">

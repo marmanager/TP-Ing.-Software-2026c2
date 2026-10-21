@@ -9,8 +9,6 @@ import {
   PRESETS,
   RUBROS,
   preset,
-  ORDEN_ROLES,
-  etiquetaRol,
   comoSeIdentifica,
   ejemplosDe,
   queSignificaPara,
@@ -75,29 +73,6 @@ test("un rubro desconocido o vacío cae en taller", () => {
 
 test("ya no existe el preset veterinaria", () => {
   assert.equal(PRESETS.veterinaria, undefined);
-});
-
-// Mismo criterio que los estados: los tres roles son fijos porque la base no
-// acepta otros, pero cómo se llaman sale del rubro.
-test("cada preset le pone nombre a los tres roles", () => {
-  for (const r of RUBROS) {
-    for (const rol of ORDEN_ROLES) {
-      assert.equal(typeof r.roles[rol], "string", `${r.clave} sin nombre para ${rol}`);
-      assert.ok(r.roles[rol].trim().length > 0, `${r.clave}.${rol} está vacío`);
-    }
-  }
-});
-
-test("el que hace el trabajo se llama distinto en cada rubro", () => {
-  assert.equal(etiquetaRol("taller", "tecnico"), "Mecánico");
-  assert.equal(etiquetaRol("medicina", "tecnico"), "Profesional");
-  assert.equal(etiquetaRol("service", "tecnico"), "Técnico");
-
-  // Dueño y encargado se dicen igual en todos.
-  for (const r of RUBROS) {
-    assert.equal(etiquetaRol(r.clave, "duenio"), "Dueño");
-    assert.equal(etiquetaRol(r.clave, "encargado"), "Encargado");
-  }
 });
 
 // El identificador es lo más certero para reconocer un caso, y se pide al

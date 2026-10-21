@@ -24,6 +24,12 @@ export async function desvincularSede(token) {
   return r.ok ? { ok: true, sedes: r.datos.sedes } : conError(r);
 }
 
+// Entrar de visita (sólo lectura) a una sede de la red donde no se es miembro.
+export async function visitarSede(id, token) {
+  const r = await mandar(`/sedes/${id}/visita`, {}, token);
+  return r.ok ? { ok: true } : conError(r);
+}
+
 export async function inventarioDeSedes(token) {
   const r = await traer("/inventario/sedes", token);
   return r.ok ? { ok: true, sedes: r.datos.sedes, productos: r.datos.productos ?? [] } : conError(r);
@@ -34,5 +40,5 @@ export async function inventarioDeSedes(token) {
 // rol puede vincular.
 export const candidatosParaVincular = (negocios = [], sedes = [], activoId) =>
   negocios.filter(
-    (n) => n.id !== activoId && !sedes.some((s) => s.id === n.id) && puede(n.rol, "vincularSedes")
+    (n) => n.id !== activoId && !sedes.some((s) => s.id === n.id) && puede(n, "vincular_sedes")
   );

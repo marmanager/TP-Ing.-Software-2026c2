@@ -20,14 +20,15 @@ import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { etiquetaRol } from "@/lib/presets";
 import { estadoDeLaContrasena, motivoDeContrasenaNueva } from "@/lib/validaciones";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import Suscripcion from "./Suscripcion";
 import TusNegocios from "./TusNegocios";
+import Tema from "./Tema";
 
 export default function MiPerfil() {
   const router = useRouter();
@@ -260,9 +261,9 @@ export default function MiPerfil() {
                     <p className="font-titulo font-extrabold text-subtitulo">
                       {usuario?.nombre || "Sin nombre todavía"}
                     </p>
-                    {usuario?.rol && (
+                    {usuario?.rol_nombre && (
                       <p className="text-tinta-media">
-                        {etiquetaRol(negocio?.rubro, usuario.rol)}
+                        {usuario.rol_nombre}
                         {negocio?.nombre && ` en ${negocio.nombre}`}
                       </p>
                     )}
@@ -532,6 +533,12 @@ export default function MiPerfil() {
             )}
           </Tarjeta>
       </>
+
+      <TituloSeccion id="tema">Tema</TituloSeccion>
+      <Tema />
+
+      <TituloSeccion id="suscripcion">Suscripción</TituloSeccion>
+      <Suscripcion />
 
       {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
       <TituloSeccion id="negocios">Tus negocios</TituloSeccion>

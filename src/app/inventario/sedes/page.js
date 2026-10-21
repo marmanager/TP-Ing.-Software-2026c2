@@ -51,7 +51,7 @@ export default function TodasLasSedes() {
     cuerpo = (
       <Vacio icono="tienda" titulo="Todavía no hay otras sedes para mostrar">
         Acá aparecen las sedes vinculadas con ésta donde tenés acceso.{" "}
-        {puede(usuario?.rol, "vincularSedes") ? (
+        {puede(usuario, "vincular_sedes") ? (
           <>
             Se vinculan desde{" "}
             <Link href="/negocio#sedes" className="font-bold text-azul">
@@ -60,7 +60,7 @@ export default function TodasLasSedes() {
             .
           </>
         ) : (
-          QUIEN_PUEDE.vincularSedes
+          QUIEN_PUEDE.vincular_sedes
         )}
       </Vacio>
     );

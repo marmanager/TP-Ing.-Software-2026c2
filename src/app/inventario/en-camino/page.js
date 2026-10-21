@@ -55,7 +55,7 @@ export default function EnCamino() {
 function Pantalla() {
   const datos = useDatos();
   const { usuario } = useAuth();
-  const puedeCargar = puede(usuario?.rol, "cargarDatos");
+  const puedeCargar = puede(usuario, "editar_inventario");
   const { cargando, insumos, casos, clientes, negocio } = datos;
   const pedido = useSearchParams();
   const casoPedido = pedido.get("caso");

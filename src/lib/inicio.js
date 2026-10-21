@@ -110,7 +110,7 @@ export const CATALOGO = {
   },
   aprobar: {
     clave: "aprobar",
-    nombre: "A aprobar",
+    nombre: "Pendientes de aprobación",
     icono: "persona-check",
     ruta: "/aprobar",
     modulo: "presupuesto",

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
 import { MODULOS } from "../../src/lib/modulos.js";
 import {
-  ORDEN_ROLES,
   PRESETS,
   RUBROS,
   comoSeIdentifica,
@@ -27,13 +26,10 @@ describe("Historia: Sistema de presets", () => {
     }
   });
 
-  test("AC4: cada preset adapta estados, roles, ejemplos e identificador", () => {
+  test("AC4: cada preset adapta estados, ejemplos e identificador", () => {
     for (const rubro of RUBROS) {
       for (const estado of ORDEN_ESTADOS) {
         expect(rubro.etiquetas[estado]?.trim()).toBeTruthy();
-      }
-      for (const rol of ORDEN_ROLES) {
-        expect(rubro.roles[rol]?.trim()).toBeTruthy();
       }
 
       const identificador = comoSeIdentifica(rubro.clave);
@@ -51,7 +47,6 @@ describe("Historia: Sistema de presets", () => {
     expect(preset("taller").etiquetas.en_proceso).not.toBe(
       preset("medicina").etiquetas.en_proceso
     );
-    expect(preset("taller").roles.tecnico).not.toBe(preset("medicina").roles.tecnico);
     expect(comoSeIdentifica("taller").nombre).not.toBe(comoSeIdentifica("service").nombre);
     expect(PRESETS.taller.modulos).not.toEqual(PRESETS.service.modulos);
   });

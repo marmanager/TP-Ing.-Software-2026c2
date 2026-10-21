@@ -34,6 +34,7 @@ import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import ResumenRecordatorios from "@/componentes/ResumenRecordatorios";
+import BorrarNegocio from "@/componentes/BorrarNegocio";
 
 export default function MiNegocio() {
   const datos = useDatos();
@@ -136,7 +137,7 @@ export default function MiNegocio() {
   const actual = preset(negocio?.rubro);
   const modulosActivos = negocio?.modulos_activos ?? [];
   // Configurar el negocio es del dueño, y la base también lo rechaza.
-  const puedeConfigurar = puede(usuario?.rol, "configurarNegocio");
+  const puedeConfigurar = puede(usuario, "configurar_negocio");
   const prendidos = LISTA_MODULOS.filter((m) => estaPrendido(m.clave, modulosActivos));
   const nuevo = rubroElegido ? preset(rubroElegido) : null;
   const horarios = normalizarHorarios(negocio?.horarios);
@@ -376,7 +377,7 @@ export default function MiNegocio() {
       </Tarjeta>
 
       <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
-      {["duenio", "encargado"].includes(usuario?.rol) && <ConexionMercadoPago />}
+      {puede(usuario, "conectar_mercadopago") && <ConexionMercadoPago />}
       <VincularGoogleCalendar comoIntegracion />
 
       {/* La red de sedes (docs/red-de-sedes.md): con el submódulo prendido. */}
@@ -423,7 +424,7 @@ export default function MiNegocio() {
         </div>
         {ejemploDeNombre && <p className="mt-4 text-tinta-media">{ejemploDeNombre}</p>}
         {!puedeConfigurar && (
-          <p className="mt-2 text-apoyo text-tinta-suave">{QUIEN_PUEDE.configurarNegocio}</p>
+          <p className="mt-2 text-apoyo text-tinta-suave">{QUIEN_PUEDE.configurar_negocio}</p>
         )}
       </Tarjeta>
 
@@ -448,6 +449,22 @@ export default function MiNegocio() {
           >
             <Icono nombre="cajas" />
             {puedeConfigurar ? "Ver y cambiar los módulos" : "Ver los módulos"}
+          </Link>
+        </div>
+      </Tarjeta>
+
+      {/* La lista de roles la puede mirar cualquier miembro; sólo se edita con
+          manejar_roles (docs/roles.md). */}
+      <TituloSeccion id="roles">Roles</TituloSeccion>
+      <Tarjeta className="mb-12">
+        <p className="max-w-[65ch] text-tinta-media">Qué puede hacer cada persona del equipo.</p>
+        <div className="mt-4">
+          <Link
+            href="/negocio/roles"
+            className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+          >
+            <Icono nombre="llave" />
+            {puede(usuario, "manejar_roles") ? "Ver y manejar los roles" : "Ver los roles"}
           </Link>
         </div>
       </Tarjeta>
@@ -528,7 +545,7 @@ export default function MiNegocio() {
           de entregar y, con la agenda prendida, el de antes del turno. Se
           editan en su pantalla, como los horarios. */}
       <TituloSeccion id="recordatorios">Recordatorios por WhatsApp</TituloSeccion>
-      <ResumenRecordatorios puedeConfigurar={puede(usuario?.rol, "cargarDatos")} />
+      <ResumenRecordatorios puedeConfigurar={puede(usuario, "entregar_y_reabrir")} />
 
       <TituloSeccion id="rubro">El rubro de tu negocio</TituloSeccion>
       <Tarjeta className="mb-12">
@@ -554,7 +571,7 @@ export default function MiNegocio() {
               </div>
             ) : (
               <p className="mt-2 text-apoyo text-tinta-suave">
-                {QUIEN_PUEDE.configurarNegocio}
+                {QUIEN_PUEDE.configurar_negocio}
               </p>
             )}
           </>
@@ -610,10 +627,6 @@ export default function MiNegocio() {
                     Con qué se identifica cada caso: «{actual.identificador.nombre}» pasa a
                     ser «{nuevo.identificador.nombre}».
                   </li>
-                  <li>
-                    Cómo se llama quien hace el trabajo: «{actual.roles.tecnico}» pasa a
-                    «{nuevo.roles.tecnico}».
-                  </li>
                   <li>Los motivos y los ejemplos que te ofrecemos al cargar algo.</li>
                 </ul>
 
@@ -648,6 +661,8 @@ export default function MiNegocio() {
           </>
         )}
       </Tarjeta>
+
+      <BorrarNegocio />
     </>
   );
 }

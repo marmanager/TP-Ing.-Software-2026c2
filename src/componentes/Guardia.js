@@ -14,12 +14,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
+import { bloquea, RUTAS_SIN_SUSCRIPCION } from "@/lib/suscripcion";
+import { ContextoSuscripcion, useSuscripcion } from "@/lib/useSuscripcion";
 import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
+import FranjaDeVisita from "./FranjaDeVisita";
 import Link from "next/link";
 import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
+import { seguirAlSistema } from "@/lib/tema";
 
 // Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
 // acá porque con la verificación prendida el alta no deja sesión abierta.
@@ -40,6 +44,10 @@ const RUTA_NEGOCIOS = "/negocios";
 // RUTAS_ENTRADA porque no comparte el marco: las pantallas de entrada son una
 // columna angosta y centrada, y la landing va a sangre completa.
 const RUTA_BIENVENIDA = "/bienvenida";
+
+// Elegir un plan y el mes de prueba (lib/suscripcion.js).
+const RUTA_PLANES = "/planes";
+const RUTA_PRUEBA = "/prueba";
 
 // "/unirme/<código>" se abre desde el link de una invitación, así que tiene
 // que ser alcanzable en cualquier estado: sin cuenta, con cuenta y sin
@@ -104,15 +112,20 @@ const moduloApagado = (ruta, negocio) => {
 export default function Guardia({ children }) {
   const { cargando, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
   const { cargando: datosCargando, negocio } = useDatos();
+  const suscripcion = useSuscripcion();
   const ruta = usePathname();
   const router = useRouter();
+
+  // Guardia está en todas las pantallas: acá se escucha el cambio de tema
+  // del sistema, para quien eligió seguirlo.
+  useEffect(seguirAlSistema, []);
 
   const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta);
   const hayEntrada = Boolean(sesion);
   const tieneNegocio = Boolean(usuario?.negocio_id);
 
   // A dónde tendría que estar parada la persona según su estado.
-  const esperando = cargando || datosCargando;
+  const esperando = cargando || datosCargando || suscripcion.cargando;
 
   let destino = null;
   if (!esperando && !publica) {
@@ -138,6 +151,14 @@ export default function Guardia({ children }) {
       // iniciado sesión recién —así se vuelve de Google—: toca elegir
       // negocio. /crear-negocio y /negocios se pueden visitar teniendo negocio.
       destino = RUTA_NEGOCIOS;
+    } else if (
+      bloquea(suscripcion.datos) &&
+      !RUTAS_SIN_SUSCRIPCION.includes(ruta) &&
+      !esInvitacion(ruta)
+    ) {
+      // Sin suscripción ni prueba, el negocio va a elegir un plan. Es también
+      // lo primero que ve después de crear el negocio.
+      destino = RUTA_PLANES;
     }
   }
 
@@ -172,11 +193,17 @@ export default function Guardia({ children }) {
 
   if (enEntrada) return <PantallaEntrada>{children}</PantallaEntrada>;
 
+  // Planes y Prueba van sin la navegación: con el negocio bloqueado, cada
+  // link de la barra rebotaría de vuelta acá.
+  if (ruta === RUTA_PLANES || ruta === RUTA_PRUEBA) {
+    return <ContextoSuscripcion.Provider value={suscripcion}>{children}</ContextoSuscripcion.Provider>;
+  }
+
   // Con la navegación puesta, así se puede ir a otro lado sin volver atrás.
   const apagado = moduloApagado(ruta, negocio);
 
   return (
-    <>
+    <ContextoSuscripcion.Provider value={suscripcion}>
       {/* Lo primero de la página, para quien usa teclado o lector de
           pantalla: sin esto, en cada pantalla había que pasar por las nueve
           secciones de la barra antes de llegar a lo que se vino a hacer
@@ -196,6 +223,7 @@ export default function Guardia({ children }) {
           tabIndex={-1}
           className="min-w-0 flex-1 pb-[calc(var(--alto-barra,4rem)+1rem)] focus:outline-none md:pb-0"
         >
+          <FranjaDeVisita />
           {/* "@container": las grillas de las pantallas eligen sus columnas por el
                 ancho de ESTE bloque y no por el de la ventana. En escritorio la
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
@@ -218,6 +246,6 @@ export default function Guardia({ children }) {
         </main>
       </div>
       <BarraCelular />
-    </>
+    </ContextoSuscripcion.Provider>
   );
 }

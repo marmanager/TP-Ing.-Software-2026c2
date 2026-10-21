@@ -145,6 +145,8 @@ export default function SeccionCobros({
   cobros,
   descuento,
   puedeCargar,
+  // El descuento es del presupuesto (armar_presupuesto), no del cobro.
+  puedeDescontar = false,
   datos,
   cliente = null,
   negocio = null,
@@ -231,7 +233,7 @@ export default function SeccionCobros({
 
   // Sin presupuesto, sin cobros y sin permiso para anotar: no hay nada que
   // mostrar.
-  if (!puedeCargar && cobros.length === 0 && aprobado === 0 && !soloElNumeroViejo) return null;
+  if (!puedeCargar && !puedeDescontar && cobros.length === 0 && aprobado === 0 && !soloElNumeroViejo) return null;
 
   function abrir() {
     const sugerido = montoSugerido(cuenta);
@@ -419,7 +421,7 @@ export default function SeccionCobros({
 
         {/* Lo que no se le cobra. Va con confirmación, y se puede volver
             atrás: descontar de más por error no puede quedar para siempre. */}
-        {puedeCargar && descontando && (
+        {puedeDescontar && descontando && (
           <div className="mt-5 rounded-tarjeta bg-superficie p-4">
             <p className="font-bold text-cuerpo">¿No le cobrás los {pesos(cuenta.falta)} que faltan?</p>
             <p className="mt-1 max-w-[65ch] text-tinta-media">
@@ -512,20 +514,22 @@ export default function SeccionCobros({
           </div>
         )}
 
-        {puedeCargar &&
+        {(puedeCargar || puedeDescontar) &&
           (!anotando ? (
             <div className="mt-5 flex flex-wrap gap-3">
-              <Boton icono="mas" onClick={abrir}>
-                Anotar un cobro
-              </Boton>
-              {enLinea.disponible && mercadoPagoConectado === false && (
+              {puedeCargar && (
+                <Boton icono="mas" onClick={abrir}>
+                  Anotar un cobro
+                </Boton>
+              )}
+              {puedeCargar && enLinea.disponible && mercadoPagoConectado === false && (
                 <Boton variante="plano" onClick={conectarMercadoPago}>
                   Vincular Mercado Pago
                 </Boton>
               )}
               {/* Con todo cobrado o pedido no hay nada que pedir. Sin
                   presupuesto aprobado sí: no hay contra qué comparar. */}
-              {!pidiendo && (cuenta.falta > 0 || cuenta.total === 0) && (
+              {puedeCargar && !pidiendo && (cuenta.falta > 0 || cuenta.total === 0) && (
                 <Boton
                   variante="neutro"
                   icono="sobre"
@@ -536,12 +540,12 @@ export default function SeccionCobros({
                   Pedir un pago por link o QR
                 </Boton>
               )}
-              {cuenta.falta > 0 && cuenta.total > 0 && !descontando && (
+              {puedeDescontar && cuenta.falta > 0 && cuenta.total > 0 && !descontando && (
                 <Boton variante="plano" icono="nota" onClick={() => setDescontando(true)}>
                   No le cobro lo que falta
                 </Boton>
               )}
-              {cuenta.descuento > 0 && (
+              {puedeDescontar && cuenta.descuento > 0 && (
                 <Boton
                   variante="plano"
                   icono="deshacer"

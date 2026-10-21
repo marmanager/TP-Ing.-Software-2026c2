@@ -14,7 +14,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
+import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
 import { pesos } from "@/lib/estados";
 import { diaPasado, horaYMinutos } from "@/lib/fechas";
@@ -50,6 +52,7 @@ function Opcion({ elegida, onClick, children }) {
 
 export default function Historial() {
   const { cargando, eventos, casos, clientes, pasos } = useDatos();
+  const { usuario } = useAuth();
   useTitulo("Historial");
 
   const [periodo, setPeriodo] = useState("semana");
@@ -59,6 +62,9 @@ export default function Historial() {
   const [soloCaso, setSoloCaso] = useState(null);
 
   if (cargando) return <Cargando />;
+  if (!puede(usuario, "ver_historial")) {
+    return <Vacio icono="candado" titulo="Historial">{QUIEN_PUEDE.ver_historial}</Vacio>;
+  }
 
   // El resumen mira el período entero, sin el filtro de tipo: si no, al
   // elegir "Plata" diría que entraron cero casos, que no es cierto.

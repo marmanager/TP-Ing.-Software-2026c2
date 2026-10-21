@@ -125,7 +125,7 @@ describe("Historia: el aviso del presupuesto sin respuesta", () => {
   // En /aprobar: cuándo le llega o si ya se le avisó
   // ------------------------------------------------------------
 
-  test("A aprobar dice cuándo le llega el aviso a cada caso", () => {
+  test("Pendientes de aprobación dice cuándo le llega el aviso a cada caso", () => {
     const manana = { estado: "pendiente", enviar_en: "2026-10-20T13:00:00.000Z", procesado_en: null, motivo: null };
     const masAdelante = { ...manana, enviar_en: "2026-10-27T13:00:00.000Z" };
 
@@ -137,7 +137,7 @@ describe("Historia: el aviso del presupuesto sin respuesta", () => {
       .toBe("Si no contesta antes, le llega un aviso por WhatsApp el 27 de octubre a las 10:00.");
   });
 
-  test("A aprobar dice si ya se le avisó, y que no se le manda otro", () => {
+  test("Pendientes de aprobación dice si ya se le avisó, y que no se le manda otro", () => {
     const enviado = {
       estado: "enviado",
       enviar_en: "2026-10-16T13:00:00.000Z",

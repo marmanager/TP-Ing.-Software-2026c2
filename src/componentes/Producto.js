@@ -51,7 +51,7 @@ export const PRODUCTO_VACIO = {
 // pedís", "Cuántos hay"), y el mínimo se esconde cuando lo cargado se va a
 // sumar a uno que ya existe: ése conserva el suyo.
 export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayudaCantidad, conMinimo = true }) {
-  const { insumos, negocio } = useDatos();
+  const { insumos, negocio, categorias: guardadas } = useDatos();
   // Las categorías recién creadas con "+ Nueva" que todavía no usa ningún
   // producto. Se guardan de verdad cuando se guarda el producto que las usa.
   const [agregadas, setAgregadas] = useState([]);
@@ -61,7 +61,7 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
 
   const { articulo } = vocabulario(negocio?.rubro);
   const enCaja = form.unidad === "caja";
-  const categorias = categoriasDisponibles(negocio?.rubro, insumos, agregadas);
+  const categorias = categoriasDisponibles(negocio?.rubro, insumos, agregadas, guardadas);
   const id = (que) => `${prefijo}-${que}`;
 
   function crearCategoria() {

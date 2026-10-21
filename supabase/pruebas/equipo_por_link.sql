@@ -95,12 +95,12 @@ begin
     if pedido is null then
       raise exception 'FALLÓ 4: la dueña no ve el pedido de Edu.';
     end if;
-    perform aprobar_solicitud(pedido, 'encargado');
+    perform aprobar_solicitud(pedido, (select id from rol where negocio_id = neg_a and nombre = 'Encargado'));
     perform set_config('role', 'postgres', true);
-    select rol into fila from empleado where usuario_id = edu and negocio_id = neg_a;
+    select r.nombre into fila from empleado e join rol r on r.id = e.rol_id where e.usuario_id = edu and e.negocio_id = neg_a;
     select count(*) into n from solicitud_de_ingreso where usuario_id = edu;
     perform set_config('role', 'authenticated', true);
-    if fila.rol is distinct from 'encargado' or n <> 0 then
+    if fila.nombre is distinct from 'Encargado' or n <> 0 then
       raise exception 'FALLÓ 4: aprobar no dejó la ficha con el rol elegido, o el pedido sigue.';
     end if;
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
@@ -109,7 +109,7 @@ begin
       raise exception 'FALLÓ 4: aprobado, el negocio no aparece en sus negocios.';
     end if;
     select * into fila from usuario where id = edu;
-    if fila.negocio_id is distinct from neg_a or fila.rol <> 'encargado' then
+    if fila.negocio_id is distinct from neg_a or (mis_permisos() ->> 'rol_nombre') is distinct from 'Encargado' then
       raise exception 'FALLÓ 4: sin otro negocio, el aprobado no quedó adentro con su rol.';
     end if;
 
@@ -118,7 +118,7 @@ begin
     perform pedir_entrar(link2, 'Ivo');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     select id into pedido from pedidos_de_ingreso() where nombre = 'Ivo';
-    perform aprobar_solicitud(pedido, 'tecnico');
+    perform aprobar_solicitud(pedido, (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
 
     -- ---- 3. Encargado y técnico: sin sumar_al_equipo ----
     perform set_config('request.jwt.claims', json_build_object('sub', zoe, 'role', 'authenticated')::text, true);
@@ -131,7 +131,7 @@ begin
     begin perform pedidos_de_ingreso(); exception when insufficient_privilege then frenado := true; end;
     if not frenado then raise exception 'FALLÓ 3: el encargado ve los pedidos.'; end if;
     frenado := false;
-    begin perform aprobar_solicitud(pedido, 'tecnico'); exception when insufficient_privilege then frenado := true; end;
+    begin perform aprobar_solicitud(pedido, (select id from rol where negocio_id = neg_a and nombre = 'Mecánico')); exception when insufficient_privilege then frenado := true; end;
     if not frenado then raise exception 'FALLÓ 3: el encargado aprobó un pedido.'; end if;
     frenado := false;
     begin perform rechazar_solicitud(pedido); exception when insufficient_privilege then frenado := true; end;
@@ -145,14 +145,10 @@ begin
     begin perform link_de_equipo(); exception when insufficient_privilege then frenado := true; end;
     if not frenado then raise exception 'FALLÓ 3: el técnico ve el link.'; end if;
 
-    -- ---- 6. El rol: rangos, y uno que no existe ----
-    if rango_del_rol('duenio') <> 3 or rango_del_rol('encargado') <> 2
-       or rango_del_rol('tecnico') <> 1 or rango_del_rol('inventado') <> 0 then
-      raise exception 'FALLÓ 6: los rangos de los roles están mal.';
-    end if;
+    -- ---- 6. Un rol que no existe ----
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     frenado := false;
-    begin perform aprobar_solicitud(pedido, 'inventado'); exception when raise_exception then frenado := true; end;
+    begin perform aprobar_solicitud(pedido, gen_random_uuid()); exception when raise_exception then frenado := true; end;
     if not frenado then raise exception 'FALLÓ 6: se aprobó con un rol que no existe.'; end if;
 
     -- ---- 5. Ana rechaza a Zoe: sin ficha y sin pedido ----
@@ -178,7 +174,8 @@ begin
     end if;
     frenado := false;
     begin
-      insert into empleado (negocio_id, nombre, rol) values (neg_a, 'Sin cuenta', 'tecnico');
+      insert into empleado (negocio_id, nombre, rol_id)
+      values (neg_a, 'Sin cuenta', (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
     exception when insufficient_privilege then frenado := true;
     end;
     if not frenado then

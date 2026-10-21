@@ -488,7 +488,8 @@ begin
     perform pedir_entrar(link_equipo, 'Edu');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     select id into pedido from pedidos_de_ingreso() where nombre = 'Edu';
-    perform aprobar_solicitud(pedido, 'encargado');
+    -- Desde la 060 se aprueba con el rol del negocio (rol.id), no con una palabra.
+    perform aprobar_solicitud(pedido, (select id from rol where negocio_id = neg and nombre = 'Encargado'));
 
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
     frenado := false;

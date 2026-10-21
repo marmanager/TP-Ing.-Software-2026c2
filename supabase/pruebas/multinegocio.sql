@@ -53,14 +53,15 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     neg_a := crear_mi_negocio('Prueba A', 'taller', '[]'::jsonb);
     select * into fila from usuario where id = ana;
-    if fila.negocio_id is distinct from neg_a or fila.rol <> 'duenio' then
+    if fila.negocio_id is distinct from neg_a or not (mis_permisos() ->> 'es_duenio')::boolean then
       raise exception 'FALLÓ 1: crear un negocio no dejó a la cuenta adentro como dueña.';
     end if;
     if fila.negocio_predeterminado is distinct from neg_a or not fila.inicio_rapido then
       raise exception 'FALLÓ 1: el primer negocio no quedó de predeterminado.';
     end if;
     select id into ficha_ana from empleado
-     where usuario_id = ana and negocio_id = neg_a and rol = 'duenio';
+     where usuario_id = ana and negocio_id = neg_a
+       and rol_id = (select id from rol where negocio_id = neg_a and es_duenio);
     if ficha_ana is null then
       raise exception 'FALLÓ 1: la dueña no tiene ficha en su negocio nuevo.';
     end if;
@@ -122,10 +123,10 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
     perform pedir_entrar(inv_caro, 'Caro');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), 'tecnico');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
     select * into fila from usuario where id = caro;
-    if fila.negocio_id is distinct from neg_a or fila.rol <> 'tecnico' then
+    if fila.negocio_id is distinct from neg_a or (mis_permisos() ->> 'rol_nombre') is distinct from 'Mecánico' then
       raise exception 'FALLÓ 7: aprobar el pedido no dejó a la cuenta adentro con su rol.';
     end if;
     if fila.negocio_predeterminado is distinct from neg_a or not fila.inicio_rapido then
@@ -136,17 +137,7 @@ begin
       raise exception 'FALLÓ 7: pedir entrar a un negocio donde ya está no dijo "ya_estas".';
     end if;
 
-    -- ---- 8. Nadie se cambia el negocio ni el rol a mano (035) ----
-    frenado := false;
-    begin
-      update usuario set rol = 'duenio' where id = caro;
-    exception when insufficient_privilege then
-      frenado := true;
-    end;
-    if not frenado then
-      raise exception 'FALLÓ 8: una cuenta se pudo cambiar el rol a mano.';
-    end if;
-
+    -- ---- 8. Nadie se cambia el negocio a mano (035) ----
     frenado := false;
     begin
       update usuario set negocio_id = neg_b where id = caro;
@@ -161,7 +152,7 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
     perform pedir_entrar(inv_beto, 'Beto');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Beto'), 'encargado');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Beto'), (select id from rol where negocio_id = neg_a and nombre = 'Encargado'));
     perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
     select * into fila from usuario where id = beto;
     if fila.negocio_id is distinct from neg_b then
@@ -176,13 +167,13 @@ begin
     end if;
     perform entrar_al_negocio(neg_a);
     select * into fila from usuario where id = beto;
-    if fila.negocio_id is distinct from neg_a or fila.rol <> 'encargado' then
+    if fila.negocio_id is distinct from neg_a or (mis_permisos() ->> 'rol_nombre') is distinct from 'Encargado' then
       raise exception 'FALLÓ 9: al entrar a A no tiene el rol con que lo aprobaron.';
     end if;
 
     perform entrar_al_negocio(neg_b);
     select * into fila from usuario where id = beto;
-    if fila.negocio_id is distinct from neg_b or fila.rol <> 'duenio' then
+    if fila.negocio_id is distinct from neg_b or not (mis_permisos() ->> 'es_duenio')::boolean then
       raise exception 'FALLÓ 9: al volver a su negocio no recuperó el rol que tiene ahí.';
     end if;
 
@@ -220,8 +211,8 @@ begin
 
     frenado := false;
     begin
-      insert into empleado (negocio_id, nombre, rol, usuario_id)
-      values (neg_a, 'Intrusa', 'tecnico', caro);
+      insert into empleado (negocio_id, nombre, rol_id, usuario_id)
+      values (neg_a, 'Intrusa', (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'), caro);
     exception
       when insufficient_privilege then frenado := true;
       when others then frenado := false;
@@ -231,19 +222,18 @@ begin
     end if;
 
     -- ---- 12. El rol de la ficha da los permisos; el propio no se toca (037) ----
-    update empleado set rol = 'encargado' where id = ficha_caro;
+    perform asignar_rol(ficha_caro, (select id from rol where negocio_id = neg_a and nombre = 'Encargado'));
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
-    select * into fila from usuario where id = caro;
-    if fila.rol <> 'encargado' then
+    if (mis_permisos() ->> 'rol_nombre') is distinct from 'Encargado' then
       raise exception 'FALLÓ 12: cambiar el rol en Equipo no cambió los permisos.';
     end if;
 
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
     frenado := false;
     begin
-      update empleado set rol = 'tecnico' where id = ficha_ana;
+      perform asignar_rol(ficha_ana, (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
     exception when raise_exception then
-      frenado := sqlerrm = 'No podés cambiar tu propio rol.';
+      frenado := sqlerrm = 'El rol propio no se modifica.';
     end;
     if not frenado then
       raise exception 'FALLÓ 12: una cuenta se pudo cambiar su propio rol.';
@@ -287,14 +277,14 @@ begin
 
     -- ---- 15. Otro dueño no baja, no saca ni reemplaza a quien creó el negocio (038) ----
     select id into ficha_beto from empleado where usuario_id = beto and negocio_id = neg_a;
-    update empleado set rol = 'duenio' where id = ficha_beto;
+    perform asignar_rol(ficha_beto, (select id from rol where negocio_id = neg_a and es_duenio));
 
     perform set_config('request.jwt.claims', json_build_object('sub', beto, 'role', 'authenticated')::text, true);
     perform entrar_al_negocio(neg_a);
 
     frenado := false;
     begin
-      update empleado set rol = 'tecnico' where id = ficha_ana;
+      perform asignar_rol(ficha_ana, (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
     exception when raise_exception then
       frenado := sqlerrm = 'A quien creó el negocio no se le puede cambiar el rol.';
     end;

@@ -72,7 +72,16 @@ export default function VerCaso() {
   const datos = useDatos();
   const { cargando, casos, clientes, empleados, pasos, eventos, insumos, negocio } = datos;
   const { usuario } = useAuth();
-  const puedeCargar = puede(usuario?.rol, "cargarDatos");
+  // Cada bloque pide el permiso que le exige la base (058): trabajar el caso y
+  // compartirlo, entregar y reabrir, cobrar, pedir insumos y asignar.
+  const puedeCargar = puede(usuario, "avanzar_casos");
+  const puedeEntregar = puede(usuario, "entregar_y_reabrir");
+  const puedeCobrar = puede(usuario, "cobrar");
+  // Pedir algo para el caso o marcar que llegó también mueve el caso: la API
+  // pide los dos permisos.
+  const puedePedir = puede(usuario, "editar_inventario") && puede(usuario, "avanzar_casos");
+  const puedeDescontar = puede(usuario, "armar_presupuesto");
+  const puedeAsignar = puede(usuario, "asignar_casos");
   const [eligiendo, setEligiendo] = useState(false);
   // Identificador del rubro y notas sueltas (SCRUM-51/52). El diagnóstico
   // vive ahora en la pantalla de los pasos.
@@ -227,6 +236,7 @@ export default function VerCaso() {
   // nada trabado, porque volver a abrirlo está a un toque acá abajo.
   const abierto = estaAbierto(caso);
   const sePuedeEditar = puedeCargar && abierto;
+  const sePuedeAsignar = puedeAsignar && abierto;
 
   // Cómo se lee el encabezado (SCRUM-119). Lo que ya dice el título no se
   // repite en las líneas de abajo.
@@ -419,7 +429,7 @@ export default function VerCaso() {
           <dl className="mt-5 grid gap-x-6 gap-y-4 @2xl:grid-cols-2">
             <Dato icono="persona" que="Quién lo tiene">
               {quienLoTieneEnPalabras(caso, empleados)}
-              {sePuedeEditar && (
+              {sePuedeAsignar && (
                 <div className="mt-1 -ml-3">
                   <Boton
                     variante="plano"
@@ -485,7 +495,7 @@ export default function VerCaso() {
 
           {/* Lo que se abre, abajo y a lo ancho. Adentro de la grilla
               deformaba la fila entera. */}
-          {eligiendo && sePuedeEditar && (
+          {eligiendo && sePuedeAsignar && (
             <div className="mt-4 rounded-tarjeta bg-superficie p-4">
               <p className="font-bold text-cuerpo">¿Quién lo va a atender?</p>
               {empleados.length === 0 ? (
@@ -762,8 +772,8 @@ export default function VerCaso() {
       {/* Pedir algo para este caso (SCRUM-113) va al lado de marcar que
           llegó: son las dos puntas de lo mismo. Lleva a "En camino" con el
           caso ya elegido, y sólo si el negocio tiene esa pantalla. */}
-      {abierto &&
-        (insumosDelCaso.some((i) => i.estado !== "en_stock") || (conEnCamino && puedeCargar)) && (
+      {abierto && puedePedir &&
+        (insumosDelCaso.some((i) => i.estado !== "en_stock") || conEnCamino) && (
         <div className="mt-12 flex flex-wrap items-start gap-3">
           {insumosDelCaso
             .filter((i) => i.estado !== "en_stock")
@@ -772,7 +782,7 @@ export default function VerCaso() {
                 Marcar que llegó {i.nombre.toLowerCase()}
               </Boton>
             ))}
-          {conEnCamino && puedeCargar && (
+          {conEnCamino && (
             <Link
               href={`/inventario/en-camino?caso=${caso.id}`}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
@@ -795,7 +805,8 @@ export default function VerCaso() {
         aprobado={aprobado}
         cobros={cobrosDeEste}
         descuento={descuento}
-        puedeCargar={puedeCargar}
+        puedeCargar={puedeCobrar}
+        puedeDescontar={puedeDescontar}
         datos={datos}
         cliente={cliente}
         negocio={negocio}
@@ -819,7 +830,7 @@ export default function VerCaso() {
           entrega. Antes estaban antes, y encima con una pinta distinta de la
           de todas las demás secciones: un título suelto con una línea arriba
           en vez de la tarjeta con título que usa el resto. */}
-      {abierto ? (
+      {abierto && !puedeEntregar ? null : abierto ? (
         <>
           <TituloSeccion className="mt-12">Terminar el caso</TituloSeccion>
           <Tarjeta>
@@ -1262,7 +1273,7 @@ export default function VerCaso() {
               )}
             </div>
 
-            {puedeCargar && (
+            {puedeEntregar && (
               <div className="mt-4">
                 <Boton
                   variante="neutro"

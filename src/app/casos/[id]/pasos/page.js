@@ -77,9 +77,14 @@ export default function AprobarPasos() {
   const [editandoDiag, setEditandoDiag] = useState(false);
   const [diagnostico, setDiagnostico] = useState("");
 
-  // Aprobar y rechazar mueven plata: los hacen el dueño y el encargado. El
-  // técnico ve los pasos, porque son la lista de lo que tiene que hacer.
-  const puedeResponder = puede(usuario?.rol, "cargarDatos");
+  // Armar el presupuesto, contestar por el cliente y compartir el seguimiento
+  // son permisos distintos. Quien no tiene ninguno ve los pasos, porque son la
+  // lista de lo que hay que hacer.
+  const puedeArmar = puede(usuario, "armar_presupuesto");
+  const puedeResponder = puede(usuario, "aprobar_por_el_cliente");
+  // El diagnóstico es un dato del caso y el link es el seguimiento: la base
+  // los deja con "avanzar_casos".
+  const puedeAvanzar = puede(usuario, "avanzar_casos");
 
   const caso = casos.find((c) => c.id === id);
   useTitulo(caso ? `Pasos · ${tituloDelCaso(caso)}` : "Pasos");
@@ -101,7 +106,9 @@ export default function AprobarPasos() {
   // paso después de entregado cambiaría lo que ya se cobró. Para eso está
   // volver a abrir el caso, que es una sola acción y queda en el historial.
   const abierto = estaAbierto(caso);
-  const sePuedeTocar = puedeResponder && abierto;
+  const sePuedeArmar = puedeArmar && abierto;
+  const sePuedeResponder = puedeResponder && abierto;
+  const sePuedeAvanzar = puedeAvanzar && abierto;
 
   const mensaje = [
     `Hola ${cliente?.nombre ?? ""}, te paso el detalle del caso ${caso.numero} (${caso.servicio}).`,
@@ -197,7 +204,7 @@ export default function AprobarPasos() {
           el diagnóstico y no de memoria. */}
       <TituloSeccion className="mt-10">El diagnóstico</TituloSeccion>
       <Tarjeta className="mb-6">
-        {!abierto && puedeResponder && (
+        {!abierto && (puedeArmar || puedeResponder) && (
           <p className="mb-4 max-w-[65ch] text-tinta-media">
             El caso está cerrado, así que esto queda como quedó. Si hay algo que
             corregir, volvé a abrirlo desde el caso y cerralo de nuevo después.
@@ -205,7 +212,7 @@ export default function AprobarPasos() {
         )}
         <p className="font-bold text-cuerpo">Qué encontramos</p>
 
-        {editandoDiag && sePuedeTocar ? (
+        {editandoDiag && sePuedeAvanzar ? (
           <div className="mt-2">
             <label htmlFor="diagnostico" className="sr-only">
               Qué encontramos
@@ -259,7 +266,7 @@ export default function AprobarPasos() {
                 uno abajo del otro no se distinguían entre sí. Lo que había al
                 lado —"armar un paso con esto"— se fue: ahora el diagnóstico
                 aparece al lado del formulario del paso, que es donde sirve. */}
-            {sePuedeTocar && (
+            {sePuedeAvanzar && (
               <div className="mt-3">
                 <Boton
                   variante="neutro"
@@ -281,7 +288,7 @@ export default function AprobarPasos() {
         <TituloSeccion className="mb-0">
           {abierto ? "Pasos a aprobar" : "Los pasos del caso"}
         </TituloSeccion>
-        {sePuedeTocar && (
+        {sePuedeArmar && (
           <div className="flex flex-wrap gap-2">
             {/* El mismo arreglo que "Agregar" en inventario: mientras el
                 formulario está abierto el botón se apaga en su lugar y dice
@@ -316,10 +323,10 @@ export default function AprobarPasos() {
           ? "El caso ya se entregó y se cerró. Los pasos quedan como quedaron."
           : puedeResponder
             ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
-            : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.cargarDatos}`}
+            : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.aprobar_por_el_cliente}`}
       </p>
 
-      {!abierto && puedeResponder && (
+      {!abierto && (puedeArmar || puedeResponder) && (
         <Tarjeta className="mb-6">
           <p className="font-bold text-cuerpo">Este caso está cerrado</p>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
@@ -337,7 +344,7 @@ export default function AprobarPasos() {
         </Tarjeta>
       )}
 
-      {armando && sePuedeTocar && (
+      {armando && sePuedeArmar && (
         <Tarjeta className="mb-6">
           <TituloSeccion>Sumar pasos</TituloSeccion>
           <p className="-mt-2 mb-4 text-apoyo text-tinta-suave">
@@ -407,7 +414,7 @@ export default function AprobarPasos() {
 
       {mios.length === 0 ? (
         <Vacio icono="nota" titulo="Todavía no hay pasos">
-          {sePuedeTocar
+          {sePuedeArmar
             ? "Armá el presupuesto sumando un paso por cada cosa que haya que hacer. El cliente los aprueba de a uno."
             : "Cuando se arme el presupuesto, los pasos aparecen acá."}
         </Vacio>
@@ -437,9 +444,9 @@ export default function AprobarPasos() {
                     <p className="mt-1 text-apoyo text-tinta-suave">
                       Es un acuerdo con el cliente: ya no se cambia ni se saca.
                     </p>
-                  ) : !sePuedeTocar ? null : paso.estado === "esperando" ? (
+                  ) : paso.estado === "esperando" ? (
                     <>
-                      {aprobando === paso.id ? (
+                      {!sePuedeResponder ? null : aprobando === paso.id ? (
                         <div className="mt-3 rounded-tarjeta bg-superficie p-4">
                           <p className="font-bold text-cuerpo">
                             ¿El cliente aprueba «{paso.nombre}» por {pesos(paso.monto)}?
@@ -508,7 +515,7 @@ export default function AprobarPasos() {
 
                       {/* Sacar un paso sólo se puede mientras espera respuesta:
                           después sería borrar algo que el cliente ya contestó. */}
-                      {aprobando === paso.id || !corrigiendo ? null : sacando === paso.id ? (
+                      {aprobando === paso.id || !corrigiendo || !sePuedeArmar ? null : sacando === paso.id ? (
                         <div className="mt-3 rounded-tarjeta bg-superficie p-4">
                           <p className="font-bold text-cuerpo">
                             ¿Sacar «{paso.nombre}» del presupuesto?
@@ -546,7 +553,7 @@ export default function AprobarPasos() {
                         </div>
                       )}
                     </>
-                  ) : (
+                  ) : !sePuedeResponder ? null : (
                     /* Sólo llega acá un paso rechazado: el cliente puede
                        cambiar de idea sobre algo que no había aceptado. */
                     <div className="mt-3">
@@ -617,7 +624,7 @@ export default function AprobarPasos() {
           Vive acá y no en la pantalla del caso porque lo que se manda es
           esto: el presupuesto. Allá quedó el renglón que dice si ya está
           compartido y si el cliente lo abrió. */}
-      {mios.length > 0 && puedeResponder && (
+      {mios.length > 0 && puedeAvanzar && (
         <MandarleElLink
           caso={caso}
           cliente={cliente}

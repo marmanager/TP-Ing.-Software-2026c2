@@ -61,22 +61,22 @@ begin
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
     perform pedir_entrar(inv, 'Edu');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), 'tecnico');
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Edu'), 'encargado');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), (select id from rol where negocio_id = neg_a and nombre = 'Mecánico'));
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Edu'), (select id from rol where negocio_id = neg_a and nombre = 'Encargado'));
 
     perform entrar_al_negocio(neg_c);
     select codigo into inv from cambiar_link_de_equipo(1);
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
     perform pedir_entrar(inv, 'Caro');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), 'tecnico');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Caro'), (select id from rol where negocio_id = neg_c and nombre = 'Mecánico'));
 
     perform entrar_al_negocio(neg_b);
     select codigo into inv from cambiar_link_de_equipo(1);
     perform set_config('request.jwt.claims', json_build_object('sub', edu, 'role', 'authenticated')::text, true);
     perform pedir_entrar(inv, 'Edu');
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
-    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Edu'), 'encargado');
+    perform aprobar_solicitud((select id from pedidos_de_ingreso() where nombre = 'Edu'), (select id from rol where negocio_id = neg_b and nombre = 'Encargado'));
 
     -- ---- 1. puede_en, con cada rol ----
     perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);

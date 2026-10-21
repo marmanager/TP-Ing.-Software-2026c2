@@ -15,7 +15,7 @@ import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 export default function Clientes() {
   const { cargando, clientes, casos, negocio, agregarCliente, avisarExito } = useDatos();
   const { usuario } = useAuth();
-  const puedeCargar = puede(usuario?.rol, "cargarDatos");
+  const puedeCargar = puede(usuario, "editar_clientes");
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
