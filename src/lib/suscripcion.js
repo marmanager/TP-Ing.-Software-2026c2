@@ -30,8 +30,10 @@ export function urlDePago(url) {
   }
 }
 
-// Los precios de la API (uno por plan y período) juntados por plan, en el
-// orden en que vienen: [{ plan, descripcion, mensual, anual }].
+// Los precios de la API (uno por plan y período) juntados por plan, del más
+// barato al más caro (el Básico a la izquierda y el Pro a la derecha, sin
+// depender del orden en que la base los devuelva):
+// [{ plan, descripcion, mensual, anual }].
 export function agruparPlanes(precios = []) {
   const planes = [];
   for (const p of precios) {
@@ -39,7 +41,7 @@ export function agruparPlanes(precios = []) {
     if (!plan) planes.push((plan = { plan: p.plan, descripcion: p.descripcion, mensual: null, anual: null }));
     plan[p.periodo] = p;
   }
-  return planes;
+  return planes.sort((a, b) => (a.mensual?.usd ?? Infinity) - (b.mensual?.usd ?? Infinity));
 }
 
 // Un monto en la moneda elegida, o null si en pesos no hay cotización.

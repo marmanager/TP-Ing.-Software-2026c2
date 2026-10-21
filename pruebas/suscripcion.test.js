@@ -46,9 +46,10 @@ test("al pago sólo se va por https", () => {
   assert.equal(urlDePago(undefined), null);
 });
 
-test("los precios se juntan por plan, en el orden en que vienen", () => {
-  const planes = agruparPlanes(PRECIOS);
-  assert.deepEqual(planes.map((p) => [p.plan, p.mensual.id, p.anual.id]), [["Básico", 1, 2], ["Pro", 3, 4]]);
+test("los precios se juntan por plan, el más barato primero aunque lleguen al revés", () => {
+  const esperado = [["Básico", 1, 2], ["Pro", 3, 4]];
+  assert.deepEqual(agruparPlanes(PRECIOS).map((p) => [p.plan, p.mensual.id, p.anual.id]), esperado);
+  assert.deepEqual(agruparPlanes([...PRECIOS].reverse()).map((p) => [p.plan, p.mensual.id, p.anual.id]), esperado);
   assert.deepEqual(agruparPlanes(undefined), []);
 });
 
