@@ -200,7 +200,7 @@ export default function Equipo() {
                           >
                             <Icono nombre="carpeta" className="size-5" />
                             {tituloDelCaso(c, t)}
-                            {lineaDelCaso(c, t) && ` · ${lineaDelCaso(c, t)}`}
+                            {lineaDelCaso(c, undefined, t) && ` · ${lineaDelCaso(c, undefined, t)}`}
                             {subtituloDelCaso(c, t) && (
                               <span className="text-apoyo text-tinta-suave">{subtituloDelCaso(c, t)}</span>
                             )}
@@ -280,7 +280,7 @@ export default function Equipo() {
                   {subtituloDelCaso(c, t) && (
                     <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(c, t)}</span>
                   )}
-                  {lineaDelCaso(c, t) && <p className="text-tinta-media">{lineaDelCaso(c, t)}</p>}
+                  {lineaDelCaso(c, undefined, t) && <p className="text-tinta-media">{lineaDelCaso(c, undefined, t)}</p>}
                 </div>
                 <ChipEstado estado={c.estado} />
               </li>

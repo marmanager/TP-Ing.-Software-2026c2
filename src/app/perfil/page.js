@@ -19,6 +19,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
+import { nombreDelRol } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
 import { estadoDeLaContrasena, motivoDeContrasenaNueva } from "@/lib/validaciones";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
@@ -268,8 +269,8 @@ export default function MiPerfil() {
                     {usuario?.rol_nombre && (
                       <p className="text-tinta-media">
                         {negocio?.nombre
-                          ? t("cuenta.rolEn", { rol: usuario.rol_nombre, negocio: negocio.nombre })
-                          : usuario.rol_nombre}
+                          ? t("cuenta.rolEn", { rol: nombreDelRol(usuario.rol_nombre, t), negocio: negocio.nombre })
+                          : nombreDelRol(usuario.rol_nombre, t)}
                       </p>
                     )}
                   </>

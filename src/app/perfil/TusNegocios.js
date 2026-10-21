@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { nombreDelRol } from "@/lib/permisos";
 import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
 import { useDatos } from "@/lib/datos";
@@ -74,7 +75,7 @@ export default function TusNegocios() {
     return (
       <Link href="/negocio" className="mb-12 block">
         <Tarjeta className="flex items-center gap-3 hover:bg-superficie">
-          <FilaNegocio negocio={negocio} rol={usuario?.rol_nombre} />
+          <FilaNegocio negocio={negocio} rol={nombreDelRol(usuario?.rol_nombre, t)} />
           <span className="font-bold text-azul">{t("cuenta.negocios.irAMiNegocio")}</span>
         </Tarjeta>
       </Link>
@@ -91,7 +92,7 @@ export default function TusNegocios() {
         {negocios.map((n) => (
           <li key={n.id}>
             <Tarjeta className="flex flex-wrap items-center gap-3">
-              <FilaNegocio negocio={n} rol={n.rol_nombre} />
+              <FilaNegocio negocio={n} rol={nombreDelRol(n.rol_nombre, t)} />
               {n.id === usuario?.negocio_id ? (
                 <span className="flex min-h-12 items-center gap-2 font-bold text-completo">
                   <Icono nombre="listo" className="size-6" />
