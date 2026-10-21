@@ -21,7 +21,7 @@ import { Boton, Cargando, ErrorGeneral, Tarjeta, TituloPantalla, TituloSeccion }
 // Dos botones, uno prendido: Mensual / Anual y USD / ARS.
 function Eleccion({ etiqueta, opciones, valor, onChange }) {
   return (
-    <div role="group" aria-label={etiqueta} className="inline-flex rounded-campo border border-borde p-1">
+    <div role="group" aria-label={etiqueta} className="inline-flex flex-wrap gap-2">
       {opciones.map(({ clave, texto, motivo }) => (
         <button
           key={clave}
@@ -30,8 +30,10 @@ function Eleccion({ etiqueta, opciones, valor, onChange }) {
           disabled={Boolean(motivo)}
           title={motivo ?? undefined}
           onClick={() => onChange(clave)}
-          className={`min-h-12 rounded-campo px-4 font-bold disabled:cursor-not-allowed disabled:opacity-50 ${
-            valor === clave ? "bg-azul text-white" : "text-tinta-media"
+          className={`min-h-12 cursor-pointer rounded-campo border px-4 font-bold disabled:cursor-not-allowed disabled:opacity-50 ${
+            valor === clave
+              ? "border-azul bg-azul text-white"
+              : "border-borde-fuerte bg-superficie text-tinta hover:bg-azul-claro"
           }`}
         >
           {texto}
