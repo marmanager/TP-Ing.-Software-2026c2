@@ -13,9 +13,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
+import { conElementos } from "@/lib/conElementos";
 import { ejemplosDe, vocabulario } from "@/lib/presets";
 import { casoEnFrase } from "@/lib/nombres";
 import {
+  categoriaEnIdioma,
   categoriaExistente,
   categoriasDisponibles,
   formDeProducto,
@@ -52,30 +55,34 @@ export const PRODUCTO_VACIO = {
 // sumar a uno que ya existe: ése conserva el suyo.
 export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayudaCantidad, conMinimo = true }) {
   const { insumos, negocio, categorias: guardadas } = useDatos();
+  const { idioma, t } = useIdioma();
   // Las categorías recién creadas con "+ Nueva" que todavía no usa ningún
   // producto. Se guardan de verdad cuando se guarda el producto que las usa.
   const [agregadas, setAgregadas] = useState([]);
   const [creando, setCreando] = useState(false);
   const [nueva, setNueva] = useState("");
+  // Se guarda la clave y no el texto, así sigue al idioma si cambia.
   const [avisoCategoria, setAvisoCategoria] = useState(null);
 
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
   const enCaja = form.unidad === "caja";
-  const categorias = categoriasDisponibles(negocio?.rubro, insumos, agregadas, guardadas);
+  const categorias = categoriasDisponibles(negocio?.rubro, insumos, agregadas, guardadas, idioma);
   const id = (que) => `${prefijo}-${que}`;
+  // Lo guardado como "Frenos" se elige como "Brakes" en inglés (lib/inventario.js).
+  const categoriaElegida = form.categoria ? categoriaEnIdioma(form.categoria, negocio?.rubro, idioma) : "";
 
   function crearCategoria() {
     const texto = nueva.trim().replace(/\s+/g, " ");
     if (!texto) return;
     // "tornillos" al lado de "Tornillos" es la misma: se elige la que hay.
-    const existente = categoriaExistente(texto, categorias);
+    const existente = categoriaExistente(texto, categorias, negocio?.rubro);
     if (existente) {
       cambiar({ categoria: existente });
-      setAvisoCategoria(`«${existente}» ya estaba. La dejamos elegida.`);
+      setAvisoCategoria({ clave: "inventario.producto.yaEstabaElegida", vars: { categoria: existente } });
     } else {
       setAgregadas((a) => [...a, texto]);
       cambiar({ categoria: texto });
-      setAvisoCategoria(`Listo. «${texto}» queda guardada con ${articulo.el()}.`);
+      setAvisoCategoria({ clave: "inventario.producto.creada", vars: { categoria: texto } });
     }
     setNueva("");
     setCreando(false);
@@ -85,8 +92,8 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
     <>
       <Campo
         id={id("nombre")}
-        etiqueta="Qué es"
-        ayuda={`Con el nombre que usan en el mostrador. Ejemplo: ${ejemplosDe(negocio?.rubro).insumo}.`}
+        etiqueta={t("inventario.producto.queEs")}
+        ayuda={t("inventario.producto.queEsAyuda", { ejemplo: ejemplosDe(negocio?.rubro, idioma).insumo })}
         value={form.nombre}
         onChange={(e) => cambiar({ nombre: e.target.value })}
         list={id("conocidos")}
@@ -102,16 +109,16 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
       <div className="grid gap-x-4 @md:grid-cols-2">
         <Campo
           id={id("marca")}
-          etiqueta="Marca"
-          ayuda="Opcional."
+          etiqueta={t("inventario.producto.marca")}
+          ayuda={t("inventario.producto.opcional")}
           value={form.marca}
           onChange={(e) => cambiar({ marca: e.target.value })}
           autoComplete="off"
         />
         <Campo
           id={id("modelo")}
-          etiqueta="Modelo"
-          ayuda="Opcional."
+          etiqueta={t("inventario.producto.modelo")}
+          ayuda={t("inventario.producto.opcional")}
           value={form.modelo}
           onChange={(e) => cambiar({ modelo: e.target.value })}
           autoComplete="off"
@@ -122,10 +129,10 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
           al lado para la que no se nos ocurrió. Se crea ahí mismo. */}
       <div className="mb-6">
         <label htmlFor={creando ? id("categoria-nueva") : id("categoria")} className="block font-bold text-cuerpo">
-          Categoría
+          {t("inventario.producto.categoria")}
         </label>
         <p id={id("categoria-ayuda")} className="mt-1 text-etiqueta text-tinta-media">
-          Opcional. Sirve para ver el stock agrupado.
+          {t("inventario.producto.categoriaAyuda")}
         </p>
 
         {creando ? (
@@ -143,20 +150,20 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
                 if (e.key === "Enter") crearCategoria();
                 if (e.key === "Escape") setCreando(false);
               }}
-              placeholder="Juntas, correas, cables…"
+              placeholder={t("inventario.categorias.ejemplo")}
               className="block min-h-12 w-full min-w-0 rounded-campo border-2 border-azul bg-tarjeta px-4 text-cuerpo sm:flex-1"
             />
             <div className="flex flex-col gap-2 sm:flex-row">
               <Boton
                 icono="check"
                 className="w-full sm:w-auto"
-                motivo={!nueva.trim() ? "falta el nombre" : null}
+                motivo={!nueva.trim() ? t("ui.validaciones.faltaNombre") : null}
                 onClick={crearCategoria}
               >
-                Agregar
+                {t("inventario.producto.agregar")}
               </Boton>
               <Boton variante="plano" icono="cruz" className="w-full sm:w-auto" onClick={() => setCreando(false)}>
-                Cancelar
+                {t("inventario.producto.cancelar")}
               </Boton>
             </div>
           </div>
@@ -165,17 +172,17 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
             <select
               id={id("categoria")}
               aria-describedby={id("categoria-ayuda")}
-              value={form.categoria}
+              value={categoriaElegida}
               onChange={(e) => {
                 cambiar({ categoria: e.target.value });
                 setAvisoCategoria(null);
               }}
               className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
             >
-              <option value="">Sin categoría</option>
+              <option value="">{t("inventario.sinCategoria")}</option>
               {/* La que ya tiene un producto que se edita aparece aunque ya no
                   la use nadie más. */}
-              {[...new Set([...categorias, ...(form.categoria ? [form.categoria] : [])])].map((c) => (
+              {[...new Set([...categorias, ...(categoriaElegida ? [categoriaElegida] : [])])].map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -189,14 +196,14 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
                 setCreando(true);
               }}
             >
-              Nueva
+              {t("inventario.producto.nueva")}
             </Boton>
           </div>
         )}
         {avisoCategoria && (
           <p className="mt-2 flex items-start gap-2 font-bold text-completo text-etiqueta">
             <Icono nombre="listo" className="mt-px size-5" />
-            <span>{avisoCategoria}</span>
+            <span>{t(avisoCategoria.clave, { ...avisoCategoria.vars, articulo: articulo.el() })}</span>
           </p>
         )}
       </div>
@@ -205,12 +212,12 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
           como se cuenta en el estante; el total de tornillos sale solo. */}
       <div className="mb-6">
         <p className="font-bold text-cuerpo" id={id("viene")}>
-          Cómo viene
+          {t("inventario.producto.comoViene")}
         </p>
         <div className="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby={id("viene")}>
           {[
-            ["unidad", "Suelto"],
-            ["caja", "En caja"],
+            ["unidad", t("inventario.comoViene.unidad")],
+            ["caja", t("inventario.comoViene.caja")],
           ].map(([clave, palabra]) => (
             <button
               key={clave}
@@ -228,7 +235,7 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
       {enCaja && (
         <Campo
           id={id("por-caja")}
-          etiqueta="Cuántos vienen en cada caja"
+          etiqueta={t("inventario.producto.porCaja")}
           type="number"
           min="1"
           inputMode="numeric"
@@ -251,8 +258,8 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
         {conMinimo && (
           <Campo
             id={id("minimo")}
-            etiqueta="Avisame cuando queden"
-            ayuda={enCaja ? "En cajas. Debajo de este número te avisamos." : "Debajo de este número te avisamos."}
+            etiqueta={t("inventario.producto.avisame")}
+            ayuda={t(enCaja ? "inventario.producto.avisameCajas" : "inventario.producto.avisameUnidades")}
             type="number"
             min="0"
             inputMode="numeric"
@@ -279,6 +286,7 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
 export function EdicionDeProducto({ insumo, alCerrar }) {
   const datos = useDatos();
   const { insumos, casos } = datos;
+  const { t } = useIdioma();
   const [form, setForm] = useState(() => formDeProducto(insumo));
   const [guardando, setGuardando] = useState(false);
   const [borrando, setBorrando] = useState(false);
@@ -289,7 +297,9 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
   const caso = pedido ? casos.find((c) => c.id === insumo.caso_id) : null;
   const igual = igualAlEditar(insumos, insumo, form);
   const nombre = insumo.nombre.toLowerCase();
-  const motivo = guardando ? "se está guardando" : motivoDelProducto(form, { desdeUno: pedido });
+  const motivo = guardando
+    ? t("inventario.guardandoMotivo")
+    : motivoDelProducto(form, { desdeUno: pedido }, t);
 
   async function guardar() {
     setGuardando(true);
@@ -299,8 +309,12 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
     if (!r) return;
     datos.avisarExito(
       r.borrado
-        ? `Listo. Quedaron juntos: hay ${r.insumo.cantidad} ${presentacion(r.insumo, r.insumo.cantidad)} de ${r.insumo.nombre}.`
-        : `Listo. Guardaste los cambios de ${r.insumo.nombre}.`
+        ? t("inventario.producto.juntos", {
+            n: r.insumo.cantidad,
+            presentacion: presentacion(r.insumo, r.insumo.cantidad, t),
+            nombre: r.insumo.nombre,
+          })
+        : t("inventario.producto.cambiosGuardados", { nombre: r.insumo.nombre })
     );
     alCerrar();
   }
@@ -314,17 +328,15 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
     <div className="@container w-full rounded-tarjeta border border-borde bg-superficie p-4">
       {pedido && (
         <p className="mb-4 text-tinta-media">
-          {caso ? (
-            <>
-              Es para el{" "}
-              <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
-                {casoEnFrase(caso)}
-              </Link>
-              . Para pedirlo para otro, borralo y pedilo de nuevo.
-            </>
-          ) : (
-            "Es para reponer el stock."
-          )}
+          {caso
+            ? conElementos(t("inventario.producto.esParaEl"), {
+                enlace: (
+                  <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
+                    {casoEnFrase(caso, t)}
+                  </Link>
+                ),
+              })
+            : t("inventario.producto.esParaReponer")}
         </p>
       )}
 
@@ -332,10 +344,12 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
         prefijo={`editar-${insumo.id}`}
         form={form}
         cambiar={cambiar}
-        etiquetaCantidad={
-          pedido ? (enCaja ? "Cuántas cajas pedís" : "Cuántos pedís") : enCaja ? "Cuántas cajas hay" : "Cuántos hay"
-        }
-        ayudaCantidad={pedido ? "Desde 1." : "El número de ahora, después de contar."}
+        etiquetaCantidad={t(
+          pedido
+            ? enCaja ? "inventario.producto.cuantasCajasPedis" : "inventario.producto.cuantosPedis"
+            : enCaja ? "inventario.producto.cuantasCajasHay" : "inventario.producto.cuantosHay"
+        )}
+        ayudaCantidad={t(pedido ? "inventario.producto.desdeUno" : "inventario.producto.despuesDeContar")}
         conMinimo={!igual}
       />
 
@@ -343,8 +357,11 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
         <p className="mb-6 flex items-start gap-2 rounded-campo bg-azul-claro p-3 font-bold text-azul">
           <Icono nombre="cajas" className="mt-0.5 size-5 shrink-0" />
           <span>
-            Ya hay otro igual, con {igual.cantidad} {presentacion(igual, igual.cantidad)}. Al guardar se
-            juntan en uno: quedan {igual.cantidad + limpiarProducto(form).cantidad}.
+            {t("inventario.producto.yaHayOtro", {
+              n: igual.cantidad,
+              presentacion: presentacion(igual, igual.cantidad, t),
+              total: igual.cantidad + limpiarProducto(form).cantidad,
+            })}
           </span>
         </p>
       )}
@@ -356,25 +373,25 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
         <div className="flex flex-col gap-2 rounded-campo bg-tarjeta p-3 sm:flex-row sm:flex-wrap sm:items-center">
           <p className="sm:flex-1">
             {!pedido
-              ? `¿Querés borrar ${nombre} del inventario? Se pierde el número que tenías cargado.`
+              ? t("inventario.producto.borrarProducto", { nombre })
               : caso
-                ? `¿Querés borrar el pedido de ${nombre}? El ${casoEnFrase(caso)} sigue esperando: si ya no hace falta, cambialo desde el caso.`
-                : `¿Querés borrar el pedido de ${nombre}?`}
+                ? t("inventario.producto.borrarPedidoConCaso", { nombre, caso: casoEnFrase(caso, t) })
+                : t("inventario.producto.borrarPedido", { nombre })}
           </p>
           <Boton variante="peligro" icono="tacho" className="w-full sm:w-auto" onClick={borrar}>
-            Sí, borrarlo
+            {t("inventario.producto.siBorrar")}
           </Boton>
           <Boton variante="plano" className="w-full sm:w-auto" onClick={() => setBorrando(false)}>
-            Dejarlo como está
+            {t("inventario.producto.dejarlo")}
           </Boton>
         </div>
       ) : (
         <div className="flex flex-col gap-2 sm:flex-row">
           <Boton variante="principal" icono="check" motivo={motivo} className="w-full sm:w-auto" onClick={guardar}>
-            {igual ? "Juntarlos" : "Guardar los cambios"}
+            {t(igual ? "inventario.producto.juntarlos" : "inventario.producto.guardarCambios")}
           </Boton>
           <Boton variante="plano" className="w-full sm:w-auto" onClick={alCerrar}>
-            Cancelar
+            {t("inventario.producto.cancelar")}
           </Boton>
           {/* Borrar va aparte, a la derecha, y pregunta antes. */}
           <Boton
@@ -384,7 +401,7 @@ export function EdicionDeProducto({ insumo, alCerrar }) {
             disabled={guardando}
             onClick={() => setBorrando(true)}
           >
-            Borrar
+            {t("inventario.producto.borrar")}
           </Boton>
         </div>
       )}

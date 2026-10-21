@@ -1626,6 +1626,7 @@ export default {
       vacioTitulo: "Todavía no hay otras sedes para mostrar",
       vacioTexto: "Acá aparecen las sedes vinculadas con ésta donde tenés acceso.",
       vacioVincular: "Se vinculan desde {enlace}.",
+      miNegocio: "Mi negocio",
       esta: "{nombre} (ésta)",
       soloFaltan: "Sólo lo que falta en alguna sede",
       nadaTitulo: "No hay nada que coincida",

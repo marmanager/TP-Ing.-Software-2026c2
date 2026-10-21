@@ -1623,6 +1623,7 @@ export default {
       vacioTitulo: "There are no other locations to show yet",
       vacioTexto: "Locations linked to this one where you have access show up here.",
       vacioVincular: "They're linked from {enlace}.",
+      miNegocio: "My business",
       esta: "{nombre} (this one)",
       soloFaltan: "Only what's missing in some location",
       nadaTitulo: "Nothing matches",

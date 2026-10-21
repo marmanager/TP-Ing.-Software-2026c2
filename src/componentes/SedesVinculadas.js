@@ -12,7 +12,6 @@ import { useAuth } from "@/lib/auth";
 import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
 import { useDatos } from "@/lib/datos";
-import { SUBMODULOS } from "@/lib/modulos";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
 import { candidatosParaVincular, desvincularSede, misSedes, vincularSede, visitarSede } from "@/lib/sedes";
 import Icono from "./Icono";
@@ -82,7 +81,7 @@ export default function SedesVinculadas() {
     if (!r.ok) return setError(r.error);
     setSedes([]);
     setConfirmando(false);
-    avisarExito("Listo. Esta sede ya no está vinculada con las otras.");
+    avisarExito(t("inventario.vinculadas.desvinculada"));
   }
 
   return (
@@ -98,46 +97,43 @@ export default function SedesVinculadas() {
           <Icono nombre="tienda" className="size-6" />
           <div className="min-w-0 flex-1 text-cuerpo">
             <p className="font-bold">
-              {negocio?.nombre} y {desbloqueo} quedaron vinculadas. Desbloqueaste:
+              {t("inventario.vinculadas.vinculadas", { negocio: negocio?.nombre, sede: desbloqueo })}
             </p>
             <ul className="mt-1 list-disc pl-5">
-              <li>
-                {SUBMODULOS.sedes.nombre}, en Inventario: {SUBMODULOS.sedes.descripcion.toLowerCase()}
-              </li>
-              <li>Entrar a mirar las otras sedes, en sólo lectura.</li>
+              <li>{t("inventario.vinculadas.desbloqueoSedes")}</li>
+              <li>{t("inventario.vinculadas.desbloqueoVisita")}</li>
             </ul>
             <Link
               href="/negocio/modulos"
               className="mt-2 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
-              <Icono nombre="cajas" /> Ir a Módulos a ver lo nuevo
+              <Icono nombre="cajas" /> {t("inventario.vinculadas.irAModulos")}
             </Link>
           </div>
           <Boton variante="plano" onClick={() => setDesbloqueo(null)}>
-            Entendido
+            {t("ui.aviso.entendido")}
           </Boton>
         </div>
       )}
       {sedes === null ? (
-        <p className="text-tinta-media">Buscando tus sedes…</p>
+        <p className="text-tinta-media">{t("inventario.vinculadas.buscando")}</p>
       ) : sedes.length === 0 && error ? null : sedes.length === 0 && !error ? (
         <p className="max-w-[65ch] text-tinta-media">
-          Esta sede todavía no está vinculada con otras. Al vincularlas, en Inventario → Todas las
-          sedes ves el stock de todas juntas.
+          {t("inventario.vinculadas.sinVincular")}
         </p>
       ) : (
         <ul className="grid gap-3">
           {sedes.map((s) => (
             <li key={s.id} className="flex items-center gap-3">
               <FilaNegocio negocio={s} />
-              {s.id === negocio?.id && <span className="text-tinta-media">(ésta)</span>}
+              {s.id === negocio?.id && <span className="text-tinta-media">{t("inventario.vinculadas.esta")}</span>}
               {s.soy_miembro === false && (
                 <>
                   <span className="flex items-center gap-1 font-bold text-tinta-media">
-                    <Icono nombre="ojo" className="size-5" /> Solo lectura
+                    <Icono nombre="ojo" className="size-5" /> {t("inventario.vinculadas.soloLectura")}
                   </span>
-                  <Boton motivo={ocupado ? "entrando" : null} onClick={() => visitar(s.id)}>
-                    Ver la sede
+                  <Boton motivo={ocupado ? t("inventario.vinculadas.entrando") : null} onClick={() => visitar(s.id)}>
+                    {t("inventario.vinculadas.verLaSede")}
                   </Boton>
                 </>
               )}
@@ -156,50 +152,50 @@ export default function SedesVinculadas() {
         <p className="mt-4 text-tinta-media">{QUIEN_PUEDE.vincular_sedes}</p>
       ) : candidatos ? (
         <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-          <p className="font-bold">¿Con cuál la vinculás?</p>
+          <p className="font-bold">{t("inventario.vinculadas.conCual")}</p>
           {candidatos.length === 0 ? (
             <p className="mt-1 max-w-[65ch] text-tinta-media">
-              No tenés otros negocios donde puedas vincular. Podés crear uno desde Nuevo negocio.
+              {t("inventario.vinculadas.sinCandidatos")}
             </p>
           ) : (
             <ul className="mt-3 grid gap-3">
               {candidatos.map((c) => (
                 <li key={c.id} className="flex flex-wrap items-center gap-3">
                   <FilaNegocio negocio={c} />
-                  <Boton motivo={ocupado ? "vinculando" : null} onClick={() => vincular(c)}>
-                    Vincular
+                  <Boton motivo={ocupado ? t("inventario.vinculadas.vinculando") : null} onClick={() => vincular(c)}>
+                    {t("inventario.vinculadas.vincular")}
                   </Boton>
                 </li>
               ))}
             </ul>
           )}
           <Boton variante="plano" className="mt-3" onClick={() => setCandidatos(null)}>
-            Cerrar
+            {t("inventario.vinculadas.cerrar")}
           </Boton>
         </div>
       ) : confirmando ? (
         <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-          <p className="font-bold">¿Desvincular esta sede?</p>
+          <p className="font-bold">{t("inventario.vinculadas.desvincularPregunta")}</p>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
-            Las otras sedes dejan de ver el inventario de ésta, y ésta el de ellas.
+            {t("inventario.vinculadas.desvincularTexto")}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Boton variante="peligro" icono="salir" motivo={ocupado ? "desvinculando" : null} onClick={desvincular}>
-              Sí, desvincularla
+            <Boton variante="peligro" icono="salir" motivo={ocupado ? t("inventario.vinculadas.desvinculando") : null} onClick={desvincular}>
+              {t("inventario.vinculadas.siDesvincular")}
             </Boton>
             <Boton variante="plano" disabled={ocupado} onClick={() => setConfirmando(false)}>
-              Dejarla vinculada
+              {t("inventario.vinculadas.dejarVinculada")}
             </Boton>
           </div>
         </div>
       ) : (
         <div className="mt-4 flex flex-wrap gap-3">
-          <Boton icono="mas" motivo={sedes === null ? "buscando tus sedes" : null} onClick={abrirCandidatos}>
-            Vincular otra sede
+          <Boton icono="mas" motivo={sedes === null ? t("inventario.vinculadas.buscandoMotivo") : null} onClick={abrirCandidatos}>
+            {t("inventario.vinculadas.vincularOtra")}
           </Boton>
           {sedes?.length > 0 && (
             <Boton variante="peligro" icono="salir" onClick={() => setConfirmando(true)}>
-              Desvincular esta sede
+              {t("inventario.vinculadas.desvincular")}
             </Boton>
           )}
         </div>
