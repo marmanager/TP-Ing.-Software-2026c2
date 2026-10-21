@@ -19,6 +19,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
 import { preset, comoSeIdentifica, ejemplosDe } from "@/lib/presets";
 import {
   alCambiarElNombre,
@@ -48,9 +49,10 @@ export default function CasoNuevo() {
 
 function Formulario() {
   const router = useRouter();
+  const { t, idioma, locale } = useIdioma();
   const { cargando, clientes, empleados, turnos, negocio, abrirCaso, avisarExito } =
     useDatos();
-  useTitulo("Abrir un caso nuevo");
+  useTitulo(t("casos.nuevo.titulo"));
 
   // El caso puede salir de un turno: alguien pidió hora, vino, y esto es lo
   // que venía a hacer. En ese caso el nombre, el teléfono y el motivo ya
@@ -60,7 +62,7 @@ function Formulario() {
   // entró, 053): pasa al caso, y con él vuelve a entrar a la landing y lo ve
   // en "Mis casos".
   const idTurno = useSearchParams().get("turno");
-  const turno = turnos.find((t) => t.id === idTurno) ?? null;
+  const turno = turnos.find((x) => x.id === idTurno) ?? null;
   const delTurno = turno ? clientes.find((c) => c.id === turno.cliente_id) : null;
 
   const [nombre, setNombre] = useState(delTurno?.nombre ?? "");
@@ -113,8 +115,8 @@ function Formulario() {
 
   if (cargando) return <Cargando />;
 
-  const motivos = preset(negocio?.rubro).motivos;
-  const comoIdent = comoSeIdentifica(negocio?.rubro);
+  const motivos = preset(negocio?.rubro, idioma).motivos;
+  const comoIdent = comoSeIdentifica(negocio?.rubro, idioma);
   const yaEsCliente = clienteDelAlta({ nombre, telefono, clientes, elegido });
   const telefonoTraido = elegido && telefono === elegido.telefono;
   const hayHomonimos = clientesConEseNombre(nombre, clientes).length > 1;
@@ -153,8 +155,8 @@ function Formulario() {
   // El botón apagado dice por qué está apagado, no sólo que lo está. Si
   // falta más de un dato dice cuántos, y los campos vacíos se marcan con un
   // punto: así se ven todos de una vez (auditoría, H9).
-  const faltan = faltantesDelAlta({ nombre, telefono, identificador, servicio }, comoIdent.enFrase);
-  const motivoApagado = motivoDeFaltantes(faltan);
+  const faltan = faltantesDelAlta({ nombre, telefono, identificador, servicio }, comoIdent.enFrase, t);
+  const motivoApagado = motivoDeFaltantes(faltan, t);
   const marcar = (campo) => faltan.length > 1 && faltan.some((f) => f.campo === campo);
 
   async function guardar() {
@@ -172,7 +174,7 @@ function Formulario() {
         turnoId: turno?.id ?? null,
       });
       if (!caso) return;
-      avisarExito(`Listo. El caso de ${nombre.trim()} ya está en la lista de hoy.`);
+      avisarExito(t("casos.nuevo.listo", { nombre: nombre.trim() }));
       router.push(`/casos/${caso.id}`);
     } finally {
       guardandoRef.current = false;
@@ -195,35 +197,33 @@ function Formulario() {
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />
-        Volver a los casos
+        {t("casos.volver")}
       </Link>
 
       {saliendo && (
         <div role="alertdialog" aria-labelledby="salir-titulo" className="mb-6 rounded-tarjeta bg-superficie p-4">
           <p id="salir-titulo" className="font-bold text-cuerpo">
-            ¿Dejar el caso sin guardar?
+            {t("casos.nuevo.salirTitulo")}
           </p>
-          <p className="mt-1 text-tinta-media">Se pierde lo que escribiste.</p>
+          <p className="mt-1 text-tinta-media">{t("casos.nuevo.salirApoyo")}</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Boton variante="peligro" onClick={() => router.push("/casos")}>
-              Salir sin guardar
+              {t("casos.nuevo.salirSin")}
             </Boton>
             <Boton variante="plano" onClick={() => setSaliendo(false)}>
-              Seguir cargando
+              {t("casos.nuevo.seguir")}
             </Boton>
           </div>
         </div>
       )}
 
-      <h1 className="text-pantalla">Abrir un caso nuevo</h1>
+      <h1 className="text-pantalla">{t("casos.nuevo.titulo")}</h1>
       <p className="mt-1 max-w-[65ch] text-tinta-media">
-        Con esto alcanza para empezar. El diagnóstico y el presupuesto se cargan después.
+        {t("casos.nuevo.apoyo")}
       </p>
       {turno && (
         <p className="mt-3 max-w-[65ch] rounded-tarjeta border border-borde bg-superficie p-4 text-tinta-media">
-          Sale del turno de {horaYMinutos(turno.empieza_en)}. Lo que ya estaba
-          anotado viene cargado; revisalo por si cambió algo. Al guardar, el
-          turno queda marcado como que la persona vino.
+          {t("casos.nuevo.delTurno", { hora: horaYMinutos(turno.empieza_en, locale) })}
         </p>
       )}
       <div className="mb-8" />
@@ -238,8 +238,7 @@ function Formulario() {
           >
             <Icono nombre="alerta" className="mt-0.5 size-5" />
             <span>
-              Atención: existen varios clientes con este nombre. Revisá el teléfono para ver si
-              es el correspondiente.
+              {t("casos.nuevo.homonimos")}
             </span>
           </p>
         )}
@@ -250,10 +249,10 @@ function Formulario() {
             Ésta muestra nombre y teléfono, y elige al cliente, no al texto. */}
         <Campo
           id="cliente"
-          etiqueta="Nombre del cliente"
+          etiqueta={t("casos.nuevo.cliente")}
           falta={marcar("cliente")}
-          ayuda="Como lo vas a buscar después. Si ya vino antes, elegilo de la lista y se trae su teléfono."
-          exito={yaEsCliente ? `Ya es cliente. Le vamos a sumar este caso a ${yaEsCliente.nombre}.` : null}
+          ayuda={t("casos.nuevo.clienteAyuda")}
+          exito={yaEsCliente ? t("casos.nuevo.yaEsCliente", { nombre: yaEsCliente.nombre }) : null}
         >
           <input
             id="cliente"
@@ -288,7 +287,7 @@ function Formulario() {
             <ul
               id="clientes-sugeridos"
               role="listbox"
-              aria-label="Clientes que ya vinieron"
+              aria-label={t("casos.nuevo.yaVinieron")}
               className="mt-1 overflow-hidden rounded-campo border-2 border-borde-fuerte bg-tarjeta"
             >
               {sugeridos.map((c, i) => (
@@ -309,7 +308,7 @@ function Formulario() {
                   ].join(" ")}
                 >
                   <span className="font-bold">{c.nombre}</span>
-                  <span className="text-tinta-media">· {telefonoLegible(c.telefono) || "sin teléfono"}</span>
+                  <span className="text-tinta-media">· {telefonoLegible(c.telefono) || t("casos.nuevo.sinTelefono")}</span>
                 </li>
               ))}
             </ul>
@@ -318,20 +317,20 @@ function Formulario() {
 
         <CampoTelefono
           id="telefono"
-          etiqueta="Teléfono del cliente"
+          etiqueta={t("casos.nuevo.telefono")}
           falta={marcar("telefono")}
           paisPorDefecto={paisNegocio}
           error={errorTelefono}
           exito={
             telefonoTraido && yaEsCliente
-              ? `Es el teléfono que tenemos de ${yaEsCliente.nombre}. Si cambió, corregilo acá.`
+              ? t("casos.nuevo.telefonoQueTenemos", { nombre: yaEsCliente.nombre })
               : tel.armado.ok
-                ? "Listo. Le vamos a poder avisar por WhatsApp."
+                ? t("casos.nuevo.telefonoListo")
                 : null
           }
           valor={tel.valor}
           onChange={tel.setValor}
-          onBlur={() => setTocado((t) => ({ ...t, telefono: true }))}
+          onBlur={() => setTocado((previo) => ({ ...previo, telefono: true }))}
         />
 
         {/* El identificador va acá y no "después": es lo más certero que
@@ -342,7 +341,7 @@ function Formulario() {
           id="identificador"
           etiqueta={comoIdent.nombre}
           falta={marcar("identificador")}
-          ayuda={`Con esto lo vas a encontrar después, sin depender de cómo se escriba el nombre. Ejemplo: ${comoIdent.ejemplo}.`}
+          ayuda={t("casos.nuevo.identificadorAyuda", { ejemplo: comoIdent.ejemplo })}
           autoComplete="off"
           value={identificador}
           onChange={(e) => setIdentificador(e.target.value)}
@@ -350,12 +349,12 @@ function Formulario() {
 
         <Campo
           id="servicio"
-          etiqueta="Qué necesita"
+          etiqueta={t("casos.nuevo.servicio")}
           falta={marcar("servicio")}
-          ayuda="Con las palabras del cliente. Podés elegir uno de los de siempre."
+          ayuda={t("casos.nuevo.servicioAyuda")}
           value={servicio}
           onChange={(e) => setServicio(e.target.value)}
-          placeholder={ejemplosDe(negocio?.rubro).servicio}
+          placeholder={ejemplosDe(negocio?.rubro, idioma).servicio}
         />
         <div className="-mt-3 mb-6">
           <ul className="flex flex-wrap gap-2">
@@ -380,8 +379,8 @@ function Formulario() {
 
         <Campo
           id="responsable"
-          etiqueta="Quién lo va a atender"
-          ayuda="Si todavía no sabés, dejalo sin asignar y lo elegís después."
+          etiqueta={t("casos.nuevo.responsable")}
+          ayuda={t("casos.nuevo.responsableAyuda")}
         >
           <select
             id="responsable"
@@ -390,7 +389,7 @@ function Formulario() {
             onChange={(e) => setResponsable(e.target.value)}
             className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
           >
-            <option value="">Todavía no sé</option>
+            <option value="">{t("casos.nuevo.todaviaNoSe")}</option>
             {empleados.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.nombre}
@@ -406,8 +405,8 @@ function Formulario() {
           letra agrandada y la pantalla sin scrollear, el formulario empezaba
           tan abajo que el botón no llegaba a despegarse de la barra de
           secciones y quedaba tapado. Acá su contenedor es la página entera. */}
-      <BotonPrincipalFijo icono="check" motivo={guardando ? "guardando" : motivoApagado} onClick={guardar}>
-        Guardar el caso
+      <BotonPrincipalFijo icono="check" motivo={guardando ? t("casos.comun.guardando") : motivoApagado} onClick={guardar}>
+        {t("casos.nuevo.guardar")}
       </BotonPrincipalFijo>
     </>
   );

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useDatos } from "@/lib/datos";
-import { ESTADOS, ORDEN_ESTADOS } from "@/lib/estados";
+import { ORDEN_ESTADOS, ESTADOS, significadoDeEstado } from "@/lib/estados";
+import { useIdioma } from "@/lib/useIdioma";
 import {
   ICONOS_DE_ESTADO,
   configuracionEstadosValida,
@@ -14,12 +15,13 @@ import { Boton, Campo, Tarjeta } from "./ui";
 
 export default function ConfiguracionEstados({ puedeConfigurar }) {
   const datos = useDatos();
+  const { t, idioma } = useIdioma();
   const { negocio } = datos;
   const [editando, setEditando] = useState(false);
-  const [borrador, setBorrador] = useState(() => configuracionInicialEstados(negocio));
+  const [borrador, setBorrador] = useState(() => configuracionInicialEstados(negocio, idioma));
 
   function abrir() {
-    setBorrador(configuracionInicialEstados(negocio));
+    setBorrador(configuracionInicialEstados(negocio, idioma));
     setEditando(true);
   }
 
@@ -40,15 +42,15 @@ export default function ConfiguracionEstados({ puedeConfigurar }) {
     );
     datos.cambiarPresentacionEstados(limpios);
     setEditando(false);
-    datos.avisarExito("Listo. Guardamos los nombres e íconos de los estados.");
+    datos.avisarExito(t("casos.configEstados.guardado"));
   }
 
   if (editando) return (
     <Tarjeta className="mb-12">
       <div className="mb-6">
-        <p className="font-bold text-cuerpo">Nombres e íconos de los estados</p>
+        <p className="font-bold text-cuerpo">{t("casos.configEstados.titulo")}</p>
         <p className="mt-1 max-w-[65ch] text-tinta-media">
-          Cambia cómo se ven en las listas y en cada caso. El orden y lo que hace cada estado se conserva.
+          {t("casos.configEstados.apoyo")}
         </p>
       </div>
 
@@ -58,21 +60,21 @@ export default function ConfiguracionEstados({ puedeConfigurar }) {
           const visual = borrador[estado];
           return (
             <fieldset key={estado} className="rounded-tarjeta border border-borde p-4">
-              <legend className="px-2 font-bold">Estado {indice + 1}</legend>
+              <legend className="px-2 font-bold">{t("casos.configEstados.estado", { n: indice + 1 })}</legend>
               <div className="grid items-end gap-4 md:grid-cols-[minmax(240px,1fr)_minmax(210px,.7fr)]">
                 <Campo
                   id={`estado-${estado}-nombre`}
-                  etiqueta="Nombre"
-                  ayuda={base.significado}
+                  etiqueta={t("casos.configEstados.nombre")}
+                  ayuda={significadoDeEstado(estado, t)}
                   error={!visual.nombre.trim()
-                    ? "Escribí un nombre."
-                    : visual.nombre.trim().length > 40 ? "Puede tener hasta 40 caracteres." : null}
+                    ? t("casos.configEstados.sinNombre")
+                    : visual.nombre.trim().length > 40 ? t("casos.configEstados.largo") : null}
                   value={visual.nombre}
                   maxLength={41}
                   onChange={(e) => cambiar(estado, "nombre", e.target.value)}
                 />
                 <label className="mb-4 block" htmlFor={`estado-${estado}-icono`}>
-                  <span className="mb-2 block font-bold">Ícono</span>
+                  <span className="mb-2 block font-bold">{t("casos.configEstados.icono")}</span>
                   <span className="flex min-h-12 items-center gap-3 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-3 focus-within:border-azul">
                     <Icono nombre={visual.icono} className={`size-6 ${base.texto}`} />
                     <select
@@ -81,8 +83,8 @@ export default function ConfiguracionEstados({ puedeConfigurar }) {
                       onChange={(e) => cambiar(estado, "icono", e.target.value)}
                       className="min-h-11 flex-1 cursor-pointer bg-transparent text-tinta outline-none"
                     >
-                      {ICONOS_DE_ESTADO.map(([clave, nombre]) => (
-                        <option key={clave} value={clave}>{nombre}</option>
+                      {ICONOS_DE_ESTADO.map((clave) => (
+                        <option key={clave} value={clave}>{t(`casos.iconos.${clave}`)}</option>
                       ))}
                     </select>
                   </span>
@@ -97,12 +99,12 @@ export default function ConfiguracionEstados({ puedeConfigurar }) {
         <Boton
           variante="principal"
           icono="check"
-          motivo={configuracionEstadosValida(borrador) ? null : "revisá los nombres"}
+          motivo={configuracionEstadosValida(borrador) ? null : t("casos.configEstados.revisar")}
           onClick={guardar}
         >
-          Guardar nombres e íconos
+          {t("casos.configEstados.guardar")}
         </Boton>
-        <Boton variante="plano" onClick={() => setEditando(false)}>Cancelar</Boton>
+        <Boton variante="plano" onClick={() => setEditando(false)}>{t("casos.comun.cancelar")}</Boton>
       </div>
     </Tarjeta>
   );
@@ -111,12 +113,12 @@ export default function ConfiguracionEstados({ puedeConfigurar }) {
     <>
       {puedeConfigurar && (
         <div className="mb-4">
-          <Boton icono="pincel" onClick={abrir}>Configurar nombres e íconos</Boton>
+          <Boton icono="pincel" onClick={abrir}>{t("casos.configEstados.configurar")}</Boton>
         </div>
       )}
       <ul className="mb-12 overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
         {ORDEN_ESTADOS.map((estado) => {
-          const e = presentacionEstado(negocio, estado);
+          const e = presentacionEstado(negocio, estado, idioma);
           return (
             // En celular el estado arriba y lo que significa debajo, a todo el
             // ancho: al lado del estado (con el texto en flex-1) quedaba una
@@ -130,7 +132,7 @@ export default function ConfiguracionEstados({ puedeConfigurar }) {
                 <Icono nombre={e.icono} className="size-5" />
                 {e.nombre}
               </span>
-              <p className="min-w-0 text-tinta-media sm:flex-1">{e.significado}</p>
+              <p className="min-w-0 text-tinta-media sm:flex-1">{significadoDeEstado(estado, t)}</p>
             </li>
           );
         })}

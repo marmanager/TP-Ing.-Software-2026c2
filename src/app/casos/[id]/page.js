@@ -13,6 +13,9 @@ import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
+import { conElementos } from "@/lib/conElementos";
 import {
   AL_PASAR_A,
   ESTADOS,
@@ -70,6 +73,7 @@ const CAMPOS_DEL_COBRO = ["monto", "medio", "resto"];
 export default function VerCaso() {
   const { id } = useParams();
   const datos = useDatos();
+  const { t, idioma, locale } = useIdioma();
   const { cargando, casos, clientes, empleados, pasos, eventos, insumos, negocio } = datos;
   const { usuario } = useAuth();
   // Cada bloque pide el permiso que le exige la base (058): trabajar el caso y
@@ -141,23 +145,25 @@ export default function VerCaso() {
   const [elResto, setElResto] = useState("despues");
 
   const caso = casos.find((c) => c.id === id);
-  useTitulo(caso ? tituloDelCaso(caso) : "Caso");
+  useTitulo(caso ? tituloDelCaso(caso, t) : t("casos.detalle.caso"));
 
   if (cargando) return <Cargando />;
   if (!caso) {
     return (
-      <Vacio icono="buscar" titulo="No encontramos ese caso">
-        Puede que lo hayan borrado. <Link href="/casos" className="font-bold text-azul">Volver a los casos</Link>.
+      <Vacio icono="buscar" titulo={t("casos.detalle.noEncontrado")}>
+        {conElementos(t("casos.detalle.noEsta"), {
+          enlace: <Link href="/casos" className="font-bold text-azul">{t("casos.volver")}</Link>,
+        })}
       </Vacio>
     );
   }
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
-  const nombreEstado = (estado) => presentacionEstado(negocio, estado).nombre;
+  const nombreEstado = (estado) => presentacionEstado(negocio, estado, idioma).nombre;
   const puedeNotificar = telefonoWhatsAppValido(cliente?.telefono);
   // Sin link, el aviso de avance sale sin él: se dice antes y se ofrece generarlo.
-  const sinLinkEnElAviso = notificarCliente && puedeNotificar ? linkDelAvisoDeAvance({ caso, pasos }) : null;
-  const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega))[0];
+  const sinLinkEnElAviso = notificarCliente && puedeNotificar ? linkDelAvisoDeAvance({ caso, pasos }, t) : null;
+  const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega, t))[0];
 
   // El día de hoy en Argentina, el mismo que usa la API para decidir si una
   // fecha ya pasó. Las fechas de volver son días, no instantes.
@@ -184,10 +190,10 @@ export default function VerCaso() {
       // compartirCaso() devuelve el mismo código si ya hubiera uno: nunca
       // genera otro, y el que el cliente tenga sigue andando.
       const r = await datos.compartirCaso(caso.id);
-      if (!r.ok) return setErrorLink(r.error);
+      if (!r.ok) return setErrorLink(textoDeError(t, r.error));
       datos.avisarExito(r.quedaEsperando
-        ? "Listo. El aviso va a llevar el link, y el caso quedó esperando la respuesta del cliente."
-        : "Listo. El aviso va a llevar el link del caso.");
+        ? t("casos.detalle.linkGeneradoEsperando")
+        : t("casos.detalle.linkGenerado"));
     } finally {
       setGenerandoLink(false);
     }
@@ -213,8 +219,8 @@ export default function VerCaso() {
   const aprobado = mios.filter((p) => p.estado === "aprobado").reduce((s, p) => s + Number(p.monto), 0);
   const esperando = mios.filter((p) => p.estado === "esperando");
   const barra = ESTADOS[caso.estado].barra;
-  const comoIdent = comoSeIdentifica(negocio?.rubro);
-  const falta = queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente });
+  const comoIdent = comoSeIdentifica(negocio?.rubro, idioma);
+  const falta = queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente, idioma }, t);
   const aprobados = mios.filter((p) => p.estado === "aprobado");
   const avance = avanceDePasos(mios);
   // Los cobros de este caso y la cuenta contra lo aprobado (025). Un caso
@@ -240,10 +246,10 @@ export default function VerCaso() {
 
   // Cómo se lee el encabezado (SCRUM-119). Lo que ya dice el título no se
   // repite en las líneas de abajo.
-  const titulo = tituloDelCaso(caso);
-  const subtitulo = subtituloDelCaso(caso);
+  const titulo = tituloDelCaso(caso, t);
+  const subtitulo = subtituloDelCaso(caso, t);
   const identDistinto = caso.identificador && caso.identificador !== titulo;
-  const lineaDeAbajo = lineaDelCaso(caso, cliente?.nombre);
+  const lineaDeAbajo = lineaDelCaso(caso, cliente?.nombre, t);
 
   function abrirEdicionCaso() {
     setBorradorCaso({ nombre: caso.nombre ?? "", servicio: caso.servicio ?? "" });
@@ -253,16 +259,16 @@ export default function VerCaso() {
   function guardarEdicionCaso() {
     datos.editarCaso(caso.id, borradorCaso);
     setEditandoCaso(false);
-    datos.avisarExito("Listo, el caso quedó actualizado.");
+    datos.avisarExito(t("casos.detalle.actualizado"));
   }
 
   // Lo que pidió el cliente no puede quedar vacío; el nombre sí, y vacío
   // quiere decir que el caso vuelve a verse con su número.
-  const motivoEdicionCaso = !borradorCaso.servicio.trim() ? "falta qué necesita" : null;
+  const motivoEdicionCaso = !borradorCaso.servicio.trim() ? t("casos.detalle.faltaServicio") : null;
 
   // Para "Pedir un repuesto para este caso": la palabra del rubro, y si el
   // negocio tiene la pantalla "En camino" adonde lleva.
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
   const conEnCamino = hijosActivos("inventario", negocio?.modulos_activos ?? []).some(
     (h) => h.clave === "en_camino"
   );
@@ -271,7 +277,7 @@ export default function VerCaso() {
     <>
       <Link href="/casos" className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
         <Icono nombre="volver" />
-        Volver a los casos
+        {t("casos.volver")}
       </Link>
 
       {/* Lo importante, sin scrollear: identificador, estado y qué falta.
@@ -299,7 +305,7 @@ export default function VerCaso() {
                 </h1>
                 {sePuedeEditar && !editandoCaso && (
                   <Boton variante="plano" icono="pincel" onClick={abrirEdicionCaso}>
-                    Editar
+                    {t("casos.detalle.editar")}
                   </Boton>
                 )}
               </div>
@@ -327,7 +333,7 @@ export default function VerCaso() {
                     />
                     <span className="inline-flex items-center gap-1">
                       <Icono nombre="whatsapp" className="size-6 text-completo" />
-                      <span>Notificar</span>
+                      <span>{t("casos.detalle.notificar")}</span>
                     </span>
                   </label>
                 )}
@@ -340,8 +346,8 @@ export default function VerCaso() {
               </div>
               {sePuedeEditar && (
                 <p id="notificar-estado-ayuda" className="mt-1 max-w-[36ch] text-apoyo text-tinta-media">
-                  {!puedeNotificar ? "Falta un teléfono con código de país."
-                    : "Avisar al cliente al cambiar el estado."}
+                  {!puedeNotificar ? t("casos.detalle.notificarFalta")
+                    : t("casos.detalle.notificarAyuda")}
                 </p>
               )}
               {sePuedeEditar && sinLinkEnElAviso && (
@@ -362,7 +368,7 @@ export default function VerCaso() {
                   <Boton
                     className="mt-2"
                     icono="sobre"
-                    motivo={generandoLink ? "generándolo" : cambiandoEstado ? "cambiando el estado" : null}
+                    motivo={generandoLink ? t("casos.detalle.generandolo") : cambiandoEstado ? t("casos.detalle.cambiandoEstado") : null}
                     onClick={generarLinkDelAviso}
                   >
                     {sinLinkEnElAviso.boton}
@@ -379,8 +385,8 @@ export default function VerCaso() {
             <div className="mt-6 max-w-[560px] border-t border-borde pt-6">
               <Campo
                 id="caso-nombre"
-                etiqueta="Nombre del caso"
-                ayuda={`Opcional. Como lo reconocen en el mostrador. Si lo dejás vacío se ve como Caso ${caso.numero}. Este nombre también se usa al avisarle por WhatsApp.`}
+                etiqueta={t("casos.detalle.nombreDelCaso")}
+                ayuda={t("casos.detalle.nombreDelCasoAyuda", { numero: caso.numero })}
                 maxLength={80}
                 autoComplete="off"
                 value={borradorCaso.nombre}
@@ -388,18 +394,18 @@ export default function VerCaso() {
               />
               <Campo
                 id="caso-servicio"
-                etiqueta="Qué necesita"
-                ayuda="Con las palabras del cliente."
+                etiqueta={t("casos.detalle.servicio")}
+                ayuda={t("casos.detalle.servicioAyuda")}
                 autoComplete="off"
                 value={borradorCaso.servicio}
                 onChange={(e) => setBorradorCaso((b) => ({ ...b, servicio: e.target.value }))}
               />
               <div className="flex flex-wrap gap-3">
                 <Boton icono="check" motivo={motivoEdicionCaso} onClick={guardarEdicionCaso}>
-                  Guardar
+                  {t("casos.comun.guardar")}
                 </Boton>
                 <Boton variante="plano" onClick={() => setEditandoCaso(false)}>
-                  Cancelar
+                  {t("casos.comun.cancelar")}
                 </Boton>
               </div>
             </div>
@@ -412,7 +418,7 @@ export default function VerCaso() {
                 específico pasó a ser ruido, y en control final las dos salían
                 del mismo lugar y se leía "Control antes de entregar (Control
                 antes de entregar)". */}
-            <span className="font-bold">Qué falta:</span> {falta}
+            <span className="font-bold">{t("casos.detalle.queFalta")}</span> {falta}
           </p>
 
           {/* Los datos del caso, cada uno con su nombre arriba y su valor
@@ -427,8 +433,8 @@ export default function VerCaso() {
               perdido al final para ser un dato más, en el lugar donde alguien
               lo va a buscar. */}
           <dl className="mt-5 grid gap-x-6 gap-y-4 @2xl:grid-cols-2">
-            <Dato icono="persona" que="Quién lo tiene">
-              {quienLoTieneEnPalabras(caso, empleados)}
+            <Dato icono="persona" que={t("casos.detalle.quienLoTiene")}>
+              {quienLoTieneEnPalabras(caso, empleados, t)}
               {sePuedeAsignar && (
                 <div className="mt-1 -ml-3">
                   <Boton
@@ -436,7 +442,7 @@ export default function VerCaso() {
                     icono="persona-mas"
                     onClick={() => setEligiendo((v) => !v)}
                   >
-                    {caso.responsable_id ? "Cambiar quién lo atiende" : "Asignar a alguien"}
+                    {caso.responsable_id ? t("casos.detalle.cambiarQuien") : t("casos.detalle.asignarAlguien")}
                   </Boton>
                 </div>
               )}
@@ -444,7 +450,7 @@ export default function VerCaso() {
 
             <Dato icono="nota" que={comoIdent.nombre}>
               {caso.identificador || (
-                <span className="text-tinta-suave">Sin cargar</span>
+                <span className="text-tinta-suave">{t("casos.detalle.sinCargar")}</span>
               )}
               {sePuedeEditar && !editandoIdent && (
                 <div className="mt-1 -ml-3">
@@ -456,21 +462,21 @@ export default function VerCaso() {
                       setEditandoIdent(true);
                     }}
                   >
-                    {caso.identificador ? "Corregir" : `Cargar ${comoIdent.enFrase}`}
+                    {caso.identificador ? t("casos.detalle.corregir") : t("casos.detalle.cargar", { identificador: comoIdent.enFrase })}
                   </Boton>
                 </div>
               )}
             </Dato>
 
-            <Dato icono="reloj" que="Cuándo entró">
-              {haceCuanto(caso.abierto_en)}
+            <Dato icono="reloj" que={t("casos.detalle.cuandoEntro")}>
+              {haceCuanto(caso.abierto_en, t)}
             </Dato>
 
             {/* El teléfono es lo único de esta lista que se toca, y llamar al
                 cliente es lo que se hace apurado y con una mano: el área
                 táctil es todo el renglón y no sólo los dígitos. */}
             {cliente?.telefono && (
-              <Dato icono="telefono" que="Teléfono">
+              <Dato icono="telefono" que={t("casos.detalle.telefono")}>
                 <a
                   href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
                   className="-mx-2 inline-flex min-h-12 items-center rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
@@ -485,10 +491,10 @@ export default function VerCaso() {
                 alcanza con saber si el cliente ya lo miró, que es lo que dice
                 si hace falta llamarlo. */}
             {caso.seguimiento_codigo && (
-              <Dato icono="sobre" que="El link del cliente">
+              <Dato icono="sobre" que={t("casos.detalle.linkDelCliente")}>
                 {caso.seguimiento_visto_en
-                  ? `Lo abrió ${cuantoHace(caso.seguimiento_visto_en)}`
-                  : "Compartido, todavía no lo abrió"}
+                  ? t("casos.detalle.loAbrio", { cuando: cuantoHace(caso.seguimiento_visto_en, t) })
+                  : t("casos.detalle.compartido")}
               </Dato>
             )}
           </dl>
@@ -497,20 +503,21 @@ export default function VerCaso() {
               deformaba la fila entera. */}
           {eligiendo && sePuedeAsignar && (
             <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-              <p className="font-bold text-cuerpo">¿Quién lo va a atender?</p>
+              <p className="font-bold text-cuerpo">{t("casos.detalle.quienLoVaAAtender")}</p>
               {empleados.length === 0 ? (
                 <p className="mt-1 max-w-[65ch] text-tinta-media">
-                  Todavía no hay nadie cargado en el equipo. Se agrega desde{" "}
-                  <Link href="/equipo" className="font-bold text-azul">
-                    Equipo
-                  </Link>
-                  .
+                  {conElementos(t("casos.detalle.sinEquipo"), {
+                    enlace: (
+                      <Link href="/equipo" className="font-bold text-azul">
+                        {t("casos.detalle.equipo")}
+                      </Link>
+                    ),
+                  })}
                 </p>
               ) : (
                 <>
                   <p className="mt-1 max-w-[65ch] text-tinta-media">
-                    Al elegir a alguien, el caso pasa a{" "}
-                    {nombreEstado("en_proceso").toLowerCase()}.
+                    {t("casos.detalle.alElegir", { estado: nombreEstado("en_proceso").toLowerCase() })}
                   </p>
                   <ul className="mt-3 flex flex-wrap gap-2.5">
                     {empleados.map((e) => (
@@ -520,7 +527,7 @@ export default function VerCaso() {
                           icono="persona"
                           onClick={() => {
                             datos.asignarResponsable(caso.id, e.id);
-                            datos.avisarExito(`Listo. El ${casoEnFrase(caso)} lo atiende ${e.nombre}.`);
+                            datos.avisarExito(t("casos.detalle.loAtiende", { caso: casoEnFrase(caso, t), nombre: e.nombre }));
                             setEligiendo(false);
                           }}
                         >
@@ -533,7 +540,7 @@ export default function VerCaso() {
               )}
               <div className="mt-3">
                 <Boton variante="plano" onClick={() => setEligiendo(false)}>
-                  Dejarlo como está
+                  {t("casos.detalle.dejarloComoEsta")}
                 </Boton>
               </div>
             </div>
@@ -547,7 +554,7 @@ export default function VerCaso() {
               <Campo
                 id="identificador"
                 etiqueta={comoIdent.nombre}
-                ayuda={`Con esto lo vas a poder buscar después. Ejemplo: ${comoIdent.ejemplo}.`}
+                ayuda={t("casos.detalle.identificadorAyuda", { ejemplo: comoIdent.ejemplo })}
                 autoComplete="off"
                 value={identificador}
                 onChange={(e) => setIdentificador(e.target.value)}
@@ -555,7 +562,7 @@ export default function VerCaso() {
               <div className="flex flex-wrap gap-3">
                 <Boton
                   icono="check"
-                  motivo={!identificador.trim() ? `falta ${comoIdent.enFrase}` : null}
+                  motivo={!identificador.trim() ? t("casos.detalle.faltaIdentificador", { identificador: comoIdent.enFrase }) : null}
                   onClick={() => {
                     datos.ponerIdentificador(caso.id, identificador.trim());
                     // "Cambiamos" y no "quedó corregida": el artículo de
@@ -563,16 +570,16 @@ export default function VerCaso() {
                     // ("corregida la patente", pero "corregido el DNI").
                     datos.avisarExito(
                       caso.identificador
-                        ? `Listo. Cambiamos ${comoIdent.enFrase} del ${casoEnFrase(caso)}.`
-                        : `Listo. El ${casoEnFrase(caso)} ya tiene ${comoIdent.enFrase}.`
+                        ? t("casos.detalle.identificadorCambiado", { identificador: comoIdent.enFrase, caso: casoEnFrase(caso, t) })
+                        : t("casos.detalle.identificadorCargado", { identificador: comoIdent.enFrase, caso: casoEnFrase(caso, t) })
                     );
                     setEditandoIdent(false);
                   }}
                 >
-                  Guardar
+                  {t("casos.comun.guardar")}
                 </Boton>
                 <Boton variante="plano" onClick={() => setEditandoIdent(false)}>
-                  Dejarlo
+                  {t("casos.comun.dejarlo")}
                 </Boton>
               </div>
             </div>
@@ -585,12 +592,12 @@ export default function VerCaso() {
             <span className="flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
               <Icono nombre="nota" />
               {esperando.length > 0 && abierto
-                ? `Ver ${esperando.length === 1 ? "el paso" : `los ${esperando.length} pasos`} a aprobar`
+                ? t("casos.detalle.verPasosAAprobar", { n: esperando.length })
                 : mios.length > 0
-                  ? "Ver los pasos del caso"
+                  ? t("casos.detalle.verPasos")
                   : sePuedeEditar
-                    ? "Armar el presupuesto"
-                    : "Ver el presupuesto"}
+                    ? t("casos.detalle.armarPresupuesto")
+                    : t("casos.detalle.verPresupuesto")}
             </span>
           </Link>
 
@@ -600,9 +607,9 @@ export default function VerCaso() {
           {aprobados.length > 0 && (
             <div className="mt-6">
               <p className="font-bold text-cuerpo">
-                Lo que hay que hacer{" "}
+                {t("casos.detalle.loQueHayQueHacer")}{" "}
                 <span className="font-normal text-apoyo text-tinta-suave">
-                  {avance.hechos} de {avance.aprobados} hechos
+                  {t("casos.detalle.hechos", { hechos: avance.hechos, aprobados: avance.aprobados })}
                 </span>
               </p>
               <ul className="mt-2 divide-y divide-borde rounded-campo border border-borde">
@@ -630,7 +637,7 @@ export default function VerCaso() {
                           {p.nombre}
                         </span>
                         {hecho ? (
-                          <span className="block text-apoyo font-bold text-completo">Hecho</span>
+                          <span className="block text-apoyo font-bold text-completo">{t("casos.detalle.hecho")}</span>
                         ) : (
                           p.descripcion && (
                             <span className="block text-apoyo text-tinta-suave">
@@ -639,7 +646,7 @@ export default function VerCaso() {
                           )
                         )}
                       </span>
-                      <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto)}</span>
+                      <span className="shrink-0 font-bold tabular-nums">{pesos(p.monto, locale)}</span>
                     </>
                   );
 
@@ -651,14 +658,14 @@ export default function VerCaso() {
                           aria-pressed={hecho}
                           aria-label={
                             hecho
-                              ? `«${p.nombre}» está hecho. Tocá para desmarcarlo.`
-                              : `Marcar «${p.nombre}» como hecho.`
+                              ? t("casos.detalle.estaHecho", { nombre: p.nombre })
+                              : t("casos.detalle.marcarHecho", { nombre: p.nombre })
                           }
                           onClick={async () => {
                             const r = await datos.marcarPasoHecho(p.id, !hecho);
-                            if (!r.ok) return setErrorPaso(r.error);
+                            if (!r.ok) return setErrorPaso(textoDeError(t, r.error));
                             setErrorPaso(null);
-                            if (r.cambio && !hecho) datos.avisarExito(`Listo. «${p.nombre}» quedó hecho.`);
+                            if (r.cambio && !hecho) datos.avisarExito(t("casos.detalle.quedoHecho", { nombre: p.nombre }));
                           }}
                           className="flex w-full min-h-12 cursor-pointer items-start gap-3 px-4 py-3 text-left hover:bg-superficie"
                         >
@@ -692,24 +699,20 @@ export default function VerCaso() {
                 <div className="mt-3 rounded-tarjeta border-2 border-espera bg-espera-fondo p-4">
                   <p className="flex items-start gap-2 font-bold text-cuerpo text-espera">
                     <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                    <span>Quedó trabajo sin hacer</span>
+                    <span>{t("casos.detalle.quedoTrabajo")}</span>
                   </p>
                   <p className="mt-1 max-w-[65ch] text-tinta-media">
-                    El caso figura en {nombreEstado("revision_final")}, pero{" "}
-                    {avance.faltan === 1
-                      ? "hay un paso aprobado sin hacer"
-                      : `hay ${avance.faltan} pasos aprobados sin hacer`}
-                    . El control se hizo sobre otro trabajo.
+                    {t("casos.detalle.quedoTrabajoTexto", { estado: nombreEstado("revision_final"), n: avance.faltan })}
                   </p>
                   <div className="mt-4">
                     <Boton
                       icono="llave"
-                      motivo={cambiandoEstado || cerrando ? "guardando" : null}
+                      motivo={cambiandoEstado || cerrando ? t("casos.comun.guardando") : null}
                       onClick={() =>
                         cambiarEstadoDelCaso("en_proceso", AL_PASAR_A.en_proceso)
                       }
                     >
-                      Volverlo a {nombreEstado("en_proceso")}
+                      {t("casos.detalle.volverloA", { estado: nombreEstado("en_proceso") })}
                     </Boton>
                   </div>
                 </div>
@@ -720,20 +723,19 @@ export default function VerCaso() {
                   una persona. */}
               {avance.todoHecho && abierto && caso.estado !== "revision_final" && (
                 <div className="mt-3 rounded-tarjeta bg-superficie p-4">
-                  <p className="font-bold text-cuerpo">Terminaste todo lo aprobado</p>
+                  <p className="font-bold text-cuerpo">{t("casos.detalle.terminasteTodo")}</p>
                   <p className="mt-1 max-w-[65ch] text-tinta-media">
-                    Los {avance.aprobados} pasos están hechos. Si ya está para controlar
-                    antes de entregar, pasalo a {nombreEstado("revision_final")}.
+                    {t("casos.detalle.terminasteTodoTexto", { n: avance.aprobados, estado: nombreEstado("revision_final") })}
                   </p>
                   <div className="mt-4">
                     <Boton
                       icono="nota"
-                      motivo={cambiandoEstado || cerrando ? "guardando" : null}
+                      motivo={cambiandoEstado || cerrando ? t("casos.comun.guardando") : null}
                       onClick={() =>
                         cambiarEstadoDelCaso("revision_final", AL_PASAR_A.revision_final)
                       }
                     >
-                      Pasarlo a {nombreEstado("revision_final")}
+                      {t("casos.detalle.pasarloA", { estado: nombreEstado("revision_final") })}
                     </Boton>
                   </div>
                 </div>
@@ -743,7 +745,9 @@ export default function VerCaso() {
 
           {mios.length > 0 && (
             <p className="mt-3 text-tinta-media">
-              Aprobado hasta ahora <span className="font-bold text-tinta">{pesos(aprobado)}</span>.
+              {conElementos(t("casos.detalle.aprobadoHastaAhora"), {
+                monto: <span className="font-bold text-tinta">{pesos(aprobado, locale)}</span>,
+              })}
             </p>
           )}
 
@@ -752,11 +756,12 @@ export default function VerCaso() {
               El Number() es porque la base devuelve numeric como texto. */}
           {caso.cobrado != null && (
             <p className="mt-1 text-tinta-media">
-              Cobrado{" "}
-              <span className="font-bold text-tinta">{pesos(Number(caso.cobrado))}</span>
+              {conElementos(t("casos.cobros.cobradoMonto"), {
+                monto: <span className="font-bold text-tinta">{pesos(Number(caso.cobrado), locale)}</span>,
+              })}
               {/* La guarda va sobre la fecha y no sobre cuando(): cuando(null)
                   devuelve el 1 de enero de 1970 y cuando(undefined) explota. */}
-              {caso.cobrado_en ? ` · ${cuando(caso.cobrado_en)}` : ""}
+              {caso.cobrado_en ? ` · ${cuando(caso.cobrado_en, locale, t)}` : ""}
             </p>
           )}
         </div>
@@ -779,7 +784,7 @@ export default function VerCaso() {
             .filter((i) => i.estado !== "en_stock")
             .map((i) => (
               <Boton key={i.id} icono="camion" onClick={() => datos.marcarInsumoLlegado(i.id)}>
-                Marcar que llegó {i.nombre.toLowerCase()}
+                {t("casos.detalle.marcarLlego", { nombre: i.nombre.toLowerCase() })}
               </Boton>
             ))}
           {conEnCamino && (
@@ -788,7 +793,7 @@ export default function VerCaso() {
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
             >
               <Icono nombre="mas" className="size-6" />
-              Pedir {articulo.un()} para este caso
+              {t("casos.detalle.pedirParaElCaso", { articulo: articulo.un() })}
             </Link>
           )}
         </div>
@@ -832,7 +837,7 @@ export default function VerCaso() {
           en vez de la tarjeta con título que usa el resto. */}
       {abierto && !puedeEntregar ? null : abierto ? (
         <>
-          <TituloSeccion className="mt-12">Terminar el caso</TituloSeccion>
+          <TituloSeccion className="mt-12">{t("casos.detalle.terminar")}</TituloSeccion>
           <Tarjeta>
             {/* Cerrar se puede desde cualquier estado abierto, no sólo después
                 del control final: un trabajo puede terminarse antes de lo
@@ -843,10 +848,9 @@ export default function VerCaso() {
             {!entregando ? (
               <>
                 <p className="max-w-[65ch] text-tinta-media">
-                  Se lo entregás {cliente?.nombre ? `a ${cliente.nombre.split(" ")[0]}` : "al cliente"},
-                  anotás lo que te pagó y el caso queda cerrado. Si te paga después,
-                  queda anotado lo que falta cobrar. Mientras esté cerrado no se le
-                  tocan los pasos ni el diagnóstico.
+                  {cliente?.nombre
+                    ? t("casos.detalle.entregaTexto", { nombre: cliente.nombre.split(" ")[0] })
+                    : t("casos.detalle.entregaTextoSinNombre")}
                 </p>
                 <div className="mt-4">
                   <Boton
@@ -869,7 +873,7 @@ export default function VerCaso() {
                       setEntregando(true);
                     }}
                   >
-                    Entregar y cerrar
+                    {t("casos.detalle.entregar")}
                   </Boton>
                 </div>
               </>
@@ -894,14 +898,13 @@ export default function VerCaso() {
                   tabIndex={-1}
                   className="mb-4 font-bold text-etiqueta text-tinta-media outline-none"
                 >
-                  Paso 1 de 2 · El cobro
+                  {t("casos.detalle.paso1")}
                 </p>
                 <p className="flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
                   <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                   <span>
-                    <span className="font-bold">Vas a cerrar el caso.</span> Lo que
-                    anotes acá queda registrado como lo que cobraste. Si te paga
-                    después, lo anotás en Cobros cuando pase.
+                    <span className="font-bold">{t("casos.detalle.vasACerrar")}</span>{" "}
+                    {t("casos.detalle.vasACerrarTexto")}
                   </span>
                 </p>
 
@@ -909,14 +912,18 @@ export default function VerCaso() {
                     monto de abajo es lo que falta, no el total. */}
                 {cobrosDeEste.length > 0 && (
                   <p className="mt-4 text-tinta-media">
-                    Ya te pagó <span className="font-bold text-tinta">{pesos(cuenta.pagado)}</span>
-                    {cuenta.pendiente > 0 && (
-                      <>
-                        {" "}y se espera un pago de{" "}
-                        <span className="font-bold text-tinta">{pesos(cuenta.pendiente)}</span>
-                      </>
+                    {conElementos(
+                      t(
+                        cuenta.pendiente > 0
+                          ? aprobado > 0 ? "casos.detalle.yaPagoPendienteAprobado" : "casos.detalle.yaPagoPendiente"
+                          : aprobado > 0 ? "casos.detalle.yaPagoAprobado" : "casos.detalle.yaPago",
+                        { aprobado: pesos(aprobado, locale) }
+                      ),
+                      {
+                        pagado: <span className="font-bold text-tinta">{pesos(cuenta.pagado, locale)}</span>,
+                        pendiente: <span className="font-bold text-tinta">{pesos(cuenta.pendiente, locale)}</span>,
+                      }
                     )}
-                    {aprobado > 0 && <> de {pesos(aprobado)} aprobados</>}.
                   </p>
                 )}
 
@@ -928,19 +935,19 @@ export default function VerCaso() {
                   <div className="mt-4">
                     {cuenta.falta > 0 ? (
                       <>
-                        <p className="text-tinta-media">Vas a anotar que cobraste</p>
+                        <p className="text-tinta-media">{t("casos.detalle.vasAAnotar")}</p>
                         <p className="font-titulo font-extrabold text-dato tabular-nums">
-                          {pesos(cuenta.falta)}
+                          {pesos(cuenta.falta, locale)}
                         </p>
                         <p className="mt-1 max-w-[65ch] text-tinta-media">
                           {cobrosDeEste.length > 0
-                            ? "Es lo que falta de lo aprobado."
-                            : `Es lo que ${cliente?.nombre?.split(" ")[0] ?? "el cliente"} aprobó.`}
+                            ? t("casos.detalle.esLoQueFalta")
+                            : t("casos.detalle.esLoQueAprobo", { nombre: cliente?.nombre?.split(" ")[0] ?? t("casos.comun.elCliente") })}
                         </p>
                       </>
                     ) : (
                       (() => {
-                        const frase = fraseDeLaCuenta(cuenta);
+                        const frase = fraseDeLaCuenta(cuenta, t, locale);
                         return (
                           frase && (
                             <p className={`flex items-start gap-2 font-bold ${frase.color}`}>
@@ -960,7 +967,7 @@ export default function VerCaso() {
                           setCambiandoCobro(true);
                         }}
                       >
-                        {cuenta.falta > 0 ? "Cobré otra cosa" : "Cobré algo más"}
+                        {cuenta.falta > 0 ? t("casos.detalle.cobreOtraCosa") : t("casos.detalle.cobreAlgoMas")}
                       </Boton>
                     </div>
                   </div>
@@ -970,24 +977,25 @@ export default function VerCaso() {
                       <p className="mb-3 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
                         <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
                         <span>
-                          Estás cambiando el monto. Falta cobrar{" "}
-                          <span className="font-bold">{pesos(cuenta.falta)}</span>
-                          {montoCobrado(cobro) != null && montoCobrado(cobro) !== cuenta.falta
-                            ? `, y estás anotando ${pesos(montoCobrado(cobro))}.`
-                            : "."}
+                          {conElementos(
+                            montoCobrado(cobro) != null && montoCobrado(cobro) !== cuenta.falta
+                              ? t("casos.detalle.cambiandoMontoAnotando", { monto: pesos(montoCobrado(cobro), locale) })
+                              : t("casos.detalle.cambiandoMonto"),
+                            { falta: <span className="font-bold">{pesos(cuenta.falta, locale)}</span> }
+                          )}
                         </span>
                       </p>
                     )}
                     <Campo
                       id="cobro"
-                      etiqueta="¿Cuánto cobraste?"
+                      etiqueta={t("casos.detalle.cuantoCobraste")}
                       ayuda={
                         cobrosDeEste.length > 0
-                          ? "Con números y sin puntos. Si hoy no te paga nada más, dejalo vacío: el caso se entrega igual."
-                          : "Con números y sin puntos. Si te paga después, dejalo vacío: el caso se entrega igual. Si no le cobrás nada, poné 0."
+                          ? t("casos.detalle.cuantoCobrasteAyuda")
+                          : t("casos.detalle.cuantoCobrasteAyudaPrimero")
                       }
                       ejemplo="120000"
-                      error={!cobroValido(cobro) ? "El monto va con números y sin puntos." : null}
+                      error={!cobroValido(cobro) ? t("casos.detalle.montoInvalido") : null}
                       inputMode="numeric"
                       value={cobro}
                       onChange={(e) => setCobro(e.target.value)}
@@ -1011,12 +1019,12 @@ export default function VerCaso() {
                   montoCobrado(cobro) < cuenta.falta && (
                     <fieldset className="mb-6">
                       <legend className="mb-2 font-bold text-cuerpo">
-                        ¿Y los {pesos(cuenta.falta - montoCobrado(cobro))} que faltan?
+                        {t("casos.detalle.yLosQueFaltan", { monto: pesos(cuenta.falta - montoCobrado(cobro), locale) })}
                       </legend>
                       <ul className="flex flex-wrap gap-2.5">
                         {[
-                          { valor: "despues", palabra: "Me los paga después" },
-                          { valor: "no_se_cobra", palabra: "No se los cobro" },
+                          { valor: "despues", palabra: t("casos.detalle.mePagaDespues") },
+                          { valor: "no_se_cobra", palabra: t("casos.detalle.noSeLosCobro") },
                         ].map((o) => {
                           const puesta = o.valor === elResto;
                           return (
@@ -1052,16 +1060,16 @@ export default function VerCaso() {
                 <div className="flex flex-wrap gap-3">
                   <Boton
                     icono="flecha"
-                    motivo={!cobroValido(cobro) ? "revisá el monto" : null}
+                    motivo={!cobroValido(cobro) ? t("casos.detalle.revisaElMonto") : null}
                     onClick={() => {
                       setErrorEntrega(null);
                       setPasoEntrega(2);
                     }}
                   >
-                    Siguiente
+                    {t("casos.detalle.siguiente")}
                   </Boton>
                   <Boton variante="plano" onClick={() => setEntregando(false)}>
-                    Mejor no
+                    {t("casos.comun.mejorNo")}
                   </Boton>
                 </div>
               </div>
@@ -1072,7 +1080,7 @@ export default function VerCaso() {
                   tabIndex={-1}
                   className="mb-4 font-bold text-etiqueta text-tinta-media outline-none"
                 >
-                  Paso 2 de 2 · Después de entregar
+                  {t("casos.detalle.paso2")}
                 </p>
 
                 <CuandoVuelve
@@ -1107,10 +1115,10 @@ export default function VerCaso() {
                   <Boton
                     icono="listo"
                     motivo={
-                      cerrando || cambiandoEstado ? "guardando"
-                        : !cobroValido(cobro) ? "revisá el monto"
+                      cerrando || cambiandoEstado ? t("casos.comun.guardando")
+                        : !cobroValido(cobro) ? t("casos.detalle.revisaElMonto")
                           : motivoVolver ? motivoVolver
-                            : errorSeguimientoEntrega ? "revisá el seguimiento" : null
+                            : errorSeguimientoEntrega ? t("casos.detalle.revisaElSeguimiento") : null
                     }
                     onClick={async () => {
                       const monto = montoCobrado(cobro);
@@ -1130,31 +1138,31 @@ export default function VerCaso() {
                         // Un error del cobro se muestra en el paso del
                         // cobro, al lado de lo que hay que corregir.
                         if (CAMPOS_DEL_COBRO.includes(r.campo)) setPasoEntrega(1);
-                        return setErrorEntrega(r.error);
+                        return setErrorEntrega(textoDeError(t, r.error));
                       }
                       const entregado = r.falta > 0
-                        ? `Listo. El ${casoEnFrase(caso)} quedó entregado. Falta cobrar ${pesos(r.falta)}.`
+                        ? t("casos.detalle.entregadoFalta", { caso: casoEnFrase(caso, t), falta: pesos(r.falta, locale) })
                         : monto > 0
-                          ? `Listo. El ${casoEnFrase(caso)} quedó entregado y cobrado.`
-                          : `Listo. El ${casoEnFrase(caso)} quedó entregado.`;
+                          ? t("casos.detalle.entregadoCobrado", { caso: casoEnFrase(caso, t) })
+                          : t("casos.detalle.entregado", { caso: casoEnFrase(caso, t) });
                       // Si el cliente pidió no recibir avisos, se dice acá
                       // mismo: es parte de cómo quedó, no un problema.
                       datos.avisarExito(r.noSeAviso ? `${entregado} ${r.noSeAviso}` : entregado);
                       setEntregando(false);
                     }}
                   >
-                    Sí, entregar y cerrar
+                    {t("casos.detalle.siEntregarYCerrar")}
                   </Boton>
                   <Boton
                     variante="plano"
                     icono="volver"
-                    motivo={cerrando ? "guardando" : null}
+                    motivo={cerrando ? t("casos.comun.guardando") : null}
                     onClick={() => {
                       setErrorEntrega(null);
                       setPasoEntrega(1);
                     }}
                   >
-                    Volver al cobro
+                    {t("casos.detalle.volverAlCobro")}
                   </Boton>
                 </div>
               </div>
@@ -1164,20 +1172,25 @@ export default function VerCaso() {
         </>
       ) : (
         <>
-          <TituloSeccion className="mt-12">El caso está cerrado</TituloSeccion>
+          <TituloSeccion className="mt-12">{t("casos.detalle.cerrado")}</TituloSeccion>
           <Tarjeta>
             <p className="max-w-[65ch] text-tinta-media">
-              Se entregó{caso.cobrado != null ? ` y se cobró ${pesos(Number(caso.cobrado))}` : ""}.
+              {caso.cobrado != null
+                ? t("casos.detalle.seEntregoCobro", { monto: pesos(Number(caso.cobrado), locale) })
+                : t("casos.detalle.seEntrego")}
               {aprobado > 0 && cuenta.falta > 0 && (
                 <>
                   {" "}
-                  <span className="font-bold text-espera">
-                    Falta cobrar {pesos(cuenta.falta)}
-                  </span>
-                  : lo anotás en Cobros cuando te pague.
+                  {conElementos(t("casos.detalle.faltaCobrarResto"), {
+                    falta: (
+                      <span className="font-bold text-espera">
+                        {t("casos.detalle.faltaCobrar", { monto: pesos(cuenta.falta, locale) })}
+                      </span>
+                    ),
+                  })}
                 </>
               )}{" "}
-              Mientras siga cerrado no se le cambian los pasos ni el diagnóstico.
+              {t("casos.detalle.cerradoNoSeCambia")}
             </p>
             {/* Nada es definitivo: se puede haber cerrado de más. Es la única
                 acción que queda en un caso cerrado, así que se ve como un
@@ -1190,12 +1203,11 @@ export default function VerCaso() {
                 <>
                   <p className="text-cuerpo">
                     {caso.volver_en ? (
-                      <>
-                        Le toca volver el{" "}
-                        <span className="font-bold">{diaEnPalabras(caso.volver_en)}</span>.
-                      </>
+                      conElementos(t("casos.detalle.leTocaVolver"), {
+                        fecha: <span className="font-bold">{diaEnPalabras(caso.volver_en, locale)}</span>,
+                      })
                     ) : (
-                      "No anotaste cuándo le toca volver."
+                      t("casos.detalle.noAnotasteVolver")
                     )}
                   </p>
                   {/* Cuándo le sale el aviso, o por qué no sale (R-2b). Con
@@ -1217,7 +1229,7 @@ export default function VerCaso() {
                           setCorrigiendoVolver(true);
                         }}
                       >
-                        {caso.volver_en ? "Cambiar la fecha" : "Anotar cuándo vuelve"}
+                        {caso.volver_en ? t("casos.detalle.cambiarFecha") : t("casos.detalle.anotarCuandoVuelve")}
                       </Boton>
                     </div>
                   )}
@@ -1244,29 +1256,29 @@ export default function VerCaso() {
                     <Boton
                       variante="borde"
                       icono="listo"
-                      motivo={guardandoVolver ? "guardando" : motivoVolver}
+                      motivo={guardandoVolver ? t("casos.comun.guardando") : motivoVolver}
                       onClick={async () => {
                         setErrorVolver(null);
                         setGuardandoVolver(true);
                         const r = await datos.corregirVolverEn(caso.id, volverEn);
                         setGuardandoVolver(false);
-                        if (!r.ok) return setErrorVolver(r.error);
+                        if (!r.ok) return setErrorVolver(textoDeError(t, r.error));
                         datos.avisarExito(
                           r.caso.volver_en
-                            ? `Listo. Le toca volver el ${diaEnPalabras(r.caso.volver_en)}.`
-                            : "Listo. Sacaste la fecha para volver."
+                            ? t("casos.detalle.fechaGuardada", { fecha: diaEnPalabras(r.caso.volver_en, locale) })
+                            : t("casos.detalle.fechaSacada")
                         );
                         setCorrigiendoVolver(false);
                       }}
                     >
-                      Guardar la fecha
+                      {t("casos.detalle.guardarFecha")}
                     </Boton>
                     <Boton
                       variante="plano"
-                      motivo={guardandoVolver ? "guardando" : null}
+                      motivo={guardandoVolver ? t("casos.comun.guardando") : null}
                       onClick={() => setCorrigiendoVolver(false)}
                     >
-                      Mejor no
+                      {t("casos.comun.mejorNo")}
                     </Boton>
                   </div>
                 </>
@@ -1282,7 +1294,7 @@ export default function VerCaso() {
                     datos.cambiarEstado(caso.id, "en_proceso")
                   }
                 >
-                  Volver a abrirlo
+                  {t("casos.detalle.volverAAbrirlo")}
                 </Boton>
               </div>
             )}
@@ -1296,10 +1308,10 @@ export default function VerCaso() {
           que irse a otro lado a cargar lo que hay que hacer con eso. */}
 
       <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
-        <TituloSeccion className="mb-0">Lo que pasó con este caso</TituloSeccion>
+        <TituloSeccion className="mb-0">{t("casos.detalle.loQuePaso")}</TituloSeccion>
         {puedeCargar && (
           <Boton icono="nota" onClick={() => setAnotando((v) => !v)}>
-            {anotando ? "Cerrar" : "Anotar algo"}
+            {anotando ? t("casos.comun.cerrar") : t("casos.detalle.anotarAlgo")}
           </Boton>
         )}
       </div>
@@ -1308,31 +1320,31 @@ export default function VerCaso() {
       {anotando && puedeCargar && (
         <Tarjeta className="mb-4">
           <label htmlFor="nota" className="block font-bold text-cuerpo">
-            Qué querés dejar anotado
+            {t("casos.detalle.queQueresAnotar")}
           </label>
           <p className="mt-1 mb-2 text-apoyo text-tinta-suave">
-            Queda en el historial con la fecha. No borra ni cambia lo de antes.
+            {t("casos.detalle.notaApoyo")}
           </p>
           <textarea
             id="nota"
             rows={3}
             value={nota}
             onChange={(e) => setNota(e.target.value)}
-            placeholder="La clienta avisó que lo pasa a buscar el martes."
+            placeholder={t("casos.detalle.notaEjemplo")}
             className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
           />
           <div className="mt-3">
             <Boton
               icono="check"
-              motivo={!nota.trim() ? "falta escribir la nota" : null}
+              motivo={!nota.trim() ? t("casos.detalle.faltaNota") : null}
               onClick={() => {
                 datos.anotarNota(caso.id, nota.trim());
-                datos.avisarExito("Listo, quedó anotado en el historial.");
+                datos.avisarExito(t("casos.detalle.notaAnotada"));
                 setNota("");
                 setAnotando(false);
               }}
             >
-              Anotarlo
+              {t("casos.detalle.anotarlo")}
             </Boton>
           </div>
         </Tarjeta>
@@ -1350,7 +1362,7 @@ export default function VerCaso() {
             <div className="min-w-0 flex-1 border-b border-borde pb-4">
               <p className="font-bold">{e.titulo}</p>
               <p className="text-apoyo text-tinta-suave">
-                {cuando(e.ocurrido_en)} · {e.autor}
+                {cuando(e.ocurrido_en, locale, t)} · {e.autor}
               </p>
               {e.detalle && <p className="mt-1 text-tinta-media">{e.detalle}</p>}
             </div>
@@ -1365,8 +1377,8 @@ export default function VerCaso() {
             onClick={() => setHistorialEntero((v) => !v)}
           >
             {historialEntero
-              ? "Mostrar sólo lo último"
-              : `Ver todo lo que pasó (${historial.length})`}
+              ? t("casos.detalle.mostrarLoUltimo")
+              : t("casos.detalle.verTodo", { n: historial.length })}
           </Boton>
         </div>
       )}
@@ -1385,6 +1397,7 @@ export default function VerCaso() {
 // toque: si hubiera que ir a compartirlo primero, avisar dejaría de ser una
 // sola acción y nadie lo usaría con el mostrador lleno.
 function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
+  const { t, idioma } = useIdioma();
   const [abierto, setAbierto] = useState(false);
   const [armando, setArmando] = useState(false);
   const [error, setError] = useState(null);
@@ -1396,16 +1409,17 @@ function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
   const codigo = caso.seguimiento_codigo ?? null;
   const link = codigo && origen ? linkDeSeguimiento(origen, codigo) : "";
 
+  // Lo manda el negocio: sale en el idioma de quien lo arma.
   const mensaje = mensajeDeLoHecho({
-    negocioNombre: negocio?.nombre ?? "tu negocio",
+    negocioNombre: negocio?.nombre ?? t("casos.comun.tuNegocio"),
     clienteNombre: cliente?.nombre?.split(" ")[0] ?? null,
     identificador: caso.identificador,
     servicio: caso.servicio,
-    estadoEnPalabras: presentacionEstado(negocio, caso.estado).nombre,
+    estadoEnPalabras: presentacionEstado(negocio, caso.estado, idioma).nombre,
     entregado,
     pasos: aprobados.map((p) => ({ nombre: p.nombre, hecho: Boolean(p.hecho_en) })),
     link,
-  });
+  }, t);
 
   async function preparar() {
     setError(null);
@@ -1417,48 +1431,48 @@ function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
     setArmando(true);
     const r = await datos.compartirCaso(caso.id);
     setArmando(false);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) return setError(textoDeError(t, r.error));
     setAbierto(true);
   }
 
   async function copiar() {
     try {
       await navigator.clipboard.writeText(mensaje);
-      datos.avisarExito("Listo. Copiamos el aviso: pegalo en la conversación con el cliente.");
+      datos.avisarExito(t("casos.aviso.copiado"));
     } catch {
       const pre = document.getElementById("aviso-listo");
       if (pre) window.getSelection()?.selectAllChildren(pre);
-      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+      datos.avisarExito(t("casos.comun.noPudimosCopiar"));
     }
   }
 
   return (
     <>
       <TituloSeccion className="mt-12">
-        {entregado ? "Contarle qué se le hizo" : "Avisarle que ya está"}
+        {entregado ? t("casos.aviso.contarle") : t("casos.aviso.avisarle")}
       </TituloSeccion>
       <Tarjeta>
         {error && <ErrorGeneral>{error}</ErrorGeneral>}
 
         <p className="max-w-[65ch] text-tinta-media">
           {entregado
-            ? "Un resumen de lo que se le hizo, con el link para que lo tenga a mano."
-            : `El trabajo está controlado. Avisale a ${cliente?.nombre?.split(" ")[0] ?? "tu cliente"} que puede venir a buscarlo.`}
+            ? t("casos.aviso.resumenApoyo")
+            : t("casos.aviso.listoApoyo", { nombre: cliente?.nombre?.split(" ")[0] ?? t("casos.comun.tuCliente") })}
         </p>
 
         <div className="mt-4">
           <Boton
             icono="chat"
-            motivo={armando ? "armando el link" : null}
+            motivo={armando ? t("casos.aviso.armandoLink") : null}
             onClick={preparar}
           >
-            {abierto ? "Cerrar" : entregado ? "Armar el resumen" : "Armar el aviso"}
+            {abierto ? t("casos.comun.cerrar") : entregado ? t("casos.aviso.armarResumen") : t("casos.aviso.armarAviso")}
           </Boton>
         </div>
 
         {abierto && (
           <div className="mt-4 rounded-tarjeta border border-borde bg-superficie p-4">
-            <p className="font-bold">Esto es lo que le va a llegar</p>
+            <p className="font-bold">{t("casos.comun.esteEsElMensaje")}</p>
             <pre
               id="aviso-listo"
               className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-campo bg-tarjeta p-4 font-cuerpo text-etiqueta text-tinta-media"
@@ -1468,7 +1482,7 @@ function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
 
             <div className="mt-3 flex flex-wrap gap-3">
               <Boton icono="copiar" onClick={copiar}>
-                Copiar el aviso
+                {t("casos.aviso.copiar")}
               </Boton>
               <a
                 href={linkDeWhatsApp(mensaje)}
@@ -1477,7 +1491,7 @@ function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
                 className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
               >
                 <Icono nombre="chat" />
-                Mandarlo por WhatsApp
+                {t("casos.comun.mandarWhatsapp")}
               </a>
             </div>
           </div>

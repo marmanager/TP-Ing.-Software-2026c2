@@ -43,9 +43,8 @@ const RUBROS = ["taller", "medicina", "service"];
 
 // Los casos del recorte son de ejemplo, pero el ÍCONO de la acción de cada
 // fila NO se escribe acá: sale de accionDeFila(), la misma función que decide
-// el botón en la pantalla de casos de verdad. Su palabra sí está en el
-// diccionario (acceso.landing.casos.<estado>.accion), con el mismo texto que
-// devuelve accionDeFila en castellano. Antes estaban escritas a mano y decían
+// el botón en la pantalla de casos de verdad, y su palabra también (casos.accion.*
+// del diccionario, con el `t` de quien mira). Antes estaban escritas a mano y decían
 // «Asignar», «Llegó» y «Entregar», que son tres botones que el producto no
 // tiene. El asunto, lo que falta y quién lo tiene de cada caso también salen
 // del diccionario, por el estado.
@@ -63,7 +62,7 @@ const INSUMOS = CASOS.filter((c) => c.insumo).map((c) => ({
   estado: "pedido",
 }));
 
-const accionDe = (caso) => accionDeFila(caso, { pasos: [], insumos: INSUMOS });
+const accionDe = (caso, t) => accionDeFila(caso, { pasos: [], insumos: INSUMOS }, t);
 
 const CUENTAS = { nuevo: 4, en_proceso: 5, esperando: 3, revision_final: 2, completado: 4 };
 const TOTAL = Object.values(CUENTAS).reduce((a, b) => a + b, 0);
@@ -473,7 +472,7 @@ export default function Bienvenida() {
               </div>
 
               {CASOS.map((c) => {
-                const accion = accionDe(c);
+                const accion = accionDe(c, t);
                 return (
                 <div
                   key={c.numero}
@@ -514,7 +513,7 @@ export default function Bienvenida() {
                         manden los chips, que son el argumento. */}
                     <span className="mt-3 inline-flex items-center gap-2 text-etiqueta font-bold text-azul md:mt-0">
                       <Icono nombre={accion.icono} className="size-5" />
-                      {L(`casos.${c.estado}.accion`)}
+                      {accion.etiqueta}
                     </span>
                   </div>
                   </div>
