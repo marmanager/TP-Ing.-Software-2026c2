@@ -494,6 +494,9 @@ export default {
     hoyEnFrase: "today",
     ayerEnFrase: "yesterday",
     haceDias: "{n} days ago",
+    manana: "Tomorrow",
+    mananaEnFrase: "tomorrow",
+    elDia: "{dia}",
   },
   casos: {
     volver: "Back to cases",
@@ -1064,6 +1067,78 @@ export default {
     seLoMandasteInsistir: "You sent it {cuando}. Worth calling them",
     verLosPasos: "View the steps",
     llamar: "Call {telefono}",
+  },
+  agenda: {
+    estado: {
+      agendado: {
+        palabra: "Not confirmed",
+        significado: "It's booked, but the person hasn't confirmed they're coming yet.",
+      },
+      confirmado: {
+        palabra: "Confirmed",
+        significado: "The person said they're coming.",
+      },
+      cancelado: {
+        palabra: "Canceled",
+        significado: "They're not coming. It stays on the schedule so it's clear it was there.",
+      },
+      atendido: {
+        palabra: "Came in",
+        significado: "They came in and were seen. If they brought a job, the appointment points to the case that came out of it.",
+      },
+    },
+    semana: {
+      mismoMes: "{mesDesde} {desde} to {hasta}",
+      mismoAnio: "{mesDesde} {desde} to {mesHasta} {hasta}",
+      distintoAnio: "{mesDesde} {desde}, {anioDesde} to {mesHasta} {hasta}, {anioHasta}",
+    },
+  },
+  turnos: {
+    horarios: {
+      anticipacion: {
+        h0: "No minimum",
+        h2: "2 hours ahead",
+        h24: "A day ahead",
+        h48: "Two days ahead",
+      },
+      horizonte: {
+        d14: "Two weeks",
+        d30: "One month",
+        d60: "Two months",
+        d90: "Three months",
+      },
+      problema: {
+        sinConfigurar: "You haven't set your hours yet.",
+        sinDias: "Pick at least one day.",
+        cierreAntes: "The closing time has to be after the opening time.",
+        corteAlReves: "The midday break ends before it starts.",
+        corteAfuera: "The break has to fall within opening hours.",
+        noEntra: "No {minutos}-minute appointment fits in those hours.",
+      },
+    },
+    franja: {
+      manana: "In the morning",
+      tarde: "In the afternoon",
+    },
+  },
+  seguimiento: {
+    espera: {
+      titulo: "We're waiting for {que}.",
+      tuRespuesta: "your reply",
+      detalleCliente: "It's right below. As soon as you reply, we'll keep going.",
+      detalleNegocio: "You don't need to do anything: we'll let you know as soon as we can keep going.",
+      algo: "something",
+    },
+    consulta: {
+      soy: "Hi, I'm {nombre}.",
+      hola: "Hi.",
+      porIdentificador: "about {identificador}",
+      porCaso: "about case {numero}",
+      porServicio: "about {servicio}",
+      porLoQueDeje: "about what I left",
+      conPaso: "{quien} I'm writing {cual}. I wanted to ask you about “{paso}” before deciding.",
+      sinPaso: "{quien} I'm writing {cual}. I had a question.",
+    },
   },
   ui: {
     cargando: "Loading…",

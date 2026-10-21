@@ -43,18 +43,42 @@ export function haceCuanto(iso, t = tCastellano) {
 
 export const horaYMinutos = (iso, locale = "es-AR") => hora(new Date(iso), locale);
 
-export function diaLargo(iso, locale = "es-AR") {
+export function diaLargo(iso, locale = "es-AR", t = tCastellano) {
   const d = new Date(iso);
   const ahora = new Date();
-  if (mismoDia(d, ahora)) return "Hoy";
+  if (mismoDia(d, ahora)) return t("fechas.hoy");
   const manana = new Date(ahora);
   manana.setDate(ahora.getDate() + 1);
-  if (mismoDia(d, manana)) return "Mañana";
+  if (mismoDia(d, manana)) return t("fechas.manana");
   return new Intl.DateTimeFormat(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
   }).format(d);
+}
+
+// Lo mismo que diaLargo() para meter en medio de una frase: "hoy", "mañana" o
+// el día con su nombre ("martes, 20 de octubre"; en inglés "Tuesday, October
+// 20", que lleva mayúscula también en medio de una frase).
+export function diaLargoEnFrase(iso, locale = "es-AR", t = tCastellano) {
+  const d = new Date(iso);
+  const ahora = new Date();
+  if (mismoDia(d, ahora)) return t("fechas.hoyEnFrase");
+  const manana = new Date(ahora);
+  manana.setDate(ahora.getDate() + 1);
+  if (mismoDia(d, manana)) return t("fechas.mananaEnFrase");
+  return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(d);
+}
+
+// Lo mismo, mirando para atrás: "hoy", "ayer" o el día con su nombre.
+export function diaPasadoEnFrase(iso, locale = "es-AR", t = tCastellano) {
+  const d = new Date(iso);
+  const ahora = new Date();
+  if (mismoDia(d, ahora)) return t("fechas.hoyEnFrase");
+  const ayer = new Date(ahora);
+  ayer.setDate(ahora.getDate() - 1);
+  if (mismoDia(d, ayer)) return t("fechas.ayerEnFrase");
+  return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(d);
 }
 
 export const paraInput = (d = new Date()) => {
@@ -81,14 +105,14 @@ export function diaPasado(iso, locale = "es-AR", t = tCastellano) {
 // Un día pasado para meter en medio de una frase: "hoy", "ayer" o "el 2 de
 // septiembre". Así se lee "Cliente desde hoy" y "Abierto el 2 de
 // septiembre", sin la hora, que en esas frases sobra.
-export function elDia(iso, locale = "es-AR") {
+export function elDia(iso, locale = "es-AR", t = tCastellano) {
   const d = new Date(iso);
   const ahora = new Date();
-  if (mismoDia(d, ahora)) return "hoy";
+  if (mismoDia(d, ahora)) return t("fechas.hoyEnFrase");
   const ayer = new Date(ahora);
   ayer.setDate(ahora.getDate() - 1);
-  if (mismoDia(d, ayer)) return "ayer";
-  return `el ${dia(d, locale)}`;
+  if (mismoDia(d, ayer)) return t("fechas.ayerEnFrase");
+  return t("fechas.elDia", { dia: dia(d, locale) });
 }
 
 // Hace cuánto que pasó algo, para meter en medio de una frase: "hoy", "ayer"

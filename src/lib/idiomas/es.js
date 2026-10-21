@@ -500,6 +500,9 @@ export default {
     hoyEnFrase: "hoy",
     ayerEnFrase: "ayer",
     haceDias: "hace {n} días",
+    manana: "Mañana",
+    mananaEnFrase: "mañana",
+    elDia: "el {dia}",
   },
   casos: {
     volver: "Volver a los casos",
@@ -1067,6 +1070,78 @@ export default {
     seLoMandasteInsistir: "Se lo mandaste {cuando}. Conviene llamarlo",
     verLosPasos: "Ver los pasos",
     llamar: "Llamar al {telefono}",
+  },
+  agenda: {
+    estado: {
+      agendado: {
+        palabra: "Sin confirmar",
+        significado: "Está anotado, pero la persona todavía no confirmó que viene.",
+      },
+      confirmado: {
+        palabra: "Confirmado",
+        significado: "La persona dijo que viene.",
+      },
+      cancelado: {
+        palabra: "Cancelado",
+        significado: "No va a venir. Queda en la agenda para que se sepa que estaba.",
+      },
+      atendido: {
+        palabra: "Ya vino",
+        significado: "Vino y se la atendió. Si traía un trabajo, el turno queda apuntando al caso que salió de él.",
+      },
+    },
+    semana: {
+      mismoMes: "{desde} al {hasta} de {mesDesde}",
+      mismoAnio: "{desde} de {mesDesde} al {hasta} de {mesHasta}",
+      distintoAnio: "{desde} de {mesDesde} de {anioDesde} al {hasta} de {mesHasta} de {anioHasta}",
+    },
+  },
+  turnos: {
+    horarios: {
+      anticipacion: {
+        h0: "Sin mínimo",
+        h2: "2 horas antes",
+        h24: "Un día antes",
+        h48: "Dos días antes",
+      },
+      horizonte: {
+        d14: "Dos semanas",
+        d30: "Un mes",
+        d60: "Dos meses",
+        d90: "Tres meses",
+      },
+      problema: {
+        sinConfigurar: "Todavía no configuraste tus horarios.",
+        sinDias: "Elegí al menos un día.",
+        cierreAntes: "La hora de cierre tiene que ser posterior a la de apertura.",
+        corteAlReves: "El corte del mediodía termina antes de empezar.",
+        corteAfuera: "El corte tiene que caer adentro del horario.",
+        noEntra: "No entra ningún turno de {minutos} minutos en ese horario.",
+      },
+    },
+    franja: {
+      manana: "A la mañana",
+      tarde: "A la tarde",
+    },
+  },
+  seguimiento: {
+    espera: {
+      titulo: "Estamos esperando {que}.",
+      tuRespuesta: "tu respuesta",
+      detalleCliente: "Está acá abajo. Apenas contestes, seguimos.",
+      detalleNegocio: "No hace falta que hagas nada: te avisamos apenas podamos seguir.",
+      algo: "algo",
+    },
+    consulta: {
+      soy: "Hola, soy {nombre}.",
+      hola: "Hola.",
+      porIdentificador: "por {identificador}",
+      porCaso: "por el caso {numero}",
+      porServicio: "por {servicio}",
+      porLoQueDeje: "por lo que dejé",
+      conPaso: "{quien} Te escribo {cual}. Quería preguntarte por «{paso}» antes de decidir.",
+      sinPaso: "{quien} Te escribo {cual}. Quería hacerte una consulta.",
+    },
   },
   ui: {
     cargando: "Cargando…",

@@ -61,14 +61,14 @@ export function laEspera({
   porResponder = 0,
   espera = {},
   generico,
-} = {}) {
+} = {}, t = tCastellano) {
   if (estado !== "esperando") return null;
 
   if (porResponder > 0) {
     return {
       deQuien: "cliente",
-      titulo: `Estamos esperando ${espera.cliente ?? "tu respuesta"}.`,
-      detalle: "Está acá abajo. Apenas contestes, seguimos.",
+      titulo: t("seguimiento.espera.titulo", { que: espera.cliente ?? t("seguimiento.espera.tuRespuesta") }),
+      detalle: t("seguimiento.espera.detalleCliente"),
     };
   }
 
@@ -84,13 +84,16 @@ export function laEspera({
   //   mover el estado desde el desplegable, y adentro del negocio alcanza;
   //   acá es justo la confusión que esta pantalla vino a sacar.
   const escrito = (queFalta ?? "").trim();
-  const sirve = escrito && escrito !== ESPERA_AL_CLIENTE && escrito !== generico;
-  const loQueFalta = sirve ? escrito : (espera.negocio ?? "algo");
+  // `generico` puede venir en los dos idiomas: el texto lo escribió, al mover
+  // el estado, quien lo movió, en el suyo.
+  const genericos = [generico].flat();
+  const sirve = escrito && escrito !== ESPERA_AL_CLIENTE && !genericos.includes(escrito);
+  const loQueFalta = sirve ? escrito : (espera.negocio ?? t("seguimiento.espera.algo"));
 
   return {
     deQuien: "negocio",
-    titulo: `Estamos esperando ${primeraMinuscula(loQueFalta)}.`,
-    detalle: "No hace falta que hagas nada: te avisamos apenas podamos seguir.",
+    titulo: t("seguimiento.espera.titulo", { que: primeraMinuscula(loQueFalta) }),
+    detalle: t("seguimiento.espera.detalleNegocio"),
   };
 }
 
@@ -99,7 +102,8 @@ export function laEspera({
 // Sólo se baja la mayúscula cuando la primera palabra es un artículo. Mirar
 // si empieza en mayúscula no alcanza: "Bosch, que confirme el precio"
 // también empieza en mayúscula, y bajarla lo rompe. El test lo agarró.
-const ARTICULOS = ["el", "la", "los", "las", "un", "una", "unos", "unas", "que"];
+// Los de castellano y los de inglés: lo escribió el negocio en su idioma.
+const ARTICULOS = ["el", "la", "los", "las", "un", "una", "unos", "unas", "que", "the", "a", "an"];
 
 const primeraMinuscula = (texto) => {
   const primera = texto.split(/[\s,.]/)[0].toLowerCase();
@@ -221,15 +225,19 @@ export const linkDeLlamada = (telefono) => {
 // Lo que el cliente le escribe al negocio cuando no está seguro. Ya viene
 // escrito porque del otro lado alguien tiene que entender de qué caso le
 // hablan sin preguntar tres veces.
-export function mensajeDeConsulta({ clienteNombre, identificador, servicio, numero, paso }) {
-  const quien = clienteNombre ? `Hola, soy ${clienteNombre}.` : "Hola.";
+//
+// Lo escribe el cliente, en el idioma en que está mirando el link (`t`, al final).
+export function mensajeDeConsulta({ clienteNombre, identificador, servicio, numero, paso }, t = tCastellano) {
+  const quien = clienteNombre ? t("seguimiento.consulta.soy", { nombre: clienteNombre }) : t("seguimiento.consulta.hola");
   const cual = identificador
-    ? `por ${identificador}`
+    ? t("seguimiento.consulta.porIdentificador", { identificador })
     : numero
-      ? `por el caso ${numero}`
-      : `por ${servicio ?? "lo que dejé"}`;
+      ? t("seguimiento.consulta.porCaso", { numero })
+      : servicio
+        ? t("seguimiento.consulta.porServicio", { servicio })
+        : t("seguimiento.consulta.porLoQueDeje");
 
   return paso
-    ? `${quien} Te escribo ${cual}. Quería preguntarte por «${paso}» antes de decidir.`
-    : `${quien} Te escribo ${cual}. Quería hacerte una consulta.`;
+    ? t("seguimiento.consulta.conPaso", { quien, cual, paso })
+    : t("seguimiento.consulta.sinPaso", { quien, cual });
 }
