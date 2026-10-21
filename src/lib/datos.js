@@ -9,7 +9,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth";
 import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
-import { buscarIgual, limpiarProducto, productoParaLaApi } from "./inventario";
+import { buscarIgual, categoriaParaGuardar, limpiarProducto, productoParaLaApi } from "./inventario";
 import {
   FIRMA_DEL_CLIENTE,
   alLlegarInsumo,
@@ -1052,7 +1052,7 @@ export function DatosProvider({ children }) {
       // Con los mismos datos que el alta de un producto: al llegar se busca
       // uno igual en el stock por nombre, marca, modelo y cómo viene.
       async pedirInsumo({ casoId, ...form }) {
-        const r = await llamarCasos("/insumos/pedidos", { ...productoParaLaApi(form), caso_id: casoId || null }, { idempotencia: nuevaClave() });
+        const r = await llamarCasos("/insumos/pedidos", { ...productoParaLaApi({ ...form, categoria: categoriaParaGuardar(form.categoria, datos.negocio?.rubro) }), caso_id: casoId || null }, { idempotencia: nuevaClave() });
         if (!r.ok) { setAviso(r.error.mensaje); return null; }
         setDatos((d) => ({ ...d, insumos: [...d.insumos, r.datos.insumo],
           casos: r.datos.caso ? d.casos.map((c) => c.id === r.datos.caso.id ? r.datos.caso : c) : d.casos,
@@ -1074,7 +1074,7 @@ export function DatosProvider({ children }) {
       // null. La clave de idempotencia hace que un reintento por mala
       // conexión no sume dos veces.
       async agregarInsumo(form) {
-        const r = await mandar("/insumos", productoParaLaApi(form), await tokenDeSesion(), {
+        const r = await mandar("/insumos", productoParaLaApi({ ...form, categoria: categoriaParaGuardar(form.categoria, datos.negocio?.rubro) }), await tokenDeSesion(), {
           idempotencia: nuevaClave(),
         });
         if (!r.ok) {
@@ -1105,7 +1105,7 @@ export function DatosProvider({ children }) {
         const actual = datos.insumos.find((i) => i.id === insumoId);
         if (!actual) return null;
         const r = await reemplazar(`/insumos/${insumoId}`,
-          { ...productoParaLaApi(form), actualizado_en: actual.actualizado_en }, await tokenDeSesion());
+          { ...productoParaLaApi({ ...form, categoria: categoriaParaGuardar(form.categoria, datos.negocio?.rubro) }), actualizado_en: actual.actualizado_en }, await tokenDeSesion());
         if (!r.ok) {
           setAviso(r.error.mensaje);
           if (r.error.codigo === "choque") setRefresco((n) => n + 1);

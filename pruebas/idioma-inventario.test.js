@@ -14,10 +14,13 @@ import {
   buscarEnCategorias,
   categoriaEnIdioma,
   categoriaExistente,
+  categoriaParaGuardar,
   categoriasDisponibles,
   claveDeCategoria,
   filtrarProductos,
   filtrosDisponibles,
+  listaParaGuardar,
+  normalizar,
   motivoDelProducto,
   porCategoria,
   presentacion,
@@ -134,4 +137,66 @@ test("clientes e inventario: mismas claves y variables en es y en", () => {
       assert.deepEqual(b, a, clave);
     }
   }
+});
+
+// ------------------------------------------------------------
+// Lo que se guarda: la forma castellana de fábrica (la API compara texto)
+// ------------------------------------------------------------
+import { categoriasDe } from "../src/lib/presets.js";
+
+test("categoriaParaGuardar: cada categoría de fábrica, en inglés o en castellano, se guarda en castellano", () => {
+  for (const rubro of ["taller", "medicina", "tecnico"]) {
+    const deEs = categoriasDe(rubro, "es");
+    const deEn = categoriasDe(rubro, "en");
+    deEs.forEach((c, i) => {
+      assert.equal(categoriaParaGuardar(deEn[i], rubro), c, `${rubro}: ${deEn[i]}`);
+      assert.equal(categoriaParaGuardar(c, rubro), c);
+    });
+  }
+  assert.equal(categoriaParaGuardar("Filters", "taller"), "Filtros");
+  assert.equal(categoriaParaGuardar("filters", "taller"), "Filtros");
+  // Castellano escrito distinto: queda como estaba (sin cambios para quien lo mira en castellano).
+  assert.equal(categoriaParaGuardar("filtros", "taller"), "filtros");
+});
+
+test("categoriaParaGuardar: una categoría propia se guarda tal cual", () => {
+  assert.equal(categoriaParaGuardar("Juntas del motor", "taller"), "Juntas del motor");
+  assert.equal(categoriaParaGuardar("", "taller"), "");
+  assert.equal(categoriaParaGuardar(null, "taller"), null);
+});
+
+// Lo que hace la API al guardar la lista (casos-de-uso.ts, guardarCategorias):
+// los productos cuyo texto normalizado no está en la lista se quedan sin categoría.
+const sobran = (lista, insumos) => {
+  const vistas = new Set(lista.map(normalizar));
+  return insumos.filter((i) => i.categoria && !vistas.has(normalizar(i.categoria)));
+};
+
+test("la lista de 'Editar categorías' mirada en inglés no deja sin categoría a los productos guardados en castellano", () => {
+  const insumos = [prod("a", "Filtros"), prod("b", "Filters"), prod("c", "Juntas"), prod("d", "Repuestos"), prod("e", null)];
+  // Lo que ve y manda quien edita en inglés: todo en su idioma, lo propio tal cual.
+  const lista = categoriasDisponibles("taller", insumos, [], null, "en");
+  const mandada = listaParaGuardar(lista, insumos, "taller");
+  assert.deepEqual(sobran(mandada, insumos), []);
+  // La forma canónica está, sin repetir sin importar mayúsculas ni tildes.
+  assert.ok(mandada.includes("Filtros") && mandada.includes("Juntas") && mandada.includes("Repuestos"));
+  assert.equal(new Set(mandada.map(normalizar)).size, mandada.length);
+  assert.ok(!mandada.includes("Parts"));
+  // Borrar una a propósito sigue funcionando: sólo esa queda afuera.
+  const sinJuntas = listaParaGuardar(lista.filter((c) => c !== "Juntas"), insumos, "taller");
+  assert.deepEqual(sobran(sinJuntas, insumos).map((i) => i.id), ["c"]);
+});
+
+test("lo mismo mirado en castellano, con productos guardados en inglés", () => {
+  const insumos = [prod("a", "Filtros"), prod("b", "Filters"), prod("c", "Juntas"), prod("d", "Parts")];
+  const lista = categoriasDisponibles("taller", insumos, [], null, "es");
+  const mandada = listaParaGuardar(lista, insumos, "taller");
+  assert.deepEqual(sobran(mandada, insumos), []);
+  assert.ok(mandada.includes("Filtros") && mandada.includes("Repuestos"));
+});
+
+test("en castellano con todo en castellano, la lista se manda exactamente como estaba", () => {
+  const insumos = [prod("a", "Filtros"), prod("c", "Juntas")];
+  const lista = categoriasDisponibles("taller", insumos, [], null, "es");
+  assert.deepEqual(listaParaGuardar(lista, insumos, "taller"), lista);
 });

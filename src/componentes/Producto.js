@@ -20,6 +20,7 @@ import { casoEnFrase } from "@/lib/nombres";
 import {
   categoriaEnIdioma,
   categoriaExistente,
+  categoriaParaGuardar,
   categoriasDisponibles,
   formDeProducto,
   igualAlEditar,
@@ -77,7 +78,7 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
     // "tornillos" al lado de "Tornillos" es la misma: se elige la que hay.
     const existente = categoriaExistente(texto, categorias, negocio?.rubro);
     if (existente) {
-      cambiar({ categoria: existente });
+      cambiar({ categoria: categoriaParaGuardar(existente, negocio?.rubro) });
       setAvisoCategoria({ clave: "inventario.producto.yaEstabaElegida", vars: { categoria: existente } });
     } else {
       setAgregadas((a) => [...a, texto]);
@@ -174,7 +175,7 @@ export function CamposDeProducto({ prefijo, form, cambiar, etiquetaCantidad, ayu
               aria-describedby={id("categoria-ayuda")}
               value={categoriaElegida}
               onChange={(e) => {
-                cambiar({ categoria: e.target.value });
+                cambiar({ categoria: categoriaParaGuardar(e.target.value, negocio?.rubro) });
                 setAvisoCategoria(null);
               }}
               className="block min-h-12 min-w-0 flex-1 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"

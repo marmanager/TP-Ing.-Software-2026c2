@@ -412,3 +412,38 @@ export function buscarEnCategorias(grupos = [], texto = "") {
     return productos.length ? [{ ...g, productos }] : [];
   });
 }
+
+// ------------------------------------------------------------
+// Lo que se guarda (la API compara el texto, no el idioma)
+// ------------------------------------------------------------
+// Se muestra en el idioma de quien mira, pero se guarda la forma castellana de
+// fábrica: si no, "Filters" y "Filtros" serían dos categorías para la API, que
+// al guardar la lista saca la categoría de todo producto cuyo texto no esté
+// en ella. Una categoría propia se guarda tal cual se escribió, y una de
+// fábrica ya escrita en castellano (aunque con otras mayúsculas) también.
+export function categoriaParaGuardar(categoria, rubro) {
+  const i = indiceDeFabrica(rubro, categoria);
+  const fabrica = i >= 0 ? categoriasDe(rubro, "es")[i] : null;
+  return fabrica && normalizar(fabrica) !== normalizar(categoria) ? fabrica : categoria;
+}
+
+// La lista de "Editar categorías" lista para mandar: cada una en su forma
+// guardable, sin repetir, y con la forma escrita de cada categoría que sigue
+// en uso (un producto guardado como "Filters" antes de esto): la API compara
+// texto y, sin ella, esos productos se quedarían sin categoría.
+export function listaParaGuardar(lista = [], insumos = [], rubro) {
+  const vistas = new Set();
+  const salida = [];
+  const sumar = (c) => {
+    const k = normalizar(c);
+    if (!k || vistas.has(k)) return;
+    vistas.add(k);
+    salida.push(c);
+  };
+  lista.forEach((c) => sumar(categoriaParaGuardar(c, rubro)));
+  const quedan = new Set(salida.map((c) => claveDeCategoria(c, rubro)));
+  for (const i of insumos) {
+    if (i.categoria && quedan.has(claveDeCategoria(i.categoria, rubro))) sumar(i.categoria.replace(/\s+/g, " "));
+  }
+  return salida;
+}

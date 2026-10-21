@@ -34,6 +34,7 @@ import {
   filtrarProductos,
   filtrosDisponibles,
   limpiarProducto,
+  listaParaGuardar,
   motivoDelProducto,
   porCategoria,
   presentacion,
@@ -494,7 +495,7 @@ function EdicionDeCategorias({ alCerrar }) {
 
   async function guardar() {
     setGuardando(true);
-    const ok = await datos.guardarCategorias(lista);
+    const ok = await datos.guardarCategorias(listaParaGuardar(lista, insumos, negocio?.rubro));
     setGuardando(false);
     if (!ok) return;
     datos.avisarExito(t("inventario.categorias.guardadas"));
