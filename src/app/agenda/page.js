@@ -10,6 +10,7 @@ import { estaAbierto } from "@/lib/estados";
 import { estadoDeTurno } from "@/lib/turnos";
 import { diaLargo, horaYMinutos } from "@/lib/fechas";
 import { casoEnFrase } from "@/lib/nombres";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "@/componentes/Icono";
 import AltaDeTurno from "@/componentes/AltaDeTurno";
 import AvisoDelTurno from "@/componentes/AvisoDelTurno";
@@ -19,6 +20,7 @@ import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Agenda() {
   const datos = useDatos();
+  const { locale, t: tr } = useIdioma();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario, "manejar_turnos");
   const { cargando, turnos, clientes, casos } = datos;
@@ -30,7 +32,7 @@ export default function Agenda() {
   const [cuando, setCuando] = useState("proximos");
   // El turno al que se le está cambiando la hora.
   const [moviendo, setMoviendo] = useState(null);
-  useTitulo("Turnos");
+  useTitulo(tr("agenda.titulo"));
 
   // Si el recordatorio de turnos está prendido (R-4b): sólo entonces tiene
   // sentido señalar el turno que no lo va a recibir.
@@ -77,8 +79,8 @@ export default function Agenda() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-pantalla">Turnos</h1>
-          <p className="mt-1 text-tinta-media">Quién viene, cuándo y para qué.</p>
+          <h1 className="text-pantalla">{tr("agenda.titulo")}</h1>
+          <p className="mt-1 text-tinta-media">{tr("agenda.subtitulo")}</p>
         </div>
         {/* Mientras hay un alta abierta el botón se apaga en vez de cambiar
             de texto: queda en el mismo lugar, en gris, diciendo por qué no se
@@ -88,10 +90,10 @@ export default function Agenda() {
         {puedeCargar && (
           <Boton
             icono="mas"
-            motivo={abierto ? "ya estás anotando uno" : null}
+            motivo={abierto ? tr("agenda.anotando") : null}
             onClick={() => setAbierto(true)}
           >
-            Anotar un turno
+            {tr("agenda.anotar")}
           </Boton>
         )}
       </div>
@@ -107,8 +109,8 @@ export default function Agenda() {
       {/* La agenda mira para adelante; los que ya pasaron se piden. */}
       <div className="mb-6 flex flex-wrap gap-2">
         {[
-          ["proximos", "Los que vienen"],
-          ["pasados", "Los que ya pasaron"],
+          ["proximos", tr("agenda.proximos")],
+          ["pasados", tr("agenda.pasados")],
         ].map(([clave, palabra]) => (
           <button
             key={clave}
@@ -128,16 +130,14 @@ export default function Agenda() {
       </div>
 
       {proximos.length === 0 ? (
-        <Vacio icono="calendario" titulo="No hay turnos anotados">
-          {cuando === "pasados"
-            ? "Todavía no pasó ningún turno."
-            : "Anotá el primero y va a aparecer acá, ordenado por día."}
+        <Vacio icono="calendario" titulo={tr("agenda.vacio.titulo")}>
+          {cuando === "pasados" ? tr("agenda.vacio.pasados") : tr("agenda.vacio.proximos")}
         </Vacio>
       ) : (
         Object.entries(porDia).map(([clave, delDia]) => (
           <section key={clave} className="mb-10">
             <TituloSeccion className="first-letter:uppercase">
-              {diaLargo(delDia[0].empieza_en)}
+              {diaLargo(delDia[0].empieza_en, locale, tr)}
             </TituloSeccion>
             <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
               {delDia.map((t) => {
@@ -164,19 +164,19 @@ export default function Agenda() {
                     className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 border-b border-borde p-4 last:border-b-0 sm:flex sm:flex-wrap sm:items-center sm:gap-4"
                   >
                     <p className="order-1 font-titulo font-extrabold text-subtitulo tabular-nums sm:order-none sm:w-20">
-                      {horaYMinutos(t.empieza_en)}
+                      {horaYMinutos(t.empieza_en, locale)}
                     </p>
                     {/* min-w-0 deja que el texto se encoja en vez de empujar
                         la tarjeta, y overflow-wrap corta lo que no tiene
                         espacios. */}
                     <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-1">
                       <p
-                        className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado").texto : ""}`}
+                        className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado", tr).texto : ""}`}
                       >
                         {t.motivo}
                       </p>
                       <p className="text-tinta-media [overflow-wrap:anywhere]">
-                        {cliente?.nombre ?? "Sin cliente todavía"}
+                        {cliente?.nombre ?? tr("agenda.sinCliente")}
                         {/* Un turno que pidió el cliente desde el link no lo
                             vio nadie del negocio todavía: no hubo llamada, no
                             hubo mostrador. Se nota hasta que alguien lo
@@ -185,14 +185,14 @@ export default function Agenda() {
                         {t.origen === "cliente" && t.estado === "agendado" && (
                           <>
                             {" · "}
-                            <span className="font-bold text-azul">lo pidió por el link</span>
+                            <span className="font-bold text-azul">{tr("agenda.pidioPorLink")}</span>
                           </>
                         )}
                         {caso && (
                           <>
                             {" · "}
                             <Link href={`/casos/${caso.id}`} className="text-azul">
-                              {casoEnFrase(caso)}
+                              {casoEnFrase(caso, tr)}
                             </Link>
                           </>
                         )}
@@ -209,10 +209,10 @@ export default function Agenda() {
                     {/* El estado con su color, su ícono y su palabra, del
                         vocabulario de turnos (lib/turnos.js). */}
                     <p
-                      className={`order-2 flex items-center gap-1.5 whitespace-nowrap font-bold text-etiqueta sm:order-none ${estadoDeTurno(t.estado).texto}`}
+                      className={`order-2 flex items-center gap-1.5 whitespace-nowrap font-bold text-etiqueta sm:order-none ${estadoDeTurno(t.estado, tr).texto}`}
                     >
-                      <Icono nombre={estadoDeTurno(t.estado).icono} className="size-5" />
-                      {estadoDeTurno(t.estado).palabra}
+                      <Icono nombre={estadoDeTurno(t.estado, tr).icono} className="size-5" />
+                      {estadoDeTurno(t.estado, tr).palabra}
                     </p>
 
                     {/* "Vino" quiere decir dos cosas según el turno, y el
@@ -229,12 +229,13 @@ export default function Agenda() {
                     {cancelando === t.id && (
                       <div className="order-4 col-span-2 w-full rounded-tarjeta bg-superficie p-4 sm:order-none sm:col-span-1">
                         <p className="font-bold text-cuerpo">
-                          ¿Cancelar el turno de {cliente?.nombre ?? "esta persona"} de las{" "}
-                          {horaYMinutos(t.empieza_en)}?
+                          {tr("agenda.cancelar.pregunta", {
+                            nombre: cliente?.nombre ?? tr("agenda.cancelar.estaPersona"),
+                            hora: horaYMinutos(t.empieza_en, locale),
+                          })}
                         </p>
                         <p className="mt-1 text-tinta-media">
-                          Queda en la agenda como cancelado. Si te equivocaste, se deshace
-                          desde el aviso.
+                          {tr("agenda.cancelar.queda")}
                         </p>
                         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                           <Boton
@@ -245,20 +246,23 @@ export default function Agenda() {
                               const antes = t.estado;
                               datos.cambiarEstadoTurno(t.id, "cancelado");
                               datos.avisarExito(
-                                `Listo. Cancelamos el turno de ${cliente?.nombre ?? "esa persona"} de las ${horaYMinutos(t.empieza_en)}.`,
+                                tr("agenda.cancelar.listo", {
+                                  nombre: cliente?.nombre ?? tr("agenda.cancelar.esaPersona"),
+                                  hora: horaYMinutos(t.empieza_en, locale),
+                                }),
                                 { deshacer: () => datos.cambiarEstadoTurno(t.id, antes) }
                               );
                               setCancelando(null);
                             }}
                           >
-                            Sí, cancelarlo
+                            {tr("agenda.cancelar.si")}
                           </Boton>
                           <Boton
                             variante="plano"
                             className="w-full sm:w-auto"
                             onClick={() => setCancelando(null)}
                           >
-                            Dejarlo como está
+                            {tr("agenda.cancelar.no")}
                           </Boton>
                         </div>
                       </div>
@@ -284,7 +288,7 @@ export default function Agenda() {
                             className="w-full sm:w-auto"
                             onClick={() => datos.cambiarEstadoTurno(t.id, "confirmado")}
                           >
-                            Confirmar
+                            {tr("agenda.confirmar")}
                           </Boton>
                         )}
 
@@ -295,17 +299,20 @@ export default function Agenda() {
                             onClick={() => {
                               datos.marcarTurnoAtendido(t.id, suCaso.id);
                               datos.avisarExito(
-                                `Listo. Queda anotado que ${cliente?.nombre ?? "la persona"} vino por el ${casoEnFrase(suCaso)}.`
+                                tr("agenda.vinoPorCaso", {
+                                  nombre: cliente?.nombre ?? tr("agenda.laPersona"),
+                                  caso: casoEnFrase(suCaso, tr),
+                                })
                               );
                             }}
                           >
-                            Vino a buscarlo
+                            {tr("agenda.vinoABuscarlo")}
                           </Boton>
                         ) : (
                           <Link href={`/casos/nuevo?turno=${t.id}`}>
                             <span className="flex min-h-12 w-full items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-4 font-bold text-azul text-etiqueta hover:bg-azul-claro sm:w-auto sm:justify-start">
                               <Icono nombre="carpeta" />
-                              Vino · abrirle el caso
+                              {tr("agenda.vinoAbrirCaso")}
                             </span>
                           </Link>
                         )}
@@ -316,7 +323,7 @@ export default function Agenda() {
                             className="w-full sm:w-auto"
                             onClick={() => { setCancelando(null); setMoviendo(t.id); }}
                           >
-                            Cambiar la hora
+                            {tr("agenda.cambiarHora")}
                           </Boton>
                         )}
 
@@ -326,7 +333,7 @@ export default function Agenda() {
                           className="w-full sm:w-auto"
                           onClick={() => setCancelando(t.id)}
                         >
-                          Cancelar el turno
+                          {tr("agenda.cancelarTurno")}
                         </Boton>
                       </div>
                     )}
@@ -346,7 +353,7 @@ export default function Agenda() {
                           datos.descartarExito();
                         }}
                       >
-                        No había venido
+                        {tr("agenda.noHabiaVenido")}
                       </Boton>
                     )}
                   </li>

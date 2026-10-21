@@ -18,7 +18,7 @@
 // importa que se sepa que estaban.
 
 import {
-  DIAS_DE_LA_SEMANA,
+  diasDeLaSemana,
   acomodarEnCarriles,
   claveDia,
   duracionDe,
@@ -26,6 +26,7 @@ import {
 } from "@/lib/calendario";
 import { estadoDeTurno } from "@/lib/turnos";
 import { horaYMinutos } from "@/lib/fechas";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 
 // El turno que da el negocio mide siempre el área táctil mínima de la
@@ -43,6 +44,8 @@ const enHora = (minutos) =>
   `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
 
 export default function SemanaDeTurnos({ dias, porDia, horarios, elegido, onDia, hoy }) {
+  const { locale, t: tr } = useIdioma();
+  const nombresDeDias = diasDeLaSemana(locale);
   const porDefecto = horarios?.minutos ?? 30;
   const pxPorMinuto = (ALTO_DEL_TURNO + SEPARACION) / porDefecto;
 
@@ -86,7 +89,7 @@ export default function SemanaDeTurnos({ dias, porDia, horarios, elegido, onDia,
                     : "text-tinta-media hover:bg-superficie",
               ].join(" ")}
             >
-              <span className="text-apoyo">{DIAS_DE_LA_SEMANA[(d.getDay() + 6) % 7]}</span>
+              <span className="text-apoyo">{nombresDeDias[(d.getDay() + 6) % 7]}</span>
               <span className="text-cuerpo tabular-nums">{d.getDate()}</span>
             </button>
           );
@@ -134,7 +137,7 @@ export default function SemanaDeTurnos({ dias, porDia, horarios, elegido, onDia,
 
               {puestos.map((b) => {
                 const t = b.turno;
-                const est = estadoDeTurno(t.estado);
+                const est = estadoDeTurno(t.estado, tr);
                 // Lo pidió un cliente por el link y todavía no lo confirmó
                 // nadie: es lo único de la semana que pide que alguien actúe.
                 const sinVer = t.origen === "cliente" && t.estado === "agendado";
@@ -147,13 +150,13 @@ export default function SemanaDeTurnos({ dias, porDia, horarios, elegido, onDia,
                     key={t.id}
                     type="button"
                     onClick={() => onDia(clave)}
-                    title={`${horaYMinutos(t.empieza_en)} · ${t.motivo}`}
+                    title={`${horaYMinutos(t.empieza_en, locale)} · ${t.motivo}`}
                     aria-label={[
-                      horaYMinutos(t.empieza_en),
-                      `${duracionDe(t, porDefecto)} minutos`,
+                      horaYMinutos(t.empieza_en, locale),
+                      tr("agenda.semana.minutos", { n: duracionDe(t, porDefecto) }),
                       t.motivo,
                       est.palabra,
-                      sinVer ? "lo pidió por el link" : null,
+                      sinVer ? tr("agenda.pidioPorLink") : null,
                     ]
                       .filter(Boolean)
                       .join(", ")}
@@ -174,7 +177,7 @@ export default function SemanaDeTurnos({ dias, porDia, horarios, elegido, onDia,
                     <span className="flex items-center gap-1">
                       <Icono nombre={est.icono} className={`size-4 shrink-0 ${est.texto}`} />
                       <span className="truncate font-bold tabular-nums">
-                        {horaYMinutos(t.empieza_en)}
+                        {horaYMinutos(t.empieza_en, locale)}
                       </span>
                     </span>
                     <span className="block truncate">{t.motivo}</span>
