@@ -15,6 +15,7 @@
 // estándar y no adivina el ".js".
 import { ORDEN_ESTADOS } from "./estados.js";
 import { normalizarTelefono, telefonoParaLlamar } from "./telefono.js";
+import { tCastellano } from "./idioma.js";
 
 // Lo que contesta la API, a la forma que ya conoce la pantalla.
 //
@@ -162,6 +163,8 @@ export const linkDeSeguimiento = (origen, codigo) =>
 // terminado con un tilde y lo que todavía no, con un punto— porque decir
 // "ya está todo" cuando falta algo es la clase de mentira que el cliente
 // descubre al llegar al mostrador.
+//
+// Lo manda el negocio: sale en el idioma de quien lo arma (`t`, al final).
 export function mensajeDeLoHecho({
   negocioNombre,
   clienteNombre,
@@ -171,20 +174,21 @@ export function mensajeDeLoHecho({
   entregado = false,
   pasos = [],
   link,
-}) {
-  const hola = clienteNombre ? `Hola ${clienteNombre}` : "Hola";
-  const cual = identificador || servicio || "lo que nos dejaste";
+}, t = tCastellano) {
+  const cual = identificador || servicio || t("casos.aviso.mensaje.loQueDejo");
 
   return [
-    `${hola}, te escribimos de ${negocioNombre} por ${cual}.`,
+    clienteNombre
+      ? t("casos.aviso.mensaje.conNombre", { nombre: clienteNombre, negocio: negocioNombre, cual })
+      : t("casos.aviso.mensaje.sinNombre", { negocio: negocioNombre, cual }),
     "",
-    entregado ? "Esto es lo que le hicimos:" : "Ya terminamos el trabajo:",
+    entregado ? t("casos.aviso.mensaje.hicimos") : t("casos.aviso.mensaje.terminamos"),
     ...pasos.map((p) => `${p.hecho ? "✓" : "•"} ${p.nombre}`),
     "",
     entregado
-      ? `El caso quedó como ${estadoEnPalabras}. Cualquier cosa, escribinos.`
-      : `Está en ${estadoEnPalabras}: lo revisamos antes de entregártelo y te avisamos apenas esté para retirar.`,
-    ...(link ? ["", `Podés seguir mirándolo acá: ${link}`] : []),
+      ? t("casos.aviso.mensaje.entregado", { estado: estadoEnPalabras })
+      : t("casos.aviso.mensaje.revision", { estado: estadoEnPalabras }),
+    ...(link ? ["", t("casos.aviso.mensaje.seguirMirando", { link })] : []),
   ].join("\n");
 }
 

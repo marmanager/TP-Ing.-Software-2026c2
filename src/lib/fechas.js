@@ -1,6 +1,8 @@
 // Fechas en el idioma del mostrador: "Hoy 10:15", "Ayer 16:40",
 // "2 de septiembre". Nunca marcas de tiempo técnicas (cartilla, sección 08).
 
+import { tCastellano } from "./idioma.js";
+
 // 24 horas: "15:00" y no "03:00 p. m.", que es como se escribe acá y además
 // entra en una columna angosta sin partirse en dos líneas. También en inglés
 // (en-US diría "3:00 PM"): h23 y no hour12:false, que a medianoche da "24:05".
@@ -19,22 +21,24 @@ const dia = (d, locale = "es-AR") =>
 
 const mismoDia = (a, b) => a.toDateString() === b.toDateString();
 
-export function cuando(iso, locale = "es-AR") {
+// Las palabras ("Hoy", "Ayer", "hace 3 días") salen del diccionario
+// (fechas.*) con el `t` de quien mira, que va después del locale.
+export function cuando(iso, locale = "es-AR", t = tCastellano) {
   const d = new Date(iso);
   const ahora = new Date();
   const ayer = new Date(ahora);
   ayer.setDate(ahora.getDate() - 1);
 
-  if (mismoDia(d, ahora)) return `Hoy ${hora(d, locale)}`;
-  if (mismoDia(d, ayer)) return `Ayer ${hora(d, locale)}`;
+  if (mismoDia(d, ahora)) return t("fechas.hoyHora", { hora: hora(d, locale) });
+  if (mismoDia(d, ayer)) return t("fechas.ayerHora", { hora: hora(d, locale) });
   return dia(d, locale);
 }
 
-export function haceCuanto(iso) {
+export function haceCuanto(iso, t = tCastellano) {
   const dias = Math.floor((Date.now() - new Date(iso)) / 86400000);
-  if (dias <= 0) return "Abierto hoy";
-  if (dias === 1) return "Abierto ayer";
-  return `Abierto hace ${dias} días`;
+  if (dias <= 0) return t("fechas.abiertoHoy");
+  if (dias === 1) return t("fechas.abiertoAyer");
+  return t("fechas.abiertoHace", { n: dias });
 }
 
 export const horaYMinutos = (iso, locale = "es-AR") => hora(new Date(iso), locale);
@@ -60,13 +64,13 @@ export const paraInput = (d = new Date()) => {
 
 // Para lo que ya pasó: "Hoy", "Ayer", o el día con su nombre. diaLargo() es
 // para la agenda, que mira hacia adelante y dice "Mañana".
-export function diaPasado(iso, locale = "es-AR") {
+export function diaPasado(iso, locale = "es-AR", t = tCastellano) {
   const d = new Date(iso);
   const ahora = new Date();
-  if (mismoDia(d, ahora)) return "Hoy";
+  if (mismoDia(d, ahora)) return t("fechas.hoy");
   const ayer = new Date(ahora);
   ayer.setDate(ahora.getDate() - 1);
-  if (mismoDia(d, ayer)) return "Ayer";
+  if (mismoDia(d, ayer)) return t("fechas.ayer");
   return new Intl.DateTimeFormat(locale, {
     weekday: "long",
     day: "numeric",
@@ -90,11 +94,11 @@ export function elDia(iso, locale = "es-AR") {
 // Hace cuánto que pasó algo, para meter en medio de una frase: "hoy", "ayer"
 // o "hace 12 días". haceCuanto() dice lo mismo pero ya armado para un caso
 // ("Abierto hace 12 días").
-export function cuantoHace(iso) {
+export function cuantoHace(iso, t = tCastellano) {
   const dias = Math.floor((Date.now() - new Date(iso)) / 86400000);
-  if (dias <= 0) return "hoy";
-  if (dias === 1) return "ayer";
-  return `hace ${dias} días`;
+  if (dias <= 0) return t("fechas.hoyEnFrase");
+  if (dias === 1) return t("fechas.ayerEnFrase");
+  return t("fechas.haceDias", { n: dias });
 }
 
 // Cuántos días pasaron, para decidir si algo se está atrasando.

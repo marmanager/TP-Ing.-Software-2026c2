@@ -16,12 +16,14 @@
 //
 // Acá no hay nada de React: son datos y funciones puras, con test.
 
+// La palabra de cada tipo y de cada período sale del diccionario
+// (historial.tipos.<clave>, historial.periodos.<clave>): es texto para mostrar.
 const TIPOS_EVENTO = {
-  entro: { clave: "entro", palabra: "Entraron" },
-  estado: { clave: "estado", palabra: "Cambiaron de estado" },
-  entrega: { clave: "entrega", palabra: "Se entregaron" },
-  plata: { clave: "plata", palabra: "Plata" },
-  nota: { clave: "nota", palabra: "Anotaciones" },
+  entro: { clave: "entro" },
+  estado: { clave: "estado" },
+  entrega: { clave: "entrega" },
+  plata: { clave: "plata" },
+  nota: { clave: "nota" },
 };
 
 export const LISTA_TIPOS = Object.values(TIPOS_EVENTO);
@@ -30,9 +32,9 @@ export const LISTA_TIPOS = Object.values(TIPOS_EVENTO);
 // horas desde este instante: los últimos 7 días son hoy y los seis
 // anteriores, cada uno desde la medianoche.
 const PERIODOS = {
-  semana: { clave: "semana", palabra: "Últimos 7 días", dias: 7 },
-  mes: { clave: "mes", palabra: "Últimos 30 días", dias: 30 },
-  todo: { clave: "todo", palabra: "Todo", dias: null },
+  semana: { clave: "semana", dias: 7 },
+  mes: { clave: "mes", dias: 30 },
+  todo: { clave: "todo", dias: null },
 };
 
 export const LISTA_PERIODOS = Object.values(PERIODOS);
