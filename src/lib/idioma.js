@@ -5,6 +5,8 @@
 // Sin JSX a propósito: los tests lo importan directo (jest no transforma).
 // El contexto de React vive en useIdioma.js.
 
+import es from "./idiomas/es.js";
+
 export const IDIOMAS = ["es", "en"];
 
 // La moneda y la zona horaria no cambian con el idioma: el negocio está en
@@ -53,3 +55,10 @@ export const textoDeError = (t, error) =>
   !error ? "" : typeof error === "string" ? error : error.codigo ? t(`errores.${error.codigo}`, {}, error.mensaje) : error.mensaje;
 
 export const cookieDeIdioma = (idioma) => `idioma=${idioma}; path=/; max-age=31536000; samesite=lax`;
+
+// El `t` por defecto de las funciones de src/lib/ que devuelven texto para
+// mostrar: sin `t` salen en castellano, que es lo que prueban los tests. Las
+// pantallas pasan el suyo (useIdioma). No es un `t` global con idioma de
+// pedido: este es siempre castellano, así que no mezcla nada en el servidor.
+export const tCastellano = (clave, vars, siFalta) =>
+  traducir({ diccionario: es, base: null, locale: LOCALES.es }, clave, vars, siFalta);

@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { agruparPlanes, ahorroAnual, diasQueQuedan, monto } from "@/lib/suscripcion";
 import { useSuscripcionCompartida } from "@/lib/useSuscripcion";
 import { Boton, Cargando, ErrorGeneral, Tarjeta, TituloPantalla, TituloSeccion } from "@/componentes/ui";
@@ -44,18 +45,18 @@ function Eleccion({ etiqueta, opciones, valor, onChange }) {
   );
 }
 
-function encabezado(datos) {
+function encabezado(datos, t) {
   const dias = diasQueQuedan(datos?.prueba?.hasta);
-  if (datos?.motivo === "pago") return ["El negocio ya tiene la suscripción activa", "Podés seguir usando la app con todo tu equipo."];
-  if (datos?.motivo === "prueba") return ["Estás en tu mes de prueba", `Te quedan ${dias} ${dias === 1 ? "día" : "días"}. Si querés, ya podés elegir un plan.`];
-  if (datos?.motivo === "acceso_libre") return ["Elegí un plan", "Tu cuenta usa la app sin suscripción (acceso de desarrollo)."];
-  if (datos?.prueba?.hasta) return ["Tu mes de prueba terminó", "Para seguir usando la app, elegí un plan."];
-  return ["Elegí cómo empezar", "Todo el sistema, para vos y tu equipo."];
+  if (datos?.motivo === "pago") return [t("planes.encabezado.pago"), t("planes.encabezado.pagoApoyo")];
+  if (datos?.motivo === "prueba") return [t("planes.encabezado.prueba"), t("planes.encabezado.pruebaApoyo", { n: dias })];
+  if (datos?.motivo === "acceso_libre") return [t("planes.encabezado.libre"), t("planes.encabezado.libreApoyo")];
+  if (datos?.prueba?.hasta) return [t("planes.encabezado.termino"), t("planes.encabezado.terminoApoyo")];
+  return [t("planes.encabezado.nuevo"), t("planes.encabezado.nuevoApoyo")];
 }
 
 export default function Planes() {
-  const { locale } = useIdioma();
-  useTitulo("Planes");
+  const { t, locale } = useIdioma();
+  useTitulo(t("planes.titulo"));
   const router = useRouter();
   const { usuario } = useAuth();
   const { datos, traerPlanes, empezarPrueba, suscribirse } = useSuscripcionCompartida();
@@ -95,7 +96,7 @@ export default function Planes() {
     setError(r.error);
   }
 
-  const [titulo, apoyo] = encabezado(datos);
+  const [titulo, apoyo] = encabezado(datos, t);
   const lista = agruparPlanes(planes?.precios);
   const sinPesos = !planes?.dolar;
 
@@ -103,29 +104,28 @@ export default function Planes() {
     <div className="mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
       <TituloPantalla apoyo={apoyo}>{titulo}</TituloPantalla>
 
-      {error && <ErrorGeneral>{error.mensaje}</ErrorGeneral>}
+      {error && <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>}
 
       {datos?.prueba?.disponible && (
         <Tarjeta className="mb-8 border-azul">
-          <p className="text-subtitulo font-bold">Probá gratis un mes</p>
+          <p className="text-subtitulo font-bold">{t("planes.gratis.titulo")}</p>
           <p className="mt-1 text-tinta-media">
-            Todo el sistema, para todo tu equipo, durante 30 días. No te pedimos tarjeta: cuando
-            termine, elegís un plan para seguir.
+            {t("planes.gratis.texto")}
           </p>
           <Boton variante="principal" className="mt-4" onClick={probar} disabled={ocupado !== null}>
-            {ocupado === "prueba" ? "Empezando…" : "Empezar mi mes gratis"}
+            {ocupado === "prueba" ? t("planes.gratis.empezando") : t("planes.gratis.empezar")}
           </Boton>
         </Tarjeta>
       )}
 
-      <TituloSeccion>Planes</TituloSeccion>
+      <TituloSeccion>{t("planes.titulo")}</TituloSeccion>
       <Eleccion
-        etiqueta="Cada cuánto se paga"
+        etiqueta={t("planes.cadaCuanto")}
         valor={periodo}
         onChange={setPeriodo}
         opciones={[
-          { clave: "mensual", texto: "Mensual" },
-          { clave: "anual", texto: "Anual · 2 meses gratis" },
+          { clave: "mensual", texto: t("planes.mensual") },
+          { clave: "anual", texto: t("planes.anual") },
         ]}
       />
 
@@ -143,9 +143,9 @@ export default function Planes() {
                 <p className="mt-1 text-tinta-media">{p.descripcion}</p>
                 <p className="mt-4 text-pantalla">
                   {texto ?? "—"}
-                  <span className="text-cuerpo text-tinta-media"> / {periodo === "anual" ? "año" : "mes"}</span>
+                  <span className="text-cuerpo text-tinta-media"> {periodo === "anual" ? t("planes.porAnio") : t("planes.porMes")}</span>
                 </p>
-                {ahorro && <p className="mt-1 font-bold text-completo">Ahorrás {ahorro} por año</p>}
+                {ahorro && <p className="mt-1 font-bold text-completo">{t("planes.ahorro", { ahorro })}</p>}
                 {esDuenio && precio && (
                   <Boton
                     variante="principal"
@@ -153,7 +153,7 @@ export default function Planes() {
                     onClick={() => elegir(precio)}
                     disabled={ocupado !== null || datos?.motivo === "pago"}
                   >
-                    {ocupado === precio.id ? "Abriendo Mercado Pago…" : `Elegir ${p.plan}`}
+                    {ocupado === precio.id ? t("planes.abriendo") : t("planes.elegir", { plan: p.plan })}
                   </Boton>
                 )}
               </Tarjeta>
@@ -163,35 +163,34 @@ export default function Planes() {
       )}
 
       <p className="mt-4 text-apoyo text-tinta-suave">
-        Los precios no incluyen impuestos. Según tu país o región, pueden sumarse impuestos
-        locales o regionales, y el precio final puede variar.
+        {t("planes.impuestos")}
       </p>
 
       {!esDuenio && (
-        <p className="mt-6 font-bold">Pedile al dueño del negocio que elija un plan.</p>
+        <p className="mt-6 font-bold">{t("planes.pedileAlDuenio")}</p>
       )}
 
       <div className="mt-10 border-t border-borde pt-6">
-        <p className="mb-3 text-apoyo text-tinta-suave">Ver los precios en</p>
+        <p className="mb-3 text-apoyo text-tinta-suave">{t("planes.verPreciosEn")}</p>
         <Eleccion
-          etiqueta="Moneda"
+          etiqueta={t("planes.moneda")}
           valor={moneda}
           onChange={setMoneda}
           opciones={[
-            { clave: "USD", texto: "Dólares (USD)" },
-            { clave: "ARS", texto: "Pesos (ARS)", motivo: sinPesos ? "Ahora no tenemos la cotización del dólar" : null },
+            { clave: "USD", texto: t("planes.dolares") },
+            { clave: "ARS", texto: t("planes.pesos"), motivo: sinPesos ? t("planes.sinCotizacion") : null },
           ]}
         />
         <p className="mt-3 text-apoyo text-tinta-suave">
           {planes?.dolar
-            ? `Dólar oficial: $ ${planes.dolar.toLocaleString(locale)}. `
+            ? `${t("planes.dolarOficial", { monto: planes.dolar.toLocaleString(locale) })} `
             : ""}
-          Mercado Pago cobra en pesos, al dólar oficial del día en que te suscribís.
+          {t("planes.mercadoPago")}
         </p>
       </div>
 
       {datos?.activa && (
-        <Boton className="mt-8" onClick={() => router.push("/")}>Ir a la app</Boton>
+        <Boton className="mt-8" onClick={() => router.push("/")}>{t("planes.irALaApp")}</Boton>
       )}
     </div>
   );

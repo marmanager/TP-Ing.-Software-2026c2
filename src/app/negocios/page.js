@@ -28,7 +28,7 @@ export default function Negocios() {
   const router = useRouter();
   const { usuario, sesion, misNegocios, entrarAlNegocio } = useAuth();
   const { t } = useIdioma();
-  useTitulo("Tus negocios");
+  useTitulo(t("acceso.negocios.titulo"));
 
   const [negocios, setNegocios] = useState(null);
   const [entrando, setEntrando] = useState(null);
@@ -94,7 +94,7 @@ export default function Negocios() {
 
   return (
     <>
-      <TituloPantalla>¿A qué negocio entrás?</TituloPantalla>
+      <TituloPantalla>{t("acceso.negocios.encabezado")}</TituloPantalla>
 
       {error && <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>}
 
@@ -102,7 +102,7 @@ export default function Negocios() {
         <Tarjeta className="mb-6">
           <p className="flex items-start gap-2 font-bold text-cuerpo">
             <Icono nombre="reloj" className="mt-0.5 size-6" />
-            <span>Esperando que te acepten: {esperando.map((p) => p.negocio_nombre).join(", ")}</span>
+            <span>{t("acceso.negocios.esperando", { negocios: esperando.map((p) => p.negocio_nombre).join(", ") })}</span>
           </p>
         </Tarjeta>
       )}
@@ -113,11 +113,10 @@ export default function Negocios() {
         <Tarjeta className="mb-6">
           <p className="flex items-start gap-2 font-bold text-cuerpo">
             <Icono nombre="personas" className="mt-0.5 size-6" />
-            <span>¿Venías por una invitación?</span>
+            <span>{t("acceso.negocios.venias")}</span>
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Tenés un link de equipo sin usar. Podés pedir entrar ahora, y tus otros
-            negocios siguen estando.
+            {t("acceso.negocios.invitacionTexto")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Link
@@ -125,7 +124,7 @@ export default function Negocios() {
               className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
               <Icono nombre="flecha" />
-              Ir al link
+              {t("acceso.negocios.irAlLink")}
             </Link>
             <Boton
               variante="plano"
@@ -134,7 +133,7 @@ export default function Negocios() {
                 setInvitacion(null);
               }}
             >
-              Ahora no
+              {t("acceso.negocios.ahoraNo")}
             </Boton>
           </div>
         </Tarjeta>
@@ -151,7 +150,7 @@ export default function Negocios() {
             >
               <FilaNegocio negocio={n} />
               {entrando === n.id ? (
-                <span className="text-tinta-media">Entrando…</span>
+                <span className="text-tinta-media">{t("acceso.negocios.entrando")}</span>
               ) : (
                 <Icono nombre="flecha" className="size-6 text-azul" />
               )}

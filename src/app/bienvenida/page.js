@@ -21,87 +21,41 @@
 //
 // Los casos del recorte son de ejemplo. Son la única invención de la página:
 // no hay testimonios, ni logos, ni cantidades de usuarios, ni precios.
+//
+// Los textos salen del diccionario (acceso.landing.*). Acá quedan sólo los
+// datos que no son texto: el estado de cada caso, su número, el nombre de
+// los clientes de ejemplo (nombres propios, iguales en los dos idiomas).
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Icono from "@/componentes/Icono";
 import { accionDeFila, ESTADOS, ORDEN_ESTADOS } from "@/lib/estados";
-import { PRESETS } from "@/lib/presets";
+import { preset } from "@/lib/presets";
+import { useIdioma } from "@/lib/useIdioma";
+import { useTitulo } from "@/lib/useTitulo";
 
-// Los nombres del núcleo común, los que no pertenecen a ningún rubro. Van
-// acá y no en estados.js porque en el sistema nunca se muestran: adentro
-// siempre se ve la palabra del rubro del negocio.
-const NOMBRE_COMUN = {
-  nuevo: "Nuevo",
-  en_proceso: "En proceso",
-  esperando: "Esperando",
-  revision_final: "Revisión",
-  completado: "Completado",
-};
+// Los rubros que se comparan en la sección 02. Su nombre corto sale del
+// diccionario (acceso.landing.rubros.<clave>); los nombres de los cinco
+// estados del núcleo común, de acceso.landing.estados.<estado>. Van ahí y no
+// en estados.js porque en el sistema nunca se muestran: adentro siempre se
+// ve la palabra del rubro del negocio.
+const RUBROS = ["taller", "medicina", "service"];
 
-const RUBROS = [
-  { clave: "taller", nombre: "Taller" },
-  { clave: "medicina", nombre: "Consultorio" },
-  { clave: "service", nombre: "Service" },
-];
-
-// Los casos del recorte son de ejemplo, pero la acción de cada fila NO se
-// escribe acá: sale de accionDeFila(), la misma función que decide el botón
-// en la pantalla de casos de verdad. Si alguien cambia esa palabra en el
-// sistema, el recorte la sigue solo. Antes estaban escritas a mano y decían
+// Los casos del recorte son de ejemplo, pero el ÍCONO de la acción de cada
+// fila NO se escribe acá: sale de accionDeFila(), la misma función que decide
+// el botón en la pantalla de casos de verdad. Su palabra sí está en el
+// diccionario (acceso.landing.casos.<estado>.accion), con el mismo texto que
+// devuelve accionDeFila en castellano. Antes estaban escritas a mano y decían
 // «Asignar», «Llegó» y «Entregar», que son tres botones que el producto no
-// tiene.
+// tiene. El asunto, lo que falta y quién lo tiene de cada caso también salen
+// del diccionario, por el estado.
 const CASOS = [
-  {
-    id: 1,
-    estado: "nuevo",
-    numero: 251,
-    asunto: "Ruido raro",
-    cliente: "Marcela Suárez",
-    tiene: "Sin asignar",
-    sinAsignar: true,
-    falta: "Asignar a alguien",
-  },
-  {
-    id: 2,
-    estado: "en_proceso",
-    numero: 248,
-    asunto: "Frenos",
-    cliente: "Hugo Peralta",
-    tiene: "Diego",
-    falta: "Cargar los pasos",
-    soloEscritorio: true,
-  },
-  {
-    id: 3,
-    estado: "esperando",
-    numero: 246,
-    asunto: "Cambio de aceite",
-    cliente: "Silvina Roldán",
-    tiene: "Proveedor",
-    falta: "El filtro de aceite",
-    // Con un insumo pedido, accionDeFila ofrece marcar que llegó.
-    insumo: true,
-  },
-  {
-    id: 4,
-    estado: "revision_final",
-    numero: 243,
-    asunto: "No arranca",
-    cliente: "Ariel Castro",
-    tiene: "Diego",
-    falta: "Control antes de entregar",
-    soloEscritorio: true,
-  },
-  {
-    id: 5,
-    estado: "completado",
-    numero: 239,
-    asunto: "Service de rutina",
-    cliente: "Norma Giménez",
-    tiene: "Valeria",
-    falta: "Se entregó el viernes",
-  },
+  { id: 1, estado: "nuevo", numero: 251, cliente: "Marcela Suárez", sinAsignar: true },
+  { id: 2, estado: "en_proceso", numero: 248, cliente: "Hugo Peralta", soloEscritorio: true },
+  // Con un insumo pedido, accionDeFila ofrece marcar que llegó.
+  { id: 3, estado: "esperando", numero: 246, cliente: "Silvina Roldán", insumo: true },
+  { id: 4, estado: "revision_final", numero: 243, cliente: "Ariel Castro", soloEscritorio: true },
+  { id: 5, estado: "completado", numero: 239, cliente: "Norma Giménez" },
 ];
 
 const INSUMOS = CASOS.filter((c) => c.insumo).map((c) => ({
@@ -114,59 +68,29 @@ const accionDe = (caso) => accionDeFila(caso, { pasos: [], insumos: INSUMOS });
 const CUENTAS = { nuevo: 4, en_proceso: 5, esperando: 3, revision_final: 2, completado: 4 };
 const TOTAL = Object.values(CUENTAS).reduce((a, b) => a + b, 0);
 
+// Sección 01: dónde vive hoy el trabajo. Título y texto en acceso.landing.problema.<clave>.
 const MANANA = [
-  {
-    hora: "08:47",
-    icono: "chat",
-    titulo: "En un audio de WhatsApp",
-    texto:
-      "El presupuesto se lo mandaste el martes. Quedó en un audio, entre otros cuarenta mensajes.",
-  },
-  {
-    hora: "09:02",
-    icono: "nota",
-    titulo: "En un papel del mostrador",
-    texto:
-      "La orden está escrita a mano, abajo de otras cuatro, con la letra del que atendió. Dice qué hay que hacer; no dice si ya se hizo.",
-  },
-  {
-    hora: "09:15",
-    icono: "telefono",
-    titulo: "En la cabeza del que atendió",
-    texto:
-      "El cliente llama para saber cómo viene lo suyo y hay que cortar, caminar hasta el fondo y buscar al que lo recibió.",
-  },
+  { clave: "audio", hora: "08:47", icono: "chat" },
+  { clave: "papel", hora: "09:02", icono: "nota" },
+  { clave: "cabeza", hora: "09:15", icono: "telefono" },
 ];
 
+// Sección 03: título y texto en acceso.landing.dia.<clave>.
 const DIA = [
-  {
-    estado: "nuevo",
-    titulo: "Cuando entra",
-    texto:
-      "Quién lo trae, la patente y qué necesita, con las palabras del cliente. El número de caso lo pone el sistema.",
-  },
-  {
-    estado: "en_proceso",
-    titulo: "Cuando cambia",
-    texto:
-      "Tocás el estado que corresponde. Queda anotado quién lo movió y a qué hora, sin escribir nada.",
-  },
-  {
-    estado: "completado",
-    titulo: "Cuando sale",
-    texto: "Control final, entregado, y el caso se cierra con todo lo que pasó adentro.",
-  },
+  { clave: "entra", estado: "nuevo" },
+  { clave: "cambia", estado: "en_proceso" },
+  { clave: "sale", estado: "completado" },
 ];
 
+// El historial del caso de ejemplo: el día y la hora y lo que pasó salen de
+// acceso.landing.dia.h<n>; el estado se nombra con la palabra del rubro.
 const HISTORIAL = [
-  { hora: "Lun 08:40", estado: "nuevo", que: "lo recibió Valeria" },
-  { hora: "Lun 09:05", estado: "en_proceso", que: "lo tomó Diego" },
-  { hora: "Lun 11:20", estado: "esperando", que: "falta la bomba de nafta" },
-  { hora: "Mar 15:10", estado: "en_proceso", que: "llegó la bomba" },
-  { hora: "Mar 17:45", estado: "revision_final", que: "listo para entregar" },
+  { n: 1, estado: "nuevo" },
+  { n: 2, estado: "en_proceso" },
+  { n: 3, estado: "esperando" },
+  { n: 4, estado: "en_proceso" },
+  { n: 5, estado: "revision_final" },
 ];
-
-const etiqueta = (rubro, estado) => PRESETS[rubro].etiquetas[estado];
 
 /* ---------------------------------------------------------------- piezas */
 
@@ -402,8 +326,12 @@ function usarPasos(activo, cuantos) {
 }
 
 export default function Bienvenida() {
+  const { t, idioma } = useIdioma();
+  useTitulo(t("acceso.landing.titulo"));
   const activo = usarMovimiento();
   const [caja, paso] = usarPasos(activo, ORDEN_ESTADOS.length);
+  const etiqueta = (rubro, estado) => preset(rubro, idioma).etiquetas[estado];
+  const L = (clave, vars) => t(`acceso.landing.${clave}`, vars);
 
   return (
     <div className="landing bg-fondo">
@@ -421,13 +349,13 @@ export default function Bienvenida() {
               href="/iniciar-sesion"
               className="py-3.5 text-etiqueta font-bold text-azul underline underline-offset-4 transition-colors duration-100 hover:text-azul-apretado"
             >
-              Iniciar sesión
+              {L("iniciarSesion")}
             </Link>
             <Link
               href="/crear-cuenta"
               className="hidden h-12 items-center rounded-campo border-2 border-tinta bg-superficie px-5 text-etiqueta font-bold text-tinta transition-colors duration-100 hover:bg-borde sm:inline-flex"
             >
-              Crear una cuenta
+              {L("crearCuenta")}
             </Link>
           </div>
         </div>
@@ -454,7 +382,7 @@ export default function Bienvenida() {
 
         <div className={HOJA}>
           <div className="m-sube mov-eyebrow">
-            <Eyebrow>TALLER MECÁNICO · CONSULTORIO · SERVICE TÉCNICO</Eyebrow>
+            <Eyebrow>{L("eyebrowHero")}</Eyebrow>
           </div>
 
           {/* El tamaño va fluido y no en dos escalones: cada línea tiene que
@@ -463,13 +391,11 @@ export default function Bienvenida() {
               máscara. A 390 da 40 px y a 360 da 37, que es lo que aguanta
               «CADA TRABAJO» sin cortarse. */}
           <h1 className="mt-2 max-w-[790px] font-titulo text-[clamp(32px,10.2vw,44px)]/[0.9] font-black tracking-[-0.03em] md:text-[94px]/[84px]">
-            <Titular lineas={["CADA TRABAJO", "QUE TE ENTRA", "TIENE SU CASO"]} />
+            <Titular lineas={[L("hero.linea1"), L("hero.linea2"), L("hero.linea3")]} />
           </h1>
 
           <p className="m-sube mov-parrafo mt-6 max-w-[46ch] text-cuerpo text-tinta-media">
-            Entra un auto y lo abrís como un caso: su ficha con quién lo trajo, qué hay que
-            hacerle, cómo viene, quién lo tiene y qué falta para entregarlo. Lo mismo con un
-            paciente o con un equipo.
+            {L("hero.texto")}
           </p>
 
           <div className="m-sube mov-accion mt-10">
@@ -477,16 +403,16 @@ export default function Bienvenida() {
               href="/crear-cuenta"
               className={`${BOTON} w-full border-azul bg-azul text-white hover:border-azul-apretado hover:bg-azul-apretado sm:w-auto`}
             >
-              Crear una cuenta
+              {L("crearCuenta")}
             </Link>
           </div>
           <p className="m-sube mov-sesion mt-5 text-apoyo text-tinta-suave">
-            ¿Ya tenés cuenta?{" "}
+            {L("yaTenes")}{" "}
             <Link
               href="/iniciar-sesion"
               className="font-bold text-azul underline underline-offset-[3px] transition-colors duration-100 hover:text-azul-apretado"
             >
-              Iniciá sesión
+              {L("iniciaSesion")}
             </Link>
           </p>
 
@@ -497,10 +423,10 @@ export default function Bienvenida() {
             <div className="flex flex-col gap-5 md:h-[88px] md:flex-row md:items-start md:justify-between md:gap-6 md:pr-8">
               <div>
                 <h2 className="font-titulo text-[26px]/[30px] font-extrabold tracking-[-0.02em] md:text-pantalla md:tracking-[-0.02em]">
-                  Casos
+                  {L("recorte.titulo")}
                 </h2>
                 <p className="mt-2 text-cuerpo text-tinta-media md:mt-5">
-                  Todo lo que entró, en el estado en el que está.
+                  {L("recorte.apoyo")}
                 </p>
               </div>
               {/* El envoltorio es para esconderlo, y no un `hidden` encima:
@@ -510,7 +436,7 @@ export default function Bienvenida() {
               <span className="hidden shrink-0 md:block">
                 <span className={CONTORNO}>
                   <Icono nombre="mas" className="size-5 text-azul" />
-                  Abrir un caso nuevo
+                  {L("recorte.abrir")}
                 </span>
               </span>
             </div>
@@ -519,7 +445,7 @@ export default function Bienvenida() {
                 es lo que es — una fila de controles, no una tabla */}
             <div className="mt-4 flex gap-2 overflow-x-auto pb-1 tabular-nums md:mt-0 md:mb-5 md:overflow-visible md:pr-8 md:pb-0">
               <span className="inline-flex h-12 shrink-0 items-center rounded-full border-2 border-azul bg-azul-claro px-4 text-etiqueta font-bold text-azul">
-                Todos ({TOTAL})
+                {L("recorte.todos", { n: TOTAL })}
               </span>
               {ORDEN_ESTADOS.map((e) => (
                 <span
@@ -537,10 +463,10 @@ export default function Bienvenida() {
                   leyenda de anatomía. Se usa una sola vez y para algo. */}
               <div className="hidden h-10 grid-cols-[6px_170px_1.4fr_0.8fr_1.1fr_200px] items-end gap-4 border-b border-borde pr-4 pb-1 text-apoyo font-bold tracking-[0.06em] text-tinta-suave md:grid">
                 <i />
-                {["ESTADO", "CASO", "LO TIENE", "QUÉ FALTA"].map((r) => (
+                {["estado", "caso", "loTiene", "queFalta"].map((r) => (
                   <span key={r} className="flex flex-col gap-1">
                     <i className="h-3 w-px bg-terracota" />
-                    {r}
+                    {L(`recorte.${r}`)}
                   </span>
                 ))}
                 <i />
@@ -564,21 +490,21 @@ export default function Bienvenida() {
                     </Chip>
                     <span className="mt-3 flex flex-col tabular-nums md:mt-0">
                       <span className="font-titulo text-ident tracking-[-0.01em]">
-                        Caso {c.numero}
+                        {L("recorte.numero", { n: c.numero })}
                       </span>
                       <span className="text-apoyo text-tinta-suave">
-                        {c.asunto} · {c.cliente}
+                        {L(`casos.${c.estado}.asunto`)} · {c.cliente}
                       </span>
                     </span>
                     <span className="mt-3 flex flex-col md:mt-0 md:block">
-                      <span className="text-apoyo text-tinta-suave md:hidden">Lo tiene</span>
+                      <span className="text-apoyo text-tinta-suave md:hidden">{L("recorte.loTieneCelular")}</span>
                       <span className={`text-cuerpo ${c.sinAsignar ? "text-tinta-suave" : ""}`}>
-                        {c.tiene}
+                        {L(`casos.${c.estado}.tiene`)}
                       </span>
                     </span>
                     <span className="mt-3 flex flex-col md:mt-0 md:block">
-                      <span className="text-apoyo text-tinta-suave md:hidden">Qué falta</span>
-                      <span className="text-cuerpo text-tinta-media">{c.falta}</span>
+                      <span className="text-apoyo text-tinta-suave md:hidden">{L("recorte.queFaltaCelular")}</span>
+                      <span className="text-cuerpo text-tinta-media">{L(`casos.${c.estado}.falta`)}</span>
                     </span>
                     {/* Acá NO va un botón con caja. Es una captura, no un
                         control: cinco cajas de 2 px apiladas eran lo más
@@ -588,7 +514,7 @@ export default function Bienvenida() {
                         manden los chips, que son el argumento. */}
                     <span className="mt-3 inline-flex items-center gap-2 text-etiqueta font-bold text-azul md:mt-0">
                       <Icono nombre={accion.icono} className="size-5" />
-                      {accion.etiqueta}
+                      {L(`casos.${c.estado}.accion`)}
                     </span>
                   </div>
                   </div>
@@ -609,10 +535,10 @@ export default function Bienvenida() {
         <div className={`${HOJA} mt-4 md:mt-0`}>
           <div className="flex items-center gap-3">
             <NumeroCelular numero="01" color="text-nuevo" />
-            <Eyebrow>EL PROBLEMA</Eyebrow>
+            <Eyebrow>{L("problema.eyebrow")}</Eyebrow>
           </div>
           <h2 className="mt-2 font-titulo text-[26px]/[30px] font-black tracking-[-0.02em] md:text-pantalla md:font-black md:tracking-[-0.02em]">
-            Hoy un mismo trabajo vive en tres lugares distintos
+            {L("problema.titulo")}
           </h2>
 
           {/* Misma anatomía que el historial de un caso: cuando el lector lo
@@ -620,7 +546,7 @@ export default function Bienvenida() {
           <div className="entradas rv mt-6 max-w-[760px] border-t border-borde-fuerte md:mt-10">
             {MANANA.map((m) => (
               <div
-                key={m.hora}
+                key={m.clave}
                 className="m-item border-b border-borde py-5 md:grid md:grid-cols-[92px_32px_1fr] md:gap-5 md:py-6"
               >
                 <span className="flex items-center gap-2.5 text-apoyo tabular-nums text-tinta-suave md:block md:text-cuerpo md:font-bold">
@@ -630,9 +556,9 @@ export default function Bienvenida() {
                 <Icono nombre={m.icono} className="mt-1 hidden size-[22px] text-tinta-suave md:block" />
                 <span>
                   <span className="mt-1 block font-titulo text-subtitulo font-extrabold text-tinta-media md:mt-0">
-                    {m.titulo}
+                    {L(`problema.${m.clave}.titulo`)}
                   </span>
-                  <span className="block max-w-[58ch] text-cuerpo text-tinta-suave">{m.texto}</span>
+                  <span className="block max-w-[58ch] text-cuerpo text-tinta-suave">{L(`problema.${m.clave}.texto`)}</span>
                 </span>
               </div>
             ))}
@@ -640,7 +566,7 @@ export default function Bienvenida() {
 
           <p className="remate rv relative mt-8 max-w-[700px] pl-5 font-titulo text-[26px]/[30px] font-black tracking-[-0.02em] md:mt-10 md:pl-6 md:text-pantalla md:font-black md:tracking-[-0.02em]">
             <span className="m-item block">
-              Ninguno de los tres te dice, a las nueve de la mañana, qué hay que hacer hoy.
+              {L("problema.remate")}
             </span>
           </p>
         </div>
@@ -690,10 +616,10 @@ export default function Bienvenida() {
             <div className={`${HOJA} mt-4 md:mt-0`}>
               <div className="flex items-center gap-3">
                 <NumeroCelular numero="02" color="text-tinta" />
-                <Eyebrow>EL RECORRIDO</Eyebrow>
+                <Eyebrow>{L("recorrido.eyebrow")}</Eyebrow>
               </div>
               <h2 className="mt-2 font-titulo text-[26px]/[30px] font-black tracking-[-0.02em] md:text-pantalla md:font-black md:tracking-[-0.02em]">
-                Cinco estados. Cada rubro los llama como habla.
+                {L("recorrido.titulo")}
               </h2>
 
               {/* Cinco tabletas sueltas, una por estado, y cada una se basta
@@ -735,27 +661,27 @@ export default function Bienvenida() {
                           {i + 1}
                           <Icono nombre={ESTADOS[e].icono} className="size-[18px]" />
                           <span className="font-cuerpo text-etiqueta font-extrabold">
-                            {NOMBRE_COMUN[e]}
+                            {L(`estados.${e}`)}
                           </span>
                         </span>
 
                         <div className="mt-3 flex flex-col gap-1 border-t border-borde pt-3 md:gap-3">
                           {RUBROS.map((r) => (
                             <span
-                              key={r.clave}
+                              key={r}
                               className="flex justify-between gap-4 md:flex-col md:gap-0"
                             >
                               <span className="text-apoyo/[28px] text-tinta-suave md:leading-[22px]">
-                                {r.nombre}
+                                {L(`rubros.${r}`)}
                               </span>
                               <span
                                 className={
-                                  r.clave === "taller"
+                                  r === "taller"
                                     ? "text-cuerpo font-bold text-tinta"
                                     : "text-cuerpo text-tinta-suave"
                                 }
                               >
-                                {etiqueta(r.clave, e)}
+                                {etiqueta(r, e)}
                               </span>
                             </span>
                           ))}
@@ -767,9 +693,7 @@ export default function Bienvenida() {
               </div>
 
               <p className="mt-5 max-w-[62ch] text-cuerpo text-tinta-media md:mt-6">
-                Los cinco son siempre los mismos y están en los tres rubros: lo único que cambia
-                son las palabras. Elegís el tuyo una vez, cuando creás el negocio, y el sistema
-                pasa a hablar como vos.
+                {L("recorrido.texto")}
               </p>
             </div>
           </div>
@@ -786,10 +710,10 @@ export default function Bienvenida() {
         <div className={`${HOJA} mt-4 md:mt-0`}>
           <div className="flex items-center gap-3">
             <NumeroCelular numero="03" color="text-completo" />
-            <Eyebrow>EL DÍA A DÍA</Eyebrow>
+            <Eyebrow>{L("dia.eyebrow")}</Eyebrow>
           </div>
           <h2 className="mt-2 font-titulo text-[26px]/[30px] font-black tracking-[-0.02em] md:text-pantalla md:font-black md:tracking-[-0.02em]">
-            Lo anotás cuando entra y lo movés cuando cambia
+            {L("dia.titulo")}
           </h2>
 
           <div className="mt-6 grid gap-8 md:mt-10 md:grid-cols-[430px_1fr] md:items-start md:gap-14">
@@ -797,17 +721,17 @@ export default function Bienvenida() {
               <div className="rv flex flex-col gap-3">
                 {DIA.map((d) => (
                   <div
-                    key={d.titulo}
+                    key={d.clave}
                     className="regla relative pt-4"
                     style={{ "--c": `var(--color-${ESTADOS[d.estado].barra.slice(3)})` }}
                   >
-                    <h3 className="text-subtitulo font-extrabold">{d.titulo}</h3>
-                    <p className="text-cuerpo text-tinta-media">{d.texto}</p>
+                    <h3 className="text-subtitulo font-extrabold">{L(`dia.${d.clave}.titulo`)}</h3>
+                    <p className="text-cuerpo text-tinta-media">{L(`dia.${d.clave}.texto`)}</p>
                   </div>
                 ))}
               </div>
               <p className="mt-5 text-cuerpo text-tinta-media">
-                Eso es todo el trabajo diario. No hay una segunda planilla que llenar a la noche.
+                {L("dia.todo")}
               </p>
             </div>
 
@@ -817,10 +741,10 @@ export default function Bienvenida() {
                 <div className="flex flex-col-reverse items-start gap-3 md:flex-row md:items-start md:justify-between md:gap-5">
                   <div className="tabular-nums">
                     <span className="block font-titulo text-ident font-black tracking-[-0.01em]">
-                      Caso 243
+                      {L("recorte.numero", { n: 243 })}
                     </span>
                     <span className="block text-cuerpo text-tinta-media">
-                      No arranca · Ariel Castro
+                      {L("casos.revision_final.asunto")} · Ariel Castro
                     </span>
                   </div>
                   <Chip estado="revision_final">{etiqueta("taller", "revision_final")}</Chip>
@@ -828,9 +752,9 @@ export default function Bienvenida() {
 
                 <div className="mt-4 flex flex-col gap-2 border-t border-borde pt-3 md:flex-row md:gap-10 md:border-0 md:pt-0">
                   {[
-                    ["Patente", "AB 123 CD", true],
-                    ["Lo tiene", "Diego", false],
-                    ["Qué falta", "Control antes de entregar", false],
+                    [L("dia.patente"), "AB 123 CD", true],
+                    [L("dia.loTiene"), L("casos.revision_final.tiene"), false],
+                    [L("dia.queFalta"), L("casos.revision_final.falta"), false],
                   ].map(([r, v, num]) => (
                     <span key={r} className="flex justify-between gap-4 md:block">
                       <span className="text-apoyo text-tinta-suave">{r}</span>
@@ -843,15 +767,15 @@ export default function Bienvenida() {
 
                 <div className="mt-5 border-t border-borde pt-5">
                   <p className="text-apoyo font-bold tracking-[0.06em] text-tinta-suave">
-                    LO QUE PASÓ CON ESTE CASO
+                    {L("dia.historial")}
                   </p>
                   <ul className="historial rv mt-4 flex flex-col gap-4 tabular-nums md:gap-5">
-                    {HISTORIAL.map((h, i) => (
+                    {HISTORIAL.map((h) => (
                       <li
-                        key={i}
+                        key={h.n}
                         className="m-item grid grid-cols-[76px_20px_1fr] items-start gap-3 md:grid-cols-[88px_20px_1fr] md:items-center md:gap-4"
                       >
-                        <span className="text-cuerpo text-tinta-suave">{h.hora}</span>
+                        <span className="text-cuerpo text-tinta-suave">{L(`dia.h${h.n}.hora`)}</span>
                         <Icono
                           nombre={ESTADOS[h.estado].icono}
                           className={`mt-1 size-5 md:mt-0 ${ESTADOS[h.estado].texto}`}
@@ -860,7 +784,7 @@ export default function Bienvenida() {
                           <strong className="font-bold text-tinta">
                             {etiqueta("taller", h.estado)}
                           </strong>{" "}
-                          · {h.que}
+                          · {L(`dia.h${h.n}.que`)}
                         </span>
                       </li>
                     ))}
@@ -869,11 +793,10 @@ export default function Bienvenida() {
 
                 <div className="mt-5 border-t border-borde pt-4">
                   <p className="text-apoyo text-tinta-suave">
-                    Cinco toques en dos días. Eso es todo lo que se cargó a mano.
+                    {L("dia.cinco")}
                   </p>
                   <p className="text-apoyo text-tinta-suave">
-                    Cuando llama el cliente, abrís el caso y le contestás sin cortar ni
-                    preguntarle a nadie.
+                    {L("dia.cuandoLlama")}
                   </p>
                 </div>
               </div>
@@ -904,35 +827,33 @@ export default function Bienvenida() {
           <h2 className="max-w-[950px] font-titulo text-[clamp(28px,8.8vw,38px)]/[0.9] font-black tracking-[-0.03em] text-fondo md:text-[94px]/[84px]">
             <Titular
               observado
-              lineas={["EL PRIMER CASO", "ES EL QUE TENÉS", "EN EL MOSTRADOR"]}
+              lineas={[L("cierre.linea1"), L("cierre.linea2"), L("cierre.linea3")]}
             />
           </h2>
           <p className="mt-5 max-w-[48ch] text-cuerpo text-borde-fuerte md:mt-6">
-            Creás la cuenta, elegís tu rubro y cargás ese caso. Mañana a la mañana la pantalla ya
-            está armada.
+            {L("cierre.texto")}
           </p>
           <div className="mt-8 md:mt-10">
             <Link
               href="/crear-cuenta"
               className={`${BOTON} w-full border-fondo bg-fondo text-tinta hover:bg-superficie sm:w-auto`}
             >
-              Crear una cuenta
+              {L("crearCuenta")}
             </Link>
           </div>
           <p className="mt-5 text-apoyo text-borde-fuerte">
-            ¿Ya tenés cuenta?{" "}
+            {L("yaTenes")}{" "}
             <Link
               href="/iniciar-sesion"
               className="font-bold text-fondo underline underline-offset-[3px]"
             >
-              Iniciá sesión
+              {L("iniciaSesion")}
             </Link>
           </p>
 
           <div className="mt-8 h-px bg-tinta-suave md:mt-10" />
           <p className="mt-5 text-apoyo text-borde-fuerte md:mt-6">
-            Se crea con tu nombre, tu mail, tu teléfono y una contraseña. Después, el nombre del
-            negocio y el rubro.
+            {L("cierre.alta")}
           </p>
 
           <div aria-hidden className="mt-20 flex h-2.5 md:mt-32">
@@ -954,7 +875,7 @@ export default function Bienvenida() {
             href="/iniciar-sesion"
             className="text-apoyo font-bold text-azul transition-colors duration-100 hover:text-azul-apretado"
           >
-            Iniciar sesión
+            {L("iniciarSesion")}
           </Link>
         </div>
       </footer>

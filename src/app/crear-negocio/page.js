@@ -12,6 +12,8 @@ import { useRouter } from "next/navigation";
 import { useAuth, invitacionPendiente, mailAConfirmar, olvidarMail } from "@/lib/auth";
 import { misPedidos } from "@/lib/equipo";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useTitulo } from "@/lib/useTitulo";
 import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
 import { modulosDe } from "@/lib/modulos";
@@ -22,7 +24,8 @@ export default function CrearNegocio() {
   const router = useRouter();
   const { usuario, sesion, refrescarUsuario } = useAuth();
   const { crearNegocio } = useDatos();
-  useTitulo("Crear tu negocio");
+  const { t, idioma } = useIdioma();
+  useTitulo(t("acceso.crearNegocio.titulo"));
 
   const [nombre, setNombre] = useState("");
   const [rubro, setRubro] = useState(null);
@@ -55,13 +58,13 @@ export default function CrearNegocio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const elegido = rubro ? preset(rubro) : null;
+  const elegido = rubro ? preset(rubro, idioma) : null;
   const motivo = !nombre.trim()
-    ? "falta el nombre"
+    ? t("acceso.crearNegocio.faltaNombre")
     : !rubro
-      ? "elegí un rubro"
+      ? t("acceso.crearNegocio.elegiRubro")
       : enviando
-        ? "creando…"
+        ? t("acceso.crearNegocio.creando")
         : null;
 
   async function crear() {
@@ -81,18 +84,18 @@ export default function CrearNegocio() {
 
   return (
     <>
-      <TituloPantalla apoyo="Un paso y entrás.">
-        Crear tu negocio
+      <TituloPantalla apoyo={t("acceso.crearNegocio.apoyo")}>
+        {t("acceso.crearNegocio.titulo")}
       </TituloPantalla>
 
       {reciénConfirmado && (
         <Tarjeta className="mb-6">
           <p className="flex items-start gap-2 font-bold text-completo">
             <Icono nombre="listo" className="mt-0.5 size-6" />
-            <span>Listo, tu mail quedó confirmado.</span>
+            <span>{t("acceso.crearNegocio.confirmado")}</span>
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Falta un solo paso: contarnos de qué es tu negocio. Después entrás.
+            {t("acceso.crearNegocio.confirmadoTexto")}
           </p>
         </Tarjeta>
       )}
@@ -101,10 +104,10 @@ export default function CrearNegocio() {
         <Tarjeta className="mb-6">
           <p className="flex items-start gap-2 font-bold text-cuerpo">
             <Icono nombre="reloj" className="mt-0.5 size-6" />
-            <span>Esperando que te acepten: {esperando.map((p) => p.negocio_nombre).join(", ")}</span>
+            <span>{t("acceso.crearNegocio.esperando", { negocios: esperando.map((p) => p.negocio_nombre).join(", ") })}</span>
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Mientras tanto, podés crear tu propio negocio.
+            {t("acceso.crearNegocio.esperandoTexto")}
           </p>
         </Tarjeta>
       )}
@@ -113,10 +116,10 @@ export default function CrearNegocio() {
         <Tarjeta className="mb-6">
           <p className="flex items-start gap-2 font-bold text-cuerpo">
             <Icono nombre="personas" className="mt-0.5 size-6" />
-            <span>¿Venías por una invitación?</span>
+            <span>{t("acceso.crearNegocio.venias")}</span>
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Si alguien te invitó a su negocio, no hace falta que crees uno propio.
+            {t("acceso.crearNegocio.venisTexto")}
           </p>
           <div className="mt-4">
             <Link
@@ -124,7 +127,7 @@ export default function CrearNegocio() {
               className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
               <Icono nombre="volver" />
-              Volver a la invitación
+              {t("acceso.crearNegocio.volverInvitacion")}
             </Link>
           </div>
         </Tarjeta>
@@ -133,8 +136,8 @@ export default function CrearNegocio() {
       <Tarjeta>
         <Campo
           id="nombre"
-          etiqueta="¿Cómo se llama tu negocio?"
-          ayuda={`Como lo van a ver vos y tu equipo. Ejemplo: ${ejemplosDe(rubro).negocio}.`}
+          etiqueta={t("acceso.crearNegocio.nombre")}
+          ayuda={t("acceso.crearNegocio.nombreAyuda", { ejemplo: ejemplosDe(rubro, idioma).negocio })}
           autoComplete="off"
           value={nombre}
           onChange={(e) => {
@@ -143,14 +146,13 @@ export default function CrearNegocio() {
           }}
         />
 
-        <p className="font-bold text-cuerpo">¿A qué se dedica?</p>
+        <p className="font-bold text-cuerpo">{t("acceso.crearNegocio.dedica")}</p>
         <p className="mt-1 mb-3 text-apoyo text-tinta-suave">
-          Elegí el más parecido. Cambia cómo se llaman los estados y qué te ofrece el
-          sistema. Si te equivocás, se corrige desde Mi negocio hasta que abras el
-          primer caso; después queda fijo.
+          {t("acceso.crearNegocio.dedicaAyuda")}
         </p>
         <ul className="grid gap-3">
-          {RUBROS.map((r) => {
+          {RUBROS.map((rubroEs) => {
+            const r = preset(rubroEs.clave, idioma);
             const sel = r.clave === rubro;
             return (
               <li key={r.clave}>
@@ -185,16 +187,16 @@ export default function CrearNegocio() {
             arrancar con" parecería un error. */}
         {elegido && modulosDe(elegido.modulos).length === 0 && (
           <div className="mt-6 rounded-tarjeta bg-superficie p-4">
-            <p className="font-bold text-cuerpo">Arrancás sin secciones extra</p>
+            <p className="font-bold text-cuerpo">{t("acceso.crearNegocio.sinSecciones")}</p>
             <p className="mt-2 text-tinta-media">
-              Las prendés desde Mi negocio → Módulos, según lo que use tu negocio.
+              {t("acceso.crearNegocio.sinSeccionesTexto")}
             </p>
           </div>
         )}
 
         {elegido && modulosDe(elegido.modulos).length > 0 && (
           <div className="mt-6 rounded-tarjeta bg-superficie p-4">
-            <p className="font-bold text-cuerpo">Con «{elegido.nombre}» vas a arrancar con:</p>
+            <p className="font-bold text-cuerpo">{t("acceso.crearNegocio.arrancas", { rubro: elegido.nombre })}</p>
             <ul className="mt-2 flex flex-col gap-2">
               {modulosDe(elegido.modulos).map((m) => (
                 <li key={m.clave} className="flex items-start gap-2 text-tinta-media">
@@ -206,7 +208,7 @@ export default function CrearNegocio() {
               ))}
             </ul>
             <p className="mt-3 text-apoyo text-tinta-suave">
-              Los prendés y apagás cuando quieras desde Mi negocio.
+              {t("acceso.crearNegocio.prendeApaga")}
             </p>
           </div>
         )}
@@ -214,7 +216,7 @@ export default function CrearNegocio() {
         {errorGeneral && (
           <p className="mt-6 flex items-start gap-2 font-bold text-rojo text-etiqueta">
             <Icono nombre="alerta" className="mt-px size-5" />
-            <span>{errorGeneral}</span>
+            <span>{textoDeError(t, errorGeneral)}</span>
           </p>
         )}
 
@@ -226,7 +228,7 @@ export default function CrearNegocio() {
             onClick={crear}
             className="min-h-14 w-full"
           >
-            Crear el negocio
+            {t("acceso.crearNegocio.boton")}
           </Boton>
         </div>
       </Tarjeta>
@@ -237,7 +239,7 @@ export default function CrearNegocio() {
         <div className="mt-6">
           <Link href="/" className="inline-flex min-h-12 items-center gap-2 font-bold text-azul">
             <Icono nombre="volver" />
-            Volver sin crear
+            {t("acceso.crearNegocio.volverSinCrear")}
           </Link>
         </div>
       )}

@@ -51,7 +51,7 @@ export default function TusNegocios() {
     const r = await entrarAlNegocio(n.id);
     setOcupado(false);
     if (!r.ok) return setError(r.error);
-    avisarExito(`Listo, estás en ${n.nombre}.`);
+    avisarExito(t("cuenta.negocios.estasEn", { nombre: n.nombre }));
     router.push("/");
   }
 
@@ -75,7 +75,7 @@ export default function TusNegocios() {
       <Link href="/negocio" className="mb-12 block">
         <Tarjeta className="flex items-center gap-3 hover:bg-superficie">
           <FilaNegocio negocio={negocio} rol={usuario?.rol_nombre} />
-          <span className="font-bold text-azul">Ir a Mi negocio</span>
+          <span className="font-bold text-azul">{t("cuenta.negocios.irAMiNegocio")}</span>
         </Tarjeta>
       </Link>
     );
@@ -95,21 +95,21 @@ export default function TusNegocios() {
               {n.id === usuario?.negocio_id ? (
                 <span className="flex min-h-12 items-center gap-2 font-bold text-completo">
                   <Icono nombre="listo" className="size-6" />
-                  Estás acá
+                  {t("cuenta.negocios.estasAca")}
                 </span>
               ) : (
                 <Boton disabled={ocupado} onClick={() => entrar(n)}>
-                  Entrar
+                  {t("cuenta.negocios.entrar")}
                 </Boton>
               )}
               <div className="basis-full">
                 <Interruptor
                   prendido={predeterminado === n.id}
-                  palabras={["No", "Sí"]}
+                  palabras={[t("cuenta.negocios.no"), t("cuenta.negocios.si")]}
                   disabled={ocupado}
                   onChange={(v) => guardar(v ? n.id : null, inicioRapido)}
                 >
-                  Predeterminado
+                  {t("cuenta.negocios.predeterminado")}
                 </Interruptor>
               </div>
             </Tarjeta>
@@ -123,12 +123,12 @@ export default function TusNegocios() {
       <Tarjeta className="mt-3">
         <Interruptor
           prendido={inicioRapido}
-          ayuda="Al iniciar sesión, entrar directo al predeterminado."
-          motivo={predeterminado ? null : "primero elegí uno predeterminado"}
+          ayuda={t("cuenta.negocios.inicioRapidoAyuda")}
+          motivo={predeterminado ? null : t("cuenta.negocios.primeroElegi")}
           disabled={ocupado}
           onChange={(v) => guardar(predeterminado, v)}
         >
-          Inicio rápido
+          {t("cuenta.negocios.inicioRapido")}
         </Interruptor>
       </Tarjeta>
     </div>

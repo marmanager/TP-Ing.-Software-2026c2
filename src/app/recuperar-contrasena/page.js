@@ -19,7 +19,7 @@ import Icono from "@/componentes/Icono";
 export default function RecuperarContrasena() {
   const { pedirResetContrasena } = useAuth();
   const { t } = useIdioma();
-  useTitulo("Recuperar la contraseña");
+  useTitulo(t("acceso.recuperar.titulo"));
 
   const [email, setEmail] = useState("");
   const [tocado, setTocado] = useState(false);
@@ -29,15 +29,15 @@ export default function RecuperarContrasena() {
 
   const errorEmail =
     tocado && email.trim() && !emailValido(email)
-      ? "Ese mail no tiene forma de mail."
+      ? t("acceso.recuperar.mailMalo")
       : null;
 
   const motivo = !email.trim()
-    ? "falta el mail"
+    ? t("acceso.recuperar.faltaMail")
     : !emailValido(email)
-      ? "el mail no tiene forma de mail"
+      ? t("acceso.recuperar.mailForma")
       : enviando
-        ? "mandando…"
+        ? t("acceso.recuperar.mandando")
         : null;
 
   async function mandar() {
@@ -55,18 +55,16 @@ export default function RecuperarContrasena() {
   if (mandado) {
     return (
       <>
-        <TituloPantalla apoyo="Fijate en tu mail.">Te mandamos el enlace</TituloPantalla>
+        <TituloPantalla apoyo={t("acceso.recuperar.mandado.apoyo")}>{t("acceso.recuperar.mandado.titulo")}</TituloPantalla>
         <Tarjeta>
           <p className="flex items-start gap-2 font-bold text-completo">
             <Icono nombre="sobre" className="mt-0.5 size-6" />
             <span>
-              Si hay una cuenta con {email.trim()}, te va a llegar un enlace para poner
-              una contraseña nueva.
+              {t("acceso.recuperar.mandado.mensaje", { mail: email.trim() })}
             </span>
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            El enlace dura un rato corto. Si no aparece en unos minutos, fijate en la
-            carpeta de correo no deseado.
+            {t("acceso.recuperar.mandado.duracion")}
           </p>
           <div className="mt-6">
             <Link
@@ -74,7 +72,7 @@ export default function RecuperarContrasena() {
               className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
               <Icono nombre="volver" />
-              Volver a iniciar sesión
+              {t("acceso.recuperar.mandado.volver")}
             </Link>
           </div>
         </Tarjeta>
@@ -84,17 +82,17 @@ export default function RecuperarContrasena() {
 
   return (
     <>
-      <TituloPantalla apoyo="Te mandamos un enlace para poner una nueva.">
-        Recuperar la contraseña
+      <TituloPantalla apoyo={t("acceso.recuperar.apoyo")}>
+        {t("acceso.recuperar.titulo")}
       </TituloPantalla>
 
       <Tarjeta>
         <Campo
           id="email"
-          etiqueta="Tu mail"
-          ayuda="El mismo con el que entrás."
+          etiqueta={t("acceso.recuperar.mail")}
+          ayuda={t("acceso.recuperar.mailAyuda")}
           error={errorEmail}
-          ejemplo="nombre@taller.com"
+          ejemplo={t("acceso.ejemploMail")}
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -117,14 +115,14 @@ export default function RecuperarContrasena() {
           onClick={mandar}
           className="min-h-14 w-full"
         >
-          Mandarme el enlace
+          {t("acceso.recuperar.boton")}
         </Boton>
       </Tarjeta>
 
       <p className="mt-6 text-tinta-media">
-        ¿Te acordaste?{" "}
+        {t("acceso.recuperar.acordaste")}{" "}
         <Link href="/iniciar-sesion" className="font-bold text-azul">
-          Iniciá sesión
+          {t("acceso.iniciaSesion")}
         </Link>
         .
       </p>
