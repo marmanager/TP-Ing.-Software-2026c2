@@ -4,10 +4,14 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { puede } from "@/lib/permisos";
+import { motivoDePagos } from "@/lib/pagos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import Icono from "./Icono";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
 export default function ConexionMercadoPago() {
+  const { t } = useIdioma();
   const { usuario } = useAuth();
   const { negocio, avisarExito, estadoMercadoPago, conectarMercadoPago, desvincularMercadoPago, pagosEnLinea } =
     useDatos();
@@ -15,7 +19,10 @@ export default function ConexionMercadoPago() {
   const [vinculando, setVinculando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [desvinculando, setDesvinculando] = useState(false);
+  // Un error de la API (objeto o texto) o, si no vino ninguno, la clave del texto
+  // propio: se traduce al dibujar, así sigue al idioma si cambia.
   const [error, setError] = useState(null);
+  const textoDelError = (e) => (e?.fallback ? t(e.fallback) : textoDeError(t, e));
 
   const puedeConfigurar = puede(usuario, "conectar_mercadopago");
 
@@ -23,7 +30,7 @@ export default function ConexionMercadoPago() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
     window.sessionStorage.removeItem("marmanager.mp-desde");
-    avisarExito("Mercado Pago quedó vinculado con este negocio.");
+    avisarExito(t("negocio.mercadoPago.vinculadoListo"));
     document.getElementById("integraciones")?.scrollIntoView({ block: "start" });
     window.history.replaceState(null, "", window.location.pathname + "#integraciones");
     // Una vez, al llegar.
@@ -38,7 +45,7 @@ export default function ConexionMercadoPago() {
       if (r.ok) setConectado(r.conectado);
       else {
         setConectado(false);
-        setError(r.error?.mensaje ?? "No pudimos consultar la conexión de Mercado Pago.");
+        setError(r.error?.codigo || r.error?.mensaje ? r.error : { fallback: "negocio.mercadoPago.noPudimosConsultar" });
       }
     });
     return () => { vivo = false; };
@@ -54,7 +61,7 @@ export default function ConexionMercadoPago() {
     const r = await conectarMercadoPago();
     if (!r.ok) {
       setVinculando(false);
-      return setError(r.error ?? "No pudimos abrir Mercado Pago.");
+      return setError(r.error || { fallback: "negocio.mercadoPago.noPudimosAbrir" });
     }
     window.sessionStorage.setItem("marmanager.mp-desde", "negocio");
     window.location.assign(r.url);
@@ -65,10 +72,10 @@ export default function ConexionMercadoPago() {
     setError(null);
     const r = await desvincularMercadoPago();
     setDesvinculando(false);
-    if (!r.ok) return setError(r.error?.mensaje ?? "No pudimos desvincular Mercado Pago.");
+    if (!r.ok) return setError(r.error?.codigo || r.error?.mensaje ? r.error : { fallback: "negocio.mercadoPago.noPudimosDesvincular" });
     setConectado(false);
     setConfirmando(false);
-    avisarExito("Mercado Pago quedó desvinculado de este negocio.");
+    avisarExito(t("negocio.mercadoPago.desvinculadoListo"));
   }
 
   return (
@@ -82,50 +89,49 @@ export default function ConexionMercadoPago() {
         <div className="mr-auto">
           <p className="font-bold">Mercado Pago</p>
           {conectado === null ? (
-            <p className="text-tinta-media">Consultando la conexión…</p>
+            <p className="text-tinta-media">{t("negocio.mercadoPago.consultando")}</p>
           ) : (
             <p className="text-tinta-media">
               {conectado
-                ? `Vinculado con ${negocio?.nombre ?? "este negocio"}.`
-                : "Vinculalo para cobrar por link o QR desde los casos."}
+                ? t("negocio.mercadoPago.vinculadoCon", { negocio: negocio?.nombre ?? t("negocio.mercadoPago.esteNegocio") })
+                : t("negocio.mercadoPago.vincularTexto")}
             </p>
           )}
         </div>
         {conectado === false && (
           <Boton
-            motivo={!pagosEnLinea?.disponible ? pagosEnLinea?.motivo : vinculando ? "abriendo Mercado Pago" : null}
+            motivo={!pagosEnLinea?.disponible ? motivoDePagos(pagosEnLinea, t) : vinculando ? t("negocio.mercadoPago.abriendo") : null}
             onClick={vincular}
           >
-            Vincular Mercado Pago
+            {t("negocio.mercadoPago.vincular")}
           </Boton>
         )}
         {conectado && !confirmando && (
           <Boton variante="peligro" icono="salir" onClick={() => setConfirmando(true)}>
-            Desvincular Mercado Pago
+            {t("negocio.mercadoPago.desvincular")}
           </Boton>
         )}
       </div>
 
-      {error && <div className="mt-4"><ErrorGeneral>{error}</ErrorGeneral></div>}
+      {error && <div className="mt-4"><ErrorGeneral>{textoDelError(error)}</ErrorGeneral></div>}
 
       {confirmando && (
         <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-          <p className="font-bold">¿Desvincular Mercado Pago de este negocio?</p>
+          <p className="font-bold">{t("negocio.mercadoPago.confirmarTitulo")}</p>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
-            Los cobros registrados se conservan. Los pedidos pendientes ya no podrán actualizarse
-            ni conciliarse hasta que vuelvas a vincular una cuenta.
+            {t("negocio.mercadoPago.confirmarTexto")}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Boton
               variante="peligro"
               icono="salir"
-              motivo={desvinculando ? "desvinculando" : null}
+              motivo={desvinculando ? t("negocio.mercadoPago.desvinculando") : null}
               onClick={desvincular}
             >
-              Sí, desvincularla
+              {t("negocio.mercadoPago.siDesvincular")}
             </Boton>
             <Boton variante="plano" disabled={desvinculando} onClick={() => setConfirmando(false)}>
-              Dejarla vinculada
+              {t("negocio.mercadoPago.dejarVinculada")}
             </Boton>
           </div>
         </div>

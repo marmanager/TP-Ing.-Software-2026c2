@@ -83,6 +83,33 @@ export const quienPuede = (clave, t = tCastellano) => {
   return t("permisos.quienPuede", { nombre: p ? traducirPermiso(p, t).nombre : clave });
 };
 
+// Los roles que trae el negocio de fábrica (supabase/053_roles.sql, los mismos
+// nombres que el preset de cada rubro), en castellano y en inglés. Lo que la
+// base guarda es el texto: un rol cuyo nombre es uno de estos, en cualquiera de
+// los dos idiomas, es de fábrica y se muestra en el idioma de quien mira
+// (permisos.roles.<clave>). Uno que el negocio creó, o renombró a otra cosa,
+// se muestra como lo escribió. El Dueño es de fábrica siempre.
+const ROLES_DE_FABRICA = {
+  duenio: ["dueno", "owner"],
+  encargado: ["encargado", "manager"],
+  mecanico: ["mecanico", "mechanic"],
+  profesional: ["profesional", "professional"],
+  tecnico: ["tecnico", "technician"],
+  colaborador: ["colaborador", "collaborator"],
+};
+
+const sinTildes = (s) =>
+  String(s ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
+
+// "rol" es la fila del rol, o sólo su nombre (lo que trae la cuenta).
+export function nombreDelRol(rol, t = tCastellano) {
+  const nombre = typeof rol === "string" ? rol : rol?.nombre ?? "";
+  const clave = rol?.es_duenio
+    ? "duenio"
+    : Object.keys(ROLES_DE_FABRICA).find((c) => ROLES_DE_FABRICA[c].includes(sinTildes(nombre)));
+  return clave ? t(`permisos.roles.${clave}`, {}, nombre) : nombre;
+}
+
 export const QUIEN_PUEDE = Object.fromEntries(PERMISOS.map((p) => [p.clave, quienPuede(p.clave)]));
 
 const efectivos = (rol) => (rol?.es_duenio ? PERMISOS.map((p) => p.clave) : rol?.permisos ?? []);

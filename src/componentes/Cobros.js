@@ -36,6 +36,7 @@ import { pesos } from "@/lib/estados";
 import { cuando } from "@/lib/fechas";
 import { textoDeError } from "@/lib/idioma";
 import { useIdioma } from "@/lib/useIdioma";
+import { motivoDePagos } from "@/lib/pagos";
 import { conElementos } from "@/lib/conElementos";
 import { linkDeWhatsApp, linkDeWhatsAppA } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
@@ -544,7 +545,7 @@ export default function SeccionCobros({
                 <Boton
                   variante="neutro"
                   icono="sobre"
-                  motivo={!enLinea.disponible ? enLinea.motivo :
+                  motivo={!enLinea.disponible ? motivoDePagos(enLinea, t) :
                     !mercadoPagoConectado ? t("casos.cobros.primeroVincular") : null}
                   onClick={abrirPedido}
                 >
