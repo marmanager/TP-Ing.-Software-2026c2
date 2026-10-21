@@ -565,6 +565,12 @@ function EdicionDeCategorias({ alCerrar }) {
 // La cantidad se ve pero no se toca desde la lista: el − y el + la cambiaban
 // de un toque sin querer, y el tacho estaba a la vista. Todo se cambia, y se
 // borra, desde "Editar", que pregunta antes de borrar.
+//
+// En celular la fila es una columna —el nombre y el aviso a todo el ancho,
+// después la cantidad, después "Editar"— y desde sm vuelve a ser la fila de
+// siempre. Antes eran tres bloques en una sola fila, con el texto en flex-1:
+// el texto se achicaba hasta quedar una palabra por línea y el aviso de
+// "Conviene pedir más", que es lo que hay que leer, se estiraba hacia abajo.
 function FilaDeStock({ insumo: i, conCategoria, puedeCargar, conEnCamino }) {
   const [editando, setEditando] = useState(false);
 
@@ -573,45 +579,60 @@ function FilaDeStock({ insumo: i, conCategoria, puedeCargar, conEnCamino }) {
   const detalle = [i.marca, i.modelo].filter(Boolean).join(" · ");
 
   return (
-    <li className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0">
-      <div className="min-w-0 flex-1">
-        <p className="font-bold">{i.nombre}</p>
+    <li className="flex flex-col gap-3 border-b border-borde p-4 last:border-b-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+      {/* min-w-0 deja que el texto se encoja en vez de empujar la fila, y
+          overflow-wrap corta lo que no tiene espacios. El flex-1 es sólo
+          desde sm: en una columna significaría "crecer hacia abajo". */}
+      <div className="min-w-0 sm:flex-1">
+        <p className="font-bold [overflow-wrap:anywhere]">{i.nombre}</p>
         {(detalle || (conCategoria && i.categoria)) && (
-          <p className="text-apoyo text-tinta-suave">
+          <p className="text-apoyo text-tinta-suave [overflow-wrap:anywhere]">
             {detalle}
             {detalle && conCategoria && i.categoria && " · "}
             {conCategoria && i.categoria}
           </p>
         )}
-        {i.descripcion && <p className="text-apoyo text-tinta-suave">{i.descripcion}</p>}
+        {i.descripcion && (
+          <p className="text-apoyo text-tinta-suave [overflow-wrap:anywhere]">{i.descripcion}</p>
+        )}
         {bajo && (
-          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-bold text-espera text-etiqueta">
-            <Icono nombre="alerta" className="size-5" />
-            Quedan {i.cantidad} {presentacion(i, i.cantidad)}. Conviene pedir más.
-            {/* Llega a "En camino" con todos los datos de este producto: al
-                llegar, se suma a éste y no queda otra fila. */}
-            {conEnCamino && puedeCargar && (
-              <Link
-                href={`/inventario/en-camino?reponer=${encodeURIComponent(i.id)}`}
-                className="text-azul underline underline-offset-2"
-              >
-                Pedirlo
-              </Link>
-            )}
+          // El ícono queda al lado de la primera línea y el texto, con el
+          // "Pedirlo" adentro, fluye a su lado: antes cada pieza era un ítem
+          // de la fila y el ícono se quedaba solo en una línea.
+          <p className="mt-1 flex items-start gap-1.5 font-bold text-espera text-etiqueta">
+            <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+            <span className="min-w-0">
+              Quedan {i.cantidad} {presentacion(i, i.cantidad)}. Conviene pedir más.{" "}
+              {/* Llega a "En camino" con todos los datos de este producto: al
+                  llegar, se suma a éste y no queda otra fila. */}
+              {conEnCamino && puedeCargar && (
+                <Link
+                  href={`/inventario/en-camino?reponer=${encodeURIComponent(i.id)}`}
+                  className="text-azul underline underline-offset-2"
+                >
+                  Pedirlo
+                </Link>
+              )}
+            </span>
           </p>
         )}
       </div>
 
-      <p className="flex items-baseline gap-2">
+      <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-titulo font-extrabold text-subtitulo tabular-nums">{i.cantidad}</span>
-        <span className="whitespace-nowrap text-apoyo text-tinta-suave">
+        <span className="min-w-0 text-apoyo text-tinta-suave [overflow-wrap:anywhere] sm:whitespace-nowrap">
           {presentacion(i, i.cantidad)}
           {total !== null && <span className="block">{total} en total</span>}
         </span>
       </p>
 
       {puedeCargar && (
-        <Boton icono="pincel" motivo={editando ? "lo estás editando" : null} onClick={() => setEditando(true)}>
+        <Boton
+          icono="pincel"
+          className="w-full sm:w-auto"
+          motivo={editando ? "lo estás editando" : null}
+          onClick={() => setEditando(true)}
+        >
           Editar
         </Boton>
       )}

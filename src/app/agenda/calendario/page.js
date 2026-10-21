@@ -424,20 +424,25 @@ export default function Calendario() {
               const cancelado = t.estado === "cancelado";
 
               return (
+                // Como en Turnos: en celular una grilla de dos columnas, con
+                // la hora y el estado arriba en una línea y el texto debajo a
+                // todo el ancho. Desde sm vuelve la fila de siempre. Todos
+                // los hijos llevan order-*, porque en una grilla los que no
+                // lo tienen se colocarían antes que los que sí.
                 <li
                   key={t.id}
-                  className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
+                  className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 border-b border-borde p-4 last:border-b-0 sm:flex sm:flex-wrap sm:items-center sm:gap-4"
                 >
-                  <p className="w-20 font-titulo font-extrabold text-subtitulo tabular-nums">
+                  <p className="order-1 font-titulo font-extrabold text-subtitulo tabular-nums sm:order-none sm:w-20">
                     {horaYMinutos(t.empieza_en)}
                   </p>
-                  <div className="min-w-0 flex-1">
+                  <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-1">
                     <p
-                      className={`font-bold ${cancelado ? estadoDeTurno("cancelado").texto : ""}`}
+                      className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado").texto : ""}`}
                     >
                       {t.motivo}
                     </p>
-                    <p className="text-tinta-media">
+                    <p className="text-tinta-media [overflow-wrap:anywhere]">
                       {cliente?.nombre ?? "Sin cliente todavía"}
                       {t.origen === "cliente" && t.estado === "agendado" && (
                         <>
@@ -456,11 +461,12 @@ export default function Calendario() {
                     </p>
                   </div>
 
-                  {/* En celular el estado baja a su propio renglón: en 375 px
-                      compartir la línea con el motivo le dejaba al motivo una
-                      columna de tres letras (auditoría, Responsive). */}
+                  {/* En celular el estado va arriba, al lado de la hora: en
+                      375 px compartir la línea con el motivo le dejaba al
+                      motivo una columna de tres letras (auditoría,
+                      Responsive), y en un renglón propio al final se perdía. */}
                   <p
-                    className={`flex w-full items-center gap-1.5 font-bold text-etiqueta sm:w-auto ${estadoDeTurno(t.estado).texto}`}
+                    className={`order-2 flex items-center gap-1.5 whitespace-nowrap font-bold text-etiqueta sm:order-none ${estadoDeTurno(t.estado).texto}`}
                   >
                     <Icono nombre={estadoDeTurno(t.estado).icono} className="size-5" />
                     {estadoDeTurno(t.estado).palabra}
