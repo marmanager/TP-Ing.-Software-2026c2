@@ -1638,7 +1638,7 @@ export default {
     },
     vinculadas: {
       vinculadas: "{negocio} y {sede} quedaron vinculadas. Desbloqueaste:",
-      desbloqueoSedes: "Todas las sedes, en Inventario: el inventario de tus sedes vinculadas, junto.",
+      desbloqueoSedes: "{sedes}, en {inventario}: {descripcion}",
       desbloqueoVisita: "Entrar a mirar las otras sedes, en sólo lectura.",
       irAModulos: "Ir a Módulos a ver lo nuevo",
       buscando: "Buscando tus sedes…",
@@ -1661,6 +1661,315 @@ export default {
       buscandoMotivo: "buscando tus sedes",
       desvincular: "Desvincular esta sede",
       desvinculada: "Listo. Esta sede ya no está vinculada con las otras.",
+    },
+  },
+  recordatorios: {
+    errorFecha: { noEsDia: "Elegí un día del calendario.", yaPaso: "la fecha ya pasó" },
+    numeros: { 0: "cero", 1: "un", 2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve", 10: "diez", 11: "once", 12: "doce" },
+    anticipacion: {
+      diaAnterior: "el día anterior",
+      semana: "una semana antes",
+      dias: "{cantidad} días antes",
+      hora: "una hora antes",
+      horas: "{cantidad} horas antes",
+    },
+    diasAntes: {
+      un: "un día antes",
+      semana: "una semana antes",
+      semanas: "{cantidad} semanas antes",
+      dias: "{cantidad} días antes",
+    },
+    cuandoSale: {
+      cierre: {
+        enseguida: "Le llega al cliente apenas entregás el caso.",
+        uno: "Le llega al cliente un día después de que entregás el caso.",
+        varios: "Le llega al cliente {cantidad} días después de que entregás el caso.",
+      },
+      turno: {
+        diaAnterior: "Le llega al cliente el día anterior a su {cita}, a la misma hora.",
+        otro: "Le llega al cliente {antes} de su {cita}.",
+      },
+      volver: {
+        mismoDia: {
+          m: "Le llega al cliente el mismo día que anotaste para su próximo {cita}.",
+          f: "Le llega al cliente el mismo día que anotaste para su próxima {cita}.",
+        },
+        antes: {
+          m: "Le llega al cliente {antes} del día que anotaste para su próximo {cita}.",
+          f: "Le llega al cliente {antes} del día que anotaste para su próxima {cita}.",
+        },
+      },
+      presupuesto: {
+        uno: "Le llega al cliente cuando pasó un día sin que conteste el presupuesto.",
+        varios: "Le llega al cliente cuando pasaron {cantidad} días sin que conteste el presupuesto.",
+      },
+    },
+    tipos: {
+      cierre: {
+        nombre: "Después de entregar",
+        interruptor: "Mensaje después de entregar",
+        ayudaInterruptor: "Al entregar cada caso elegís si se lo mandás.",
+        etiquetaPlazo: "¿Cuántos días después de entregar?",
+        ayudaPlazo: "Poné 0 para mandarlo apenas entregás.",
+      },
+      turno: {
+        nombre: { m: "Antes del {cita}", f: "Antes de la {cita}" },
+        interruptor: { m: "Recordatorio del {cita}", f: "Recordatorio de la {cita}" },
+        ayudaInterruptor: {
+          m: "Le llega a cada cliente con teléfono que tenga {un} anotado.",
+          f: "Le llega a cada cliente con teléfono que tenga {un} anotada.",
+        },
+        etiquetaPlazo: "¿Cuántas horas antes?",
+        ayudaPlazo: "24 es el día anterior, a la misma hora. Hasta 168, una semana.",
+      },
+      volver: {
+        nombre: "Cuando le toca volver",
+        interruptor: "Aviso de que le toca volver",
+        ayudaInterruptor: "Le llega a cada cliente con teléfono al que le anotaste cuándo le toca volver al entregar.",
+        etiquetaPlazo: "¿Cuántos días antes de la fecha?",
+        ayudaPlazo: "Poné 0 para mandarlo el mismo día. Hasta 90 días antes.",
+      },
+      presupuesto: {
+        nombre: "Presupuesto sin respuesta",
+        interruptor: "Aviso del presupuesto sin respuesta",
+        ayudaInterruptor: "Le llega una sola vez a cada cliente con teléfono al que le compartiste el link del presupuesto.",
+        etiquetaPlazo: "¿Cuántos días sin respuesta?",
+        ayudaPlazo: "Cuentan desde el paso sin contestar más viejo. De 1 a 90 días.",
+      },
+    },
+    errorPlazo: {
+      dias: "Elegí una cantidad de días enteros entre {min} y {max}.",
+      horas: "Elegí una cantidad de horas enteras entre {min} y {max} horas.",
+    },
+    errorMensaje: {
+      vacio: "Escribí el mensaje que va a recibir el cliente.",
+      largo: "El mensaje no puede superar 3000 caracteres.",
+    },
+    sinAviso: {
+      sinCliente: "{el} no tiene cliente, así que no le llega recordatorio.",
+      baja: "Pidió no recibir mensajes automáticos, así que no le llega el recordatorio de su {cita}.",
+      sinTelefono: "Falta el teléfono del cliente, con código de país, para mandarle el recordatorio.",
+    },
+    momento: {
+      hoy: "hoy a las {hora}",
+      manana: "mañana a las {hora}",
+      dia: "el {dia} a las {hora}",
+    },
+    aviso: {
+      programado: "Le va a llegar el recordatorio {momento}.",
+      enviado: "Le mandamos el recordatorio {momento}.",
+      fallido: "No se pudo enviar el recordatorio. Revisá que el teléfono del cliente tenga código de país.",
+    },
+    volver: {
+      noSale: "No se va a mandar el aviso de cuándo le toca volver.",
+      porQue: {
+        sin_cliente: "El caso no tiene cliente, así que no se le avisa cuándo le toca volver.",
+        telefono_invalido: "Falta el teléfono del cliente, con código de país, para mandarle el aviso.",
+        desactivado: "El aviso de cuándo le toca volver está apagado: no se le va a avisar.",
+        ya_paso: "El día de mandar el aviso ya pasó, así que no se manda.",
+        whatsapp_no_configurado: "Falta configurar el WhatsApp del negocio para mandar avisos.",
+        ya_esta_aca: "Tiene un caso abierto, así que no hace falta avisarle.",
+        ya_volvio: "El cliente ya volvió después de este caso, así que no se le avisa.",
+        tope_del_mes: "Ya le llegó un mensaje automático este mes, así que no se le manda otro.",
+      },
+      programado: "Le llega un aviso por WhatsApp el {dia}.",
+      enviado: "Le mandamos el aviso por WhatsApp el {dia}.",
+      fallido: "No se pudo mandar el aviso de cuándo le toca volver. Revisá que el teléfono del cliente tenga código de país.",
+      alAnotar: "Le va a llegar un aviso por WhatsApp el {dia}.",
+    },
+    presupuesto: {
+      noSale: "No se le va a mandar el aviso del presupuesto.",
+      porQue: {
+        sin_cliente: "El caso no tiene cliente, así que no se le avisa del presupuesto.",
+        telefono_invalido: "Falta el teléfono del cliente, con código de país, para mandarle el aviso.",
+        desactivado: "El aviso del presupuesto sin respuesta está apagado: no se le va a avisar.",
+        whatsapp_no_configurado: "Falta configurar el WhatsApp del negocio para mandar avisos.",
+        sin_link: "Todavía no le compartiste el link del presupuesto, así que no se le avisa.",
+        todo_contestado: "Ya contestó todo lo que tenía para contestar, así que no se le avisó.",
+        caso_cerrado: "El caso se cerró, así que no se le avisó del presupuesto.",
+        ya_se_aviso: "Ya se le avisó una vez de este presupuesto: no se le manda otro.",
+      },
+      programado: "Si no contesta antes, le llega un aviso por WhatsApp {momento}.",
+      enviado: "Ya le avisamos por WhatsApp {momento}. No se le manda otro.",
+      fallido: "No se pudo mandar el aviso del presupuesto. Revisá que el teléfono del cliente tenga código de país.",
+    },
+    baja: {
+      frase: "Pidió no recibir mensajes automáticos el {dia}.",
+      consecuencia: "No le van a llegar los recordatorios de sus {citas} ni los mensajes de seguimiento por WhatsApp.",
+      noSeAviso: "No se programó el mensaje porque el cliente pidió no recibir avisos.",
+      noSeAvisoOtro: "No se programó el mensaje por WhatsApp.",
+    },
+    alAnotar: {
+      muy_cerca: "El turno es antes de cuando tocaba mandar el recordatorio, así que no se manda.",
+      whatsapp_no_configurado: "Falta configurar el número de WhatsApp para mandar recordatorios.",
+      no_se_pudo: "No pudimos programar el recordatorio. El turno quedó guardado.",
+      sin_cliente: "El turno no tiene cliente, así que no se manda recordatorio.",
+      telefono_invalido: "El cliente necesita un teléfono con código de país para recibir el recordatorio.",
+      desactivado: "El recordatorio de turnos está apagado.",
+      turno_no_en_pie: "El turno está cancelado o ya fue atendido, así que no se manda recordatorio.",
+      baja_de_avisos: "El cliente pidió no recibir mensajes automáticos, así que no se manda recordatorio.",
+    },
+    alRevertir: {
+      sin_permiso: "Que el cliente vuelva a recibir avisos lo decide el dueño o el encargado del negocio.",
+      cliente_no_encontrado: "No encontramos a este cliente. Volvé a la lista de clientes y buscalo de nuevo.",
+      no_esta: "No encontramos a este cliente. Volvé a la lista de clientes y buscalo de nuevo.",
+      sin_conexion: "Se cortó internet. Cuando vuelva, probá de nuevo: el cliente sigue sin recibir avisos.",
+      sesion_vencida: "Tu sesión venció. Volvé a entrar y probá de nuevo.",
+      otro: "No pudimos volver a activar sus avisos. Probá de nuevo en un rato.",
+    },
+  },
+  modulos: {
+    agenda: {
+      nombre: "Agenda",
+      descripcion: "Turnos del día y de la semana.",
+      queHace:
+        "Los turnos del día y de la semana en una sola pantalla, con quién viene y a qué hora. Sirve para anotar cuándo entra un trabajo y cuándo lo vienen a buscar.",
+    },
+    clientes: {
+      nombre: "Clientes",
+      descripcion: "La ficha de cada cliente, con todo lo que trajo.",
+      queHace:
+        "La lista de tus clientes y la ficha de cada uno, con su teléfono y todos los trabajos que te trajo. Apagarlo saca la sección del menú: los clientes se siguen anotando igual cuando abrís un caso o un turno.",
+    },
+    inventario: {
+      nombre: "Inventario",
+      descripcion: "Lo que tenés en stock y lo que pediste.",
+      queHace:
+        "Qué tenés, qué se está por acabar y qué pediste que todavía no llegó. Cuando marcás que llegó algo que un caso estaba esperando, ese caso se destraba solo.",
+    },
+    ecuaciones: {
+      nombre: "Ecuaciones personalizadas",
+      descripcion: "Tus fórmulas, guardadas para volver a usarlas.",
+      queHace:
+        "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
+    },
+    presupuesto: {
+      nombre: "Pendientes de aprobación",
+      descripcion: "Los casos que esperan que el cliente conteste.",
+      queHace:
+        "Todos los casos que están esperando que el cliente conteste el presupuesto, en una sola lista y con cuánta plata hay en juego. Apagarlo no apaga el presupuesto: los pasos se siguen armando y aprobando adentro de cada caso.",
+    },
+    equipo: {
+      nombre: "Equipo",
+      descripcion: "Quién atiende cada caso.",
+      queHace:
+        "Las personas que atienden los trabajos y qué tiene cada una entre manos. Si trabajás solo, dejalo apagado: un caso no necesita tener a alguien asignado.",
+    },
+    historial: {
+      nombre: "Historial",
+      descripcion: "Todo lo que fue pasando en el negocio.",
+      queHace:
+        "Lo que fue pasando en los casos, día por día y con quién lo hizo: lo que entró, lo que se entregó y la plata. Apagarlo saca la sección del menú: lo que pasa se sigue anotando, y cada caso sigue mostrando el suyo.",
+    },
+    dashboard: {
+      nombre: "Estadísticas",
+      descripcion: "La actividad del negocio, organizada por categoría.",
+      queHace:
+        "Un lugar para consultar la actividad del negocio por casos, cobros, clientes e inventario. Sus categorías se recorren desde una barra superior y se prenden o apagan juntas con este módulo.",
+    },
+    turnos: {
+      nombre: "Turnos",
+      descripcion: "Los turnos en lista, día por día.",
+      queHace:
+        "Quién viene y a qué hora, en una lista ordenada por día. Es donde se confirma un turno, se marca que la persona vino y se cancela.",
+    },
+    calendario: {
+      nombre: "Calendario",
+      descripcion: "El mes entero, para ver cómo viene.",
+      queHace:
+        "El mes en una grilla, con los días que tienen turno marcados. Sirve para ver de un vistazo cómo viene la semana que viene y para anotar un turno parado en el día.",
+    },
+    stock: {
+      nombre: "En stock",
+      descripcion: "Lo que tenés y lo que se está por acabar.",
+      queHace:
+        "Lo que tenés, cuánto te queda de cada cosa, y aviso cuando algo baja del mínimo que elegiste.",
+    },
+    en_camino: {
+      nombre: "En camino",
+      descripcion: "Lo que pediste y todavía no llegó.",
+      queHace:
+        "Lo que pediste y todavía no llegó, con el caso que lo está esperando. Pedís desde acá o desde el caso, el caso queda esperando, y cuando marcás que llegó se destraba solo.",
+    },
+    sedes: {
+      nombre: "Todas las sedes",
+      descripcion: "El inventario de tus sedes vinculadas, junto.",
+      queHace:
+        "Cuánto hay de cada producto en cada una de tus sedes vinculadas, el total, y qué falta dónde. Las sedes se vinculan desde Mi negocio.",
+    },
+  },
+  permisos: {
+    quienPuede: "Su rol no incluye el permiso «{nombre}».",
+    grupos: {
+      Casos: "Casos",
+      Presupuesto: "Presupuesto",
+      Cobros: "Cobros",
+      Clientes: "Clientes",
+      Agenda: "Agenda",
+      Inventario: "Inventario",
+      Sedes: "Sedes",
+      Equipo: "Equipo",
+      Negocio: "Negocio",
+    },
+    catalogo: {
+      ver_todos_los_casos: { nombre: "Ver todos los casos", descripcion: "Ver todos los casos del negocio. Sin este permiso, solo los casos asignados." },
+      crear_casos: { nombre: "Abrir casos", descripcion: "Abrir casos nuevos." },
+      avanzar_casos: { nombre: "Trabajar los casos", descripcion: "Cambiar el estado, editar los datos, anotar y compartir el seguimiento." },
+      asignar_casos: { nombre: "Asignar casos", descripcion: "Elegir o cambiar el responsable de un caso." },
+      entregar_y_reabrir: { nombre: "Entregar y reabrir", descripcion: "Entregar casos, reabrirlos y configurar los mensajes de WhatsApp." },
+      armar_presupuesto: { nombre: "Armar el presupuesto", descripcion: "Agregar, editar y quitar pasos, montos, descuentos y ecuaciones." },
+      aprobar_por_el_cliente: { nombre: "Responder por el cliente", descripcion: "Aprobar o rechazar pasos en nombre del cliente." },
+      cobrar: { nombre: "Cobrar", descripcion: "Registrar y anular cobros, y generar el QR o link de pago." },
+      conectar_mercadopago: { nombre: "Conectar Mercado Pago", descripcion: "Vincular y desvincular la cuenta de cobro del negocio." },
+      ver_clientes: { nombre: "Ver clientes", descripcion: "Ver la lista de clientes y sus datos." },
+      editar_clientes: { nombre: "Editar clientes", descripcion: "Agregar y modificar clientes." },
+      ver_agenda: { nombre: "Ver la agenda", descripcion: "Ver los turnos." },
+      manejar_turnos: { nombre: "Manejar turnos", descripcion: "Dar, mover, cancelar y marcar turnos, con sus recordatorios." },
+      ver_inventario: { nombre: "Ver el inventario", descripcion: "Ver productos y stock." },
+      editar_inventario: { nombre: "Editar el inventario", descripcion: "Cargar productos, cambiar el stock y hacer pedidos." },
+      ver_inventario_de_sedes: { nombre: "Ver el inventario de las sedes", descripcion: "Ver el inventario conjunto de las sedes vinculadas donde se es miembro." },
+      ver_sedes_vinculadas: { nombre: "Ver las sedes vinculadas", descripcion: "Entrar en modo solo lectura a las sedes vinculadas donde no se es miembro." },
+      vincular_sedes: { nombre: "Vincular sedes", descripcion: "Vincular y desvincular este negocio con otras sedes." },
+      sumar_al_equipo: { nombre: "Sumar al equipo", descripcion: "Manejar el link de ingreso y aprobar o rechazar pedidos." },
+      sacar_del_equipo: { nombre: "Sacar del equipo", descripcion: "Quitar personas del equipo." },
+      manejar_roles: { nombre: "Manejar roles", descripcion: "Crear, editar y asignar roles, solo con permisos incluidos en el rol propio." },
+      configurar_negocio: { nombre: "Configurar el negocio", descripcion: "Datos, horarios, módulos, Inicio, landing y links públicos de la agenda." },
+      ver_historial: { nombre: "Ver el historial", descripcion: "Ver la pantalla Historial del negocio." },
+    },
+  },
+  negocio: {
+    titulo: "Mi negocio",
+    pagos: {
+      apuntaALaApp: "la dirección de pagos apunta a la app; corregí {variable} en Vercel",
+      noConectado: "todavía no está conectado el sistema de pagos",
+    },
+  },
+  equipo: {
+    mensajeDeInvitacion: "Sumate al equipo de {negocio} en MarManager: {link}",
+  },
+  landing: {
+    secciones: {
+      negocio: { nombre: "El negocio", queMuestra: "Tu nombre, tu teléfono, tus horarios y un botón para escribirte por WhatsApp." },
+      sacar_turno: { nombre: "Sacar turno", queMuestra: "Los días y horarios que te quedan libres, para que el cliente se anote solo." },
+      mis_casos: { nombre: "Mis casos", queMuestra: "Los casos abiertos del cliente, con cómo viene cada uno." },
+      mis_turnos: { nombre: "Mis turnos", queMuestra: "Los próximos turnos que sacó el cliente." },
+    },
+    partes: {
+      fondo: { nombre: "Fondo", ayuda: "El color de toda la página." },
+      cajas: { nombre: "Cajas", ayuda: "Donde va cada sección y cada dato." },
+      botones: { nombre: "Botones", ayuda: "Lo que se toca: botones y links." },
+      acento: { nombre: "Acento", ayuda: "Las marcas que llaman la atención, como el estado de un caso." },
+    },
+    fuentes: {
+      fabrica: "La de la app",
+      nunito: "Nunito",
+      montserrat: "Montserrat",
+      lora: "Lora",
+      merriweather: "Merriweather",
+    },
+    motivo: {
+      sinHorarios: "Aparece cuando publicás tus horarios.",
+      modulo: "Aparece cuando prendés el módulo {modulo}.",
     },
   },
   ui: {

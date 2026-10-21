@@ -16,6 +16,7 @@ import { ejemplosDe } from "@/lib/presets";
 import { paraInput } from "@/lib/fechas";
 import { paisInicial } from "@/lib/telefono";
 import { useIdioma } from "@/lib/useIdioma";
+import { avisoAlAnotar } from "@/lib/recordatorios";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 
@@ -28,7 +29,7 @@ export default function AltaDeTurno({
   className = "",
 }) {
   const datos = useDatos();
-  const { idioma, t } = useIdioma();
+  const { idioma, locale, t } = useIdioma();
   const { clientes, negocio } = datos;
   const [form, setForm] = useState({ ...VACIO, empiezaEn: cuandoSugerido });
   // El teléfono, con el selector de país (B-1b). Sólo cuenta si es alguien
@@ -71,7 +72,7 @@ export default function AltaDeTurno({
     // dio datos.js y el formulario queda con lo escrito, para cambiar la hora.
     if (!r) return;
     datos.avisarExito(
-      [t("agenda.alta.listo", { motivo: form.motivo.trim() }), r.avisoDelRecordatorio].filter(Boolean).join(" ")
+      [t("agenda.alta.listo", { motivo: form.motivo.trim() }), avisoAlAnotar(r.recordatorio, { t, locale, idioma })].filter(Boolean).join(" ")
     );
     setForm({ ...VACIO, empiezaEn: cuandoSugerido });
     tel.cargar("");

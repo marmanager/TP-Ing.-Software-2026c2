@@ -8,6 +8,8 @@
 //
 // Los textos son formales e impersonales (docs/roles.md, "Textos").
 
+import { tCastellano } from "./idioma.js";
+
 export const GRUPOS = ["Casos", "Presupuesto", "Cobros", "Clientes", "Agenda", "Inventario", "Sedes", "Equipo", "Negocio"];
 
 export const PERMISOS = [
@@ -62,21 +64,37 @@ export function puede(quien, clave) {
   return Boolean(quien?.es_duenio) || Boolean(quien?.permisos?.includes(clave));
 }
 
+// El permiso con su nombre y su descripción en el idioma de t. El catálogo de
+// arriba es el contrato con la API (las claves); los textos para mostrar salen
+// del diccionario (permisos.catalogo.<clave>.*), y sin t, en castellano.
+export const traducirPermiso = (p, t = tCastellano) => ({
+  ...p,
+  nombre: t(`permisos.catalogo.${p.clave}.nombre`, {}, p.nombre),
+  descripcion: t(`permisos.catalogo.${p.clave}.descripcion`, {}, p.descripcion),
+});
+
+// El nombre de un grupo ("Casos", "Equipo"…). La clave del grupo es el texto
+// de fábrica en castellano: se muestra traducido, nunca se guarda.
+export const nombreDelGrupo = (grupo, t = tCastellano) => t(`permisos.grupos.${grupo}`, {}, grupo);
+
 // Para explicar por qué un control está apagado.
-export const QUIEN_PUEDE = Object.fromEntries(
-  PERMISOS.map((p) => [p.clave, `Su rol no incluye el permiso «${p.nombre}».`])
-);
+export const quienPuede = (clave, t = tCastellano) => {
+  const p = PERMISOS.find((x) => x.clave === clave);
+  return t("permisos.quienPuede", { nombre: p ? traducirPermiso(p, t).nombre : clave });
+};
+
+export const QUIEN_PUEDE = Object.fromEntries(PERMISOS.map((p) => [p.clave, quienPuede(p.clave)]));
 
 const efectivos = (rol) => (rol?.es_duenio ? PERMISOS.map((p) => p.clave) : rol?.permisos ?? []);
 
 // Qué gana y qué pierde alguien al pasar de un rol a otro. Para la
 // confirmación de Equipo: "Permisos que se agregan" / "Permisos que se quitan".
-export function queCambiaConElRol(antes, despues) {
+export function queCambiaConElRol(antes, despues, t = tCastellano) {
   const a = new Set(efectivos(antes));
   const d = new Set(efectivos(despues));
   return {
-    gana: PERMISOS.filter((p) => !a.has(p.clave) && d.has(p.clave)).map((p) => p.descripcion),
-    pierde: PERMISOS.filter((p) => a.has(p.clave) && !d.has(p.clave)).map((p) => p.descripcion),
+    gana: PERMISOS.filter((p) => !a.has(p.clave) && d.has(p.clave)).map((p) => traducirPermiso(p, t).descripcion),
+    pierde: PERMISOS.filter((p) => a.has(p.clave) && !d.has(p.clave)).map((p) => traducirPermiso(p, t).descripcion),
   };
 }
 

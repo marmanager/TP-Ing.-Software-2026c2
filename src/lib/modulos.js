@@ -10,6 +10,11 @@
 // El orden es el de la barra lateral, a propósito: quien busca en "Módulos"
 // la sección que ve en el menú la encuentra en el mismo lugar.
 
+import { tCastellano } from "./idioma.js";
+
+// Los textos de abajo son el castellano de fábrica. Lo que se muestra sale del
+// diccionario con traducirModulo() (más abajo), por la clave del módulo.
+
 // "descripcion" es el renglón corto, para listas y resúmenes.
 // "queHace" es la explicación de la pantalla de módulos, donde alguien está
 // decidiendo si le sirve o no: dice para qué se usa, con un ejemplo.
@@ -296,3 +301,19 @@ export function alternarModulo(clave, activos = []) {
 // De una lista de claves a las definiciones, salteando las que no existan.
 export const modulosDe = (claves = []) =>
   claves.map((c) => MODULOS[c]).filter(Boolean);
+
+// El módulo (o submódulo) con su nombre, descripción y queHace en el idioma de
+// t. Los textos están en el diccionario (modulos.<clave>.*), con la misma
+// clave que el módulo; si falta alguno, queda el castellano de arriba. Sin t,
+// salen en castellano, igual que las constantes.
+export const traducirModulo = (m, t = tCastellano) =>
+  m && {
+    ...m,
+    nombre: t(`modulos.${m.clave}.nombre`, {}, m.nombre),
+    descripcion: t(`modulos.${m.clave}.descripcion`, {}, m.descripcion),
+    queHace: t(`modulos.${m.clave}.queHace`, {}, m.queHace),
+  };
+
+// Sólo el nombre, para títulos y etiquetas ("Las pantallas de Inventario").
+export const nombreDeModulo = (clave, t = tCastellano) =>
+  traducirModulo(MODULOS[clave] ?? SUBMODULOS[clave], t)?.nombre ?? clave;

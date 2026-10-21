@@ -24,7 +24,7 @@ import { Cargando, Tarjeta, Vacio } from "@/componentes/ui";
 
 export default function AAprobar() {
   const { cargando, casos, clientes, pasos } = useDatos();
-  const { t, locale } = useIdioma();
+  const { t, locale, idioma } = useIdioma();
   useTitulo(t("aprobar.titulo"));
 
   if (cargando) return <Cargando />;
@@ -59,7 +59,7 @@ export default function AAprobar() {
               const cliente = clientes.find((c) => c.id === caso.cliente_id);
               // Una semana sin respuesta es el momento de levantar el teléfono.
               const hayQueInsistir = diasDesde(esperandoDesde) >= 7;
-              const aviso = avisoDelPresupuesto({ caso, cliente, ahora });
+              const aviso = avisoDelPresupuesto({ caso, cliente, ahora }, { t, locale, idioma });
               return (
                 <li key={caso.id}>
                   <Tarjeta>

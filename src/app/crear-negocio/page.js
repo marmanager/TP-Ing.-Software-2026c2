@@ -16,7 +16,7 @@ import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
 import { useTitulo } from "@/lib/useTitulo";
 import { RUBROS, preset, ejemplosDe } from "@/lib/presets";
-import { modulosDe } from "@/lib/modulos";
+import { modulosDe, traducirModulo } from "@/lib/modulos";
 import { Boton, Campo, Tarjeta, TituloPantalla } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
@@ -198,7 +198,7 @@ export default function CrearNegocio() {
           <div className="mt-6 rounded-tarjeta bg-superficie p-4">
             <p className="font-bold text-cuerpo">{t("acceso.crearNegocio.arrancas", { rubro: elegido.nombre })}</p>
             <ul className="mt-2 flex flex-col gap-2">
-              {modulosDe(elegido.modulos).map((m) => (
+              {modulosDe(elegido.modulos).map((m) => traducirModulo(m, t)).map((m) => (
                 <li key={m.clave} className="flex items-start gap-2 text-tinta-media">
                   <Icono nombre={m.icono} className="mt-0.5 size-5" />
                   <span>

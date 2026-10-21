@@ -1261,7 +1261,8 @@ export function DatosProvider({ children }) {
       // único camino y no hay nada que mostrar antes. El error va traducido.
       async revertirBajaDeAvisos(clienteId) {
         const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/revertir-baja`, {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: errorAlRevertirBaja(r.error) };
+        // "errorOriginal" es el de la API: la pantalla lo traduce a su idioma.
+        if (!r.ok) return { ok: false, error: errorAlRevertirBaja(r.error), errorOriginal: r.error };
         setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, r.datos.cliente) }));
         return { ok: true };
       },
@@ -1299,7 +1300,7 @@ export function DatosProvider({ children }) {
           clientes: cliente ? [...d.clientes, cliente] : d.clientes,
           turnos: [...d.turnos, { ...turno, recordatorio }],
         }));
-        return { ok: true, avisoDelRecordatorio: avisoAlAnotar(recordatorio) };
+        return { ok: true, avisoDelRecordatorio: avisoAlAnotar(recordatorio), recordatorio };
       },
 
       // Pasar el turno a otro día u hora. La API corre el recordatorio con la
@@ -1312,7 +1313,7 @@ export function DatosProvider({ children }) {
         }, await tokenDeSesion());
         if (!r.ok) return { ok: false, error: r.error.mensaje };
         setDatos((d) => ({ ...d, turnos: ponerFila(d.turnos, r.datos) }));
-        return { ok: true, turno: r.datos, avisoDelRecordatorio: avisoAlAnotar(r.datos.recordatorio) };
+        return { ok: true, turno: r.datos, avisoDelRecordatorio: avisoAlAnotar(r.datos.recordatorio), recordatorio: r.datos.recordatorio };
       },
 
       // "Vino a buscarlo": el turno era por un trabajo que ya estaba en

@@ -12,7 +12,8 @@ import { useAuth } from "@/lib/auth";
 import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
 import { useDatos } from "@/lib/datos";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { MODULOS, SUBMODULOS, traducirModulo } from "@/lib/modulos";
 import { candidatosParaVincular, desvincularSede, misSedes, vincularSede, visitarSede } from "@/lib/sedes";
 import Icono from "./Icono";
 import FilaNegocio from "./FilaNegocio";
@@ -100,7 +101,12 @@ export default function SedesVinculadas() {
               {t("inventario.vinculadas.vinculadas", { negocio: negocio?.nombre, sede: desbloqueo })}
             </p>
             <ul className="mt-1 list-disc pl-5">
-              <li>{t("inventario.vinculadas.desbloqueoSedes")}</li>
+              <li>{t("inventario.vinculadas.desbloqueoSedes", {
+                sedes: traducirModulo(SUBMODULOS.sedes, t).nombre,
+                inventario: traducirModulo(MODULOS.inventario, t).nombre,
+                // El mismo renglón de Módulos, en minúscula después de los dos puntos.
+                descripcion: traducirModulo(SUBMODULOS.sedes, t).descripcion.replace(/^./, (c) => c.toLowerCase()),
+              })}</li>
               <li>{t("inventario.vinculadas.desbloqueoVisita")}</li>
             </ul>
             <Link
@@ -149,7 +155,7 @@ export default function SedesVinculadas() {
       )}
 
       {!puedeVincular ? (
-        <p className="mt-4 text-tinta-media">{QUIEN_PUEDE.vincular_sedes}</p>
+        <p className="mt-4 text-tinta-media">{quienPuede("vincular_sedes", t)}</p>
       ) : candidatos ? (
         <div className="mt-4 rounded-tarjeta bg-superficie p-4">
           <p className="font-bold">{t("inventario.vinculadas.conCual")}</p>

@@ -24,7 +24,7 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
 import { montoValido } from "@/lib/validaciones";
 import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
 import { cuantoHace } from "@/lib/fechas";
@@ -325,7 +325,7 @@ export default function AprobarPasos() {
           ? t("casos.pasos.yaSeEntrego")
           : puedeResponder
             ? t("casos.pasos.seApruebaDeAUno")
-            : t("casos.pasos.esLoQueHayQueHacer", { quienPuede: QUIEN_PUEDE.aprobar_por_el_cliente })}
+            : t("casos.pasos.esLoQueHayQueHacer", { quienPuede: quienPuede("aprobar_por_el_cliente", t) })}
       </p>
 
       {!abierto && (puedeArmar || puedeResponder) && (

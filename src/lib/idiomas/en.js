@@ -1635,7 +1635,7 @@ export default {
     },
     vinculadas: {
       vinculadas: "{negocio} and {sede} are now linked. You unlocked:",
-      desbloqueoSedes: "All locations, in Inventory: the inventory of your linked locations, together.",
+      desbloqueoSedes: "{sedes}, in {inventario}: {descripcion}",
       desbloqueoVisita: "Go in and look at the other locations, read-only.",
       irAModulos: "Go to Modules to see what's new",
       buscando: "Looking for your locations…",
@@ -1658,6 +1658,315 @@ export default {
       buscandoMotivo: "looking for your locations",
       desvincular: "Unlink this location",
       desvinculada: "Done. This location is no longer linked to the others.",
+    },
+  },
+  recordatorios: {
+    errorFecha: { noEsDia: "Pick a day from the calendar.", yaPaso: "that date has already passed" },
+    numeros: { 0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve" },
+    anticipacion: {
+      diaAnterior: "the day before",
+      semana: "one week before",
+      dias: "{cantidad} days before",
+      hora: "one hour before",
+      horas: "{cantidad} hours before",
+    },
+    diasAntes: {
+      un: "one day before",
+      semana: "one week before",
+      semanas: "{cantidad} weeks before",
+      dias: "{cantidad} days before",
+    },
+    cuandoSale: {
+      cierre: {
+        enseguida: "It reaches the customer as soon as you hand over the case.",
+        uno: "It reaches the customer one day after you hand over the case.",
+        varios: "It reaches the customer {cantidad} days after you hand over the case.",
+      },
+      turno: {
+        diaAnterior: "It reaches the customer the day before their {cita}, at the same time.",
+        otro: "It reaches the customer {antes} their {cita}.",
+      },
+      volver: {
+        mismoDia: {
+          m: "It reaches the customer the same day you noted for their next {cita}.",
+          f: "It reaches the customer the same day you noted for their next {cita}.",
+        },
+        antes: {
+          m: "It reaches the customer {antes} the day you noted for their next {cita}.",
+          f: "It reaches the customer {antes} the day you noted for their next {cita}.",
+        },
+      },
+      presupuesto: {
+        uno: "It reaches the customer when a day has passed without them answering the quote.",
+        varios: "It reaches the customer when {cantidad} days have passed without them answering the quote.",
+      },
+    },
+    tipos: {
+      cierre: {
+        nombre: "After handing over",
+        interruptor: "Message after handing over",
+        ayudaInterruptor: "When you hand over each case you choose whether to send it.",
+        etiquetaPlazo: "How many days after handing over?",
+        ayudaPlazo: "Enter 0 to send it as soon as you hand over.",
+      },
+      turno: {
+        nombre: { m: "Before the {cita}", f: "Before the {cita}" },
+        interruptor: { m: "Reminder for the {cita}", f: "Reminder for the {cita}" },
+        ayudaInterruptor: {
+          m: "It reaches every customer with a phone number who has {un} booked.",
+          f: "It reaches every customer with a phone number who has {un} booked.",
+        },
+        etiquetaPlazo: "How many hours before?",
+        ayudaPlazo: "24 is the day before, at the same time. Up to 168, one week.",
+      },
+      volver: {
+        nombre: "When it's time to come back",
+        interruptor: "Notice that it's time to come back",
+        ayudaInterruptor: "It reaches every customer with a phone number whose return date you noted when handing over.",
+        etiquetaPlazo: "How many days before the date?",
+        ayudaPlazo: "Enter 0 to send it the same day. Up to 90 days before.",
+      },
+      presupuesto: {
+        nombre: "Unanswered quote",
+        interruptor: "Notice about the unanswered quote",
+        ayudaInterruptor: "It reaches every customer with a phone number you shared the quote link with, only once.",
+        etiquetaPlazo: "How many days without an answer?",
+        ayudaPlazo: "They count from the oldest step that hasn't been answered. From 1 to 90 days.",
+      },
+    },
+    errorPlazo: {
+      dias: "Enter a whole number of days between {min} and {max}.",
+      horas: "Enter a whole number of hours between {min} and {max}.",
+    },
+    errorMensaje: {
+      vacio: "Write the message the customer will receive.",
+      largo: "The message can't be longer than 3000 characters.",
+    },
+    sinAviso: {
+      sinCliente: "{el} has no customer, so no reminder is sent.",
+      baja: "They asked not to receive automatic messages, so the reminder for their {cita} isn't sent.",
+      sinTelefono: "The customer's phone number, with country code, is missing, so the reminder can't be sent.",
+    },
+    momento: {
+      hoy: "today at {hora}",
+      manana: "tomorrow at {hora}",
+      dia: "on {dia} at {hora}",
+    },
+    aviso: {
+      programado: "The reminder will reach them {momento}.",
+      enviado: "We sent the reminder {momento}.",
+      fallido: "The reminder couldn't be sent. Check that the customer's phone number includes the country code.",
+    },
+    volver: {
+      noSale: "The notice about when it's time to come back won't be sent.",
+      porQue: {
+        sin_cliente: "The case has no customer, so they won't be told when it's time to come back.",
+        telefono_invalido: "The customer's phone number, with country code, is missing, so the notice can't be sent.",
+        desactivado: "The notice about when it's time to come back is turned off: they won't be told.",
+        ya_paso: "The day to send the notice has already passed, so it isn't sent.",
+        whatsapp_no_configurado: "The business's WhatsApp isn't set up yet, so notices can't be sent.",
+        ya_esta_aca: "They have an open case, so there's no need to tell them.",
+        ya_volvio: "The customer already came back after this case, so they won't be told.",
+        tope_del_mes: "They already got an automatic message this month, so they won't get another.",
+      },
+      programado: "A WhatsApp notice will reach them on {dia}.",
+      enviado: "We sent the notice by WhatsApp on {dia}.",
+      fallido: "The notice about when it's time to come back couldn't be sent. Check that the customer's phone number includes the country code.",
+      alAnotar: "A WhatsApp notice will reach them on {dia}.",
+    },
+    presupuesto: {
+      noSale: "The quote notice won't be sent.",
+      porQue: {
+        sin_cliente: "The case has no customer, so they won't be told about the quote.",
+        telefono_invalido: "The customer's phone number, with country code, is missing, so the notice can't be sent.",
+        desactivado: "The unanswered-quote notice is turned off: they won't be told.",
+        whatsapp_no_configurado: "The business's WhatsApp isn't set up yet, so notices can't be sent.",
+        sin_link: "You haven't shared the quote link with them yet, so they won't be told.",
+        todo_contestado: "They already answered everything, so they weren't told.",
+        caso_cerrado: "The case was closed, so they weren't told about the quote.",
+        ya_se_aviso: "They were already told once about this quote: they won't get another.",
+      },
+      programado: "If they don't answer before then, a WhatsApp notice will reach them {momento}.",
+      enviado: "We already told them by WhatsApp {momento}. They won't get another.",
+      fallido: "The quote notice couldn't be sent. Check that the customer's phone number includes the country code.",
+    },
+    baja: {
+      frase: "They asked not to receive automatic messages on {dia}.",
+      consecuencia: "They won't get reminders for their {citas} or follow-up messages by WhatsApp.",
+      noSeAviso: "The message wasn't scheduled because the customer asked not to receive notices.",
+      noSeAvisoOtro: "The WhatsApp message wasn't scheduled.",
+    },
+    alAnotar: {
+      muy_cerca: "The appointment is before the time the reminder was due to go out, so it isn't sent.",
+      whatsapp_no_configurado: "The WhatsApp number isn't set up yet, so reminders can't be sent.",
+      no_se_pudo: "We couldn't schedule the reminder. The appointment was saved.",
+      sin_cliente: "The appointment has no customer, so no reminder is sent.",
+      telefono_invalido: "The customer needs a phone number with country code to get the reminder.",
+      desactivado: "Appointment reminders are turned off.",
+      turno_no_en_pie: "The appointment is cancelled or already attended, so no reminder is sent.",
+      baja_de_avisos: "The customer asked not to receive automatic messages, so no reminder is sent.",
+    },
+    alRevertir: {
+      sin_permiso: "Whether the customer receives notices again is up to the business's owner or manager.",
+      cliente_no_encontrado: "We couldn't find this customer. Go back to the customer list and search again.",
+      no_esta: "We couldn't find this customer. Go back to the customer list and search again.",
+      sin_conexion: "The internet dropped. Try again when it's back: the customer still isn't receiving notices.",
+      sesion_vencida: "Your session expired. Sign in again and try again.",
+      otro: "We couldn't turn their notices back on. Try again in a while.",
+    },
+  },
+  modulos: {
+    agenda: {
+      nombre: "Schedule",
+      descripcion: "Today's and this week's appointments.",
+      queHace:
+        "The day's and the week's appointments on a single screen, with who's coming and at what time. Use it to note when a job comes in and when they come to pick it up.",
+    },
+    clientes: {
+      nombre: "Customers",
+      descripcion: "Each customer's record, with everything they brought in.",
+      queHace:
+        "The list of your customers and each one's record, with their phone number and all the jobs they brought you. Turning it off removes the section from the menu: customers still get added as usual when you open a case or an appointment.",
+    },
+    inventario: {
+      nombre: "Inventory",
+      descripcion: "What you have in stock and what you ordered.",
+      queHace:
+        "What you have, what's about to run out and what you ordered that hasn't arrived yet. When you mark that something a case was waiting for has arrived, that case unblocks on its own.",
+    },
+    ecuaciones: {
+      nombre: "Custom equations",
+      descripcion: "Your formulas, saved so you can use them again.",
+      queHace:
+        "Save the formulas your business uses so you can find them and use them again. Turning the module off only removes it from the menu: saved equations aren't deleted.",
+    },
+    presupuesto: {
+      nombre: "Pending approval",
+      descripcion: "Cases waiting for the customer to answer.",
+      queHace:
+        "Every case that is waiting for the customer to answer the quote, in a single list, with how much money is at stake. Turning it off doesn't turn off the quote: steps are still built and approved inside each case.",
+    },
+    equipo: {
+      nombre: "Team",
+      descripcion: "Who handles each case.",
+      queHace:
+        "The people who handle the jobs and what each one has on their plate. If you work alone, leave it off: a case doesn't need to have someone assigned.",
+    },
+    historial: {
+      nombre: "History",
+      descripcion: "Everything that has happened in the business.",
+      queHace:
+        "What has been happening in the cases, day by day and who did it: what came in, what was handed over and the money. Turning it off removes the section from the menu: what happens is still recorded, and each case still shows its own.",
+    },
+    dashboard: {
+      nombre: "Statistics",
+      descripcion: "The business's activity, organized by category.",
+      queHace:
+        "A place to look up the business's activity by cases, payments, customers and inventory. Its categories are browsed from a top bar and are turned on or off together with this module.",
+    },
+    turnos: {
+      nombre: "Appointments",
+      descripcion: "Appointments in a list, day by day.",
+      queHace:
+        "Who's coming and at what time, in a list ordered by day. It's where you confirm an appointment, mark that the person came in, and cancel.",
+    },
+    calendario: {
+      nombre: "Calendar",
+      descripcion: "The whole month, to see how it's looking.",
+      queHace:
+        "The month in a grid, with the days that have appointments marked. Use it to see at a glance how next week looks and to book an appointment by standing on the day.",
+    },
+    stock: {
+      nombre: "In stock",
+      descripcion: "What you have and what's about to run out.",
+      queHace:
+        "What you have, how much is left of each thing, and an alert when something drops below the minimum you chose.",
+    },
+    en_camino: {
+      nombre: "On the way",
+      descripcion: "What you ordered that hasn't arrived yet.",
+      queHace:
+        "What you ordered that hasn't arrived yet, with the case that is waiting for it. You order from here or from the case, the case keeps waiting, and when you mark it as arrived it unblocks on its own.",
+    },
+    sedes: {
+      nombre: "All locations",
+      descripcion: "The inventory of your linked locations, together.",
+      queHace:
+        "How much there is of each product in each of your linked locations, the total, and what's missing where. Locations are linked from My business.",
+    },
+  },
+  permisos: {
+    quienPuede: "Your role doesn't include the «{nombre}» permission.",
+    grupos: {
+      Casos: "Cases",
+      Presupuesto: "Quote",
+      Cobros: "Payments",
+      Clientes: "Customers",
+      Agenda: "Schedule",
+      Inventario: "Inventory",
+      Sedes: "Locations",
+      Equipo: "Team",
+      Negocio: "Business",
+    },
+    catalogo: {
+      ver_todos_los_casos: { nombre: "See all cases", descripcion: "See all the business's cases. Without this permission, only assigned cases." },
+      crear_casos: { nombre: "Open cases", descripcion: "Open new cases." },
+      avanzar_casos: { nombre: "Work the cases", descripcion: "Change the status, edit the details, add notes and share the follow-up." },
+      asignar_casos: { nombre: "Assign cases", descripcion: "Choose or change who is responsible for a case." },
+      entregar_y_reabrir: { nombre: "Hand over and reopen", descripcion: "Hand over cases, reopen them and set up the WhatsApp messages." },
+      armar_presupuesto: { nombre: "Build the quote", descripcion: "Add, edit and remove steps, amounts, discounts and equations." },
+      aprobar_por_el_cliente: { nombre: "Answer for the customer", descripcion: "Approve or reject steps on the customer's behalf." },
+      cobrar: { nombre: "Collect payment", descripcion: "Record and cancel payments, and generate the payment QR or link." },
+      conectar_mercadopago: { nombre: "Connect Mercado Pago", descripcion: "Link and unlink the business's payment account." },
+      ver_clientes: { nombre: "See customers", descripcion: "See the customer list and their details." },
+      editar_clientes: { nombre: "Edit customers", descripcion: "Add and change customers." },
+      ver_agenda: { nombre: "See the schedule", descripcion: "See the appointments." },
+      manejar_turnos: { nombre: "Manage appointments", descripcion: "Book, move, cancel and mark appointments, with their reminders." },
+      ver_inventario: { nombre: "See the inventory", descripcion: "See products and stock." },
+      editar_inventario: { nombre: "Edit the inventory", descripcion: "Add products, change the stock and place orders." },
+      ver_inventario_de_sedes: { nombre: "See the locations' inventory", descripcion: "See the combined inventory of the linked locations you're a member of." },
+      ver_sedes_vinculadas: { nombre: "See linked locations", descripcion: "Go in read-only to the linked locations you're not a member of." },
+      vincular_sedes: { nombre: "Link locations", descripcion: "Link and unlink this business with other locations." },
+      sumar_al_equipo: { nombre: "Add to the team", descripcion: "Manage the join link and approve or reject requests." },
+      sacar_del_equipo: { nombre: "Remove from the team", descripcion: "Remove people from the team." },
+      manejar_roles: { nombre: "Manage roles", descripcion: "Create, edit and assign roles, only with permissions included in your own role." },
+      configurar_negocio: { nombre: "Set up the business", descripcion: "Details, hours, modules, Home, landing and the schedule's public links." },
+      ver_historial: { nombre: "See the history", descripcion: "See the business's History screen." },
+    },
+  },
+  negocio: {
+    titulo: "My business",
+    pagos: {
+      apuntaALaApp: "the payments address points to the app; fix {variable} in Vercel",
+      noConectado: "the payments system isn't connected yet",
+    },
+  },
+  equipo: {
+    mensajeDeInvitacion: "Join the {negocio} team on MarManager: {link}",
+  },
+  landing: {
+    secciones: {
+      negocio: { nombre: "The business", queMuestra: "Your name, your phone number, your hours and a button to message you on WhatsApp." },
+      sacar_turno: { nombre: "Book an appointment", queMuestra: "The days and times you have free, so customers can book on their own." },
+      mis_casos: { nombre: "My cases", queMuestra: "The customer's open cases, with how each one is going." },
+      mis_turnos: { nombre: "My appointments", queMuestra: "The customer's upcoming appointments." },
+    },
+    partes: {
+      fondo: { nombre: "Background", ayuda: "The color of the whole page." },
+      cajas: { nombre: "Boxes", ayuda: "Where each section and each detail goes." },
+      botones: { nombre: "Buttons", ayuda: "What gets tapped: buttons and links." },
+      acento: { nombre: "Accent", ayuda: "The marks that stand out, like a case's status." },
+    },
+    fuentes: {
+      fabrica: "The app's own",
+      nunito: "Nunito",
+      montserrat: "Montserrat",
+      lora: "Lora",
+      merriweather: "Merriweather",
+    },
+    motivo: {
+      sinHorarios: "Shows up once you publish your hours.",
+      modulo: "Shows up once you turn on the {modulo} module.",
     },
   },
   ui: {

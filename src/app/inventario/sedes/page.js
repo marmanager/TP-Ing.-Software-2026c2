@@ -14,7 +14,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
 import { conElementos } from "@/lib/conElementos";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
 import { mayuscula, vocabulario } from "@/lib/presets";
 import { filtrarProductos, presentacion } from "@/lib/inventario";
 import { inventarioDeSedes } from "@/lib/sedes";
@@ -64,7 +64,7 @@ export default function TodasLasSedes() {
             ),
           })
         ) : (
-          QUIEN_PUEDE.vincular_sedes
+          quienPuede("vincular_sedes", t)
         )}
       </Vacio>
     );

@@ -9,11 +9,12 @@ import { useDatos } from "@/lib/datos";
 import { diaLargoEnFrase, horaYMinutos, paraInput } from "@/lib/fechas";
 import { textoDeError } from "@/lib/idioma";
 import { useIdioma } from "@/lib/useIdioma";
+import { avisoAlAnotar } from "@/lib/recordatorios";
 import { Boton, Campo } from "./ui";
 
 export default function MoverTurno({ turno, alTerminar }) {
   const datos = useDatos();
-  const { locale, t } = useIdioma();
+  const { idioma, locale, t } = useIdioma();
   const [cuando, setCuando] = useState(paraInput(new Date(turno.empieza_en)));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
@@ -40,7 +41,7 @@ export default function MoverTurno({ turno, alTerminar }) {
           dia: diaLargoEnFrase(nuevo, locale, t),
           hora: horaYMinutos(nuevo, locale),
         }),
-        r.avisoDelRecordatorio,
+        avisoAlAnotar(r.recordatorio, { t, locale, idioma }),
       ].filter(Boolean).join(" ")
     );
     alTerminar();

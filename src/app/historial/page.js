@@ -16,7 +16,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
 import { useIdioma } from "@/lib/useIdioma";
 import { pesos } from "@/lib/estados";
@@ -65,7 +65,7 @@ export default function Historial() {
 
   if (cargando) return <Cargando />;
   if (!puede(usuario, "ver_historial")) {
-    return <Vacio icono="candado" titulo={t("historial.titulo")}>{QUIEN_PUEDE.ver_historial}</Vacio>;
+    return <Vacio icono="candado" titulo={t("historial.titulo")}>{quienPuede("ver_historial", t)}</Vacio>;
   }
 
   // El resumen mira el período entero, sin el filtro de tipo: si no, al

@@ -168,11 +168,11 @@ export default function VerCaso() {
   // El día de hoy en Argentina, el mismo que usa la API para decidir si una
   // fecha ya pasó. Las fechas de volver son días, no instantes.
   const hoy = diaDeArgentina();
-  const motivoVolver = errorDeVolverEn(volverEn, hoy);
+  const motivoVolver = errorDeVolverEn(volverEn, hoy, { t });
   // Qué va a pasar con el aviso de la fecha que se está anotando, y qué
   // pasó con el del caso cerrado.
-  const avisoAlAnotar = motivoVolver ? null : avisoAlAnotarVolver({ volverEn, volver: recordatorioVolver, cliente, hoy });
-  const avisoVolver = avisoDeVolver({ caso, cliente, volver: recordatorioVolver, hoy });
+  const avisoAlAnotar = motivoVolver ? null : avisoAlAnotarVolver({ volverEn, volver: recordatorioVolver, cliente, hoy }, { t, locale, idioma });
+  const avisoVolver = avisoDeVolver({ caso, cliente, volver: recordatorioVolver, hoy }, { t, locale, idioma });
   // Sólo para un rubro sin intervalo típico: si el cliente ya vino tres
   // veces o más con un ritmo parejo, se le ofrece esa fecha.
   const sugerenciaVolver = cadaCuantoVuelve(negocio?.rubro)

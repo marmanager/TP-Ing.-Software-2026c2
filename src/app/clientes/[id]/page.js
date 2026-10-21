@@ -19,7 +19,7 @@ import { puede } from "@/lib/permisos";
 import { estaAbierto, pesos } from "@/lib/estados";
 import { comoSeIdentifica, mayuscula, vocabulario } from "@/lib/presets";
 import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
-import { avisoDeLaProximaVisita, bajaDeAvisos } from "@/lib/recordatorios";
+import { avisoDeLaProximaVisita, bajaDeAvisos, errorAlRevertirBaja } from "@/lib/recordatorios";
 import { useRecordatorioVolver } from "@/lib/useRecordatorioVolver";
 import {
   fraseTelefonoIncompleto,
@@ -92,10 +92,10 @@ export default function FichaDeCliente() {
   // Con su aviso por WhatsApp (R-2b): cuándo le llega o por qué no.
   const proximaVuelta = avisoDeLaProximaVisita({
     casos: suyos, cliente, volver: recordatorioVolver, hoy: diaDeArgentina(),
-  });
+  }, { t, locale, idioma });
 
   // Si pidió no recibir avisos (R-8a), cuándo y qué quiere decir.
-  const baja = bajaDeAvisos({ cliente, rubro: negocio?.rubro });
+  const baja = bajaDeAvisos({ cliente, rubro: negocio?.rubro }, { t, locale, idioma });
   const { cita } = vocabulario(negocio?.rubro, idioma);
 
   const proximos = turnos
@@ -222,7 +222,7 @@ export default function FichaDeCliente() {
                     setRevirtiendo(true);
                     const r = await datos.revertirBajaDeAvisos(cliente.id);
                     setRevirtiendo(false);
-                    if (!r.ok) return setErrorBaja(r.error);
+                    if (!r.ok) return setErrorBaja(r.errorOriginal ? errorAlRevertirBaja(r.errorOriginal, { t, locale, idioma }) : r.error);
                     datos.avisarExito(
                       proximos.length
                         ? t(`clientes.ficha.avisosVuelvenConTurnos.${cita.segun("m", "f")}`, {

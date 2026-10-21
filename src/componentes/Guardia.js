@@ -22,7 +22,7 @@ import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 import FranjaDeVisita from "./FranjaDeVisita";
 import Link from "next/link";
-import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
+import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos, traducirModulo } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
 import { seguirAlSistema } from "@/lib/tema";
 
@@ -202,7 +202,7 @@ export default function Guardia({ children }) {
   }
 
   // Con la navegación puesta, así se puede ir a otro lado sin volver atrás.
-  const apagado = moduloApagado(ruta, negocio);
+  const apagado = traducirModulo(moduloApagado(ruta, negocio), t);
   // La frase lleva el enlace adentro: se escribe entera, con un marcador
   // {enlace}, y se parte ahí; no se arma pegando pedazos traducidos. El
   // nombre y la descripción del módulo vienen de modulos.js.
