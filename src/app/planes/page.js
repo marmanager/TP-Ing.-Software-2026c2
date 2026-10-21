@@ -160,6 +160,11 @@ export default function Planes() {
         </div>
       )}
 
+      <p className="mt-4 text-apoyo text-tinta-suave">
+        Los precios no incluyen impuestos. Según tu país o región, pueden sumarse impuestos
+        locales o regionales, y el precio final puede variar.
+      </p>
+
       {!esDuenio && (
         <p className="mt-6 font-bold">Pedile al dueño del negocio que elija un plan.</p>
       )}
