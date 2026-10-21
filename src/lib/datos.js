@@ -834,7 +834,7 @@ export function DatosProvider({ children }) {
       // entregar y el recordatorio de turno (R-4b).
       async consultarSeguimiento() {
         const r = await traer("/negocio/seguimiento", await tokenDeSesion());
-        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error };
       },
 
       // Los recordatorios van por el mismo camino: arriba el posventa
@@ -843,7 +843,7 @@ export function DatosProvider({ children }) {
       // volver ({ activo, dias, mensaje }). Se manda sólo lo que cambió.
       async configurarSeguimiento(cambios) {
         const r = await parchar("/negocio/seguimiento", cambios, await tokenDeSesion());
-        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error };
       },
 
       // Entregar: cobrar y cerrar en un gesto. La API guarda cobro,
@@ -1191,13 +1191,13 @@ export function DatosProvider({ children }) {
           ? await parchar(`/roles/${encodeURIComponent(id)}`, { nombre, permisos }, token)
           : await mandar("/roles", { nombre, permisos }, token);
         if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
-        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
 
       async borrarRol(id) {
         const r = await quitar(`/roles/${encodeURIComponent(id)}`, await tokenDeSesion());
         if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
-        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
 
       // Los casos que tenía quedan sin responsable, no se borran: la base los
@@ -1420,14 +1420,14 @@ export function DatosProvider({ children }) {
           return { ok: true, codigo: datos.negocio.agenda_codigo };
 
         const r = await mandar("/negocio/agenda/compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ agenda_codigo: r.datos.codigo });
         return { ok: true, codigo: r.datos.codigo };
       },
 
       async dejarDeCompartirAgenda() {
         const r = await mandar("/negocio/agenda/dejar-de-compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ agenda_codigo: null });
         return { ok: true };
       },
@@ -1440,14 +1440,14 @@ export function DatosProvider({ children }) {
           return { ok: true, codigo: datos.negocio.landing_codigo };
 
         const r = await mandar("/negocio/landing/compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ landing_codigo: r.datos.codigo });
         return { ok: true, codigo: r.datos.codigo };
       },
 
       async dejarDeCompartirLanding() {
         const r = await mandar("/negocio/landing/dejar-de-compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ landing_codigo: null });
         return { ok: true };
       },
@@ -1458,7 +1458,7 @@ export function DatosProvider({ children }) {
       // tiene que poder decir si salió.
       async guardarLanding(valor) {
         const r = await reemplazar("/negocio/landing", { valor }, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         if (r.datos.negocio) ponerNegocio(r.datos.negocio);
         return { ok: true };
       },

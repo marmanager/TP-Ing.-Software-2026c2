@@ -27,7 +27,13 @@ import Icono from "./Icono";
 import { Boton, ErrorGeneral, Tarjeta, TituloSeccion } from "./ui";
 
 export default function SumarAlEquipo() {
-  const { locale, t } = useIdioma();
+  const { idioma, locale, t } = useIdioma();
+  // La fecha en medio de una frase: en castellano va toda en minúscula ("hoy
+  // 10:00", "26 de octubre"); en inglés sólo "today" y "yesterday" ("October 26").
+  const fechaEnFrase = (iso) => {
+    const f = cuando(iso, locale, t);
+    return idioma === "es" ? f.toLowerCase() : f.replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
+  };
   const { usuario, sesion } = useAuth();
   const { negocio, avisarExito, reemplazarEmpleados, roles: rolesDelNegocio } = useDatos();
   const token = sesion?.access_token;
@@ -154,7 +160,7 @@ export default function SumarAlEquipo() {
             <p className="max-w-[65ch] break-all font-bold" data-link-del-equipo>
               {url}
             </p>
-            <p className="mt-1 text-tinta-media">{t("equipo.sumar.vence", { cuando: cuando(link.vence_en, locale, t).toLowerCase() })}</p>
+            <p className="mt-1 text-tinta-media">{t("equipo.sumar.vence", { cuando: fechaEnFrase(link.vence_en) })}</p>
             {confirmandoCambio ? (
               <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                 <p className="font-bold">{t("equipo.sumar.cambiarPregunta")}</p>
@@ -224,8 +230,8 @@ export default function SumarAlEquipo() {
                   <p className="font-bold">{p.nombre}</p>
                   <p className="text-tinta-media">
                     {p.email
-                      ? t("equipo.sumar.pidioEntrarConMail", { email: p.email, cuando: cuando(p.creada_en, locale, t).toLowerCase() })
-                      : t("equipo.sumar.pidioEntrar", { cuando: cuando(p.creada_en, locale, t).toLowerCase() })}
+                      ? t("equipo.sumar.pidioEntrarConMail", { email: p.email, cuando: fechaEnFrase(p.creada_en) })
+                      : t("equipo.sumar.pidioEntrar", { cuando: fechaEnFrase(p.creada_en) })}
                   </p>
                   <div className="mt-4 flex flex-wrap items-end gap-3">
                     <div>
