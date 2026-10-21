@@ -76,9 +76,12 @@ const nuevoId = () =>
 // decir que "ya no sirve" sería mentira.
 export async function buscarSeguimiento(codigo) {
   if (!API) return { sirve: false };
-  const s = seguimientoDeLaApi(await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`));
+  const r = await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`);
+  const s = seguimientoDeLaApi(r);
   if (s.sirve) return s;
-  return s.problema ? { sirve: false, problema: s.problema } : { sirve: false };
+  // `error` es el { codigo, mensaje } de la API: la pantalla lo traduce por
+  // código (textoDeError), así sigue al idioma si cambia con el error a la vista.
+  return s.problema ? { sirve: false, problema: s.problema, error: r.error } : { sirve: false };
 }
 
 // La respuesta del cliente a un paso del presupuesto, desde el link
@@ -90,11 +93,16 @@ export async function buscarSeguimiento(codigo) {
 // Devuelve { ok } o { ok: false, motivo }. El motivo está escrito para el
 // cliente y se muestra tal cual.
 export async function responderDesdeElLink(codigo, pasoId, respuesta) {
-  if (!API) return { ok: false, motivo: "Por ahora no se puede contestar desde acá. Hablá con el negocio." };
-  return respuestaDeLaApi(await mandar(
+  if (!API) {
+    const mensaje = "Por ahora no se puede contestar desde acá. Hablá con el negocio.";
+    return { ok: false, motivo: mensaje, error: { codigo: "sin_api_contestar", mensaje } };
+  }
+  const r = await mandar(
     `/publico/seguimiento/${encodeURIComponent(codigo)}/pasos/${encodeURIComponent(pasoId)}/respuesta`,
     { respuesta }
-  ));
+  );
+  const x = respuestaDeLaApi(r);
+  return x.ok ? x : { ...x, error: r.error };
 }
 
 // Los horarios de un negocio y sus turnos tomados, desde afuera del sistema.
@@ -107,7 +115,7 @@ export async function buscarAgenda(codigo) {
   if (!API) return { sirve: false };
   const r = await traer(`/publico/agenda/${encodeURIComponent(codigo)}`);
   if (r.ok) return agendaDeLaApi(r.datos);
-  if (r.error.codigo !== "agenda_no_encontrada") return { sirve: false, problema: r.error.mensaje };
+  if (r.error.codigo !== "agenda_no_encontrada") return { sirve: false, problema: r.error.mensaje, error: r.error };
   return { sirve: false };
 }
 
@@ -115,7 +123,10 @@ export async function buscarAgenda(codigo) {
 // escrito para que el cliente lo lea tal cual. La que decide si ese horario
 // se puede pedir es la API.
 export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }) {
-  if (!API) return { ok: false, motivo: "Por ahora no se puede pedir turno desde acá. Llamá al negocio." };
+  if (!API) {
+    const mensaje = "Por ahora no se puede pedir turno desde acá. Llamá al negocio.";
+    return { ok: false, motivo: mensaje, error: { codigo: "sin_api_turno", mensaje } };
+  }
   const r = await mandar(`/publico/agenda/${encodeURIComponent(codigo)}/turnos`, {
     empieza_en: new Date(cuando).toISOString(),
     motivo,
@@ -123,7 +134,7 @@ export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }
     telefono: telefono || null,
   });
   if (r.ok) return { ok: true, cuando: r.datos.cuando, minutos: r.datos.minutos };
-  return { ok: false, motivo: r.error.mensaje };
+  return { ok: false, motivo: r.error.mensaje, error: r.error };
 }
 
 // ------------------------------------------------------------
