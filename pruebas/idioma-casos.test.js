@@ -187,3 +187,27 @@ test("las variables de cada texto en inglés son las mismas que en castellano", 
   for (const ns of ["casos", "historial", "aprobar", "fechas"]) recorrer(es[ns], en[ns], ns, malas);
   assert.deepEqual(malas, []);
 });
+
+// Un nombre guardado que es el de fábrica (en cualquiera de los dos idiomas) se
+// traduce; uno que el negocio escribió se muestra como lo escribió.
+test("nombres de estado guardados: los de fábrica siguen al idioma, los propios no", async () => {
+  const { RUBROS, preset } = await import("../src/lib/presets.js");
+  assert.equal(RUBROS.length, 4);
+  for (const { clave: rubro } of RUBROS) {
+    for (const estado of ORDEN_ESTADOS) {
+      const fabrica = (i) => preset(rubro, i).etiquetas[estado];
+      const con = (nombre) => ({ rubro, estados: { [estado]: { nombre, icono: "reloj" } } });
+      const ver = (nombre, idioma) => presentacionEstado(con(nombre), estado, idioma).nombre;
+      assert.equal(ver(fabrica("es"), "en"), fabrica("en"), `${rubro}/${estado} es->en`);
+      assert.equal(ver(fabrica("en"), "es"), fabrica("es"), `${rubro}/${estado} en->es`);
+      assert.equal(ver(`  ${fabrica("es")} `, "en"), fabrica("en"), `${rubro}/${estado} con espacios`);
+      assert.equal(ver("En el box", "es"), "En el box");
+      assert.equal(ver("En el box", "en"), "En el box");
+      assert.equal(ver("", "en"), fabrica("en"));
+      assert.equal(ver("   ", "es"), fabrica("es"));
+      assert.equal(presentacionEstado({ rubro }, estado, "en").nombre, fabrica("en"));
+      // el ícono guardado se respeta
+      assert.equal(presentacionEstado(con(fabrica("es")), estado, "en").icono, "reloj");
+    }
+  }
+});
