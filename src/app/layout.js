@@ -5,6 +5,11 @@ import { DatosProvider } from "@/lib/datos";
 import Guardia from "@/componentes/Guardia";
 import ScriptTema from "@/componentes/ScriptTema";
 import { CSS_APARIENCIA } from "@/lib/tema";
+import { cookies, headers } from "next/headers";
+import { elegirIdioma } from "@/lib/idioma";
+import { IdiomaProvider } from "@/lib/useIdioma";
+import es from "@/lib/idiomas/es";
+import en from "@/lib/idiomas/en";
 
 // next/font descarga las tipografías en el build y las sirve desde el mismo
 // dominio. Así la aplicación se ve igual sin internet, que es exactamente el
@@ -43,21 +48,34 @@ export const metadata = {
   description: "Sistema de gestión de casos para negocios de servicio.",
 };
 
-export default function RootLayout({ children }) {
+// Leer la cookie acá hace que cada ruta se dibuje en cada pedido y no quede
+// como HTML estático. Se acepta (docs/idiomas.md): decidirlo en el navegador
+// mostraría castellano y después saltaría a inglés.
+export default async function RootLayout({ children }) {
+  const idioma = elegirIdioma(
+    (await cookies()).get("idioma")?.value,
+    (await headers()).get("accept-language")
+  );
+
   return (
     // suppressHydrationWarning: el script del tema pone data-tema en <html>
     // antes de que React hidrate, y eso no es un error.
-    <html lang="es" className={`${figtree.variable} ${sourceSans.variable} ${inter.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang={idioma}className={`${figtree.variable} ${sourceSans.variable} ${inter.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <style dangerouslySetInnerHTML={{ __html: CSS_APARIENCIA }} />
         <ScriptTema />
       </head>
       <body className="antialiased">
-        <AuthProvider>
-          <DatosProvider>
-            <Guardia>{children}</Guardia>
-          </DatosProvider>
-        </AuthProvider>
+        {/* Por fuera de todo: auth y datos también muestran textos. Al
+            cliente va sólo el diccionario activo, y el castellano de base
+            cuando se mira en inglés. */}
+        <IdiomaProvider idioma={idioma} diccionario={idioma === "en" ? en : es} base={idioma === "en" ? es : null}>
+          <AuthProvider>
+            <DatosProvider>
+              <Guardia>{children}</Guardia>
+            </DatosProvider>
+          </AuthProvider>
+        </IdiomaProvider>
       </body>
     </html>
   );
