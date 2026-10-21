@@ -1354,7 +1354,7 @@ export default {
     escribileOLlamalo: "Message or call them the way you've been talking to them.",
     loQueAprobaste: "What you approved",
     conteo: "{hechos} of {n}",
-    hechos: { one: "{conteo} is done.", other: "{conteo} are done." },
+    hechos: { one: "{conteo} done.", other: "{conteo} done." },
     hecho: "Done",
     totalAprobado: "Approved total",
     esLoQueAceptaste: "This is what you've accepted so far. If they offered you something else and you haven't replied yet, it isn't counted here.",
