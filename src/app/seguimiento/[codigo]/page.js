@@ -49,6 +49,7 @@ import {
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
 import { telefonoLegible } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
+import SelectorIdioma from "@/componentes/SelectorIdioma";
 import Lienzo from "@/componentes/landing/Lienzo";
 import { Boton, Cargando } from "@/componentes/ui";
 
@@ -827,6 +828,9 @@ function Marco({ negocio, landing, landingCodigo, children }) {
           </Link>
         )}
         {children}
+        <div className="mt-4">
+          <SelectorIdioma />
+        </div>
       </main>
     </div>
   );

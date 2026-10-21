@@ -35,6 +35,7 @@ import { preset } from "@/lib/presets";
 import { diaPasado } from "@/lib/fechas";
 import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
+import SelectorIdioma from "@/componentes/SelectorIdioma";
 import CalendarioDeTurnos, { comoHora } from "@/componentes/CalendarioDeTurnos";
 import { Boton, Campo, Cargando } from "@/componentes/ui";
 
@@ -355,7 +356,12 @@ function Marco({ negocio, children }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">
+        {children}
+        <div className="mt-4">
+          <SelectorIdioma />
+        </div>
+      </main>
     </div>
   );
 }

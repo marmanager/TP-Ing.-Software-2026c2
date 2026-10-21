@@ -29,9 +29,12 @@ import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from 
 import Suscripcion from "./Suscripcion";
 import TusNegocios from "./TusNegocios";
 import Tema from "./Tema";
+import SelectorIdioma from "@/componentes/SelectorIdioma";
+import { useIdioma } from "@/lib/useIdioma";
 
 export default function MiPerfil() {
   const router = useRouter();
+  const { t } = useIdioma();
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { sesion, usuario, cerrarSesion, definirContrasena, guardarPerfil, pedirResetContrasena } =
@@ -536,6 +539,12 @@ export default function MiPerfil() {
 
       <TituloSeccion id="tema">Tema</TituloSeccion>
       <Tema />
+
+      <TituloSeccion id="idioma">{t("idioma.titulo")}</TituloSeccion>
+      <Tarjeta>
+        <p className="mb-2 text-tinta-media">{t("idioma.apoyo")}</p>
+        <SelectorIdioma />
+      </Tarjeta>
 
       <TituloSeccion id="suscripcion">Suscripción</TituloSeccion>
       <Suscripcion />

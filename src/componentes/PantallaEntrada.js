@@ -5,6 +5,7 @@
 
 import Icono from "./Icono";
 import Aviso from "./Aviso";
+import SelectorIdioma from "./SelectorIdioma";
 
 export default function PantallaEntrada({ children }) {
   return (
@@ -25,6 +26,10 @@ export default function PantallaEntrada({ children }) {
         <p className="mt-10 text-apoyo text-tinta-suave">
           Sistema de gestión de casos para negocios de servicio.
         </p>
+
+        <div className="mt-4">
+          <SelectorIdioma />
+        </div>
       </div>
     </div>
   );
