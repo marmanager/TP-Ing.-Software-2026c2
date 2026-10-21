@@ -1990,6 +1990,7 @@ export default {
     modulosResumen: {
       titulo: "Módulos",
       tenes: "Tenés {cuantos} módulos prendidos.",
+      de: "de",
       ninguno: "Ninguno. Estás usando sólo Inicio, Casos, Clientes y Mi negocio.",
       verCambiar: "Ver y cambiar los módulos",
       ver: "Ver los módulos",

@@ -177,7 +177,7 @@ export async function buscarLanding(codigo) {
     const { negocio, landing, modulos_activos, horarios } = r.datos;
     return { sirve: true, negocio, landing: normalizarLanding(landing), modulos_activos, horarios };
   }
-  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje };
+  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje, error: r.error };
   return { sirve: false };
 }
 
@@ -185,7 +185,7 @@ export async function buscarLanding(codigo) {
 export async function agendaDeLanding(codigo) {
   const r = await traer(enLanding(codigo, "/agenda"), null, SIN_AVISO);
   if (r.ok) return agendaDeLaApi(r.datos);
-  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje };
+  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje, error: r.error };
   return { sirve: false };
 }
 

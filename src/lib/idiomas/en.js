@@ -1987,6 +1987,7 @@ export default {
     modulosResumen: {
       titulo: "Modules",
       tenes: "You have {cuantos} modules turned on.",
+      de: "of",
       ninguno: "None. You're only using Home, Cases, Customers and My business.",
       verCambiar: "View and change the modules",
       ver: "View the modules",

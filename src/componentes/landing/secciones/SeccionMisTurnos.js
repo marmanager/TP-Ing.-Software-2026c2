@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { misTurnosEnLanding } from "@/lib/datos";
 import { diaLargo } from "@/lib/fechas";
-import { ESTADOS_TURNO } from "@/lib/turnos";
+import { ESTADOS_TURNO, estadoDeTurno } from "@/lib/turnos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
+import { traducirSeccion, SECCIONES } from "@/lib/landing";
 import { comoHora } from "@/componentes/CalendarioDeTurnos";
 import Icono from "@/componentes/Icono";
 import { Boton } from "@/componentes/ui";
@@ -18,6 +21,7 @@ import { Boton } from "@/componentes/ui";
 const CONFIRMADO = ESTADOS_TURNO.confirmado;
 
 export default function SeccionMisTurnos({ codigo, negocio, alVencer, reservas }) {
+  const { locale, t } = useIdioma();
   const [turnos, setTurnos] = useState(null);
   const [problema, setProblema] = useState(null);
   const [vuelta, setVuelta] = useState(0);
@@ -28,8 +32,8 @@ export default function SeccionMisTurnos({ codigo, negocio, alVencer, reservas }
       const r = await misTurnosEnLanding(codigo);
       if (!vivo) return;
       if (r.ok) setTurnos(r.turnos);
-      else if (r.codigo === "llave_vencida") alVencer(r.mensaje);
-      else setProblema(r.mensaje);
+      else if (r.codigo === "llave_vencida") alVencer({ codigo: r.codigo, mensaje: r.mensaje });
+      else setProblema({ codigo: r.codigo, mensaje: r.mensaje });
     })();
     return () => {
       vivo = false;
@@ -41,7 +45,7 @@ export default function SeccionMisTurnos({ codigo, negocio, alVencer, reservas }
       <div className="mt-2">
         <p role="alert" className="flex items-start gap-2 font-bold text-rojo">
           <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
-          <span>{problema}</span>
+          <span>{textoDeError(t, problema)}</span>
         </p>
         <Boton
           icono="deshacer"
@@ -51,7 +55,7 @@ export default function SeccionMisTurnos({ codigo, negocio, alVencer, reservas }
             setVuelta((v) => v + 1);
           }}
         >
-          Probar de nuevo
+          {t("landing.casos.probar")}
         </Boton>
       </div>
     );
@@ -60,7 +64,7 @@ export default function SeccionMisTurnos({ codigo, negocio, alVencer, reservas }
   if (!turnos) {
     return (
       <p role="status" className="mt-2 text-tinta-media">
-        Buscando tus turnos…
+        {t("landing.turnos.buscando")}
       </p>
     );
   }
@@ -68,7 +72,10 @@ export default function SeccionMisTurnos({ codigo, negocio, alVencer, reservas }
   if (turnos.length === 0) {
     return (
       <p className="mt-2 max-w-[65ch] text-tinta-media">
-        No tenés turnos próximos en {negocio.nombre}. Podés sacar uno acá mismo, en «Sacar turno».
+        {t("landing.turnos.ninguno", {
+          negocio: negocio.nombre,
+          seccion: traducirSeccion(SECCIONES.find((s) => s.clave === "sacar_turno"), t).nombre,
+        })}
       </p>
     );
   }
@@ -76,29 +83,29 @@ export default function SeccionMisTurnos({ codigo, negocio, alVencer, reservas }
   return (
     <>
       <ul className="mt-2 divide-y divide-borde">
-        {turnos.map((t) => (
-          <li key={t.empieza_en} className="py-4">
+        {turnos.map((turno) => (
+          <li key={turno.empieza_en} className="py-4">
             <p className="font-titulo font-extrabold text-subtitulo first-letter:uppercase">
-              {diaLargo(t.empieza_en)} a las {comoHora(new Date(t.empieza_en))}
+              {t("turnos.cuando", { dia: diaLargo(turno.empieza_en, locale, t), hora: comoHora(new Date(turno.empieza_en)) })}
             </p>
-            {t.motivo && <p className="text-tinta-media">{t.motivo}</p>}
-            {t.minutos_reservados > 0 && (
-              <p className="text-apoyo text-tinta-suave">Son {t.minutos_reservados} minutos.</p>
+            {turno.motivo && <p className="text-tinta-media">{turno.motivo}</p>}
+            {turno.minutos_reservados > 0 && (
+              <p className="text-apoyo text-tinta-suave">{t("landing.turnos.minutos", { minutos: turno.minutos_reservados })}</p>
             )}
             {/* Sólo el confirmado: "sin confirmar" es la palabra del negocio
                 para un turno que nadie llamó a confirmar, y al cliente le
                 haría dudar de si quedó anotado. */}
-            {t.estado === CONFIRMADO.clave && (
+            {turno.estado === CONFIRMADO.clave && (
               <p className={`mt-1 flex items-center gap-1.5 font-bold ${CONFIRMADO.texto}`}>
                 <Icono nombre={CONFIRMADO.icono} className="size-5 shrink-0" />
-                {CONFIRMADO.palabra}
+                {estadoDeTurno(CONFIRMADO.clave, t).palabra}
               </p>
             )}
           </li>
         ))}
       </ul>
       <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-media">
-        Si no podés venir, avisale a {negocio.nombre} así le dan el lugar a otro.
+        {t("landing.turnos.avisar", { negocio: negocio.nombre })}
       </p>
     </>
   );
