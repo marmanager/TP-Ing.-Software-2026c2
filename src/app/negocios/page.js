@@ -15,6 +15,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth, invitacionPendiente, olvidarInvitacion } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { alEntrar } from "@/lib/entrada";
 import { misPedidos } from "@/lib/equipo";
 import { useTitulo } from "@/lib/useTitulo";
@@ -25,6 +27,7 @@ import { Boton, Cargando, ErrorGeneral, Tarjeta, TituloPantalla } from "@/compon
 export default function Negocios() {
   const router = useRouter();
   const { usuario, sesion, misNegocios, entrarAlNegocio } = useAuth();
+  const { t } = useIdioma();
   useTitulo("Tus negocios");
 
   const [negocios, setNegocios] = useState(null);
@@ -93,7 +96,7 @@ export default function Negocios() {
     <>
       <TituloPantalla>¿A qué negocio entrás?</TituloPantalla>
 
-      {error && <ErrorGeneral>{error}</ErrorGeneral>}
+      {error && <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>}
 
       {esperando.length > 0 && (
         <Tarjeta className="mb-6">

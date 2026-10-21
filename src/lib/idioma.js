@@ -47,7 +47,9 @@ export function traducir({ diccionario, base, locale }, clave, vars = {}, siFalt
 
 // Los errores se traducen por código (src/lib/api.js). Un código que la app
 // todavía no conoce muestra el mensaje que vino, en el idioma en que vino.
+// Un texto suelto (lo que todavía devuelven equipo.js y sedes.js) se muestra
+// tal cual, así una pantalla que mezcla las dos formas no queda en blanco.
 export const textoDeError = (t, error) =>
-  error ? (error.codigo ? t(`errores.${error.codigo}`, {}, error.mensaje) : error.mensaje) : "";
+  !error ? "" : typeof error === "string" ? error : error.codigo ? t(`errores.${error.codigo}`, {}, error.mensaje) : error.mensaje;
 
 export const cookieDeIdioma = (idioma) => `idioma=${idioma}; path=/; max-age=31536000; samesite=lax`;

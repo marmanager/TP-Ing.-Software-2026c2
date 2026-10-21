@@ -31,6 +31,7 @@ import TusNegocios from "./TusNegocios";
 import Tema from "./Tema";
 import SelectorIdioma from "@/componentes/SelectorIdioma";
 import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 
 export default function MiPerfil() {
   const router = useRouter();
@@ -343,7 +344,7 @@ export default function MiPerfil() {
                 {errorPerfil && (
                   <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
                     <Icono nombre="alerta" className="size-6" />
-                    <span>{errorPerfil}</span>
+                    <span>{textoDeError(t, errorPerfil)}</span>
                   </p>
                 )}
 
@@ -430,7 +431,7 @@ export default function MiPerfil() {
                       {errorContrasena && (
                         <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="size-6" />
-                          <span>{errorContrasena}</span>
+                          <span>{textoDeError(t, errorContrasena)}</span>
                         </p>
                       )}
                       <div className="flex flex-wrap gap-3">
@@ -497,7 +498,7 @@ export default function MiPerfil() {
                       {errorContrasena && (
                         <p className="mt-3 flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="size-6" />
-                          <span>{errorContrasena}</span>
+                          <span>{textoDeError(t, errorContrasena)}</span>
                         </p>
                       )}
                     </div>

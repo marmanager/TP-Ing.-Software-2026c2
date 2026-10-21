@@ -225,7 +225,7 @@ export function AuthProvider({ children }) {
 
   const acciones = useMemo(
     () => ({
-      // Devuelven { ok: true, ... } o { ok: false, error: "texto ya listo" }.
+      // Devuelven { ok: true, ... } o { ok: false, error: { codigo, mensaje } }.
 
       async tokenActual() {
         return tokenVigente();
@@ -235,11 +235,13 @@ export function AuthProvider({ children }) {
         if (!hayCuentas)
           return {
             ok: false,
-            error:
-              "Para crear una cuenta hace falta que el sistema esté conectado a la API.",
+            error: {
+              codigo: "sin_api_crear",
+              mensaje: "Para crear una cuenta hace falta que el sistema esté conectado a la API.",
+            },
           };
         const r = await mandar("/cuentas", { nombre, email, telefono, contrasena });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         if (r.datos.necesita_confirmar) {
           try { window.localStorage.setItem(LLAVE_MAIL, email.trim()); } catch {}
           return { ok: true, necesitaConfirmar: true, email: email.trim() };
@@ -257,11 +259,13 @@ export function AuthProvider({ children }) {
         if (!hayCuentas)
           return {
             ok: false,
-            error:
-              "Para iniciar sesión hace falta que el sistema esté conectado a la API.",
+            error: {
+              codigo: "sin_api_entrar",
+              mensaje: "Para iniciar sesión hace falta que el sistema esté conectado a la API.",
+            },
           };
         const r = await mandar("/sesiones", { email, contrasena });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         const propia = sesionDeRespuesta(r.datos);
         guardarSesion(null, propia);
         setSesion(sesionParaLaApp(propia));
@@ -281,11 +285,13 @@ export function AuthProvider({ children }) {
         if (!hayCuentas)
           return {
             ok: false,
-            error:
-              "Para entrar con Google hace falta que el sistema esté conectado a la API.",
+            error: {
+              codigo: "sin_api_google",
+              mensaje: "Para entrar con Google hace falta que el sistema esté conectado a la API.",
+            },
           };
         const r = await mandar("/sesiones/google", {});
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         window.location.assign(r.datos.url);
         return { ok: true };
       },
@@ -301,7 +307,13 @@ export function AuthProvider({ children }) {
 
       async pedirResetContrasena(email) {
         if (!hayCuentas)
-          return { ok: false, error: "Para recuperar la contraseña hace falta que el sistema esté conectado a la API." };
+          return {
+            ok: false,
+            error: {
+              codigo: "sin_api_recuperar",
+              mensaje: "Para recuperar la contraseña hace falta que el sistema esté conectado a la API.",
+            },
+          };
         await mandar("/sesiones/recuperar", { email });
         return { ok: true };
       },
@@ -310,10 +322,10 @@ export function AuthProvider({ children }) {
       // la API la comprueba. Desde el link del mail de recuperación no hay
       // anterior, y la API lo reconoce por cómo se abrió la sesión.
       async definirContrasena(nueva, { anterior } = {}) {
-        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
         const r = await mandar("/sesiones/contrasena",
           { contrasena: nueva, ...(anterior ? { contrasena_actual: anterior } : {}) }, sesion?.access_token);
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         const propia = leerSesion();
         if (propia) guardarSesion(null, { ...propia, recuperando: false });
         setRecuperando(false);
@@ -321,27 +333,27 @@ export function AuthProvider({ children }) {
       },
 
       async reenviarConfirmacion(email) {
-        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
         const r = await mandar("/cuentas/confirmacion", { email });
-        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
 
       // Los negocios de la cuenta (docs/multinegocio.md): uno por cada ficha
       // de equipo que tiene. Sin la 038 corrida la función no existe y da
       // ok: false; quien la usa sigue como antes, con el negocio activo.
       async misNegocios() {
-        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
         const r = await traer("/cuenta/negocios", sesion?.access_token);
-        return r.ok ? { ok: true, negocios: r.datos.negocios ?? [] } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true, negocios: r.datos.negocios ?? [] } : { ok: false, error: r.error };
       },
 
       // Pasa la cuenta a otro de sus negocios. La base verifica que tenga
       // ficha ahí y copia el rol de esa ficha (038). Después se vuelve a leer
       // la fila de usuario, y con eso datos.js carga el negocio nuevo.
       async entrarAlNegocio(negocioId) {
-        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
         const r = await mandar("/cuenta/negocio", { negocio_id: negocioId }, sesion?.access_token);
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
         return { ok: true };
       },
@@ -349,12 +361,12 @@ export function AuthProvider({ children }) {
       // El predeterminado y el Inicio rápido: valen para la cuenta, en todos
       // los dispositivos, por eso van a la base y no al navegador.
       async guardarPreferenciasDeEntrada({ predeterminado, inicioRapido }) {
-        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
         const r = await reemplazar("/cuenta/preferencias", {
           predeterminado: predeterminado ?? null,
           inicio_rapido: Boolean(inicioRapido),
         }, sesion?.access_token);
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
         return { ok: true };
       },
@@ -365,9 +377,9 @@ export function AuthProvider({ children }) {
       // el dueño y el historial firma con ella. Después vuelve a leer la fila,
       // así todo lo que muestra el usuario queda al día.
       async guardarPerfil({ nombre, telefono, foto }) {
-        if (!hayCuentas) return { ok: false, error: "No hay una sesión abierta." };
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
         const r = await reemplazar("/cuenta/perfil", { nombre, telefono, foto: foto ?? null }, sesion?.access_token);
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
         return { ok: true };
       },
@@ -385,12 +397,21 @@ export function AuthProvider({ children }) {
       // Mira una invitación con sólo el código, sin pertenecer al negocio.
       async verInvitacion(codigo) {
         if (!hayCuentas) {
-          return { ok: false, error: "Para usar una invitación hace falta que el sistema esté conectado a la API." };
+          return {
+            ok: false,
+            error: {
+              codigo: "sin_api_invitacion",
+              mensaje: "Para usar una invitación hace falta que el sistema esté conectado a la API.",
+            },
+          };
         }
         const r = await traer(`/publico/invitaciones/${encodeURIComponent(codigo)}`);
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         const fila = r.datos.invitacion;
-        if (!fila) return { ok: false, error: "Este link no existe. Fijate que esté completo." };
+        if (!fila) return {
+          ok: false,
+          error: { codigo: "link_no_existe", mensaje: "Este link no existe. Fijate que esté completo." },
+        };
         return {
           ok: true,
           negocio: fila.negocio_nombre,

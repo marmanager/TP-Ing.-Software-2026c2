@@ -11,6 +11,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useDatos } from "@/lib/datos";
 import FilaNegocio, { FilaNuevoNegocio } from "@/componentes/FilaNegocio";
 import Icono from "@/componentes/Icono";
@@ -19,6 +21,7 @@ import { Boton, Cargando, ErrorGeneral, Interruptor, Tarjeta } from "@/component
 export default function TusNegocios() {
   const router = useRouter();
   const { usuario, misNegocios, entrarAlNegocio, guardarPreferenciasDeEntrada } = useAuth();
+  const { t } = useIdioma();
   const { negocio, avisarExito } = useDatos();
 
   const [negocios, setNegocios] = useState(null);
@@ -82,7 +85,7 @@ export default function TusNegocios() {
 
   return (
     <div className="mb-12">
-      {error && <ErrorGeneral>{error}</ErrorGeneral>}
+      {error && <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>}
 
       <ul className="grid gap-3">
         {negocios.map((n) => (

@@ -14,6 +14,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth, recordarInvitacion, olvidarInvitacion } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { pedirEntrar } from "@/lib/equipo";
 import { useTitulo } from "@/lib/useTitulo";
 import { Boton, Campo, Tarjeta, TituloPantalla, Cargando, ErrorGeneral } from "@/componentes/ui";
@@ -22,6 +24,7 @@ import Icono from "@/componentes/Icono";
 export default function Unirme() {
   const { codigo } = useParams();
   const { sesion, cargando, verInvitacion } = useAuth();
+  const { t } = useIdioma();
   useTitulo("Sumarte a un negocio");
 
   const [mirando, setMirando] = useState(true);
@@ -71,7 +74,7 @@ export default function Unirme() {
         <Tarjeta>
           <p className="flex items-start gap-2 font-bold text-espera">
             <Icono nombre="alerta" className="mt-0.5 size-6" />
-            <span>{invitacion?.motivo ?? error ?? "No pudimos leer la invitación."}</span>
+            <span>{invitacion?.motivo ?? (textoDeError(t, error) || "No pudimos leer la invitación.")}</span>
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
             Pedile a quien te invitó que te mande uno nuevo.
@@ -174,7 +177,7 @@ export default function Unirme() {
         />
 
         {error && (
-          <ErrorGeneral>{error}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
         )}
 
         <Boton

@@ -9,6 +9,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useTitulo } from "@/lib/useTitulo";
 import { emailValido } from "@/lib/validaciones";
 import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
@@ -16,6 +18,7 @@ import Icono from "@/componentes/Icono";
 
 export default function RecuperarContrasena() {
   const { pedirResetContrasena } = useAuth();
+  const { t } = useIdioma();
   useTitulo("Recuperar la contraseña");
 
   const [email, setEmail] = useState("");
@@ -104,7 +107,7 @@ export default function RecuperarContrasena() {
         />
 
         {error && (
-          <ErrorGeneral>{error}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
         )}
 
         <Boton

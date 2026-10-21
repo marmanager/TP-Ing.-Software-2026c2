@@ -10,12 +10,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth, mailAConfirmar } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useTitulo } from "@/lib/useTitulo";
 import { Boton, Tarjeta, TituloPantalla } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 
 export default function ConfirmaTuMail() {
   const { sesion, reenviarConfirmacion } = useAuth();
+  const { t } = useIdioma();
   useTitulo("Confirmá tu mail");
 
   const [mail, setMail] = useState(null);
@@ -72,7 +75,7 @@ export default function ConfirmaTuMail() {
         {error && (
           <p className="mt-4 flex items-start gap-2 font-bold text-rojo text-etiqueta">
             <Icono nombre="alerta" className="mt-px size-5" />
-            <span>{error}</span>
+            <span>{textoDeError(t, error)}</span>
           </p>
         )}
 

@@ -73,6 +73,7 @@ test("un error se traduce por código y, si no se conoce, muestra su mensaje", (
   assert.equal(textoDeError(t, { codigo: "algo_nuevo", mensaje: "Lo dijo la API" }), "Lo dijo la API");
   assert.equal(textoDeError(t, { mensaje: "Sin código" }), "Sin código");
   assert.equal(textoDeError(t, null), "");
+  assert.equal(textoDeError(t, "Texto suelto"), "Texto suelto");
 });
 
 test("la cookie dura un año y vale para toda la app", () => {

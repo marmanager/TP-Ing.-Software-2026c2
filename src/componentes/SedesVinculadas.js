@@ -9,6 +9,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useDatos } from "@/lib/datos";
 import { SUBMODULOS } from "@/lib/modulos";
 import { puede, QUIEN_PUEDE } from "@/lib/permisos";
@@ -19,6 +21,7 @@ import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
 export default function SedesVinculadas() {
   const { usuario, sesion, misNegocios } = useAuth();
+  const { t } = useIdioma();
   const { negocio, avisarExito } = useDatos();
   const token = sesion?.access_token;
   const puedeVincular = puede(usuario, "vincular_sedes");
@@ -145,7 +148,7 @@ export default function SedesVinculadas() {
 
       {error && (
         <div className="mt-4">
-          <ErrorGeneral>{error}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
         </div>
       )}
 

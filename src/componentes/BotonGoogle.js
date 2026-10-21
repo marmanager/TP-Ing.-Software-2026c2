@@ -15,16 +15,19 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { errorDelIngreso } from "@/lib/ingreso-google";
 import { ErrorGeneral } from "@/componentes/ui";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 
-export default function BotonGoogle({ children = "Entrar con Google" }) {
+export default function BotonGoogle({ children }) {
   const { entrarConGoogle, hayGoogle } = useAuth();
+  const { t } = useIdioma();
   const [saliendo, setSaliendo] = useState(false);
   const [error, setError] = useState(null);
 
   // El error de la vuelta viene en la dirección: se lee una vez y se saca,
   // para que recargar la página no lo vuelva a mostrar.
   useEffect(() => {
-    const deLaVuelta = errorDelIngreso(window.location.href);
+    const deLaVuelta = errorDelIngreso(window.location.href, t);
     if (!deLaVuelta) return;
     setError(deLaVuelta);
     window.history.replaceState(null, "", window.location.pathname);
@@ -47,15 +50,15 @@ export default function BotonGoogle({ children = "Entrar con Google" }) {
           // Si salió bien, el navegador ya se está yendo a Google.
           if (!r.ok) {
             setSaliendo(false);
-            setError(r.error);
+            setError(textoDeError(t, r.error));
           }
         }}
         className="flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie disabled:cursor-wait disabled:text-tinta-suave"
       >
         <LogoGoogle />
         <span>
-          {children}
-          {saliendo && <span className="font-normal"> · abriendo Google…</span>}
+          {children ?? t("acceso.ingreso.conGoogle")}
+          {saliendo && <span className="font-normal"> · {t("acceso.abriendoGoogle")}</span>}
         </span>
       </button>
     </div>
@@ -76,11 +79,12 @@ function LogoGoogle() {
 }
 
 // La raya con la "o" entre las dos formas de entrar.
-export function SeparadorO({ children = "o con tu mail" }) {
+export function SeparadorO({ children }) {
+  const { t } = useIdioma();
   return (
     <div className="my-6 flex items-center gap-3 text-tinta-media" role="separator">
       <span className="h-px flex-1 bg-borde" aria-hidden="true" />
-      <span>{children}</span>
+      <span>{children ?? t("acceso.separadorO")}</span>
       <span className="h-px flex-1 bg-borde" aria-hidden="true" />
     </div>
   );

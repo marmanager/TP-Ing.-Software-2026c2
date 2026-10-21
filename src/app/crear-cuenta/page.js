@@ -15,6 +15,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useTitulo } from "@/lib/useTitulo";
 import { emailValido, contrasenaValida } from "@/lib/validaciones";
 import { paisInicial } from "@/lib/telefono";
@@ -26,6 +28,7 @@ import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
 export default function CrearCuenta() {
   const router = useRouter();
   const { crearCuenta, hayGoogle } = useAuth();
+  const { t } = useIdioma();
   useTitulo("Crear cuenta");
 
   const [nombre, setNombre] = useState("");
@@ -161,7 +164,7 @@ export default function CrearCuenta() {
         </button>
 
         {errorGeneral && (
-          <ErrorGeneral>{errorGeneral}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, errorGeneral)}</ErrorGeneral>
         )}
 
         <Boton

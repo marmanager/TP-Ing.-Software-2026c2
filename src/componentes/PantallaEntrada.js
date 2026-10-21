@@ -6,8 +6,10 @@
 import Icono from "./Icono";
 import Aviso from "./Aviso";
 import SelectorIdioma from "./SelectorIdioma";
+import { useIdioma } from "@/lib/useIdioma";
 
 export default function PantallaEntrada({ children }) {
+  const { t } = useIdioma();
   return (
     <div className="flex min-h-screen flex-col items-center px-4 py-10 sm:py-16">
       <div className="w-full max-w-[440px]">
@@ -16,7 +18,7 @@ export default function PantallaEntrada({ children }) {
             <Icono nombre="tienda" />
           </span>
           <span className="font-titulo font-extrabold text-subtitulo leading-tight">
-            Tu negocio, en orden
+            {t("acceso.marca")}
           </span>
         </div>
 
@@ -24,7 +26,7 @@ export default function PantallaEntrada({ children }) {
         {children}
 
         <p className="mt-10 text-apoyo text-tinta-suave">
-          Sistema de gestión de casos para negocios de servicio.
+          {t("acceso.pie")}
         </p>
 
         <div className="mt-4">

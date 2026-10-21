@@ -13,6 +13,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { contrasenaValida, motivoDeContrasenaNueva } from "@/lib/validaciones";
@@ -22,6 +24,7 @@ import Icono from "@/componentes/Icono";
 export default function NuevaContrasena() {
   const router = useRouter();
   const { sesion, cargando, definirContrasena } = useAuth();
+  const { t } = useIdioma();
   const { avisarExito } = useDatos();
   useTitulo("Poner una contraseña nueva");
 
@@ -115,7 +118,7 @@ export default function NuevaContrasena() {
         />
 
         {error && (
-          <ErrorGeneral>{error}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
         )}
 
         <Boton
