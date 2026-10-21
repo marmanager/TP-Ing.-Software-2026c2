@@ -60,7 +60,7 @@ export default async function RootLayout({ children }) {
   return (
     // suppressHydrationWarning: el script del tema pone data-tema en <html>
     // antes de que React hidrate, y eso no es un error.
-    <html lang={idioma}className={`${figtree.variable} ${sourceSans.variable} ${inter.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang={idioma} className={`${figtree.variable} ${sourceSans.variable} ${inter.variable} ${serif.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <style dangerouslySetInnerHTML={{ __html: CSS_APARIENCIA }} />
         <ScriptTema />
