@@ -48,10 +48,10 @@ function Fila({ href, children }) {
   );
 }
 
-// "clave" es inicio.ymas.<clave> (casos, turnos...); "palabra" es el sustantivo ya
-// en plural cuando viene del rubro (insumos, productos).
+// "clave" es inicio.ymas.<clave> (casos, turnos...); "palabra" es articulo.palabra
+// del rubro: en castellano va siempre en plural, como estaba; en inglés concuerda con la cantidad.
 function YMas({ cuantos, href, clave, palabra }) {
-  const { t } = useIdioma();
+  const { idioma, t } = useIdioma();
   if (cuantos <= 0) return null;
   return (
     <li className="border-t border-borde">
@@ -60,7 +60,7 @@ function YMas({ cuantos, href, clave, palabra }) {
         className="flex min-h-12 items-center gap-2 px-4 font-bold text-azul sm:px-6"
       >
         <Icono nombre="mas" className="size-5" />
-        {palabra ? t("inicio.ymas.palabra", { n: cuantos, palabra }) : t(`inicio.ymas.${clave}`, { n: cuantos })}
+        {palabra ? t("inicio.ymas.palabra", { n: cuantos, palabra: idioma === "es" ? palabra(2) : palabra(cuantos) }) : t(`inicio.ymas.${clave}`, { n: cuantos })}
       </Link>
     </li>
   );
@@ -225,8 +225,12 @@ function CuerpoCasos({ filtro, filas }) {
 
 // ---------- agenda ----------
 
+// En castellano el día va en minúscula entero ("miércoles 28 de octubre"). En
+// inglés sólo "today" y "tomorrow": "Wednesday, October 28" lleva mayúsculas.
+const enMinusculas = (dia, idioma) => (idioma === "es" || !/[\s,]/.test(dia) ? dia.toLowerCase() : dia);
+
 function CuerpoAgenda({ filtro, filas }) {
-  const { locale, t: tr } = useIdioma();
+  const { idioma, locale, t: tr } = useIdioma();
   const { turnos, clientes } = useDatos();
 
   const arrancaHoy = new Date();
@@ -272,7 +276,7 @@ function CuerpoAgenda({ filtro, filas }) {
               <span className="block truncate font-bold">{t.motivo}</span>
               <span className="block truncate text-apoyo text-tinta-suave">
                 {cliente?.nombre ?? tr("inicio.sinCliente")}
-                {filtro !== "hoy" && ` · ${diaLargo(t.empieza_en, locale, tr).toLowerCase()}`}
+                {filtro !== "hoy" && ` · ${enMinusculas(diaLargo(t.empieza_en, locale, tr), idioma)}`}
               </span>
             </span>
             {t.estado === "agendado" && (
@@ -349,7 +353,7 @@ function CuerpoInventario({ filtro, filas }) {
           </Fila>
         );
       })}
-      <YMas cuantos={elegidos.length - filas} href="/inventario" palabra={articulo.palabra(2)} />
+      <YMas cuantos={elegidos.length - filas} href="/inventario" palabra={articulo.palabra} />
     </ul>
   );
 }

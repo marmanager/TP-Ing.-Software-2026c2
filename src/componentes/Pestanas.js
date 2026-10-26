@@ -28,6 +28,7 @@ import { hijosActivos, nombreDeModulo, traducirModulo } from "@/lib/modulos";
 import { useIdioma } from "@/lib/useIdioma";
 
 export default function Pestanas({ padre }) {
+  const { t } = useIdioma();
   const ruta = usePathname();
   const { negocio } = useDatos();
 
@@ -54,7 +55,7 @@ export default function Pestanas({ padre }) {
                 ].join(" ")}
               >
                 <Icono nombre={v.icono} className="size-5" />
-                {v.nombre}
+                {traducirModulo(v, t).nombre}
               </Link>
             </li>
           );

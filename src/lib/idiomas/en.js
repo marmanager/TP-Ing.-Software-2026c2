@@ -2615,7 +2615,7 @@ export default {
     },
     casos: {
       vacio: "There are no cases yet. Open the first one with the button above.",
-      ningunoEn: "There are none in {estado}.",
+      ningunoEn: "There are none marked as {estado}.",
     },
     agenda: {
       sinConfirmar: "There are no unconfirmed appointments.",
