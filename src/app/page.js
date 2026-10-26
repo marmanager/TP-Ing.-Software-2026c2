@@ -40,6 +40,7 @@ import {
   ALTO_FILA,
   COLUMNAS,
   INICIO_POR_DEFECTO,
+  PASO_ALTO,
   SEPARACION,
   agregables,
   agregar,
@@ -47,7 +48,9 @@ import {
   colocar,
   compactar,
   intercambiar,
+  llevarA,
   normalizarInicio,
+  posicion,
   quitar,
   redimensionar,
   resolver,
@@ -103,8 +106,33 @@ export default function Inicio() {
       const a = arrastre.current;
       if (!a) return;
 
-      const dx = Math.round((e.clientX - a.px) / a.celda.ancho);
-      const dy = Math.round((e.clientY - a.py) / a.celda.alto);
+      // En celular: si el dedo está sobre otro módulo, éste pasa a su lugar
+      // en el orden. Cerca de los bordes la pantalla se corre sola, porque
+      // mientras se arrastra el dedo no puede scrollear.
+      if (a.tipo === "ordenar") {
+        const borde = 80;
+        if (e.clientY < borde) window.scrollBy(0, -12);
+        else if (e.clientY > window.innerHeight - borde) window.scrollBy(0, 12);
+
+        const el = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-modulo]");
+        const otra = el?.getAttribute("data-modulo");
+        if (!otra || otra === a.clave) return;
+
+        // Recién cuando el dedo pasa la mitad del otro. Si fuera apenas
+        // entrar, al cambiar con uno más alto el dedo quedaría encima de él
+        // otra vez y se intercambiarían de ida y vuelta sin parar.
+        const caja = el.getBoundingClientRect();
+        const mitad = caja.top + caja.height / 2;
+        setBorrador((b) => {
+          const estaArriba = posicion(b, otra) < posicion(b, a.clave);
+          const cruzo = estaArriba ? e.clientY < mitad : e.clientY > mitad;
+          return cruzo ? llevarA(b, a.clave, otra) : b;
+        });
+        return;
+      }
+
+      const dx = a.soloAlto ? 0 : Math.round((e.clientX - a.px) / a.celda.ancho);
+      const dy = Math.round((e.clientY - a.py) / a.celda.alto) * PASO_ALTO;
       if (dx === a.dx && dy === a.dy) return;
       a.dx = dx;
       a.dy = dy;
@@ -223,14 +251,20 @@ export default function Inicio() {
     const el = grillaRef.current;
     if (!el) return null;
     const ancho = (el.clientWidth - SEPARACION * (COLUMNAS - 1)) / COLUMNAS;
-    return { ancho: ancho + SEPARACION, alto: ALTO_FILA + SEPARACION };
+    // A lo alto se cuenta de a media celda, que es el paso del alto.
+    return { ancho: ancho + SEPARACION, alto: (ALTO_FILA + SEPARACION) * PASO_ALTO };
   }
 
   function agarrar(e, clave, tipo) {
-    // Sólo el botón principal, y sólo donde hay grilla: en celular se acomoda
-    // con los botones de Ajustes.
+    // Sólo el botón principal. En celular no hay grilla: el módulo no se
+    // agarra del medio, porque el dedo tiene que poder seguir scrolleando.
+    // Se arrastra desde la manija de abajo a la izquierda, y eso cambia el
+    // orden; la esquina de la derecha cambia sólo el alto, porque en una
+    // sola columna el ancho no existe.
     if (e.button > 0) return;
-    if (!window.matchMedia("(min-width: 48rem)").matches) return;
+    const hayGrilla = window.matchMedia("(min-width: 48rem)").matches;
+    if (tipo === "ordenar") tipo = hayGrilla ? "mover" : "ordenar";
+    else if (!hayGrilla && tipo === "mover") return;
     if (enAlgoQueSeToca(e.target)) return;
 
     const item = borrador.find((m) => m.clave === clave);
@@ -239,7 +273,16 @@ export default function Inicio() {
 
     e.preventDefault();
     e.stopPropagation();
-    arrastre.current = { clave, tipo, item, celda, base: borrador, px: e.clientX, py: e.clientY };
+    arrastre.current = {
+      clave,
+      tipo,
+      item,
+      celda,
+      soloAlto: !hayGrilla,
+      base: borrador,
+      px: e.clientX,
+      py: e.clientY,
+    };
     setAgarrado(clave);
     setSeleccion(clave);
   }
@@ -261,10 +304,11 @@ export default function Inicio() {
     const item = borrador.find((m) => m.clave === clave);
     if (!item) return;
 
+    const dy = paso[1] * PASO_ALTO;
     setBorrador((b) =>
       e.shiftKey
-        ? redimensionar(b, clave, item.ancho + paso[0], item.alto + paso[1])
-        : colocar(b, clave, item.x + paso[0], item.y + paso[1])
+        ? redimensionar(b, clave, item.ancho + paso[0], item.alto + dy)
+        : colocar(b, clave, item.x + paso[0], item.y + dy)
     );
   }
 
@@ -453,6 +497,7 @@ export default function Inicio() {
               }
               alAgarrarParaMover={(e) => agarrar(e, m.clave, "mover")}
               alAgarrarParaRedimensionar={(e) => agarrar(e, m.clave, "tamano")}
+              alAgarrarParaOrdenar={(e) => agarrar(e, m.clave, "ordenar")}
               alTeclado={(e) => teclado(e, m.clave)}
             />
           ))}

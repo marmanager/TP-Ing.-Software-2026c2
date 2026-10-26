@@ -16,7 +16,7 @@
 // los botones de Ajustes.
 
 import Link from "next/link";
-import { CATALOGO, COLUMNAS, MAX_ALTO, filasPara } from "@/lib/inicio";
+import { CATALOGO, COLUMNAS, MAX_ALTO, PASO_ALTO, filasPara } from "@/lib/inicio";
 import { CUERPOS } from "./cuerpos";
 import Icono from "@/componentes/Icono";
 import { Boton } from "@/componentes/ui";
@@ -38,6 +38,30 @@ function ManijaDeTamano({ alAgarrar }) {
         <circle cx="10" cy="6" r="1.2" />
         <circle cx="6" cy="6" r="1.2" />
         <circle cx="10" cy="2" r="1.2" />
+      </svg>
+    </span>
+  );
+}
+
+// Su pareja de abajo a la izquierda, para llevar el módulo a otro lugar. En la
+// compu hace lo mismo que agarrarlo del medio; en el celular es la única forma
+// de arrastrarlo, porque el resto del módulo tiene que dejar scrollear.
+function ManijaDeOrden({ alAgarrar }) {
+  return (
+    <span
+      onPointerDown={alAgarrar}
+      // Como la esquina: el teclado mueve con las flechas, y Ajustes tiene
+      // Subir y Bajar.
+      aria-hidden="true"
+      className="absolute bottom-0 left-0 flex size-11 cursor-grab touch-none items-end justify-start p-1.5 text-borde-fuerte hover:text-azul"
+    >
+      <svg viewBox="0 0 12 12" className="size-5" fill="currentColor">
+        <circle cx="4" cy="2" r="1.2" />
+        <circle cx="8" cy="2" r="1.2" />
+        <circle cx="4" cy="6" r="1.2" />
+        <circle cx="8" cy="6" r="1.2" />
+        <circle cx="4" cy="10" r="1.2" />
+        <circle cx="8" cy="10" r="1.2" />
       </svg>
     </span>
   );
@@ -89,19 +113,23 @@ function Ajustes({ config, def, acciones, esPrimero, esUltimo }) {
     <div className="flex flex-col gap-4 p-4 sm:p-6">
       <p className="text-apoyo text-tinta-suave">{def.queMuestra}</p>
 
-      <Medida
-        etiqueta="Ancho"
-        valor={`${ancho} de ${COLUMNAS}`}
-        alAchicar={() => acciones.redimensionar(clave, ancho - 1, alto)}
-        alAgrandar={() => acciones.redimensionar(clave, ancho + 1, alto)}
-        puedeAchicar={ancho > 1}
-        puedeAgrandar={x + ancho < COLUMNAS}
-      />
+      {/* En celular hay una sola columna: todos ocupan el ancho entero, y
+          un botón que no cambia nada en pantalla parece roto. */}
+      <div className="hidden md:block">
+        <Medida
+          etiqueta="Ancho"
+          valor={`${ancho} de ${COLUMNAS}`}
+          alAchicar={() => acciones.redimensionar(clave, ancho - 1, alto)}
+          alAgrandar={() => acciones.redimensionar(clave, ancho + 1, alto)}
+          puedeAchicar={ancho > 1}
+          puedeAgrandar={x + ancho < COLUMNAS}
+        />
+      </div>
       <Medida
         etiqueta="Alto"
-        valor={`${alto} de ${MAX_ALTO}`}
-        alAchicar={() => acciones.redimensionar(clave, ancho, alto - 1)}
-        alAgrandar={() => acciones.redimensionar(clave, ancho, alto + 1)}
+        valor={`${alto.toLocaleString("es-AR")} de ${MAX_ALTO}`}
+        alAchicar={() => acciones.redimensionar(clave, ancho, alto - PASO_ALTO)}
+        alAgrandar={() => acciones.redimensionar(clave, ancho, alto + PASO_ALTO)}
         puedeAchicar={alto > 1}
         puedeAgrandar={alto < MAX_ALTO}
       />
@@ -164,6 +192,7 @@ export default function Modulo({
   alAlternarAjustes,
   alAgarrarParaMover,
   alAgarrarParaRedimensionar,
+  alAgarrarParaOrdenar,
   alTeclado,
 }) {
   const def = CATALOGO[config.clave];
@@ -179,19 +208,25 @@ export default function Modulo({
 
   return (
     <section
+      // Para encontrar, arrastrando en el celular, sobre qué módulo está el dedo.
+      data-modulo={config.clave}
       // El lugar en la grilla viaja en variables: en celular el CSS las
       // ignora y todo cae en una sola columna.
       style={{
         "--x": config.x,
-        "--y": config.y,
         "--ancho": config.ancho,
         "--alto": config.alto,
+        // En medias celdas, que es lo que cuenta la grilla de CSS.
+        "--fila": Math.round(config.y * 2),
+        "--filas": Math.round(config.alto * 2),
       }}
       className={[
         "modulo-ubicado relative flex flex-col overflow-hidden rounded-tarjeta bg-tarjeta",
         marco,
         agarrado ? "modulo-agarrado" : "",
-        acomodando ? "cursor-grab touch-none select-none" : "",
+        // touch-none sólo donde se arrastra: en celular el dedo sobre un
+        // módulo tiene que seguir scrolleando la pantalla.
+        acomodando ? "cursor-grab select-none md:touch-none" : "",
       ].join(" ")}
       {...(acomodando
         ? {
@@ -257,7 +292,10 @@ export default function Modulo({
       </div>
 
       {acomodando && !ajustando && (
-        <ManijaDeTamano alAgarrar={alAgarrarParaRedimensionar} />
+        <>
+          <ManijaDeOrden alAgarrar={alAgarrarParaOrdenar} />
+          <ManijaDeTamano alAgarrar={alAgarrarParaRedimensionar} />
+        </>
       )}
     </section>
   );
