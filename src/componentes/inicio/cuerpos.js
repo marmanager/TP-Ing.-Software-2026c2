@@ -166,7 +166,7 @@ function CuerpoPendientes() {
 // ---------- casos ----------
 
 function CuerpoCasos({ filtro, filas }) {
-  const { idioma, locale, t } = useIdioma();
+  const { idioma, t } = useIdioma();
   const { casos, clientes, empleados, negocio, pasos, insumos } = useDatos();
 
   const elegidos = casos
