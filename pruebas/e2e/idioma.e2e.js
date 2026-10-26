@@ -24,7 +24,7 @@ describe("Idioma", () => {
 
   it("el selector cambia el idioma y lo recuerda", async () => {
     await browser.url("/iniciar-sesion");
-    await $("button=English").click();
+    await $('button[lang="en"]').click();
     await expect($("h1")).toHaveText("Sign in");
     await browser.refresh();
     await expect($("h1")).toHaveText("Sign in");

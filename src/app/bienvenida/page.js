@@ -32,6 +32,7 @@ import Icono from "@/componentes/Icono";
 import { accionDeFila, ESTADOS, ORDEN_ESTADOS } from "@/lib/estados";
 import { preset } from "@/lib/presets";
 import { useIdioma } from "@/lib/useIdioma";
+import SelectorIdioma from "@/componentes/SelectorIdioma";
 import { useTitulo } from "@/lib/useTitulo";
 
 // Los rubros que se comparan en la sección 02. Su nombre corto sale del
@@ -343,7 +344,11 @@ export default function Bienvenida() {
               MarManager
             </span>
           </span>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
+            {/* El idioma se elige acá, antes de empezar: queda en una cookie y
+                acompaña toda la entrada (crear cuenta, iniciar sesión) y la
+                app. Para cambiarlo después, Mi perfil. */}
+            <SelectorIdioma />
             <Link
               href="/iniciar-sesion"
               className="py-3.5 text-etiqueta font-bold text-azul underline underline-offset-4 transition-colors duration-100 hover:text-azul-apretado"
