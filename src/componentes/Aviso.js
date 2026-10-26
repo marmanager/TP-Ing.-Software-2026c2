@@ -13,6 +13,7 @@
 
 import { useDatos } from "@/lib/datos";
 import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import Icono from "./Icono";
 import { Boton } from "./ui";
 
@@ -70,7 +71,7 @@ export default function Aviso() {
           rol="alert"
           tono="border-l-espera bg-espera-fondo text-espera"
           icono="alerta"
-          texto={aviso}
+          texto={textoDeError(t, aviso)}
           alDescartar={descartarAviso}
         />
       )}
