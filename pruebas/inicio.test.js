@@ -12,6 +12,7 @@ import {
   COLUMNAS,
   INICIO_POR_DEFECTO,
   MAX_ALTO,
+  PASO_ALTO,
   agregables,
   agregar,
   cambiarFiltro,
@@ -19,7 +20,9 @@ import {
   compactar,
   filasPara,
   intercambiar,
+  llevarA,
   normalizarInicio,
+  posicion,
   quitar,
   redimensionar,
   resolver,
@@ -355,4 +358,50 @@ test("cuántas filas de contenido entran según el alto", () => {
   assert.ok(filasPara(2) > filasPara(1), "más alto muestra más filas");
   assert.ok(filasPara(3) > filasPara(2));
   assert.ok(filasPara(0) >= 1, "nunca cero filas");
+});
+
+test("el alto va de a media celda, y el de abajo se apoya justo debajo", () => {
+  const layout = resolver([
+    { clave: "casos", x: 0, y: 0, ancho: 3, alto: 1, filtro: null },
+    { clave: "agenda", x: 0, y: 1, ancho: 3, alto: 1, filtro: null },
+  ]);
+
+  const estirado = redimensionar(layout, "casos", 3, 1 + PASO_ALTO);
+  assert.equal(de(estirado, "casos").alto, 1.5);
+  assert.equal(de(estirado, "agenda").y, 1.5, "baja media celda, no una entera");
+
+  // Al guardar no queda un hueco de media celda en el medio.
+  const guardado = compactar(estirado);
+  grillaSana(guardado, "tras compactar:");
+  assert.equal(de(guardado, "agenda").y, 1.5);
+
+  // Cualquier otra cosa se lleva al paso más cercano.
+  assert.equal(de(redimensionar(layout, "casos", 3, 2.3), "casos").alto, 2.5);
+});
+
+test("normalizar acepta medias celdas y descarta lo que no cae en el paso", () => {
+  const limpio = normalizarInicio([
+    { clave: "casos", x: 0, y: 0, ancho: 3, alto: 2.5 },
+    { clave: "agenda", x: 0, y: 2.5, ancho: 3, alto: 1.3 },
+  ]);
+  grillaSana(limpio);
+  assert.equal(de(limpio, "casos").alto, 2.5);
+  assert.equal(de(limpio, "agenda").y, 2.5);
+  assert.equal(de(limpio, "agenda").alto, CATALOGO.agenda.alto, "1,3 no es un alto");
+});
+
+test("arrastrar en el celular lleva un módulo hasta el lugar de otro", () => {
+  const layout = compactar(INICIO_POR_DEFECTO.map((m) => ({ ...m })));
+  const orden = (l) => [...l].sort((a, b) => a.y - b.y || a.x - b.x).map((m) => m.clave);
+  const antes = orden(layout);
+  const primero = antes[0];
+  const ultimo = antes[antes.length - 1];
+
+  const bajado = llevarA(layout, primero, ultimo);
+  grillaSana(bajado, "tras bajarlo:");
+  assert.equal(orden(bajado).at(-1), primero, "quedó último");
+  assert.deepEqual(orden(bajado).slice(0, -1), antes.slice(1), "los del medio subieron uno");
+  assert.deepEqual(claves(bajado).sort(), claves(layout).sort(), "no se perdió ninguno");
+
+  assert.equal(posicion(llevarA(bajado, primero, antes[1]), primero), 0, "y vuelve arriba");
 });
