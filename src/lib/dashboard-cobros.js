@@ -1,9 +1,10 @@
 import { cobrosConLoDeAntes, medioDe } from "./cobros.js";
 import { intervalosDashboard } from "./dashboard-periodos.js";
+import { tCastellano } from "./idioma.js";
 
 // Agrupar usa centavos y los mismos datos diarios, sin otra consulta a la API.
-export function serieCobros(periodo, porDia, agrupacion = "día", locale = "es-AR") {
-  const puntos = intervalosDashboard(periodo, agrupacion, locale).map((punto) => ({ ...punto, centavos: 0 }));
+export function serieCobros(periodo, porDia, agrupacion = "día", locale = "es-AR", t = tCastellano) {
+  const puntos = intervalosDashboard(periodo, agrupacion, locale, t).map((punto) => ({ ...punto, centavos: 0 }));
   let indice = 0;
   for (const fila of [...porDia].sort((a, b) => a.fecha.localeCompare(b.fecha))) {
     if (fila.fecha < periodo.desde || fila.fecha > periodo.hasta) continue;

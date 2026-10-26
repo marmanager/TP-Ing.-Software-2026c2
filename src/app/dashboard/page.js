@@ -3,7 +3,9 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import { nombreDeModulo } from "@/lib/modulos";
 import EnlaceModuloDashboard from "@/componentes/dashboard/EnlaceModuloDashboard";
 import PeriodoDashboard from "@/componentes/dashboard/PeriodoDashboard";
 import ResumenDashboard from "@/componentes/dashboard/ResumenDashboard";
@@ -30,31 +32,32 @@ const ClientesDashboard = dynamic(() => import("@/componentes/dashboard/Clientes
 });
 
 export default function Dashboard() {
+  const { t } = useIdioma();
   const { cargando, negocio } = useDatos();
   const { usuario } = useAuth();
   const [periodo, setPeriodo] = useState(() => periodoDashboard());
   const [elegida, setElegida] = useState("resumen");
-  useTitulo("Estadísticas");
+  useTitulo(nombreDeModulo("dashboard", t));
 
   useEffect(() => {
     setElegida("resumen");
   }, [negocio?.id]);
 
-  const categorias = categoriasDashboard(negocio?.modulos_activos ?? []);
+  const categorias = categoriasDashboard(negocio?.modulos_activos ?? [], t);
   // Si se apaga el módulo de la categoría elegida, vuelve a Resumen.
   const actual = categorias.find((categoria) => categoria.clave === elegida) ?? categorias[0];
 
   if (cargando) return <Cargando />;
   if (!puede(usuario, "ver_todos_los_casos"))
-    return <Vacio icono="grafico" titulo="No tenés permiso para consultar las Estadísticas">{QUIEN_PUEDE.ver_todos_los_casos}</Vacio>;
+    return <Vacio icono="grafico" titulo={t("dashboard.sinPermiso")}>{quienPuede("ver_todos_los_casos", t)}</Vacio>;
 
   return (
     <>
-      <TituloPantalla apoyo="La actividad de tu negocio, organizada por categoría.">
-        Estadísticas
+      <TituloPantalla apoyo={t("dashboard.apoyo")}>
+        {nombreDeModulo("dashboard", t)}
       </TituloPantalla>
 
-      <div role="group" aria-label="Categorías de Estadísticas" className="mb-6 flex flex-wrap gap-2">
+      <div role="group" aria-label={t("dashboard.categoriasAria")} className="mb-6 flex flex-wrap gap-2">
         {categorias.map((categoria) => {
           const seleccionada = actual.clave === categoria.clave;
           return (
@@ -88,7 +91,7 @@ export default function Dashboard() {
           </h2>
           <p className="mt-2 text-tinta-media">{actual.descripcion}</p>
           <p className="mt-4 text-etiqueta text-tinta-media">
-            Los indicadores de esta categoría estarán disponibles próximamente.
+            {t("dashboard.proximamente")}
           </p>
         </Tarjeta>}
         {actual.clave !== "resumen" && <div className="mt-6 flex justify-end">
