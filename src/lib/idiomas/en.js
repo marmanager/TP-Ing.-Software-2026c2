@@ -2475,6 +2475,7 @@ export default {
   },
   inicio: {
     titulo: "Home",
+    descripcionSitio: "Case management system for service businesses.",
     resumen: { one: "{fecha} · {n} open case", other: "{fecha} · {n} open cases" },
     sinCliente: "No customer",
     acomodar: {

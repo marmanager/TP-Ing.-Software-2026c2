@@ -6,7 +6,7 @@ import Guardia from "@/componentes/Guardia";
 import ScriptTema from "@/componentes/ScriptTema";
 import { CSS_APARIENCIA } from "@/lib/tema";
 import { cookies, headers } from "next/headers";
-import { elegirIdioma } from "@/lib/idioma";
+import { LOCALES, elegirIdioma, traducir } from "@/lib/idioma";
 import { IdiomaProvider } from "@/lib/useIdioma";
 import es from "@/lib/idiomas/es";
 import en from "@/lib/idiomas/en";
@@ -43,10 +43,19 @@ const serif = Merriweather({
 });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--fuente-mono", display: "swap", preload: false });
 
-export const metadata = {
-  title: "Inicio",
-  description: "Sistema de gestión de casos para negocios de servicio.",
-};
+// El título y la descripción de la pestaña salen en el idioma de quien mira
+// (cada pantalla pone el suyo después, con useTitulo).
+export async function generateMetadata() {
+  const idioma = elegirIdioma(
+    (await cookies()).get("idioma")?.value,
+    (await headers()).get("accept-language")
+  );
+  const fuente = { diccionario: idioma === "en" ? en : es, base: es, locale: LOCALES[idioma] };
+  return {
+    title: traducir(fuente, "inicio.titulo"),
+    description: traducir(fuente, "inicio.descripcionSitio"),
+  };
+}
 
 // Leer la cookie acá hace que cada ruta se dibuje en cada pedido y no quede
 // como HTML estático. Se acepta (docs/idiomas.md): decidirlo en el navegador

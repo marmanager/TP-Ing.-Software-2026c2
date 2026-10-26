@@ -2478,6 +2478,7 @@ export default {
   },
   inicio: {
     titulo: "Inicio",
+    descripcionSitio: "Sistema de gestión de casos para negocios de servicio.",
     resumen: { one: "{fecha} · {n} caso abierto", other: "{fecha} · {n} casos abiertos" },
     sinCliente: "Sin cliente",
     acomodar: {
