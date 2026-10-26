@@ -208,9 +208,15 @@ async function unIntento(ruta, { metodo, cuerpo, token, autorizacion, idempotenc
     ? { codigo: suyo.codigo ?? "error", mensaje: suyo.mensaje, ...(suyo.campo ? { campo: suyo.campo } : {}), ...(suyo.detalles ? { detalles: suyo.detalles } : {}) }
     : { ...(PORQUE[r.status] ?? SE_ROMPIO) };
 
+  const error = { ...elError, ...(pedido ? { pedido } : {}) };
+  // Si el mensaje lo escribió la API para esta situación (y no es una de las
+  // frases genéricas de arriba), se marca aparte: textoDeError lo respeta en
+  // castellano. No es enumerable, así que no cambia la forma del error.
+  if (suyo?.mensaje) Object.defineProperty(error, "propio", { value: true });
+
   return {
     ok: false,
-    error: { ...elError, ...(pedido ? { pedido } : {}) },
+    error,
     // Lo que falló del lado del servidor se puede reintentar; lo que falló
     // porque el pedido estaba mal, no: reintentarlo da el mismo error.
     reintentable: r.status >= 500,

@@ -51,8 +51,20 @@ export function traducir({ diccionario, base, locale }, clave, vars = {}, siFalt
 // todavía no conoce muestra el mensaje que vino, en el idioma en que vino.
 // Un texto suelto (lo que todavía devuelven equipo.js y sedes.js) se muestra
 // tal cual, así una pantalla que mezcla las dos formas no queda en blanco.
-export const textoDeError = (t, error) =>
-  !error ? "" : typeof error === "string" ? error : error.codigo ? t(`errores.${error.codigo}`, {}, error.mensaje) : error.mensaje;
+//
+// El mensaje que la API escribió para una situación concreta (api.js lo marca
+// "propio") gana en castellano: es más específico que la frase genérica del
+// diccionario ("Su rol no incluye el permiso para esta acción." y no "No tenés
+// permiso para hacer eso."). En otro idioma se traduce por código, porque la
+// API sólo escribe en castellano.
+export function textoDeError(t, error) {
+  if (!error) return "";
+  if (typeof error === "string") return error;
+  if (!error.codigo) return error.mensaje;
+  const delDiccionario = t(`errores.${error.codigo}`, {}, error.mensaje);
+  const enCastellano = delDiccionario === tCastellano(`errores.${error.codigo}`, {}, error.mensaje);
+  return error.propio && enCastellano ? error.mensaje : delDiccionario;
+}
 
 export const cookieDeIdioma = (idioma) => `idioma=${idioma}; path=/; max-age=31536000; samesite=lax`;
 

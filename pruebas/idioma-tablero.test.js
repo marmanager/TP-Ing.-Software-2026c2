@@ -273,3 +273,27 @@ test("los errores de las ecuaciones: castellano de siempre por defecto y en ingl
   assert.equal(resolverEcuacion(ecuacion, { 1: 1, 2: 0 }, tEn).error, "You can't divide by zero.");
   assert.equal(resolverEcuacion(ecuacion, { 1: 6, 2: 3 }).resultado, 2);
 });
+
+// ---------- el mensaje propio de la API ----------
+
+test("el mensaje que escribió la API gana en castellano; en inglés se traduce por código; los genéricos de api.js siguen al diccionario", async () => {
+  const { api } = await import("../src/lib/api.js");
+  const respuesta = (status, cuerpo) => async () => ({ ok: status < 400, status, headers: { get: () => null }, json: async () => cuerpo, text: async () => JSON.stringify(cuerpo) });
+  const pedir = (status, cuerpo) => api("/x", { base: "http://api.test/v1", token: "t", fetcher: respuesta(status, cuerpo), reintentar: false, avisarSiVence: false });
+
+  const suyo = await pedir(403, { ok: false, error: { codigo: "sin_permiso", mensaje: "Su rol no incluye el permiso para esta acción." } });
+  assert.deepEqual(Object.keys(suyo.error).sort(), ["codigo", "mensaje"], "la marca no cambia la forma del error");
+  assert.equal(textoDeError(tCastellano, suyo.error), "Su rol no incluye el permiso para esta acción.");
+  assert.equal(textoDeError(tEn, suyo.error), en.errores.sin_permiso);
+
+  const generico = await pedir(403, null);
+  assert.equal(textoDeError(tCastellano, generico.error), "No tenés permiso para hacer eso.");
+  assert.equal(textoDeError(tEn, generico.error), en.errores.sin_permiso);
+
+  const desconocido = await pedir(422, { ok: false, error: { codigo: "algo_nuevo", mensaje: "Lo dijo la API" } });
+  assert.equal(textoDeError(tCastellano, desconocido.error), "Lo dijo la API");
+  assert.equal(textoDeError(tEn, desconocido.error), "Lo dijo la API");
+
+  // Una copia que pierde la marca vuelve al diccionario, como siempre.
+  assert.equal(textoDeError(tCastellano, { ...suyo.error }), "No tenés permiso para hacer eso.");
+});
