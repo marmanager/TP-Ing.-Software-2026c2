@@ -364,3 +364,22 @@ test("es.js y en.js no repiten propiedades en un mismo objeto", () => {
     assert.deepEqual(repetidas, [], `claves repetidas en ${archivo}`);
   }
 });
+
+// "on today at 10:00" no se lee: la frase del turno pedido usa "for".
+test("landing.sacar.pediste en inglés no pone 'on' delante de hoy ni de mañana", async () => {
+  const { diaLargoEnFrase } = await import("../src/lib/fechas.js");
+  const dia = (d) => { const x = new Date(); x.setDate(x.getDate() + d); x.setHours(10, 0, 0, 0); return x.toISOString(); };
+  const frase = (t, clave, iso, vars = {}) =>
+    t(clave, { ...vars, cuando: t("turnos.cuando", { dia: diaLargoEnFrase(iso, t === tEn ? "en-US" : "es-AR", t), hora: "10:00" }) });
+  for (const d of [0, 1, 5]) {
+    for (const clave of ["landing.sacar.pediste", "landing.sacar.pedisteMinutos"]) {
+      const s = frase(tEn, clave, dia(d), { minutos: 30 });
+      assert.doesNotMatch(s, /\bon (today|tomorrow)\b/);
+      assert.match(s, /^You requested?|^You asked for the appointment for /);
+    }
+  }
+  assert.equal(frase(tEn, "landing.sacar.pediste", dia(0)), "You asked for the appointment for today at 10:00.");
+  assert.equal(frase(tEn, "landing.sacar.pedisteMinutos", dia(1), { minutos: 30 }), "You asked for the appointment for tomorrow at 10:00. It lasts 30 minutes.");
+  assert.equal(frase(tEs, "landing.sacar.pediste", dia(0)), "Pediste el turno para hoy a las 10:00.");
+  assert.equal(frase(tEs, "landing.sacar.pedisteMinutos", dia(1), { minutos: 30 }), "Pediste el turno para mañana a las 10:00. Son 30 minutos.");
+});
