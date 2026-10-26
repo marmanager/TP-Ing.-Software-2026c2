@@ -12,7 +12,7 @@ import { Boton, Cargando, ErrorGeneral, Tarjeta } from "@/componentes/ui";
 
 const numero = (locale) => formatoNumero(locale, { maximumFractionDigits: 6 });
 const fecha = (locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" });
-const cantidadConUnidad = (producto, cantidad, locale, t) => `${numero(locale).format(cantidad)} ${producto.unidad === "caja" && !producto.por_caja ? t("dashboard.inventario.cajas", { n: cantidad }) : presentacion(producto, cantidad, t)}`;
+const cantidadConUnidad = (producto, cantidad, locale, t) => `${numero(locale).format(cantidad)} ${presentacion(producto, cantidad, t)}`;
 
 function ListaPedidos({ pedidos }) {
   const { locale, t } = useIdioma();

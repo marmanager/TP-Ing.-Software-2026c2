@@ -267,7 +267,12 @@ export function porCategoria(insumos = [], { rubro, idioma, t = tCastellano } = 
 // en el estante. Si "unidad" trae otra cosa —un dato viejo escrito a mano—
 // se muestra tal cual antes que inventarle un plural.
 export function presentacion({ unidad, por_caja }, cantidad = 0, t = tCastellano) {
-  if (unidad === "caja") return t("inventario.presentacion.caja", { n: cantidad, porCaja: por_caja });
+  // Una caja sin "por_caja" (dato incompleto) es sólo "caja(s)": nunca "de undefined".
+  if (unidad === "caja") {
+    return por_caja
+      ? t("inventario.presentacion.caja", { n: cantidad, porCaja: por_caja })
+      : t("dashboard.inventario.cajas", { n: cantidad });
+  }
   if (!unidad || unidad === "unidad") return t("inventario.presentacion.unidad", { n: cantidad });
   return unidad;
 }

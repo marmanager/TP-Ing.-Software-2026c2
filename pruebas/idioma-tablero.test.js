@@ -297,3 +297,30 @@ test("el mensaje que escribió la API gana en castellano; en inglés se traduce 
   // Una copia que pierde la marca vuelve al diccionario, como siempre.
   assert.equal(textoDeError(tCastellano, { ...suyo.error }), "No tenés permiso para hacer eso.");
 });
+
+// ---------- presentación de cajas ----------
+
+test("presentacion: caja con y sin por_caja, 1 y varias, en castellano e inglés; nunca 'undefined'", async () => {
+  const { presentacion } = await import("../src/lib/inventario.js");
+  assert.equal(presentacion({ unidad: "caja", por_caja: 12 }, 1), "caja de 12");
+  assert.equal(presentacion({ unidad: "caja", por_caja: 12 }, 2), "cajas de 12");
+  assert.equal(presentacion({ unidad: "caja" }, 1), "caja");
+  assert.equal(presentacion({ unidad: "caja" }, 2), "cajas");
+  assert.equal(presentacion({ unidad: "caja", por_caja: null }, 3, tEn), "boxes");
+  assert.equal(presentacion({ unidad: "caja" }, 1, tEn), "box");
+  assert.equal(presentacion({ unidad: "caja", por_caja: 12 }, 2, tEn), "boxes of 12");
+  for (const t of [tCastellano, tEn]) for (const n of [1, 2]) assert.doesNotMatch(presentacion({ unidad: "caja" }, n, t), /undefined/);
+});
+
+// ---------- api() marca el mensaje propio ----------
+
+test("api() marca como propio el mensaje de la API y no el genérico", async () => {
+  const { api } = await import("../src/lib/api.js");
+  const resp = (status, cuerpo) => async () => ({ ok: false, status, headers: { get: () => null }, json: async () => cuerpo, text: async () => JSON.stringify(cuerpo) });
+  const pedir = (status, cuerpo) => api("/x", { base: "http://api.test/v1", token: "t", fetcher: resp(status, cuerpo), reintentar: false, avisarSiVence: false });
+  const suyo = await pedir(422, { ok: false, error: { codigo: "datos_invalidos", mensaje: "Revisá 2 datos." } });
+  assert.equal(suyo.error.propio, true);
+  assert.equal(Object.keys(suyo.error).includes("propio"), false);
+  assert.equal(textoDeError(tCastellano, suyo.error), "Revisá 2 datos.");
+  assert.equal((await pedir(422, null)).error.propio, undefined);
+});
