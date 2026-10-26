@@ -1,4 +1,4 @@
-import { $, expect } from "@wdio/globals";
+import { $, browser, expect } from "@wdio/globals";
 import { entrar, reemplazarTexto, verTexto } from "./ayudas.js";
 
 const boton = (texto) => $(`button=${texto}`);
@@ -16,7 +16,11 @@ async function completar(nombre, valor) {
 
 describe("ecuaciones encadenadas", () => {
   it("crea una base, la utiliza y resuelve el resultado final", async () => {
-    await entrar("/ecuaciones", "taller-sin-casos");
+    // El taller sembrado no trae el módulo: se prende como lo haría la dueña.
+    await entrar("/negocio/modulos", "taller-sin-casos");
+    await $("button=Prender Ecuaciones personalizadas").click();
+    await expect($("button=Apagar Ecuaciones personalizadas")).toBeDisplayed();
+    await browser.url("/ecuaciones");
 
     await boton("Crear una ecuación").click();
     await reemplazarTexto("#ecuacion-nombre", "IMC");
@@ -40,7 +44,7 @@ describe("ecuaciones encadenadas", () => {
     await boton("Calcular").click();
 
     await expect($("body")).toHaveText(expect.stringContaining("Resultado"));
-    await expect($("body")).toHaveText(expect.stringContaining("1600"));
+    await expect($("body")).toHaveText(expect.stringContaining("1.600"));
     await expect($("body")).toHaveText(expect.stringContaining("Resultados intermedios"));
     await expect($("body")).toHaveText(expect.stringContaining("IMC: 20"));
   });

@@ -50,6 +50,17 @@ export async function entrar(destino = "/", escenario = "taller-completo") {
   return iniciarCon(await sembrar(escenario), destino);
 }
 
+// Un negocio recién creado desde la app no tiene suscripción y Guardia lo
+// manda a /planes (lib/suscripcion.js). Los sembrados ya traen el mes de
+// prueba; uno nuevo lo empieza como lo haría la dueña.
+export async function empezarElMesGratis() {
+  await browser.waitUntil(async () => (await browser.getUrl()).includes("/planes"), {
+    timeoutMsg: "El alta no llevó a elegir un plan",
+  });
+  await $("button=Empezar mi mes gratis").click();
+  await $("button=Ir a la app").click();
+}
+
 // Cambia lo que ya dice un campo como lo haría una persona: lo selecciona
 // entero y escribe encima. setValue a veces borra sin que React se entere, y
 // lo nuevo queda pegado a lo de antes ("341 222 3333341 444 5566").

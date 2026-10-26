@@ -10,6 +10,17 @@
 // Cada cuenta sembrada se anota y se borra al terminar (limpiarSembradas,
 // en el `after` de wdio.conf.js).
 
+import nextEnv from "@next/env";
+
+// Se carga acá, antes de leer las variables, y no en wdio.conf.js: los
+// imports corren antes que el cuerpo del archivo que importa. Y sin
+// NODE_ENV, porque wdio pone NODE_ENV=test en cada worker y con test
+// @next/env (como Next) se saltea .env.local.
+const { NODE_ENV } = process.env;
+delete process.env.NODE_ENV;
+nextEnv.loadEnvConfig(process.cwd());
+if (NODE_ENV !== undefined) process.env.NODE_ENV = NODE_ENV;
+
 const API = (process.env.E2E_API_URL || "http://localhost:4000").replace(/\/+$/, "").replace(/\/v1$/, "");
 const CLAVE = process.env.E2E_SEMILLA_CLAVE || "";
 
