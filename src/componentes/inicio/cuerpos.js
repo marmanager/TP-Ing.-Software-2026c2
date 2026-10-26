@@ -8,6 +8,8 @@
 
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
+import { presentacion } from "@/lib/inventario";
 import {
   casosPorAprobar,
   estaAbierto,
@@ -46,7 +48,10 @@ function Fila({ href, children }) {
   );
 }
 
-function YMas({ cuantos, href, que }) {
+// "clave" es inicio.ymas.<clave> (casos, turnos...); "palabra" es el sustantivo ya
+// en plural cuando viene del rubro (insumos, productos).
+function YMas({ cuantos, href, clave, palabra }) {
+  const { t } = useIdioma();
   if (cuantos <= 0) return null;
   return (
     <li className="border-t border-borde">
@@ -55,7 +60,7 @@ function YMas({ cuantos, href, que }) {
         className="flex min-h-12 items-center gap-2 px-4 font-bold text-azul sm:px-6"
       >
         <Icono nombre="mas" className="size-5" />
-        Ver {cuantos} {que} más
+        {palabra ? t("inicio.ymas.palabra", { n: cuantos, palabra }) : t(`inicio.ymas.${clave}`, { n: cuantos })}
       </Link>
     </li>
   );
@@ -98,6 +103,7 @@ function Numerito({ href, icono, color, titulo, cuanto, detalle }) {
 }
 
 function CuerpoPendientes() {
+  const { idioma, t } = useIdioma();
   const { casos, insumos, negocio } = useDatos();
   // Esta tarjeta es del núcleo y está en cualquier negocio, pero uno de sus
   // tres números es del Inventario. Con esa pantalla apagada el número
@@ -107,7 +113,7 @@ function CuerpoPendientes() {
   const conEnCamino = hijosActivos("inventario", negocio?.modulos_activos ?? []).some(
     (h) => h.clave === "en_camino"
   );
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
 
   const abiertos = casos.filter(estaAbierto);
   const esperando = abiertos.filter((c) => c.estado === "esperando");
@@ -125,23 +131,23 @@ function CuerpoPendientes() {
         href="/casos"
         icono="reloj"
         color="text-espera"
-        titulo="Esperan tu respuesta"
-        cuanto={`${esperando.length} ${esperando.length === 1 ? "caso" : "casos"}`}
-        detalle={esperando.length ? "Falta que conteste el cliente." : "No hay ninguno."}
+        titulo={t("inicio.pendientes.esperanTitulo")}
+        cuanto={t("inicio.pendientes.casos", { n: esperando.length })}
+        detalle={esperando.length ? t("inicio.pendientes.faltaContestar") : t("inicio.pendientes.ninguno")}
       />
       {conEnCamino && (
         <Numerito
           href="/inventario/en-camino"
           icono="camion"
           color="text-terracota"
-          titulo={`${mayuscula(articulo.palabra(2))} en camino`}
+          titulo={t("inicio.pendientes.enCamino", { palabra: mayuscula(articulo.palabra(2)) })}
           cuanto={articulo.cuantos(enCamino.length)}
           detalle={
             enCamino.length === 0
-              ? "No falta que llegue nada."
+              ? t("inicio.pendientes.nadaPorLlegar")
               : casoDelPrimero
-                ? `${enCamino[0].nombre}, para el ${casoEnFrase(casoDelPrimero)}.`
-                : `${enCamino[0].nombre}, para el stock.`
+                ? t("inicio.pendientes.paraElCaso", { nombre: enCamino[0].nombre, caso: casoEnFrase(casoDelPrimero, t) })
+                : t("inicio.pendientes.paraElStock", { nombre: enCamino[0].nombre })
           }
         />
       )}
@@ -149,9 +155,9 @@ function CuerpoPendientes() {
         href="/casos"
         icono="listo"
         color="text-completo"
-        titulo="Listos para entregar"
-        cuanto={`${listos.length} ${listos.length === 1 ? "caso" : "casos"}`}
-        detalle={listos.length ? "Falta avisarle al cliente." : "Ninguno pasó el control."}
+        titulo={t("inicio.pendientes.listosTitulo")}
+        cuanto={t("inicio.pendientes.casos", { n: listos.length })}
+        detalle={listos.length ? t("inicio.pendientes.faltaAvisar") : t("inicio.pendientes.ningunoControl")}
       />
     </div>
   );
@@ -160,6 +166,7 @@ function CuerpoPendientes() {
 // ---------- casos ----------
 
 function CuerpoCasos({ filtro, filas }) {
+  const { idioma, locale, t } = useIdioma();
   const { casos, clientes, empleados, negocio, pasos, insumos } = useDatos();
 
   const elegidos = casos
@@ -174,8 +181,8 @@ function CuerpoCasos({ filtro, filas }) {
     return (
       <SinNada>
         {filtro === "todos" || filtro === "abiertos"
-          ? "Todavía no hay casos. Abrí el primero desde el botón de arriba."
-          : `No hay ninguno en ${presentacionEstado(negocio, filtro).nombre.toLowerCase()}.`}
+          ? t("inicio.casos.vacio")
+          : t("inicio.casos.ningunoEn", { estado: presentacionEstado(negocio, filtro, idioma).nombre.toLowerCase() })}
       </SinNada>
     );
   }
@@ -186,32 +193,32 @@ function CuerpoCasos({ filtro, filas }) {
         const cliente = clientes.find((c) => c.id === caso.cliente_id);
         // El nombre arriba con el número en chiquito, y abajo el cliente
         // sólo si el caso no se llama ya así (SCRUM-119).
-        const titulo = tituloDelCaso(caso);
+        const titulo = tituloDelCaso(caso, t);
         const quien =
-          cliente?.nombre === titulo ? null : (cliente?.nombre ?? "Sin cliente");
+          cliente?.nombre === titulo ? null : (cliente?.nombre ?? t("inicio.sinCliente"));
         return (
           <Fila key={caso.id} href={`/casos/${caso.id}`}>
             <Barra estado={caso.estado} />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">
                 {titulo}
-                {lineaDelCaso(caso) && ` · ${lineaDelCaso(caso)}`}
-                {subtituloDelCaso(caso) && (
-                  <span className="font-normal text-apoyo text-tinta-suave"> · {subtituloDelCaso(caso)}</span>
+                {lineaDelCaso(caso, undefined, t) && ` · ${lineaDelCaso(caso, undefined, t)}`}
+                {subtituloDelCaso(caso, t) && (
+                  <span className="font-normal text-apoyo text-tinta-suave"> · {subtituloDelCaso(caso, t)}</span>
                 )}
               </span>
               <span className="block truncate text-apoyo text-tinta-suave">
                 {quien && `${quien} · `}
-                {queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente })}
+                {queFalta(caso, { rubro: negocio?.rubro, pasos, insumos, cliente, idioma }, t)}
               </span>
             </span>
             <span className="hidden shrink-0 text-apoyo text-tinta-suave sm:block">
-              {quienLoTiene(caso, empleados)}
+              {quienLoTiene(caso, empleados, t)}
             </span>
           </Fila>
         );
       })}
-      <YMas cuantos={elegidos.length - filas} href="/casos" que="casos" />
+      <YMas cuantos={elegidos.length - filas} href="/casos" clave="casos" />
     </ul>
   );
 }
@@ -219,6 +226,7 @@ function CuerpoCasos({ filtro, filas }) {
 // ---------- agenda ----------
 
 function CuerpoAgenda({ filtro, filas }) {
+  const { locale, t: tr } = useIdioma();
   const { turnos, clientes } = useDatos();
 
   const arrancaHoy = new Date();
@@ -243,10 +251,10 @@ function CuerpoAgenda({ filtro, filas }) {
     return (
       <SinNada>
         {filtro === "sin_confirmar"
-          ? "No hay turnos sin confirmar."
+          ? tr("inicio.agenda.sinConfirmar")
           : filtro === "semana"
-            ? "No hay turnos en los próximos siete días."
-            : "No hay turnos para hoy."}
+            ? tr("inicio.agenda.semana")
+            : tr("inicio.agenda.hoy")}
       </SinNada>
     );
   }
@@ -258,24 +266,24 @@ function CuerpoAgenda({ filtro, filas }) {
         return (
           <Fila key={t.id} href="/agenda">
             <span className="w-14 shrink-0 font-titulo font-extrabold tabular-nums">
-              {horaYMinutos(t.empieza_en)}
+              {horaYMinutos(t.empieza_en, locale)}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">{t.motivo}</span>
               <span className="block truncate text-apoyo text-tinta-suave">
-                {cliente?.nombre ?? "Sin cliente"}
-                {filtro !== "hoy" && ` · ${diaLargo(t.empieza_en).toLowerCase()}`}
+                {cliente?.nombre ?? tr("inicio.sinCliente")}
+                {filtro !== "hoy" && ` · ${diaLargo(t.empieza_en, locale, tr).toLowerCase()}`}
               </span>
             </span>
             {t.estado === "agendado" && (
               <span className="shrink-0 text-apoyo text-espera">
-                {estadoDeTurno("agendado").palabra}
+                {estadoDeTurno("agendado", tr).palabra}
               </span>
             )}
           </Fila>
         );
       })}
-      <YMas cuantos={elegidos.length - filas} href="/agenda" que="turnos" />
+      <YMas cuantos={elegidos.length - filas} href="/agenda" clave="turnos" />
     </ul>
   );
 }
@@ -283,8 +291,9 @@ function CuerpoAgenda({ filtro, filas }) {
 // ---------- inventario ----------
 
 function CuerpoInventario({ filtro, filas }) {
+  const { idioma, t } = useIdioma();
   const { insumos, casos, negocio } = useDatos();
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
   // Lo pedido se mudó a "En camino" (SCRUM-113): una fila de algo pedido que
   // siguiera llevando a "En stock" llevaría a una pantalla donde no está.
   const adonde = (i) =>
@@ -300,10 +309,10 @@ function CuerpoInventario({ filtro, filas }) {
     return (
       <SinNada>
         {filtro === "llegaron"
-          ? "No llegó ningún pedido."
+          ? t("inicio.inventario.llegaron")
           : filtro === "todo"
-            ? `Todavía no hay ${articulo.palabra(2)} ${articulo.segun("cargados", "cargadas")}.`
-            : "No hay nada por debajo del mínimo."}
+            ? t(`inicio.inventario.todo.${articulo.segun("m", "f")}`, { palabra: articulo.palabra(2) })
+            : t("inicio.inventario.bajo")}
       </SinNada>
     );
   }
@@ -320,11 +329,11 @@ function CuerpoInventario({ filtro, filas }) {
               <span className="block truncate text-apoyo text-tinta-suave">
                 {i.estado === "llegado"
                   ? caso
-                    ? `Llegó. Es del ${casoEnFrase(caso)}.`
-                    : "Llegó y todavía nadie lo usó."
+                    ? t("inicio.inventario.llegoDelCaso", { caso: casoEnFrase(caso, t) })
+                    : t("inicio.inventario.llegoSinUso")
                   : i.estado === "pedido"
-                    ? "Pedido, todavía no llegó."
-                    : `Quedan ${i.cantidad} ${i.unidad}.`}
+                    ? t("inicio.inventario.pedido")
+                    : t("inicio.inventario.quedan", { cantidad: i.cantidad, unidad: presentacion(i, i.cantidad, t) })}
               </span>
             </span>
             {bajo ? (
@@ -340,7 +349,7 @@ function CuerpoInventario({ filtro, filas }) {
           </Fila>
         );
       })}
-      <YMas cuantos={elegidos.length - filas} href="/inventario" que={articulo.palabra(2)} />
+      <YMas cuantos={elegidos.length - filas} href="/inventario" palabra={articulo.palabra(2)} />
     </ul>
   );
 }
@@ -348,47 +357,48 @@ function CuerpoInventario({ filtro, filas }) {
 // ---------- a aprobar ----------
 
 function CuerpoAprobar({ filas }) {
+  const { locale, t } = useIdioma();
   const { casos, clientes, pasos } = useDatos();
 
   const conPendientes = casosPorAprobar(casos, pasos);
 
   if (conPendientes.length === 0) {
-    return <SinNada>No hay nada esperando respuesta del cliente.</SinNada>;
+    return <SinNada>{t("inicio.aprobar.nada")}</SinNada>;
   }
 
   const total = conPendientes.reduce((s, x) => s + x.plata, 0);
 
   return (
     <>
-      <p className="px-4 pt-3 text-apoyo text-tinta-suave sm:px-6">Esperando respuesta</p>
+      <p className="px-4 pt-3 text-apoyo text-tinta-suave sm:px-6">{t("inicio.aprobar.esperando")}</p>
       <p className="px-4 pb-3 font-titulo font-extrabold text-subtitulo text-espera tabular-nums sm:px-6">
-        {pesos(total)}
+        {pesos(total, locale)}
       </p>
       <ul className="border-t border-borde">
         {conPendientes.slice(0, filas).map(({ caso, cuantos, plata }) => {
           const cliente = clientes.find((c) => c.id === caso.cliente_id);
-          const titulo = tituloDelCaso(caso);
+          const titulo = tituloDelCaso(caso, t);
           const quien =
-            cliente?.nombre === titulo ? null : (cliente?.nombre ?? "Sin cliente");
+            cliente?.nombre === titulo ? null : (cliente?.nombre ?? t("inicio.sinCliente"));
           return (
             <Fila key={caso.id} href={`/casos/${caso.id}/pasos`}>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-bold">
                   {titulo}
                   {quien && ` · ${quien}`}
-                  {subtituloDelCaso(caso) && (
-                    <span className="font-normal text-apoyo text-tinta-suave"> · {subtituloDelCaso(caso)}</span>
+                  {subtituloDelCaso(caso, t) && (
+                    <span className="font-normal text-apoyo text-tinta-suave"> · {subtituloDelCaso(caso, t)}</span>
                   )}
                 </span>
                 <span className="block text-apoyo text-tinta-suave">
-                  {cuantos} {cuantos === 1 ? "paso" : "pasos"} sin contestar
+                  {t("inicio.aprobar.pasos", { n: cuantos })}
                 </span>
               </span>
-              <span className="shrink-0 font-bold tabular-nums">{pesos(plata)}</span>
+              <span className="shrink-0 font-bold tabular-nums">{pesos(plata, locale)}</span>
             </Fila>
           );
         })}
-        <YMas cuantos={conPendientes.length - filas} href="/aprobar" que="casos" />
+        <YMas cuantos={conPendientes.length - filas} href="/aprobar" clave="casos" />
       </ul>
     </>
   );
@@ -397,10 +407,11 @@ function CuerpoAprobar({ filas }) {
 // ---------- equipo ----------
 
 function CuerpoEquipo({ filas }) {
+  const { t } = useIdioma();
   const { empleados, casos } = useDatos();
 
   if (empleados.length === 0) {
-    return <SinNada>Todavía no hay nadie cargado en el equipo.</SinNada>;
+    return <SinNada>{t("inicio.equipo.nadie")}</SinNada>;
   }
 
   const conCarga = empleados
@@ -419,11 +430,11 @@ function CuerpoEquipo({ filas }) {
           </span>
           <span className="min-w-0 flex-1 truncate font-bold">{empleado.nombre}</span>
           <span className="shrink-0 text-tinta-media">
-            {cuantos === 0 ? "Sin casos" : `${cuantos} ${cuantos === 1 ? "caso" : "casos"}`}
+            {cuantos === 0 ? t("inicio.equipo.sinCasos") : t("inicio.equipo.casos", { n: cuantos })}
           </span>
         </Fila>
       ))}
-      <YMas cuantos={conCarga.length - filas} href="/equipo" que="personas" />
+      <YMas cuantos={conCarga.length - filas} href="/equipo" clave="personas" />
     </ul>
   );
 }
@@ -431,6 +442,7 @@ function CuerpoEquipo({ filas }) {
 // ---------- clientes ----------
 
 function CuerpoClientes({ filtro, filas }) {
+  const { t } = useIdioma();
   const { clientes, casos } = useDatos();
 
   const abiertosDe = (id) => casos.filter((c) => c.cliente_id === id && estaAbierto(c)).length;
@@ -444,8 +456,8 @@ function CuerpoClientes({ filtro, filas }) {
     return (
       <SinNada>
         {filtro === "con_abiertos"
-          ? "Ningún cliente tiene casos sin cerrar."
-          : "Todavía no hay clientes cargados."}
+          ? t("inicio.clientes.ninguno")
+          : t("inicio.clientes.vacio")}
       </SinNada>
     );
   }
@@ -459,18 +471,18 @@ function CuerpoClientes({ filtro, filas }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">{cliente.nombre}</span>
               <span className="block truncate text-apoyo text-tinta-suave">
-                {telefonoLegible(cliente.telefono) || "Sin teléfono"}
+                {telefonoLegible(cliente.telefono) || t("inicio.clientes.sinTelefono")}
               </span>
             </span>
             {cuantos > 0 && (
               <span className="shrink-0 text-tinta-media">
-                {cuantos} sin cerrar
+                {t("inicio.clientes.sinCerrar", { n: cuantos })}
               </span>
             )}
           </Fila>
         );
       })}
-      <YMas cuantos={elegidos.length - filas} href="/clientes" que="clientes" />
+      <YMas cuantos={elegidos.length - filas} href="/clientes" clave="clientes" />
     </ul>
   );
 }
@@ -478,6 +490,7 @@ function CuerpoClientes({ filtro, filas }) {
 // ---------- historial ----------
 
 function CuerpoHistorial({ filtro, filas }) {
+  const { locale, t } = useIdioma();
   const { eventos, casos } = useDatos();
   const elegidos = filtrarHistorial(eventos, { tipo: filtro });
 
@@ -485,8 +498,8 @@ function CuerpoHistorial({ filtro, filas }) {
     return (
       <SinNada>
         {eventos.length === 0
-          ? "Todavía no pasó nada. Cuando abras el primer caso, aparece acá."
-          : "No pasó nada de esto todavía."}
+          ? t("inicio.historial.vacio")
+          : t("inicio.historial.nada")}
       </SinNada>
     );
   }
@@ -501,19 +514,19 @@ function CuerpoHistorial({ filtro, filas }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate font-bold">
                 {e.titulo}
-                {caso && ` · ${tituloDelCaso(caso)}`}
+                {caso && ` · ${tituloDelCaso(caso, t)}`}
               </span>
               <span className="block truncate text-apoyo text-tinta-suave">
-                {cuando(e.ocurrido_en)} · {e.autor}
+                {cuando(e.ocurrido_en, locale, t)} · {e.autor}
               </span>
             </span>
             {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
-              <span className="shrink-0 font-bold tabular-nums">{pesos(e.monto)}</span>
+              <span className="shrink-0 font-bold tabular-nums">{pesos(e.monto, locale)}</span>
             )}
           </Fila>
         );
       })}
-      <YMas cuantos={elegidos.length - filas} href="/historial" que="eventos" />
+      <YMas cuantos={elegidos.length - filas} href="/historial" clave="eventos" />
     </ul>
   );
 }

@@ -16,7 +16,8 @@
 // los botones de Ajustes.
 
 import Link from "next/link";
-import { CATALOGO, COLUMNAS, MAX_ALTO, filasPara } from "@/lib/inicio";
+import { CATALOGO, COLUMNAS, MAX_ALTO, filasPara, traducirDelCatalogo } from "@/lib/inicio";
+import { useIdioma } from "@/lib/useIdioma";
 import { CUERPOS } from "./cuerpos";
 import Icono from "@/componentes/Icono";
 import { Boton } from "@/componentes/ui";
@@ -64,18 +65,19 @@ function BotonChico({ children, ...props }) {
 }
 
 function Medida({ etiqueta, valor, alAchicar, alAgrandar, puedeAchicar, puedeAgrandar }) {
+  const { t } = useIdioma();
   return (
     <div>
       <span className="block font-bold text-etiqueta">{etiqueta}</span>
       <div className="mt-1 flex items-center gap-2">
         <BotonChico onClick={alAchicar} disabled={!puedeAchicar}>
-          Menos
+          {t("inicio.ajustes.menos")}
         </BotonChico>
         <span className="w-14 shrink-0 text-center text-etiqueta text-tinta-media tabular-nums">
           {valor}
         </span>
         <BotonChico onClick={alAgrandar} disabled={!puedeAgrandar}>
-          Más
+          {t("inicio.ajustes.mas")}
         </BotonChico>
       </div>
     </div>
@@ -83,6 +85,7 @@ function Medida({ etiqueta, valor, alAchicar, alAgrandar, puedeAchicar, puedeAgr
 }
 
 function Ajustes({ config, def, acciones, esPrimero, esUltimo }) {
+  const { t } = useIdioma();
   const { clave, ancho, alto, x } = config;
 
   return (
@@ -90,16 +93,16 @@ function Ajustes({ config, def, acciones, esPrimero, esUltimo }) {
       <p className="text-apoyo text-tinta-suave">{def.queMuestra}</p>
 
       <Medida
-        etiqueta="Ancho"
-        valor={`${ancho} de ${COLUMNAS}`}
+        etiqueta={t("inicio.ajustes.ancho")}
+        valor={t("inicio.ajustes.deTotal", { n: ancho, total: COLUMNAS })}
         alAchicar={() => acciones.redimensionar(clave, ancho - 1, alto)}
         alAgrandar={() => acciones.redimensionar(clave, ancho + 1, alto)}
         puedeAchicar={ancho > 1}
         puedeAgrandar={x + ancho < COLUMNAS}
       />
       <Medida
-        etiqueta="Alto"
-        valor={`${alto} de ${MAX_ALTO}`}
+        etiqueta={t("inicio.ajustes.alto")}
+        valor={t("inicio.ajustes.deTotal", { n: alto, total: MAX_ALTO })}
         alAchicar={() => acciones.redimensionar(clave, ancho, alto - 1)}
         alAgrandar={() => acciones.redimensionar(clave, ancho, alto + 1)}
         puedeAchicar={alto > 1}
@@ -108,13 +111,13 @@ function Ajustes({ config, def, acciones, esPrimero, esUltimo }) {
 
       {/* En celular no hay grilla que arrastrar: se sube y se baja. */}
       <div className="md:hidden">
-        <span className="block font-bold text-etiqueta">Lugar</span>
+        <span className="block font-bold text-etiqueta">{t("inicio.ajustes.lugar")}</span>
         <div className="mt-1 flex items-center gap-2">
           <BotonChico onClick={() => acciones.intercambiar(clave, -1)} disabled={esPrimero}>
-            Subir
+            {t("inicio.ajustes.subir")}
           </BotonChico>
           <BotonChico onClick={() => acciones.intercambiar(clave, 1)} disabled={esUltimo}>
-            Bajar
+            {t("inicio.ajustes.bajar")}
           </BotonChico>
         </div>
       </div>
@@ -122,7 +125,7 @@ function Ajustes({ config, def, acciones, esPrimero, esUltimo }) {
       {def.filtros && (
         <div>
           <label htmlFor={`filtro-${clave}`} className="block font-bold text-etiqueta">
-            Qué muestra
+            {t("inicio.ajustes.queMuestra")}
           </label>
           <select
             id={`filtro-${clave}`}
@@ -145,7 +148,7 @@ function Ajustes({ config, def, acciones, esPrimero, esUltimo }) {
         className="min-h-12"
         onClick={() => acciones.quitar(clave)}
       >
-        Sacar del inicio
+        {t("inicio.ajustes.sacar")}
       </Boton>
     </div>
   );
@@ -166,7 +169,8 @@ export default function Modulo({
   alAgarrarParaRedimensionar,
   alTeclado,
 }) {
-  const def = CATALOGO[config.clave];
+  const { t } = useIdioma();
+  const def = traducirDelCatalogo(CATALOGO[config.clave], t);
   if (!def) return null;
 
   const Cuerpo = CUERPOS[config.clave];
@@ -196,8 +200,8 @@ export default function Modulo({
       {...(acomodando
         ? {
             tabIndex: 0,
-            "aria-roledescription": "módulo acomodable",
-            "aria-label": `${def.nombre}. Columna ${config.x + 1}, fila ${config.y + 1}, ${config.ancho} de ancho por ${config.alto} de alto. Movelo con las flechas; con Shift le cambiás el tamaño.`,
+            "aria-roledescription": t("inicio.modulo.acomodable"),
+            "aria-label": t("inicio.modulo.etiqueta", { nombre: def.nombre, columna: config.x + 1, fila: config.y + 1, ancho: config.ancho, alto: config.alto }),
             onPointerDown: alAgarrarParaMover,
             onClick: alSeleccionar,
             onFocus: alSeleccionar,
@@ -221,7 +225,7 @@ export default function Modulo({
             className="flex min-h-12 shrink-0 cursor-pointer items-center gap-1.5 rounded-campo px-2 font-bold text-azul text-etiqueta hover:bg-azul-claro"
           >
             <Icono nombre={ajustando ? "cruz" : "tuerca"} className="size-6" />
-            {ajustando ? "Cerrar" : "Ajustes"}
+            {ajustando ? t("inicio.modulo.cerrar") : t("inicio.modulo.ajustes")}
           </button>
         )}
 
@@ -230,7 +234,7 @@ export default function Modulo({
             href={def.ruta}
             className="flex min-h-12 shrink-0 items-center font-bold text-azul text-etiqueta"
           >
-            Ver todo
+            {t("inicio.modulo.verTodo")}
           </Link>
         )}
       </header>

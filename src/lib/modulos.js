@@ -317,3 +317,17 @@ export const traducirModulo = (m, t = tCastellano) =>
 // Sólo el nombre, para títulos y etiquetas ("Las pantallas de Inventario").
 export const nombreDeModulo = (clave, t = tCastellano) =>
   traducirModulo(MODULOS[clave] ?? SUBMODULOS[clave], t)?.nombre ?? clave;
+
+// La palabra de cada lugar de la barra de secciones. Los módulos se llaman en
+// la barra como en Mi negocio → Módulos (mismo texto, modulos.<clave>.nombre);
+// los que no son módulos tienen el suyo. "ecuaciones" es la excepción: en la
+// barra es la palabra corta, y el módulo se llama "Ecuaciones personalizadas".
+const PALABRA_PROPIA_DE_BARRA = {
+  inicio: "inicio.titulo",
+  casos: "casos.lista.titulo",
+  ecuaciones: "navegacion.ecuaciones",
+  negocio: "negocio.titulo",
+  perfil: "cuenta.titulo",
+};
+export const palabraDeBarra = (clave, t = tCastellano) =>
+  PALABRA_PROPIA_DE_BARRA[clave] ? t(PALABRA_PROPIA_DE_BARRA[clave]) : nombreDeModulo(clave, t);

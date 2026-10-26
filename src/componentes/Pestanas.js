@@ -24,7 +24,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icono from "./Icono";
 import { useDatos } from "@/lib/datos";
-import { MODULOS, hijosActivos } from "@/lib/modulos";
+import { hijosActivos, nombreDeModulo, traducirModulo } from "@/lib/modulos";
+import { useIdioma } from "@/lib/useIdioma";
 
 export default function Pestanas({ padre }) {
   const ruta = usePathname();
@@ -34,7 +35,7 @@ export default function Pestanas({ padre }) {
   if (vistas.length < 2) return null;
 
   return (
-    <nav aria-label={`Las pantallas de ${MODULOS[padre]?.nombre ?? padre}`} className="mb-6">
+    <nav aria-label={t("navegacion.pantallasDe", { modulo: nombreDeModulo(padre, t) })} className="mb-6">
       <ul className="flex flex-wrap gap-2">
         {vistas.map((v) => {
           // Exacta y no startsWith: "/agenda" es el principio de

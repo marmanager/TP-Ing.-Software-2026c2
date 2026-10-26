@@ -29,6 +29,7 @@
 // "modulosActivos.includes(...)" acá escondía las tarjetas de Clientes e
 // Historial en todos los negocios que no los tienen escritos, que son todos.
 import { estaPrendido } from "./modulos";
+import { tCastellano } from "./idioma.js";
 
 export const COLUMNAS = 6;
 export const MAX_ALTO = 6;
@@ -166,6 +167,16 @@ export const CATALOGO = {
 };
 
 export const LISTA_CATALOGO = Object.values(CATALOGO);
+
+// Una entrada del catálogo con sus textos en el idioma de t (inicio.catalogo.
+// <clave>.*). Sin t salen en castellano, igual que las constantes de arriba.
+export const traducirDelCatalogo = (def, t = tCastellano) =>
+  def && {
+    ...def,
+    nombre: t(`inicio.catalogo.${def.clave}.nombre`, {}, def.nombre),
+    queMuestra: t(`inicio.catalogo.${def.clave}.queMuestra`, {}, def.queMuestra),
+    filtros: def.filtros && def.filtros.map((f) => ({ ...f, palabra: t(`inicio.catalogo.${def.clave}.filtros.${f.clave}`, {}, f.palabra) })),
+  };
 
 // Cómo arranca la pantalla si nadie la tocó: lo urgente arriba y ancho, los
 // casos grandes a la izquierda, a la derecha, en columna, lo del día, y abajo
