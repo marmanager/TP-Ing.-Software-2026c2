@@ -13,8 +13,8 @@ import { Boton, Cargando, Tarjeta, TituloPantalla } from "@/componentes/ui";
 const fecha = (iso, locale) => new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "long" });
 
 export default function Prueba() {
-  const { locale } = useIdioma();
-  useTitulo("Mes de prueba");
+  const { locale, t } = useIdioma();
+  useTitulo(t("cuenta.suscripcion.prueba"));
   const router = useRouter();
   const { cargando, datos } = useSuscripcionCompartida();
 
@@ -28,29 +28,29 @@ export default function Prueba() {
     <div className="mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
       {activa ? (
         <>
-          <TituloPantalla apoyo={`Te ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}: hasta el ${fecha(hasta, locale)}.`}>
-            Tu mes de prueba está activo
+          <TituloPantalla apoyo={t("prueba.queda", { n: dias, fecha: fecha(hasta, locale) })}>
+            {t("prueba.activo")}
           </TituloPantalla>
           <Tarjeta>
             <ul className="flex list-disc flex-col gap-2 pl-5">
-              <li>Todo el sistema, para vos y todo tu equipo.</li>
-              <li>No te pedimos tarjeta.</li>
-              <li>Cuando termine, elegís un plan para seguir. Lo que cargaste queda guardado.</li>
+              <li>{t("prueba.todo")}</li>
+              <li>{t("prueba.sinTarjeta")}</li>
+              <li>{t("prueba.alTerminar")}</li>
             </ul>
           </Tarjeta>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Boton variante="principal" onClick={() => router.push("/")}>Ir a la app</Boton>
-            <Boton onClick={() => router.push("/planes")}>Elegir un plan ahora</Boton>
+            <Boton variante="principal" onClick={() => router.push("/")}>{t("planes.irALaApp")}</Boton>
+            <Boton onClick={() => router.push("/planes")}>{t("prueba.elegirAhora")}</Boton>
           </div>
         </>
       ) : (
         <>
           <TituloPantalla
-            apoyo={hasta ? `Terminó el ${fecha(hasta, locale)}. Para seguir, elegí un plan.` : "Lo podés empezar desde los planes."}
+            apoyo={hasta ? t("prueba.termino", { fecha: fecha(hasta, locale) }) : t("prueba.empezar")}
           >
-            {hasta ? "Tu mes de prueba terminó" : "Todavía no empezaste tu mes de prueba"}
+            {hasta ? t("planes.encabezado.termino") : t("prueba.noEmpezaste")}
           </TituloPantalla>
-          <Boton variante="principal" onClick={() => router.push("/planes")}>Ver planes</Boton>
+          <Boton variante="principal" onClick={() => router.push("/planes")}>{t("cuenta.suscripcion.verPlanes")}</Boton>
         </>
       )}
     </div>
