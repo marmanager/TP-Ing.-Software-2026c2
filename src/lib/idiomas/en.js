@@ -1602,6 +1602,7 @@ export default {
       vacioConPermiso: "When you order {articulo} for a case, it shows up here until it arrives, and the case keeps waiting for it.",
       vacioSinPermiso: "When someone orders {articulo}, it shows up here until it arrives.",
       sinLlegar: "{cuantos} not arrived yet",
+      enCaminoA: "On the way to {sede}",
       llegoAlStock: "Done. {nombre} is now in stock.",
       llegoYSigue: "Done. {nombre} arrived and the {caso} can move on.",
       llegoYEspera: "Done. {nombre} arrived. The {caso} is still waiting for something else.",
@@ -1899,6 +1900,12 @@ export default {
       descripcion: "The inventory of your linked locations, together.",
       queHace:
         "How much there is of each product in each of your linked locations, the total, and what's missing where. Locations are linked from My business.",
+    },
+    en_camino_sedes: {
+      nombre: "On the way at other locations",
+      descripcion: "What your linked locations ordered, in On the way.",
+      queHace:
+        "Adds to On the way what your linked locations ordered and hasn't arrived yet, with the location it's going to. View only: to change something, switch to that location.",
     },
   },
   permisos: {

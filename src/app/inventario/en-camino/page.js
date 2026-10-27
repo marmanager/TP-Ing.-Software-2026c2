@@ -22,8 +22,13 @@
 //
 // Las palabras del oficio salen de vocabulario(): en un taller se piden
 // repuestos y en un consultorio, insumos.
+//
+// Con "En camino en otras sedes" prendido (y el permiso de ver el inventario
+// de las sedes), la lista suma lo que pidieron las sedes vinculadas, y cada
+// fila dice a qué sede va. Las de otra sede sólo se miran: sin caso, sin
+// cliente y sin botones.
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
@@ -33,13 +38,15 @@ import { useIdioma } from "@/lib/useIdioma";
 import { conElementos } from "@/lib/conElementos";
 import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
+import { hijosActivos } from "@/lib/modulos";
+import { inventarioDeSedes, pedidosDeOtrasSedes } from "@/lib/sedes";
 import { mayuscula, vocabulario } from "@/lib/presets";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import { buscarIgual, formDeProducto, limpiarProducto, motivoDelProducto, presentacion } from "@/lib/inventario";
 import Icono from "@/componentes/Icono";
 import Pestanas from "@/componentes/Pestanas";
 import { CamposDeProducto, EdicionDeProducto, PRODUCTO_VACIO } from "@/componentes/Producto";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Campo, Cargando, ErrorGeneral, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 // Sin caso elegido, el pedido es para reponer el stock.
 const PARA_EL_STOCK = "";
@@ -56,7 +63,7 @@ export default function EnCamino() {
 
 function Pantalla() {
   const datos = useDatos();
-  const { usuario } = useAuth();
+  const { usuario, sesion } = useAuth();
   const puedeCargar = puede(usuario, "editar_inventario");
   const { cargando, insumos, casos, clientes, negocio } = datos;
   const pedido = useSearchParams();
@@ -69,6 +76,11 @@ function Pantalla() {
   // Si se llegó con algo para pedir, el formulario arranca abierto y cargado:
   // se vino a pedir, no a mirar.
   const [abierto, setAbierto] = useState(Boolean(casoPedido || nombrePedido || reponer));
+
+  const conOtrasSedes =
+    hijosActivos("inventario", negocio?.modulos_activos ?? []).some((h) => h.clave === "en_camino_sedes") &&
+    puede(usuario, "ver_inventario_de_sedes");
+  const otrasSedes = useOtrasSedes(conOtrasSedes, sesion?.access_token, negocio?.id);
 
   if (cargando) return <Cargando />;
 
@@ -173,7 +185,9 @@ function Pantalla() {
         </>
       )}
 
-      {pedidos.length === 0 ? (
+      {conOtrasSedes && otrasSedes.error && <ErrorGeneral>{otrasSedes.error}</ErrorGeneral>}
+
+      {pedidos.length + otrasSedes.pedidos.length === 0 ? (
         <Vacio icono="camion" titulo={t("inventario.enCamino.vacioTitulo", { palabra: articulo.palabra(2) })}>
           {t(puedeCargar ? "inventario.enCamino.vacioConPermiso" : "inventario.enCamino.vacioSinPermiso", {
             articulo: articulo.un(),
@@ -182,23 +196,91 @@ function Pantalla() {
       ) : (
         <>
           <TituloSeccion>
-            {t("inventario.enCamino.sinLlegar", { cuantos: mayuscula(articulo.cuantos(pedidos.length)) })}
+            {t("inventario.enCamino.sinLlegar", {
+              cuantos: mayuscula(articulo.cuantos(pedidos.length + otrasSedes.pedidos.length)),
+            })}
           </TituloSeccion>
+          {/* Una sola lista: lo de esta sede y lo de las otras, por nombre,
+              así la misma pieza pedida en dos sedes queda junta. */}
           <ul className="flex flex-col gap-3">
-            {pedidos.map((i) => (
-              <FilaDePedido
-                key={i.id}
-                insumo={i}
-                caso={casoDe(i.caso_id)}
-                cliente={clienteDe(casoDe(i.caso_id))}
-                puedeCargar={puedeCargar}
-                alLlegar={() => llego(i)}
-              />
-            ))}
+            {[...pedidos, ...otrasSedes.pedidos]
+              .sort((a, b) => a.nombre.localeCompare(b.nombre, idioma))
+              .map((i) =>
+                i.sede ? (
+                  <FilaDeOtraSede key={i.id} insumo={i} />
+                ) : (
+                  <FilaDePedido
+                    key={i.id}
+                    insumo={i}
+                    sede={conOtrasSedes ? negocio?.nombre : null}
+                    caso={casoDe(i.caso_id)}
+                    cliente={clienteDe(casoDe(i.caso_id))}
+                    puedeCargar={puedeCargar}
+                    alLlegar={() => llego(i)}
+                  />
+                )
+              )}
           </ul>
         </>
       )}
     </>
+  );
+}
+
+// ------------------------------------------------------------
+// Lo pedido en las otras sedes
+// ------------------------------------------------------------
+// Sale de la misma API que "Todas las sedes": la base ya deja sólo las sedes
+// donde la persona tiene ficha y puede ver el inventario de sedes.
+const SIN_OTRAS = { pedidos: [], error: null };
+
+function useOtrasSedes(prendido, token, activoId) {
+  const [estado, setEstado] = useState(SIN_OTRAS);
+  useEffect(() => {
+    if (!prendido) return;
+    let vivo = true;
+    inventarioDeSedes(token).then((r) => {
+      if (!vivo) return;
+      setEstado(
+        r.ok ? { pedidos: pedidosDeOtrasSedes(r.insumos, r.sedes, activoId), error: null } : { pedidos: [], error: r.error }
+      );
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [prendido, token, activoId]);
+  return prendido ? estado : SIN_OTRAS;
+}
+
+// Sólo se mira: para cambiar algo se entra a esa sede.
+function FilaDeOtraSede({ insumo: i }) {
+  const { t } = useIdioma();
+  const detalle = [i.marca, i.modelo, i.categoria].filter(Boolean).join(" · ");
+  return (
+    <li>
+      <Tarjeta className="border-l-4 border-l-borde-fuerte">
+        <p className="font-bold text-subtitulo">
+          {i.nombre}
+          <span className="font-normal text-tinta-media">
+            {" "}
+            · {i.cantidad} {presentacion(i, i.cantidad, t)}
+          </span>
+        </p>
+        {detalle && <p className="text-apoyo text-tinta-suave">{detalle}</p>}
+        <EnCaminoA sede={i.sede} />
+      </Tarjeta>
+    </li>
+  );
+}
+
+// "En camino a {sede}", con el nombre en negrita.
+function EnCaminoA({ sede }) {
+  const { t } = useIdioma();
+  return (
+    <p className="flex items-center gap-1.5 text-tinta-media">
+      <Icono nombre="tienda" className="size-5 shrink-0" />
+      <span>{conElementos(t("inventario.enCamino.enCaminoA"), { sede: <span className="font-bold">{sede}</span> })}</span>
+    </p>
   );
 }
 
@@ -313,7 +395,7 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
 // ------------------------------------------------------------
 // "Marcar que llegó" es lo de todos los días. "Editar" cambia los datos y la
 // cantidad, y es el único lugar desde donde se borra, preguntando antes.
-function FilaDePedido({ insumo: i, caso, cliente, puedeCargar, alLlegar }) {
+function FilaDePedido({ insumo: i, sede, caso, cliente, puedeCargar, alLlegar }) {
   const [editando, setEditando] = useState(false);
   const { t } = useIdioma();
   const detalle = [i.marca, i.modelo].filter(Boolean).join(" · ");
@@ -349,6 +431,7 @@ function FilaDePedido({ insumo: i, caso, cliente, puedeCargar, alLlegar }) {
                 t("inventario.enCamino.paraReponer")
               )}
             </p>
+            {sede && <EnCaminoA sede={sede} />}
           </div>
           {puedeCargar && (
             <div className="flex flex-wrap gap-2">

@@ -33,7 +33,18 @@ export async function visitarSede(id, token) {
 
 export async function inventarioDeSedes(token) {
   const r = await traer("/inventario/sedes", token);
-  return r.ok ? { ok: true, sedes: r.datos.sedes, productos: r.datos.productos ?? [] } : conError(r);
+  return r.ok
+    ? { ok: true, sedes: r.datos.sedes, productos: r.datos.productos ?? [], insumos: r.datos.insumos ?? [] }
+    : conError(r);
+}
+
+// Lo pedido en las otras sedes de la red, con el nombre de la sede a la que
+// va. Lo de la sede activa queda afuera: "En camino" ya lo muestra, con su caso.
+export function pedidosDeOtrasSedes(insumos = [], sedes = [], activoId) {
+  const nombre = new Map(sedes.map((s) => [s.id, s.nombre]));
+  return insumos
+    .filter((i) => i.estado === "pedido" && i.negocio_id !== activoId && nombre.has(i.negocio_id))
+    .map((i) => ({ ...i, sede: nombre.get(i.negocio_id) }));
 }
 
 // Los negocios de la cuenta (mis_negocios, con su rol en cada uno) que se
