@@ -24,7 +24,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icono from "./Icono";
 import { useDatos } from "@/lib/datos";
-import { hijosActivos, nombreDeModulo, traducirModulo } from "@/lib/modulos";
+import { pantallasDe, nombreDeModulo, traducirModulo } from "@/lib/modulos";
 import { useIdioma } from "@/lib/useIdioma";
 
 export default function Pestanas({ padre }) {
@@ -32,7 +32,7 @@ export default function Pestanas({ padre }) {
   const ruta = usePathname();
   const { negocio } = useDatos();
 
-  const vistas = hijosActivos(padre, negocio?.modulos_activos ?? []);
+  const vistas = pantallasDe(padre, negocio?.modulos_activos ?? []);
   if (vistas.length < 2) return null;
 
   return (

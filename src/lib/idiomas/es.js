@@ -1608,6 +1608,7 @@ export default {
       vacioConPermiso: "Cuando pidas {articulo} para un caso, va a aparecer acá hasta que llegue, y el caso va a quedar esperándolo.",
       vacioSinPermiso: "Cuando alguien pida {articulo}, va a aparecer acá hasta que llegue.",
       sinLlegar: "{cuantos} sin llegar",
+      enCaminoA: "En camino a {sede}",
       llegoAlStock: "Listo. {nombre} ya está en el stock.",
       llegoYSigue: "Listo. Llegó {nombre} y el {caso} ya puede seguir.",
       llegoYEspera: "Listo. Llegó {nombre}. El {caso} sigue esperando otra cosa.",
@@ -1905,6 +1906,12 @@ export default {
       descripcion: "El inventario de tus sedes vinculadas, junto.",
       queHace:
         "Cuánto hay de cada producto en cada una de tus sedes vinculadas, el total, y qué falta dónde. Las sedes se vinculan desde Mi negocio.",
+    },
+    en_camino_sedes: {
+      nombre: "En camino en otras sedes",
+      descripcion: "Lo que pidieron tus sedes vinculadas, en En camino.",
+      queHace:
+        "Suma a En camino lo que pidieron tus sedes vinculadas y todavía no llegó, con a qué sede va. Sólo se mira: para cambiar algo se entra a esa sede.",
     },
   },
   permisos: {
