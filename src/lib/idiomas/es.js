@@ -2863,7 +2863,8 @@ export default {
   },
   lienzo: {
     apoyo: "Dibujá para explicar algo. No se guarda: si te sirve, bajalo como imagen.",
-    herramientas: "Herramientas",
+    pinceles: "Pinceles",
+    formas: "Formas",
     lapiz: "Lápiz",
     pincel: "Pincel",
     linea: "Línea",

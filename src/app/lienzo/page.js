@@ -8,7 +8,8 @@ import { apilar, COLORES, GROSORES, puntasDeFlecha, radio, rectangulo } from "@/
 import Icono from "@/componentes/Icono";
 import { Boton, Tarjeta, TituloPantalla } from "@/componentes/ui";
 
-const HERRAMIENTAS = ["lapiz", "pincel", "linea", "flecha", "rectangulo", "circulo", "borrador"];
+const PINCELES = ["lapiz", "pincel", "borrador"];
+const FORMAS = ["linea", "flecha", "rectangulo", "circulo"];
 const LIBRES = ["lapiz", "pincel", "borrador"];
 const ALTO = 560;
 
@@ -153,25 +154,50 @@ export default function Lienzo() {
       URL.revokeObjectURL(a.href);
     });
 
+  const botonHerramienta = (h) => (
+    <button
+      key={h}
+      type="button"
+      aria-label={t(`lienzo.${h}`)}
+      aria-pressed={herramienta === h}
+      title={t(`lienzo.${h}`)}
+      onClick={() => setHerramienta(h)}
+      className={`flex size-12 cursor-pointer items-center justify-center rounded-campo border-2 ${herramienta === h ? "border-azul bg-azul-claro text-azul" : "border-borde-fuerte bg-tarjeta text-tinta hover:bg-superficie"}`}
+    >
+      <Icono nombre={h} className="size-7" />
+    </button>
+  );
+
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-8">
       <TituloPantalla apoyo={t("lienzo.apoyo")}>{nombreDeModulo("lienzo", t)}</TituloPantalla>
 
       <Tarjeta className="mb-4 space-y-4">
-        <div role="group" aria-label={t("lienzo.herramientas")} className="flex flex-wrap gap-2">
-          {HERRAMIENTAS.map((h) => (
-            <button
-              key={h}
-              type="button"
-              aria-label={t(`lienzo.${h}`)}
-              aria-pressed={herramienta === h}
-              title={t(`lienzo.${h}`)}
-              onClick={() => setHerramienta(h)}
-              className={`flex size-12 cursor-pointer items-center justify-center rounded-campo border-2 ${herramienta === h ? "border-azul bg-azul-claro text-azul" : "border-borde-fuerte bg-tarjeta text-tinta hover:bg-superficie"}`}
-            >
-              <Icono nombre={h} className="size-7" />
-            </button>
-          ))}
+        {/* Pinceles, grosor y formas son tres grupos con aire entre ellos: juntos no se entendía qué era qué. */}
+        <div className="flex flex-wrap items-center gap-x-10 gap-y-4">
+          <div role="group" aria-label={t("lienzo.pinceles")} className="flex gap-2">
+            {PINCELES.map(botonHerramienta)}
+          </div>
+
+          <div role="group" aria-label={t("lienzo.grosor")} className="flex items-center gap-2">
+            {GROSORES.map((g, i) => (
+              <button
+                key={g}
+                type="button"
+                aria-label={t("lienzo.grosorN", { n: i + 1 })}
+                aria-pressed={grosor === g}
+                title={t("lienzo.grosorN", { n: i + 1 })}
+                onClick={() => setGrosor(g)}
+                className={`flex size-12 cursor-pointer items-center justify-center rounded-campo border-2 ${grosor === g ? "border-azul bg-azul-claro" : "border-borde-fuerte bg-tarjeta"}`}
+              >
+                <span className="rounded-full bg-tinta" style={{ width: g + 4, height: g + 4 }} />
+              </button>
+            ))}
+          </div>
+
+          <div role="group" aria-label={t("lienzo.formas")} className="flex gap-2">
+            {FORMAS.map(botonHerramienta)}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-6">
@@ -192,22 +218,6 @@ export default function Lienzo() {
               <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="size-12 cursor-pointer rounded-campo border-2 border-borde-fuerte bg-tarjeta p-1" />
               {t("lienzo.otroColor")}
             </label>
-          </div>
-
-          <div role="group" aria-label={t("lienzo.grosor")} className="flex items-center gap-2">
-            {GROSORES.map((g, i) => (
-              <button
-                key={g}
-                type="button"
-                aria-label={t("lienzo.grosorN", { n: i + 1 })}
-                aria-pressed={grosor === g}
-                title={t("lienzo.grosorN", { n: i + 1 })}
-                onClick={() => setGrosor(g)}
-                className={`flex size-12 cursor-pointer items-center justify-center rounded-campo border-2 ${grosor === g ? "border-azul bg-azul-claro" : "border-borde-fuerte bg-tarjeta"}`}
-              >
-                <span className="rounded-full bg-tinta" style={{ width: g + 4, height: g + 4 }} />
-              </button>
-            ))}
           </div>
         </div>
 

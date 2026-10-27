@@ -2857,7 +2857,8 @@ export default {
   },
   lienzo: {
     apoyo: "Draw to explain something. It isn't saved: download it as an image if it's useful.",
-    herramientas: "Tools",
+    pinceles: "Brushes",
+    formas: "Shapes",
     lapiz: "Pencil",
     pincel: "Brush",
     linea: "Line",
