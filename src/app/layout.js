@@ -43,8 +43,9 @@ const serif = Merriweather({
 });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--fuente-mono", display: "swap", preload: false });
 
-// El título y la descripción de la pestaña salen en el idioma de quien mira
-// (cada pantalla pone el suyo después, con useTitulo).
+// La descripción sale en el idioma de quien mira. El título no va acá: Next
+// manda el <title> de generateMetadata en streaming y pisaría al que cada
+// pantalla pone después con useTitulo.
 export async function generateMetadata() {
   const idioma = elegirIdioma(
     (await cookies()).get("idioma")?.value,
@@ -52,7 +53,6 @@ export async function generateMetadata() {
   );
   const fuente = { diccionario: idioma === "en" ? en : es, base: es, locale: LOCALES[idioma] };
   return {
-    title: traducir(fuente, "inicio.titulo"),
     description: traducir(fuente, "inicio.descripcionSitio"),
   };
 }
