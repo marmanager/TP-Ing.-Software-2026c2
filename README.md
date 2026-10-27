@@ -75,6 +75,15 @@ pruebas) y la borran al terminar: `entrar(ruta, escenario)` en
    API o a Render: las dos usan la misma base.
 3. `npm run test:e2e`.
 
+**O todo local, sin `.env` ni base en la nube:** `npm run test:e2e:local`. Usa el
+Supabase del stack de Docker (`npx supabase start` en este repo, con el schema de
+`supabase/migrations/`) y levanta por su cuenta una API en el puerto 4100 (de
+`../TP-IngeSoft-API`, o de `E2E_API_DIR`) y el front en el 3000, con las claves
+públicas del stack y la siembra prendida. Kapso y Mercado Pago quedan apuntando a
+ningún lado: no sale ningún WhatsApp ni se crea ningún cobro. Un solo archivo:
+`npm run test:e2e:local -- --spec ./pruebas/e2e/roles.e2e.js`. Está en
+`pruebas/e2e/local/`.
+
 Conviene reservar Jest para reglas, cálculos y validaciones, y WebdriverIO para
 unos pocos caminos críticos (iniciar sesión, crear un caso, aprobar un presupuesto
 y cobrar). Los tests E2E son más lentos y más sensibles a cambios visuales.

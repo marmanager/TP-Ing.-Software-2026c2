@@ -1307,7 +1307,9 @@ export default function VerCaso() {
           partidos en dos pantallas: se escribía acá qué se encontró y había
           que irse a otro lado a cargar lo que hay que hacer con eso. */}
 
-      <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
+      {/* mb-4: en celular el botón baja a su propia línea y quedaba pegado
+          a la nota o al historial que siguen. */}
+      <div className="mt-12 mb-4 flex flex-wrap items-center justify-between gap-3">
         <TituloSeccion className="mb-0">{t("casos.detalle.loQuePaso")}</TituloSeccion>
         {puedeCargar && (
           <Boton icono="nota" onClick={() => setAnotando((v) => !v)}>

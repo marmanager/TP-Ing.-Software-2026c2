@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrar, noVerTexto, verTexto } from "./ayudas.js";
+import { empezarElMesGratis, entrar, noVerTexto, verTexto } from "./ayudas.js";
 
 const botonRubro = (nombre) =>
   $(`//button[.//span[normalize-space()="${nombre}"]]`);
@@ -26,6 +26,7 @@ describe("Historia parcial: Sistema de presets", () => {
     await $("#nombre").setValue("Consultorio Norte");
     await botonRubro("Medicina").click();
     await $("button=Crear el negocio").click();
+    await empezarElMesGratis();
 
     await browser.waitUntil(async () => (await browser.getUrl()).endsWith("/"), {
       timeoutMsg: "El alta no llevó al inicio del negocio",

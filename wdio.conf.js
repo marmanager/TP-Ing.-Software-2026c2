@@ -1,9 +1,6 @@
-import nextEnv from "@next/env";
+// siembra.js carga las mismas variables que ve Next (.env.local y compañía):
+// ahí van E2E_API_URL y E2E_SEMILLA_CLAVE.
 import { limpiarSembradas } from "./pruebas/e2e/siembra.js";
-
-// Las mismas variables que ve Next (.env.local y compañía): ahí van
-// E2E_API_URL y E2E_SEMILLA_CLAVE (pruebas/e2e/siembra.js).
-nextEnv.loadEnvConfig(process.cwd());
 
 export const config = {
   runner: "local",

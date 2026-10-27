@@ -45,9 +45,10 @@ describe("Historia: Sumar gente al equipo con un link", () => {
 
     await iniciarCon(duenia, "/equipo");
     await verTexto("Quieren entrar (1)");
-    await $("select[id^='rol-pedido-']").selectByAttribute("value", "encargado");
+    // Las opciones son los roles del negocio (057), con su id de valor.
+    await $("select[id^='rol-pedido-']").selectByVisibleText("Encargado");
     await $("button=Aceptar").click();
-    await verTexto("entró como encargado");
+    await verTexto(": Encargado.");
 
     // Ya con acceso, /negocios la manda directo al Inicio de Taller Sur (la 051
     // le deja ese negocio de predeterminado con Inicio rápido). Si el pedido

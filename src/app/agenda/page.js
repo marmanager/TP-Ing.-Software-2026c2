@@ -168,8 +168,11 @@ export default function Agenda() {
                     </p>
                     {/* min-w-0 deja que el texto se encoja en vez de empujar
                         la tarjeta, y overflow-wrap corta lo que no tiene
-                        espacios. */}
-                    <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-1">
+                        espacios. Desde sm arranca de 16rem y no de 0: con
+                        base 0 las acciones nunca bajaban de línea y el texto
+                        quedaba de dos letras de ancho, estirado para abajo.
+                        Así, si no entra todo, las acciones pasan abajo. */}
+                    <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-[1_1_16rem]">
                       <p
                         className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado", tr).texto : ""}`}
                       >

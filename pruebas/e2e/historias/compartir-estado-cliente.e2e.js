@@ -91,7 +91,7 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
       "href",
       expect.stringContaining("https://wa.me/5493412223333")
     );
-    await expect($("a=Llamar al 341 222 3333")).toHaveAttribute("href", "tel:3412223333");
+    await expect($("a=Llamar al +54 9 341 222 3333")).toHaveAttribute("href", "tel:+5493412223333");
   });
 
   it("AC9: el negocio puede modificar su teléfono y conservarlo", async () => {
@@ -99,10 +99,11 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
     await $("button=Editar").click();
     await reemplazarTexto("#negocio-telefono", "341 444 5566");
     await $("button=Guardar").click();
-    await verTexto("Teléfono 341 444 5566");
+    // Se guarda y se muestra entero, con el código del país (B-1b).
+    await verTexto("Teléfono +54 9 341 444 5566");
 
     await browser.refresh();
-    await verTexto("Teléfono 341 444 5566");
+    await verTexto("Teléfono +54 9 341 444 5566");
   });
 
   it("AC4: un enlace deshabilitado deja de revelar el caso", async () => {
@@ -111,6 +112,8 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
     await abrirElLink();
     await $("button=Dejar de compartirlo").click();
     await $("button=Sí, dejar de compartirlo").click();
+    // Si se abre el link antes de que la API conteste, todavía anda.
+    await verTexto("Ese link dejó de funcionar");
     await browser.url(link);
     await verTexto("Este link ya no sirve");
   });
