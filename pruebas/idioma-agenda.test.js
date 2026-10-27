@@ -153,3 +153,29 @@ test("agenda, turnos, seguimiento: mismas claves y variables en es y en", () => 
     }
   }
 });
+
+test("plurales de terminasteTodoTexto, sueleVolverDias y sueleVolverMeses: n=1 y n=2 en los dos idiomas", () => {
+  const ctx = (diccionario, locale) => ({ diccionario, base: null, locale });
+  const e = ctx(es, "es-AR"), i = ctx(en, "en-US");
+  const claves = ["casos.detalle.terminasteTodoTexto", "agenda.cuandoVuelve.sueleVolverDias", "agenda.cuandoVuelve.sueleVolverMeses"];
+  const v = { estado: "X" };
+  assert.match(traducir(e, claves[0], { ...v, n: 1 }), /^El paso está hecho\./);
+  assert.match(traducir(e, claves[0], { ...v, n: 2 }), /^Los 2 pasos están hechos\./);
+  assert.match(traducir(i, claves[0], { ...v, n: 1 }), /^The step is done\./);
+  assert.match(traducir(i, claves[0], { ...v, n: 2 }), /^All 2 steps are done\./);
+  assert.match(traducir(e, claves[1], { n: 1 }), /cada día\.$/);
+  assert.match(traducir(e, claves[1], { n: 2 }), /cada 2 días\.$/);
+  assert.match(traducir(e, claves[2], { n: 1 }), /cada mes\.$/);
+  assert.match(traducir(e, claves[2], { n: 2 }), /cada 2 meses\.$/);
+  assert.match(traducir(i, claves[1], { n: 1 }), /every day\.$/);
+  assert.match(traducir(i, claves[1], { n: 2 }), /every 2 days\.$/);
+  assert.match(traducir(i, claves[2], { n: 1 }), /every month\.$/);
+  assert.match(traducir(i, claves[2], { n: 2 }), /every 2 months\.$/);
+  // las variables de cada forma, es y en, coinciden
+  const vars = (t) => new Set([...JSON.stringify(t).matchAll(/\{(\w+)\}/g)].map((m) => m[1]));
+  for (const k of claves) {
+    const get = (d) => k.split(".").reduce((o, p) => o[p], d);
+    assert.deepEqual(vars(get(es)), vars(get(en)));
+    for (const f of ["one", "other"]) assert.deepEqual(vars(get(es)[f]), vars(get(en)[f]));
+  }
+});
