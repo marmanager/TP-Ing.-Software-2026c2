@@ -1,6 +1,6 @@
 # Idiomas: castellano e inglés
 
-Diseñado. Plan: docs/idiomas-plan.md.
+Implementado. Plan: docs/idiomas-plan.md.
 
 Diseño aprobado el 2026-10-20.
 
@@ -55,7 +55,10 @@ y no como HTML estático. Se acepta: es una app con sesión, y la alternativa
 
 - `src/lib/idiomas/es.js` y `src/lib/idiomas/en.js`: objetos agrupados por
   pantalla. `es` es la fuente: toda clave existe en `es`.
-- El layout le pasa al cliente **sólo el diccionario activo**.
+- El provider manda el diccionario activo y, en inglés, también `es` como
+  `base` (para el "si falta en `en`, usa `es`"). Además `es` va en el bundle
+  del cliente aunque se mire en castellano, porque `tCastellano` (los `t` por
+  defecto de `src/lib/`, los errores locales de `datos.js`) lo necesita.
 - `useIdioma()` (cliente) devuelve `{ idioma, locale, t }`.
 - `t("casos.cuantos", { n: 3 })`:
   - interpola `{n}`, `{nombre}`, etc.;
@@ -94,7 +97,14 @@ Argentina aunque quien mira lea en inglés.
 
 - En **Mi perfil**, junto a Tema: Castellano / English.
 - Uno chico en las pantallas sin sesión: iniciar sesión, crear cuenta,
-  `/n/[codigo]`, `/seguimiento/[codigo]`, `/turnos/[codigo]`.
+  `/n/[codigo]`, `/seguimiento/[codigo]`, `/turnos/[codigo]`, y también en el
+  encabezado de `/bienvenida`.
+- Cada opción lleva su bandera (ES = Argentina, EN = Estados Unidos; SVG
+  propios, sin librería) y el código del idioma.
+- El título de la pestaña lo pone cada pantalla con `useTitulo`.
+  `generateMetadata` del layout devuelve sólo la descripción: si devolviera
+  `title`, Next lo manda en streaming y pisaría al de `useTitulo` después de
+  hidratar.
 - Al elegir: `document.cookie = "idioma=en; path=/; max-age=31536000; samesite=lax"`
   y `router.refresh()`.
 - Cada idioma se escribe en su propio idioma ("English", no "Inglés").
@@ -112,6 +122,12 @@ inglés, y un caso llamado "Cambio de aceite" no pasa a "Oil change".
   de recordatorio y textos de la landing.
 - Lo que el negocio renombró desde un preset: si cambió una etiqueta de
   estado, se ve como la escribió. Sólo se traducen las que siguen de fábrica.
+- **Textos de fábrica reconocidos al leer.** Un nombre guardado igual al de
+  fábrica del rubro, en castellano o en inglés (estados, roles), se muestra en
+  el idioma de quien mira. Costo conocido: un rol o estado propio que se llame
+  igual que uno de fábrica también se traduce.
+- Las categorías de inventario se guardan en castellano (forma canónica) y se
+  muestran en el idioma de quien mira.
 - Los mails de Supabase (confirmar cuenta, recuperar contraseña).
 - Los mensajes de WhatsApp que manda el negocio: salen en el idioma de quien
   los manda.
@@ -129,9 +145,18 @@ inglés, y un caso llamado "Cambio de aceite" no pasa a "Oil change".
     falta en `en`, clave que falta en los dos (devuelve la clave).
   - Claves: `en` no tiene claves que `es` no tenga, y los presets `en` tienen
     los mismos rubros y campos que los `es`.
-- **wdio**: Chrome headless manda `en-US`. `wdio.conf.js` fija la cookie
-  `idioma=es` para que los e2e existentes sigan en castellano. Un e2e nuevo
-  entra con `idioma=en` a iniciar sesión y ve el texto en inglés.
+- **wdio**: Chrome headless manda `en-US`. `wdio.conf.js` fija el idioma de
+  Chrome (`--lang=es-AR` y la preferencia `intl.accept_languages`) en vez de la
+  cookie, para que los e2e existentes sigan en castellano. Un e2e nuevo entra
+  con `idioma=en` a iniciar sesión y ve el texto en inglés.
+
+## Lo que escribe la API
+
+Estos textos los escribe la API en castellano y se aceptan así, también cuando
+se mira en inglés (limitación aceptada, no pendiente): los eventos del
+historial (título, detalle y el autor "El cliente"), el `que_falta` de un caso,
+las plantillas de recordatorio por defecto y los textos del feed ICS / Google
+Calendar. Sólo se traduce lo que la API manda por código (`errores.<codigo>`).
 
 ## Orden
 

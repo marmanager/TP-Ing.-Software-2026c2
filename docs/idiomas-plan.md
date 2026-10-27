@@ -1,4 +1,5 @@
 # Idiomas — plan de implementación
+nImplementado. Spec: docs/idiomas.md.
 
 > **Para agentes:** SUB-SKILL REQUERIDA: usar superpowers:subagent-driven-development (recomendado) o superpowers:executing-plans para ejecutar este plan tarea por tarea. Los pasos usan casillas (`- [ ]`) para seguir el avance.
 
