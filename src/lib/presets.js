@@ -393,8 +393,8 @@ export const SEGUIMIENTO_GENERICO = {
 // Lo que el link de seguimiento le dice al cliente en un estado, en las
 // palabras de su rubro.
 //
-// No sale de ESTADOS[].significado: ese texto está escrito para adentro del
-// negocio ("detenido por algo de afuera: una aprobación, un insumo o la
+// Va aparte de lo que el negocio lee de sus estados: ese texto está escrito
+// para adentro del negocio ("detenido por algo de afuera: una aprobación, un insumo o la
 // respuesta del cliente"), y del otro lado el cliente ES esa respuesta que
 // se está esperando. Leerse nombrado en tercera persona es raro.
 //
@@ -402,7 +402,7 @@ export const SEGUIMIENTO_GENERICO = {
 // paciente y una notebook. Pasaron acá cuando hizo falta que cada rubro
 // nombrara lo suyo: el vehículo, el equipo, o a la persona.
 //
-// Va a PRESETS directo y no por preset() a propósito: preset() cae en el
+// Va a PRESETS (y a PRESETS_EN en inglés) directo y no por preset() a propósito: preset() cae en el
 // taller cuando no conoce el rubro, y "personalizable", que no trae textos
 // propios, terminaría hablándole al cliente de su vehículo. Tiene test:
 // pruebas/presets.test.js

@@ -242,3 +242,8 @@ test("queSignificaPara en inglés, y personalizable usa el genérico en inglés"
   assert.equal(queSignificaPara("personalizable", "nuevo", "en"), SEGUIMIENTO_GENERICO_EN.nuevo);
   assert.equal(queSignificaPara("taller", "nuevo", "en"), PRESETS_EN.taller.seguimiento.nuevo);
 });
+
+test("rubro desconocido en inglés: queSignificaPara da el genérico y preset() el taller, en inglés", () => {
+  assert.equal(queSignificaPara("zzz", "nuevo", "en"), SEGUIMIENTO_GENERICO_EN.nuevo);
+  assert.equal(preset("zzz", "en").nombre, PRESETS_EN.taller.nombre);
+});

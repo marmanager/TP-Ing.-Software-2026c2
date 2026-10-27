@@ -203,10 +203,10 @@ export default function SeccionCobros({
     setError(null);
     try {
       const r = await datos.conectarMercadoPago();
-      if (!r.ok) throw new Error(textoDeError(t, r.error));
+      if (!r.ok) return setError(textoDeError(t, r.error));
       window.sessionStorage.setItem("marmanager.mp-desde", caso.id);
       window.location.assign(r.url);
-    } catch (e) { setError(e.message); }
+    } catch { setError(t("errores.error_interno")); }
   }
 
   // Un pago por link entra del otro lado: el medio de pago le avisa a la API
