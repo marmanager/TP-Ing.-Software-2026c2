@@ -7,15 +7,17 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
-import { estadoDeTurno } from "@/lib/turnos";
+import { estadoDeTurno, turnoEnPie } from "@/lib/turnos";
 import { diaLargo, horaYMinutos } from "@/lib/fechas";
 import { casoEnFrase } from "@/lib/nombres";
+import { vocabulario } from "@/lib/presets";
 import Icono from "@/componentes/Icono";
 import AltaDeTurno from "@/componentes/AltaDeTurno";
 import AvisoDelTurno from "@/componentes/AvisoDelTurno";
 import MoverTurno from "@/componentes/MoverTurno";
 import Pestanas from "@/componentes/Pestanas";
-import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
+import RespuestaDelTurno from "@/componentes/RespuestaDelTurno";
+import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Agenda() {
   const datos = useDatos();
@@ -71,6 +73,14 @@ export default function Agenda() {
     return acc;
   }, {});
 
+  // Los que avisaron por WhatsApp que no pueden venir (R-10b), de los
+  // turnos que todavía no pasaron: se ven al abrir la agenda, antes de la
+  // lista, para que el negocio decida si los llama, los mueve o los cancela.
+  const noPueden = turnos
+    .filter((t) => t.respuesta_cliente === "no_puede" && turnoEnPie(t) && Date.parse(t.empieza_en) > ahora)
+    .sort((a, b) => Date.parse(a.empieza_en) - Date.parse(b.empieza_en));
+  const { cita } = vocabulario(datos.negocio?.rubro);
+
   return (
     <>
       <Pestanas padre="agenda" />
@@ -102,6 +112,37 @@ export default function Agenda() {
           alGuardar={() => setAbierto(false)}
           alCancelar={() => setAbierto(false)}
         />
+      )}
+
+      {/* No es un error ni una alerta: es información que el negocio
+          necesita. Va con la barra y el color de "esperando", sin rojo. */}
+      {noPueden.length > 0 && (
+        <Tarjeta data-no-pueden className="mb-8 border-l-4 border-l-espera">
+          <p className="flex items-center gap-2 font-bold text-cuerpo text-espera">
+            <Icono nombre="whatsapp" className="size-5 shrink-0" />
+            {noPueden.length === 1
+              ? "Un cliente avisó que no puede venir"
+              : `${noPueden.length} clientes avisaron que no pueden venir`}
+          </p>
+          <ul className="mt-2 flex flex-col">
+            {noPueden.map((t) => (
+              <li key={t.id}>
+                <a
+                  href={`#turno-${t.id}`}
+                  onClick={() => setCuando("proximos")}
+                  className="inline-flex min-h-12 items-center text-azul [overflow-wrap:anywhere]"
+                >
+                  {clientes.find((c) => c.id === t.cliente_id)?.nombre ?? "Un cliente"}: {cita.el()} del{" "}
+                  {diaLargo(t.empieza_en)} a las {horaYMinutos(t.empieza_en)}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 max-w-[65ch] text-tinta-media">
+            {cita.segun("El turno sigue anotado", "La consulta sigue anotada")}: vos decidís si lo llamás, le cambiás la hora o{" "}
+            {cita.segun("lo", "la")} cancelás.
+          </p>
+        </Tarjeta>
       )}
 
       {/* La agenda mira para adelante; los que ya pasaron se piden. */}
@@ -151,10 +192,15 @@ export default function Agenda() {
                   t.cliente_id &&
                   casos.find((c) => c.cliente_id === t.cliente_id && estaAbierto(c));
                 return (
+                  // El que avisó que no puede lleva la barra de "esperando"
+                  // a la izquierda, para encontrarlo de reojo en la lista.
                   <li
                     key={t.id}
+                    id={`turno-${t.id}`}
                     data-turno={t.id}
-                    className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
+                    className={`flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0 ${
+                      t.respuesta_cliente === "no_puede" && turnoEnPie(t) ? "border-l-4 border-l-espera" : ""
+                    }`}
                   >
                     <p className="w-20 font-titulo font-extrabold text-subtitulo tabular-nums">
                       {horaYMinutos(t.empieza_en)}
@@ -192,6 +238,7 @@ export default function Agenda() {
                         recordatorioActivo={recordatorioActivo}
                         ahora={ahora}
                       />
+                      <RespuestaDelTurno turno={t} rubro={datos.negocio?.rubro} ahora={ahora} />
                     </div>
 
                     {/* El estado con su color, su ícono y su palabra, del
