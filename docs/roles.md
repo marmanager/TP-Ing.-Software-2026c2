@@ -1,7 +1,8 @@
 # Roles y permisos configurables
 
-Diseño aprobado el 2026-10-18. El plan de implementación va en
-`docs/roles-plan.md`.
+Implementado. Plan: docs/roles-plan.md.
+
+Diseño aprobado el 2026-10-18.
 
 ## Qué cambia
 
@@ -72,6 +73,15 @@ que el pasaje no le quite nada: las ecuaciones del presupuesto van con
 `armar_presupuesto`; los mensajes de WhatsApp (seguimiento al entregar y
 recordatorio de turno) con `entregar_y_reabrir`; compartir el link de
 seguimiento de un caso con `avanzar_casos`.
+
+**Lo que sumó el equipo mientras tanto (053 a 056 y el Dashboard)**, con el
+mismo criterio de no cambiarle el acceso a nadie: compartir y dejar de
+compartir la landing, con `configurar_negocio`; revertir la baja de avisos de
+un cliente, con `editar_clientes` (cambia su ficha); el aviso de volver y los
+del presupuesto, como los demás mensajes de WhatsApp, con
+`entregar_y_reabrir`; el Dashboard (API y pantalla), con
+`ver_todos_los_casos`: son números de todo el negocio, y sin ese permiso la
+RLS de caso sólo dejaría contar los asignados.
 
 **`ver_historial`** habilita la pantalla Historial del negocio. Los eventos de
 un caso se siguen viendo con el caso (la base los muestra a quien ve el caso).
@@ -184,6 +194,27 @@ Quien tiene `manejar_roles` (o es Dueño):
   negocio.
 - **El rol Dueño** lo da sólo un Dueño.
 - `aprobar_solicitud` (051) aplica la misma regla en lugar de `rango_del_rol`.
+- **Saca del equipo** (`sacar_del_equipo`) a alguien con cuenta sólo si el rol
+  de esa persona está dentro de los propios; a un Dueño, sólo otro Dueño
+  (`quitar_acceso_al_sacar`, 063).
+
+### Acciones compuestas
+
+Una acción que hace más de una cosa pide el permiso de cada una:
+
+- **Permisos que vienen con otro.** `guardar_rol` suma el de mirar sin el cual
+  otro no sirve: `crear_casos` → `ver_todos_los_casos`, `editar_clientes` →
+  `ver_clientes`, `editar_inventario` → `ver_inventario`, `manejar_turnos` →
+  `ver_agenda`. Se suman antes del tope. El editor los prende con el que los
+  trae y los muestra fijos: "Incluido por «<nombre>»".
+- **Abrir un caso** con un cliente nuevo pide además `editar_clientes`; desde un
+  turno, `manejar_turnos`. **Dar un turno** a un cliente nuevo pide además
+  `editar_clientes`.
+- **Pedir algo para un caso o marcar que llegó** pide `editar_inventario` y
+  `avanzar_casos`.
+- **El descuento** de un caso lo cambia también quien arma el presupuesto
+  (`armar_presupuesto`), solo. `que_falta` viaja libre con el estado y con el
+  responsable (`asignar_casos`).
 
 Errores con `errcode = '42501'` (sin permiso) o `P0001` (regla de negocio, con
 el mensaje para mostrar).
@@ -197,9 +228,10 @@ activo, `usuario.negocio_id` pasa a su predeterminado o a null.
 
 ## Visitas entre sedes
 
-- `sedes_que_veo()`: las sedes de la red donde se es miembro, más las demás de
-  la red si algún rol propio en la red tiene `ver_sedes_vinculadas`. Sin el
-  permiso, las otras sedes no aparecen en ningún lado.
+- `sedes_que_veo()`: parte de la red de la sede de origen (la activa, o aquella
+  desde la que empezó la visita) y lista las sedes donde se es miembro más, si
+  el rol de origen tiene `ver_sedes_vinculadas` o es Dueño, las demás sedes de
+  esa red. Sin el permiso, las otras sedes no aparecen en ningún lado.
 - `entrar_de_visita(p_sede)`: misma red, sin ficha en `p_sede`, y el rol en la
   sede activa tiene `ver_sedes_vinculadas`. Pone `usuario.negocio_id = p_sede`
   y `usuario.visitando_desde = <sede activa>`.
@@ -207,7 +239,14 @@ activo, `usuario.negocio_id` pasa a su predeterminado o a null.
 - **El visitante ve sólo lo que su rol ve en su sede:** de los permisos de
   mirar, los que su rol tiene. Si en su sede no ve clientes, en la otra
   tampoco. Ningún permiso de cambiar vale de visita, así que todas las
-  políticas de escritura lo frenan sin tocarlas.
+  políticas de escritura lo frenan sin tocarlas (salvo `evento`, ver abajo).
+- **Visita vencida:** si durante la visita se quita la ficha de origen, se
+  desvinculan las sedes o se quita el permiso, `estoy_aca()` da falso y el
+  negocio, el equipo, los roles y las fotos de la sede visitada quedan vacíos.
+  El historial de los casos (`evento`) sólo lo escribe quien tiene ficha.
+- **Límite conocido:** durante una visita legítima la fila de `negocio`
+  (incluidos los códigos de sus links públicos) se puede leer aunque el rol de
+  origen no tenga `ver_agenda`, porque RLS no filtra columnas.
 - La vista conjunta de inventario (047) no cambia: muestra sólo las sedes donde
   se es miembro.
 

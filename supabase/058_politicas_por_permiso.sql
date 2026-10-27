@@ -1,17 +1,17 @@
 -- ============================================================
--- 054_politicas_por_permiso.sql — las políticas preguntan por un permiso
+-- 058_politicas_por_permiso.sql — las políticas preguntan por un permiso
 --
--- Correr entero en el SQL Editor de Supabase, después de la 053.
+-- Correr entero en el SQL Editor de Supabase, después de la 057.
 -- Es idempotente. Después, correr supabase/pruebas/roles.sql.
 --
 -- Cada política y cada función que miraba mi_rol() o puedo_cargar() pasa a
 -- preguntar por un permiso con nombre (docs/roles.md, "Chequeo de permisos").
--- Con los roles del pasaje (053) nadie gana ni pierde nada. La única
+-- Con los roles del pasaje (057) nadie gana ni pierde nada. La única
 -- diferencia: la base frena al técnico que cambia columnas de su caso, que
 -- hasta acá frenaba sólo la API.
 --
 -- "Miembro" (mi_empleado() is not null) es lo mismo que "está en el negocio"
--- mientras sin ficha no se pueda entrar. Desde la 057 deja afuera a quien
+-- mientras sin ficha no se pueda entrar. Desde la 061 deja afuera a quien
 -- entra de visita a una sede vinculada.
 --
 -- CUIDADO AL EDITAR: si una política deja afuera al Dueño, el negocio queda
@@ -117,7 +117,9 @@ create policy caso_lo_borra_quien_puede on caso
 -- 'esperando' de una) no pide más. Un cambio de estado solo pide
 -- avanzar_casos, igual que cualquier otra columna (nombre, servicio,
 -- diagnóstico, que_falta, …); que_falta viaja libre sólo si cambia con el
--- estado. actualizado_en lo mueve un trigger que corre antes (001).
+-- estado o con el responsable. El descuento solo también lo cambia quien arma
+-- el presupuesto (armar_presupuesto, como la API). actualizado_en lo mueve un
+-- trigger que corre antes (001).
 create or replace function caso_cambio_permitido()
 returns trigger
 language plpgsql
@@ -148,11 +150,12 @@ begin
 
   v_nuevo := to_jsonb(new) - 'responsable_id' - 'estado' - 'actualizado_en';
   v_viejo := to_jsonb(old) - 'responsable_id' - 'estado' - 'actualizado_en';
-  if new.estado is distinct from old.estado then
+  if new.estado is distinct from old.estado or new.responsable_id is distinct from old.responsable_id then
     v_nuevo := v_nuevo - 'que_falta';
     v_viejo := v_viejo - 'que_falta';
   end if;
-  if v_nuevo is distinct from v_viejo and not puede_aca('avanzar_casos') then
+  if v_nuevo is distinct from v_viejo and not puede_aca('avanzar_casos')
+     and not ((v_nuevo - 'descuento') = (v_viejo - 'descuento') and puede_aca('armar_presupuesto')) then
     raise exception 'Este rol no permite modificar casos.' using errcode = '42501';
   end if;
 
@@ -846,5 +849,173 @@ begin
     'cobro', pago->'cobro',
     'evento', to_jsonb(nuevo_evento)
   );
+end;
+$$;
+
+-- 053_landing_ingreso.sql:134-164, con configurar_negocio (la landing es
+-- configuración del negocio, como el link de la agenda)
+create or replace function compartir_landing()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  yo     uuid := mi_negocio();
+  actual text;
+begin
+  if yo is null then
+    raise exception 'Hay que iniciar sesión.';
+  end if;
+  if not puede_aca('configurar_negocio') then
+    raise exception 'Compartir la landing lo hace el dueño del negocio.';
+  end if;
+
+  select landing_codigo into actual from negocio where id = yo for update;
+  if actual is not null then
+    return actual;
+  end if;
+
+  loop
+    actual := replace(gen_random_uuid()::text, '-', '');
+    exit when not exists (select 1 from negocio where landing_codigo = actual);
+  end loop;
+
+  update negocio set landing_codigo = actual where id = yo;
+  return actual;
+end;
+$$;
+
+-- 053_landing_ingreso.sql:172-189, con configurar_negocio
+create or replace function dejar_de_compartir_landing()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if mi_negocio() is null then
+    raise exception 'Hay que iniciar sesión.';
+  end if;
+  if not puede_aca('configurar_negocio') then
+    raise exception 'Dejar de compartir la landing lo hace el dueño del negocio.';
+  end if;
+
+  update negocio set landing_codigo = null where id = mi_negocio();
+  delete from landing_sesion where negocio_id = mi_negocio();
+end;
+$$;
+
+-- 054_baja_de_avisos.sql:110-145, con editar_clientes (deshacer la baja
+-- cambia la ficha del cliente: avisos_baja_en)
+create or replace function revertir_baja_de_avisos(p_cliente_id uuid, p_autor text default 'Alguien del negocio')
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actual cliente%rowtype;
+  vuelto cliente%rowtype;
+  nuevo  cliente_evento%rowtype;
+begin
+  select * into actual from cliente where id = p_cliente_id for update;
+  if not found or actual.negocio_id is distinct from mi_negocio() then
+    return jsonb_build_object('ok', false, 'motivo', 'cliente_no_encontrado');
+  end if;
+  if not puede_aca('editar_clientes') then
+    return jsonb_build_object('ok', false, 'motivo', 'sin_permiso');
+  end if;
+  if actual.avisos_baja_en is null then
+    return jsonb_build_object('ok', true, 'cliente', to_jsonb(actual), 'evento', null);
+  end if;
+
+  update cliente set avisos_baja_en = null where id = actual.id returning * into vuelto;
+  insert into cliente_evento (negocio_id, cliente_id, tipo, titulo, detalle, autor, usuario_id)
+  values (
+    actual.negocio_id, actual.id, 'avisos', 'Vuelve a recibir avisos',
+    'Había pedido no recibir avisos el '
+      || to_char(actual.avisos_baja_en at time zone 'America/Argentina/Buenos_Aires', 'DD/MM/YYYY "a las" HH24:MI') || '.',
+    coalesce(nullif(trim(p_autor), ''), 'Alguien del negocio'), auth.uid()
+  )
+  returning * into nuevo;
+
+  return jsonb_build_object('ok', true, 'cliente', to_jsonb(vuelto), 'evento', to_jsonb(nuevo));
+end;
+$$;
+
+
+-- ------------------------------------------------------------
+-- seguimiento_whatsapp — el aviso de volver (056), con entregar_y_reabrir
+-- ------------------------------------------------------------
+-- 056_aviso_de_volver.sql:92-118. El aviso cuelga de un caso entregado y
+-- es de los mensajes de WhatsApp: el mismo permiso que el posventa.
+drop policy if exists seguimiento_volver_programar on seguimiento_whatsapp;
+create policy seguimiento_volver_programar on seguimiento_whatsapp
+  for insert to authenticated
+  with check (
+    tipo = 'volver' and negocio_id = mi_negocio() and (select puede_aca('entregar_y_reabrir'))
+    and estado = 'pendiente' and mensaje_id is null and error is null and motivo is null and procesado_en is null
+    and exists (select 1 from caso c
+                where c.id = seguimiento_whatsapp.caso_id and c.negocio_id = seguimiento_whatsapp.negocio_id
+                  and c.estado = 'completado' and c.volver_en is not null)
+  );
+
+-- Reprogramar (sigue pendiente) y cancelar. Sólo lo pendiente: lo que el
+-- procesador tomó o mandó no se toca. El procesador escribe con la clave
+-- de servicio y no pasa por acá.
+drop policy if exists seguimiento_volver_cambiar on seguimiento_whatsapp;
+create policy seguimiento_volver_cambiar on seguimiento_whatsapp
+  for update to authenticated
+  using (tipo = 'volver' and negocio_id = mi_negocio() and (select puede_aca('entregar_y_reabrir')) and estado = 'pendiente')
+  with check (
+    tipo = 'volver' and negocio_id = mi_negocio() and (select puede_aca('entregar_y_reabrir'))
+    and estado in ('pendiente', 'cancelado') and mensaje_id is null and error is null
+    and exists (select 1 from caso c
+                where c.id = seguimiento_whatsapp.caso_id and c.negocio_id = seguimiento_whatsapp.negocio_id)
+  );
+
+
+-- ------------------------------------------------------------
+-- Las políticas creadas desde el panel (050, sección 2)
+-- ------------------------------------------------------------
+-- negocio_seguimiento, la cola de cierre de seguimiento_whatsapp y sus
+-- respuestas (seguimiento_whatsapp_respuesta, las del webhook de Kapso) se crearon
+-- desde el panel de Supabase, sin migración: sus políticas no tienen nombre
+-- conocido y usan puedo_cargar(). Se reescriben donde estén, con el permiso
+-- de los mensajes de WhatsApp (entregar_y_reabrir). Si después de esto queda
+-- alguna política en public que use mi_rol() o puedo_cargar(), la migración
+-- frena y la nombra: la 063 borra esas funciones.
+do $$
+declare
+  p record;
+  nueva text := '(select puede_aca(''entregar_y_reabrir''))';
+  sentencia text;
+begin
+  for p in
+    select tablename, policyname, qual, with_check from pg_policies
+     where schemaname = 'public'
+       and tablename in ('negocio_seguimiento', 'seguimiento_whatsapp', 'seguimiento_whatsapp_respuesta')
+       and (qual ~ '\mpuedo_cargar\(\)' or with_check ~ '\mpuedo_cargar\(\)')
+  loop
+    sentencia := format('alter policy %I on %I', p.policyname, p.tablename);
+    if p.qual is not null then
+      sentencia := sentencia || format(' using (%s)', regexp_replace(p.qual, '\mpuedo_cargar\(\)', nueva, 'g'));
+    end if;
+    if p.with_check is not null then
+      sentencia := sentencia || format(' with check (%s)', regexp_replace(p.with_check, '\mpuedo_cargar\(\)', nueva, 'g'));
+    end if;
+    execute sentencia;
+  end loop;
+
+  for p in
+    select tablename, policyname from pg_policies
+     where schemaname = 'public'
+       and (qual ~ '\m(mi_rol|puedo_cargar)\(\)' or with_check ~ '\m(mi_rol|puedo_cargar)\(\)')
+     order by tablename, policyname
+  loop
+    raise exception 'La política % de la tabla % todavía usa el rol viejo (mi_rol() o puedo_cargar()). Hay que reescribirla con puede_aca() antes de seguir.',
+      p.policyname, p.tablename;
+  end loop;
 end;
 $$;

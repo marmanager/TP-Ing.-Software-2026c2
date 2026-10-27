@@ -11,8 +11,11 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { vocabulario } from "@/lib/presets";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
+import { conElementos } from "@/lib/conElementos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { mayuscula, vocabulario } from "@/lib/presets";
 import { filtrarProductos, presentacion } from "@/lib/inventario";
 import { inventarioDeSedes } from "@/lib/sedes";
 import Buscador from "@/componentes/Buscador";
@@ -28,7 +31,8 @@ export default function TodasLasSedes() {
   const [respuesta, setRespuesta] = useState(null);
   const [texto, setTexto] = useState("");
   const [soloFaltantes, setSoloFaltantes] = useState(false);
-  useTitulo("Todas las sedes");
+  const { idioma, t } = useIdioma();
+  useTitulo(t("inventario.sedes.titulo"));
 
   useEffect(() => {
     let vivo = true;
@@ -40,27 +44,27 @@ export default function TodasLasSedes() {
     };
   }, [token, negocio?.id]);
 
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
 
   let cuerpo;
   if (!respuesta) {
     cuerpo = <Cargando />;
   } else if (!respuesta.ok) {
-    cuerpo = <ErrorGeneral>{respuesta.error}</ErrorGeneral>;
+    cuerpo = <ErrorGeneral>{textoDeError(t, respuesta.error)}</ErrorGeneral>;
   } else if (respuesta.sedes.length < 2) {
     cuerpo = (
-      <Vacio icono="tienda" titulo="Todavía no hay otras sedes para mostrar">
-        Acá aparecen las sedes vinculadas con ésta donde tenés acceso.{" "}
+      <Vacio icono="tienda" titulo={t("inventario.sedes.vacioTitulo")}>
+        {t("inventario.sedes.vacioTexto")}{" "}
         {puede(usuario, "vincular_sedes") ? (
-          <>
-            Se vinculan desde{" "}
-            <Link href="/negocio#sedes" className="font-bold text-azul">
-              Mi negocio
-            </Link>
-            .
-          </>
+          conElementos(t("inventario.sedes.vacioVincular"), {
+            enlace: (
+              <Link href="/negocio#sedes" className="font-bold text-azul">
+                {t("inventario.sedes.miNegocio")}
+              </Link>
+            ),
+          })
         ) : (
-          QUIEN_PUEDE.vincular_sedes
+          quienPuede("vincular_sedes", t)
         )}
       </Vacio>
     );
@@ -68,18 +72,18 @@ export default function TodasLasSedes() {
     const { sedes } = respuesta;
     // Los productos ya vienen agrupados por la API (qué es "el mismo
     // producto" lo decide ella, con la misma regla que el stock).
-    const visibles = filtrarProductos(respuesta.productos, { texto }).filter(
+    const visibles = filtrarProductos(respuesta.productos, { texto, rubro: negocio?.rubro, idioma }).filter(
       (p) => !soloFaltantes || p.falta_en_alguna
     );
-    const nombreDe = (s) => (s.id === negocio?.id ? `${s.nombre} (ésta)` : s.nombre);
+    const nombreDe = (s) => (s.id === negocio?.id ? t("inventario.sedes.esta", { nombre: s.nombre }) : s.nombre);
 
     cuerpo = (
       <>
         <div className="mb-6 flex flex-wrap items-end gap-3">
           <Buscador
             id="sedes-buscar"
-            etiqueta={`Buscar ${articulo.un()}`}
-            ayuda="Por nombre, marca, modelo o categoría."
+            etiqueta={t("inventario.buscar", { articulo: articulo.un() })}
+            ayuda={t("inventario.buscarAyuda")}
             valor={texto}
             alCambiar={setTexto}
           />
@@ -90,24 +94,24 @@ export default function TodasLasSedes() {
             className={`${PILDORA} ${soloFaltantes ? PILDORA_SI : PILDORA_NO}`}
           >
             <Icono nombre="alerta" className="size-5" />
-            Sólo lo que falta en alguna sede
+            {t("inventario.sedes.soloFaltan")}
           </button>
         </div>
 
         {visibles.length === 0 ? (
-          <Vacio icono="cajas" titulo="No hay nada que coincida">
-            Probá con otra búsqueda o sacá el filtro.
+          <Vacio icono="cajas" titulo={t("inventario.sedes.nadaTitulo")}>
+            {t("inventario.sedes.nadaTexto")}
           </Vacio>
         ) : (
           <div className="@container">
             <table className="hidden w-full border-collapse overflow-hidden rounded-tarjeta border border-borde bg-tarjeta @3xl:table">
               <thead>
                 <tr className="border-b border-borde text-left">
-                  <th scope="col" className="p-4">{articulo.segun("Producto", "Insumo")}</th>
+                  <th scope="col" className="p-4">{mayuscula(articulo.palabra())}</th>
                   {sedes.map((s) => (
                     <th key={s.id} scope="col" className="p-4">{nombreDe(s)}</th>
                   ))}
-                  <th scope="col" className="p-4">Total</th>
+                  <th scope="col" className="p-4">{t("inventario.total")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -123,7 +127,7 @@ export default function TodasLasSedes() {
                       </td>
                     ))}
                     <td className="p-4 font-bold tabular-nums">
-                      {p.total} {presentacion(p, p.total)}
+                      {p.total} {presentacion(p, p.total, t)}
                     </td>
                   </tr>
                 ))}
@@ -145,9 +149,9 @@ export default function TodasLasSedes() {
                       </div>
                     ))}
                     <div className="flex gap-x-2 font-bold">
-                      <dt>Total:</dt>
+                      <dt>{t("inventario.total")}:</dt>
                       <dd className="tabular-nums">
-                        {p.total} {presentacion(p, p.total)}
+                        {p.total} {presentacion(p, p.total, t)}
                       </dd>
                     </div>
                   </dl>
@@ -157,7 +161,7 @@ export default function TodasLasSedes() {
           </div>
         )}
 
-        <p className="mt-6 text-tinta-media">Para cambiar algo, entrá a esa sede.</p>
+        <p className="mt-6 text-tinta-media">{t("inventario.sedes.paraCambiar")}</p>
       </>
     );
   }
@@ -165,9 +169,9 @@ export default function TodasLasSedes() {
   return (
     <>
       <Pestanas padre="inventario" />
-      <h1 className="text-pantalla">Todas las sedes</h1>
+      <h1 className="text-pantalla">{t("inventario.sedes.titulo")}</h1>
       <p className="mt-1 mb-6 max-w-[65ch] text-tinta-media">
-        Lo que hay en cada sede vinculada, sin cambiar de negocio.
+        {t("inventario.sedes.apoyo")}
       </p>
       {cuerpo}
     </>
@@ -182,20 +186,23 @@ function Detalle({ p }) {
 // "—" cuando esa sede no lo tiene: no es que se acabó, es que nunca lo cargó.
 // "bajo" va con color, ícono y palabra (cartilla).
 function Celda({ celda }) {
+  const { t } = useIdioma();
   return (
     <span className="flex flex-wrap items-center gap-x-2">
       {celda.cantidad === null ? (
-        <span className="text-tinta-suave"><span aria-hidden="true">—</span><span className="sr-only">no lo tiene</span></span>
+        <span className="text-tinta-suave"><span aria-hidden="true">—</span><span className="sr-only">{t("inventario.sedes.noLoTiene")}</span></span>
       ) : (
         <span className="font-bold tabular-nums">{celda.cantidad}</span>
       )}
       {celda.bajo && (
         <span className="inline-flex items-center gap-1 font-bold text-espera">
           <Icono nombre="alerta" className="size-4" />
-          bajo
+          {t("inventario.sedes.bajo")}
         </span>
       )}
-      {celda.en_camino > 0 && <span className="text-tinta-media">+{celda.en_camino} en camino</span>}
+      {celda.en_camino > 0 && (
+        <span className="text-tinta-media">{t("inventario.sedes.enCamino", { n: celda.en_camino })}</span>
+      )}
     </span>
   );
 }

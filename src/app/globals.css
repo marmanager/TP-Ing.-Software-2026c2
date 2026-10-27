@@ -90,11 +90,53 @@
 }
 
 @layer base {
-  /* La cartilla define un único fondo cálido. No hay tema oscuro:
-     inventarlo sería apartarse de la sección 02. */
+  /* La cartilla define un único fondo cálido; el oscuro se elige en Mi
+     perfil (src/lib/tema.js). Son los mismos neutros cálidos dados vuelta,
+     y los colores que se usan como texto suben de tono para leerse sobre
+     fondo oscuro. */
   :root {
     color-scheme: light;
   }
+
+  :root[data-tema="oscuro"] {
+    color-scheme: dark;
+    --color-fondo: #171412;
+    --color-superficie: #25201c;
+    --color-tarjeta: #1e1a17;
+    --color-borde: #3a332d;
+    --color-borde-fuerte: #5a5149;
+    --color-tinta: #f2ece4;
+    --color-tinta-media: #cfc6bc;
+    --color-tinta-suave: #a89e94;
+    --color-azul: #8cb4ec;
+    --color-azul-apretado: #b3cdf2;
+    --color-azul-claro: #1f2c3f;
+    --color-terracota: #e08a68;
+    --color-rojo: #f08070;
+    --color-nuevo: #b9c3cd;
+    --color-nuevo-fondo: #2a3038;
+    --color-proceso: #8cb4ec;
+    --color-proceso-fondo: #1f2c3f;
+    --color-espera: #e8b65a;
+    --color-espera-fondo: #3a2e15;
+    --color-revision: #c3a8ec;
+    --color-revision-fondo: #2e2540;
+    --color-completo: #7fcf9f;
+    --color-completo-fondo: #183324;
+  }
+
+  /* Donde un color va de fondo lleno, el texto encima es blanco: ahí vuelve
+     el tono de la versión clara, que es el que tiene contraste con el blanco.
+     Se redefine la variable y no el fondo para no pisar los hover. */
+  [data-tema="oscuro"] .bg-azul { --color-azul: #1f4e8c; }
+  [data-tema="oscuro"] .hover\:bg-azul-apretado { --color-azul-apretado: #163c6e; }
+  [data-tema="oscuro"] .bg-terracota { --color-terracota: #9a3d1e; }
+  [data-tema="oscuro"] .bg-rojo { --color-rojo: #a32116; }
+  [data-tema="oscuro"] .bg-nuevo { --color-nuevo: #3f4b57; }
+  [data-tema="oscuro"] .bg-proceso { --color-proceso: #1f4e8c; }
+  [data-tema="oscuro"] .bg-espera { --color-espera: #7a4e00; }
+  [data-tema="oscuro"] .bg-revision { --color-revision: #5b3e8f; }
+  [data-tema="oscuro"] .bg-completo { --color-completo: #14663c; }
 
   html {
     /* 100 % y no 16 px: un valor fijo acá pisa el tamaño de letra que la
@@ -192,15 +234,26 @@
   gap: 16px;
 }
 
+/* En celular, una columna: el alto elegido es un piso y no una medida fija,
+   para que el contenido nunca quede cortado. Es el mismo alto que en la
+   grilla (filas más los huecos de 16 px entre ellas), así que lo que se
+   acomoda en uno se parece a lo que se ve en el otro. */
+.modulo-ubicado {
+  min-height: calc(var(--alto) * var(--alto-fila) + (var(--alto) - 1) * 16px);
+}
+
 @media (min-width: 48rem) {
   .grilla-inicio {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: var(--alto-fila);
+    /* Cada celda son dos filas de la grilla de CSS: el alto va de a media
+       celda (PASO_ALTO). Dos medias más su hueco dan --alto-fila justo. */
+    grid-auto-rows: calc((var(--alto-fila) - 16px) / 2);
   }
 
   .modulo-ubicado {
+    min-height: 0;
     grid-column: calc(var(--x) + 1) / span var(--ancho);
-    grid-row: calc(var(--y) + 1) / span var(--alto);
+    grid-row: calc(var(--fila) + 1) / span var(--filas);
   }
 }
 

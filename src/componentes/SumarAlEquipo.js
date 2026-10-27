@@ -11,8 +11,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { cuando } from "@/lib/fechas";
-import { puede } from "@/lib/permisos";
-import { etiquetaRol } from "@/lib/presets";
+import { nombreDelRol, puede, rolPorDefecto, rolesQuePuedeDar } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import {
   aprobarPedido,
   cambiarLinkDeEquipo,
@@ -26,8 +27,15 @@ import Icono from "./Icono";
 import { Boton, ErrorGeneral, Tarjeta, TituloSeccion } from "./ui";
 
 export default function SumarAlEquipo() {
+  const { idioma, locale, t } = useIdioma();
+  // La fecha en medio de una frase: en castellano va toda en minúscula ("hoy
+  // 10:00", "26 de octubre"); en inglés sólo "today" y "yesterday" ("October 26").
+  const fechaEnFrase = (iso) => {
+    const f = cuando(iso, locale, t);
+    return idioma === "es" ? f.toLowerCase() : f.replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
+  };
   const { usuario, sesion } = useAuth();
-  const { negocio, avisarExito, reemplazarEmpleados } = useDatos();
+  const { negocio, avisarExito, reemplazarEmpleados, roles: rolesDelNegocio } = useDatos();
   const token = sesion?.access_token;
   const hayToken = Boolean(token); // el efecto depende de si hay, no de su valor: un refresco de sesión no reinicia la pantalla
   const puedeSumar = puede(usuario, "sumar_al_equipo");
@@ -75,8 +83,12 @@ export default function SumarAlEquipo() {
   if (!puedeSumar) return null;
 
   const url = link && origen ? linkDeInvitacion(link.codigo, origen) : null;
-  const mensaje = url ? mensajeDeInvitacion(negocio?.nombre ?? "tu negocio", url) : "";
-  const roles = ["duenio", "encargado", "tecnico"].filter((r) => usuario?.es_duenio || r !== "duenio");
+  // Lo que se manda al grupo sale en el idioma de quien lo manda.
+  const mensaje = url ? mensajeDeInvitacion(negocio?.nombre ?? t("equipo.sumar.tuNegocio"), url, t) : "";
+  const roles = rolesQuePuedeDar(usuario, rolesDelNegocio);
+  // Sin elegir otro, entra con el rol de menos permisos; nunca Dueño de entrada.
+  const porDefecto = rolPorDefecto(roles);
+  const elegidoPara = (p) => rolDe[p.id] ?? porDefecto ?? "";
 
   async function cambiarLink() {
     setOcupado(true);
@@ -86,29 +98,30 @@ export default function SumarAlEquipo() {
     if (!r.ok) return setError(r.error);
     setLink(r.link);
     setConfirmandoCambio(false);
-    avisarExito(link ? "Listo. El link anterior ya no sirve." : "Listo. Ya tenés el link del equipo.");
+    avisarExito(link ? t("equipo.sumar.linkAnteriorNoSirve") : t("equipo.sumar.linkNuevo"));
   }
 
   async function copiar() {
     setError(null);
     try {
       await navigator.clipboard.writeText(url);
-      avisarExito("Listo. Copiaste el link.");
+      avisarExito(t("equipo.sumar.copiado"));
     } catch {
-      setError("No pudimos copiarlo. Mantené apretado el link para copiarlo a mano.");
+      setError(t("equipo.sumar.noPudimosCopiar"));
     }
   }
 
   async function aceptar(p) {
-    const rol = rolDe[p.id] ?? "tecnico";
+    const rolId = elegidoPara(p);
+    if (!rolId) return;
     setOcupado(true);
     setError(null);
-    const r = await aprobarPedido(p.id, rol, token);
+    const r = await aprobarPedido(p.id, rolId, token);
     setOcupado(false);
     if (!r.ok) return setError(r.error);
     reemplazarEmpleados(r.empleados);
     setPedidos((lista) => lista.filter((x) => x.id !== p.id));
-    avisarExito(`Listo. ${p.nombre} entró como ${etiquetaRol(negocio?.rubro, rol).toLowerCase()}.`);
+    avisarExito(t("equipo.sumar.rolAsignado", { nombre: p.nombre, rol: nombreDelRol(roles.find((x) => x.id === rolId), t) }));
   }
 
   async function rechazar(p) {
@@ -118,29 +131,28 @@ export default function SumarAlEquipo() {
     setOcupado(false);
     if (!r.ok) return setError(r.error);
     setPedidos((lista) => lista.filter((x) => x.id !== p.id));
-    avisarExito(`Listo. Rechazaste el pedido de ${p.nombre}.`);
+    avisarExito(t("equipo.sumar.rechazado", { nombre: p.nombre }));
   }
 
   return (
     <>
       <Tarjeta className="mb-8">
-        <TituloSeccion>Sumar gente al equipo</TituloSeccion>
+        <TituloSeccion>{t("equipo.sumar.titulo")}</TituloSeccion>
         {linkFallo ? (
           // No se pudo saber si hay link: no se ofrece crear ni cambiar, que
           // anularía uno ya compartido.
           <Boton variante="plano" onClick={() => setIntento((n) => n + 1)}>
-            Reintentar
+            {t("equipo.sumar.reintentar")}
           </Boton>
         ) : link === undefined ? (
-          <p className="text-tinta-media">Buscando el link del equipo…</p>
+          <p className="text-tinta-media">{t("equipo.sumar.buscando")}</p>
         ) : !link ? (
           <>
             <p className="mb-4 max-w-[65ch] text-tinta-media">
-              Un solo link para mandar al grupo. Quien lo use te pide entrar, y vos elegís si lo
-              aceptás y con qué rol.
+              {t("equipo.sumar.sinLink")}
             </p>
-            <Boton icono="mas" motivo={ocupado ? "creando" : null} onClick={cambiarLink}>
-              Crear el link del equipo
+            <Boton icono="mas" motivo={ocupado ? t("equipo.sumar.creando") : null} onClick={cambiarLink}>
+              {t("equipo.sumar.crear")}
             </Boton>
           </>
         ) : (
@@ -148,19 +160,19 @@ export default function SumarAlEquipo() {
             <p className="max-w-[65ch] break-all font-bold" data-link-del-equipo>
               {url}
             </p>
-            <p className="mt-1 text-tinta-media">Vence: {cuando(link.vence_en).toLowerCase()}.</p>
+            <p className="mt-1 text-tinta-media">{t("equipo.sumar.vence", { cuando: fechaEnFrase(link.vence_en) })}</p>
             {confirmandoCambio ? (
               <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                <p className="font-bold">¿Cambiar el link?</p>
+                <p className="font-bold">{t("equipo.sumar.cambiarPregunta")}</p>
                 <p className="mt-1 max-w-[65ch] text-tinta-media">
-                  El link anterior deja de funcionar. Los que ya entraron siguen adentro.
+                  {t("equipo.sumar.cambiarAviso")}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
-                  <Boton variante="peligro" motivo={ocupado ? "cambiando" : null} onClick={cambiarLink}>
-                    Sí, cambiarlo
+                  <Boton variante="peligro" motivo={ocupado ? t("equipo.sumar.cambiando") : null} onClick={cambiarLink}>
+                    {t("equipo.sumar.siCambiar")}
                   </Boton>
                   <Boton variante="plano" disabled={ocupado} onClick={() => setConfirmandoCambio(false)}>
-                    Dejarlo como está
+                    {t("equipo.sumar.dejarComoEsta")}
                   </Boton>
                 </div>
               </div>
@@ -173,13 +185,13 @@ export default function SumarAlEquipo() {
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
                 >
                   <Icono nombre="chat" />
-                  Compartir por WhatsApp
+                  {t("equipo.sumar.whatsapp")}
                 </a>
                 <Boton icono="copiar" onClick={copiar}>
-                  Copiar el link
+                  {t("equipo.sumar.copiar")}
                 </Boton>
                 <Boton variante="plano" onClick={() => setConfirmandoCambio(true)}>
-                  Cambiar el link
+                  {t("equipo.sumar.cambiar")}
                 </Boton>
               </div>
             )}
@@ -187,20 +199,20 @@ export default function SumarAlEquipo() {
         )}
         {error && (
           <div className="mt-4">
-            <ErrorGeneral>{error}</ErrorGeneral>
+            <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
           </div>
         )}
       </Tarjeta>
 
       {pedidosFallo && (
         <>
-          <TituloSeccion>Quieren entrar</TituloSeccion>
+          <TituloSeccion>{t("equipo.sumar.quierenEntrar")}</TituloSeccion>
           <div className="mb-8">
-            <ErrorGeneral>No pudimos traer los pedidos para entrar. Probá de nuevo.</ErrorGeneral>
+            <ErrorGeneral>{t("equipo.sumar.pedidosFallo")}</ErrorGeneral>
             {!linkFallo && (
               <div className="mt-4">
                 <Boton variante="plano" onClick={() => setIntento((n) => n + 1)}>
-                  Reintentar
+                  {t("equipo.sumar.reintentar")}
                 </Boton>
               </div>
             )}
@@ -210,38 +222,41 @@ export default function SumarAlEquipo() {
 
       {pedidos.length > 0 && (
         <>
-          <TituloSeccion>Quieren entrar ({pedidos.length})</TituloSeccion>
+          <TituloSeccion>{t("equipo.sumar.quierenEntrarN", { n: pedidos.length })}</TituloSeccion>
           <ul className="mb-8 grid gap-3">
             {pedidos.map((p) => (
               <li key={p.id}>
                 <Tarjeta>
                   <p className="font-bold">{p.nombre}</p>
                   <p className="text-tinta-media">
-                    {p.email ? `${p.email} · ` : ""}pidió entrar: {cuando(p.creada_en).toLowerCase()}
+                    {p.email
+                      ? t("equipo.sumar.pidioEntrarConMail", { email: p.email, cuando: fechaEnFrase(p.creada_en) })
+                      : t("equipo.sumar.pidioEntrar", { cuando: fechaEnFrase(p.creada_en) })}
                   </p>
                   <div className="mt-4 flex flex-wrap items-end gap-3">
                     <div>
                       <label htmlFor={`rol-pedido-${p.id}`} className="block font-bold text-cuerpo">
-                        Entra como
+                        {t("equipo.sumar.entraComo")}
                       </label>
                       <select
                         id={`rol-pedido-${p.id}`}
-                        value={rolDe[p.id] ?? "tecnico"}
+                        value={elegidoPara(p)}
                         onChange={(e) => setRolDe((r) => ({ ...r, [p.id]: e.target.value }))}
                         className="mt-2 block min-h-12 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
                       >
+                        <option value="">{t("equipo.sumar.elegirRol")}</option>
                         {roles.map((r) => (
-                          <option key={r} value={r}>
-                            {etiquetaRol(negocio?.rubro, r)}
+                          <option key={r.id} value={r.id}>
+                            {nombreDelRol(r, t)}
                           </option>
                         ))}
                       </select>
                     </div>
-                    <Boton icono="check" motivo={ocupado ? "esperando" : null} onClick={() => aceptar(p)}>
-                      Aceptar
+                    <Boton icono="check" motivo={ocupado ? t("equipo.sumar.esperando") : !elegidoPara(p) ? t("equipo.sumar.elegirUnRol") : null} onClick={() => aceptar(p)}>
+                      {t("equipo.sumar.aceptar")}
                     </Boton>
                     <Boton variante="peligro" disabled={ocupado} onClick={() => rechazar(p)}>
-                      Rechazar
+                      {t("equipo.sumar.rechazar")}
                     </Boton>
                   </div>
                 </Tarjeta>

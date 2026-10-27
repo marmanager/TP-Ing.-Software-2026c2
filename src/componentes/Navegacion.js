@@ -35,52 +35,55 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icono from "./Icono";
+import { useAuth } from "@/lib/auth";
+import { puede } from "@/lib/permisos";
 import { useDatos } from "@/lib/datos";
-import { estaPrendido, hijosActivos } from "@/lib/modulos";
+import { estaPrendido, hijosActivos, palabraDeBarra } from "@/lib/modulos";
+import { useIdioma } from "@/lib/useIdioma";
 
 const DESTINOS = [
-  { href: "/", icono: "sol", palabra: "Inicio", celular: true },
-  { href: "/casos", icono: "carpeta", palabra: "Casos", celular: true },
+  { href: "/", icono: "sol", id: "inicio", celular: true },
+  { href: "/casos", icono: "carpeta", id: "casos", celular: true },
   {
     href: "/agenda",
     icono: "calendario",
-    palabra: "Agenda",
     celular: true,
     modulo: "agenda",
     // La Agenda tiene pantallas adentro: la lista de turnos y el calendario
     // del mes. Cada una se prende por su cuenta desde "Mi negocio", así que
     // las dos pueden no estar. El Inventario, más abajo, igual.
     hijos: [
-      { href: "/agenda", icono: "reloj", palabra: "Turnos", modulo: "turnos" },
-      { href: "/agenda/calendario", icono: "calendario", palabra: "Calendario", modulo: "calendario" },
+      { href: "/agenda", icono: "reloj", modulo: "turnos" },
+      { href: "/agenda/calendario", icono: "calendario", modulo: "calendario" },
     ],
   },
   // Clientes e Historial eran núcleo y pasaron a módulo (SCRUM-122 y 120).
   // Vienen prendidos de fábrica: ver estaPrendido() en lib/modulos.js.
-  { href: "/clientes", icono: "persona", palabra: "Clientes", modulo: "clientes" },
+  { href: "/clientes", icono: "persona", modulo: "clientes" },
   {
     href: "/inventario",
     icono: "cajas",
-    palabra: "Inventario",
     modulo: "inventario",
     // Igual que la Agenda: lo que hay y lo que viene (SCRUM-113). Si el
     // negocio apagó "En stock", tocar Inventario lleva a "En camino".
     hijos: [
-      { href: "/inventario", icono: "cajas", palabra: "En stock", modulo: "stock" },
-      { href: "/inventario/en-camino", icono: "camion", palabra: "En camino", modulo: "en_camino" },
-      { href: "/inventario/sedes", icono: "tienda", palabra: "Todas las sedes", modulo: "sedes" },
+      { href: "/inventario", icono: "cajas", modulo: "stock" },
+      { href: "/inventario/en-camino", icono: "camion", modulo: "en_camino" },
+      { href: "/inventario/sedes", icono: "tienda", modulo: "sedes" },
     ],
   },
-  { href: "/ecuaciones", icono: "nota", palabra: "Ecuaciones", modulo: "ecuaciones" },
-  { href: "/aprobar", icono: "persona-check", palabra: "A aprobar", modulo: "presupuesto" },
-  { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
-  { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
+  { href: "/ecuaciones", icono: "nota", modulo: "ecuaciones" },
+  { href: "/lienzo", icono: "pincel", modulo: "lienzo" },
+  { href: "/aprobar", icono: "persona-check", modulo: "presupuesto" },
+  { href: "/equipo", icono: "personas", modulo: "equipo" },
+  { href: "/historial", icono: "historial", modulo: "historial" },
+  { href: "/dashboard", icono: "grafico", modulo: "dashboard", permiso: "ver_todos_los_casos" },
   // "alPie": van separados, abajo de todo. Son la configuración, no el
   // trabajo del día.
-  { href: "/negocio", icono: "tienda", palabra: "Mi negocio", alPie: true },
+  { href: "/negocio", icono: "tienda", id: "negocio", alPie: true },
   // Lo de la persona, aparte de lo del negocio (SCRUM-118): sus datos, su
   // foto, su contraseña y el negocio en el que está.
-  { href: "/perfil", icono: "cuenta", palabra: "Mi perfil", alPie: true },
+  { href: "/perfil", icono: "cuenta", id: "perfil", alPie: true },
 ];
 
 // Las dos partes de la lista: lo del trabajo, arriba, y lo de "alPie".
@@ -98,10 +101,10 @@ const activo = (ruta, href) => (href === "/" ? ruta === "/" : ruta.startsWith(hr
 // Lo que sí sigue acá es a dónde lleva "Agenda": al primer hijo prendido. Si
 // el negocio apagó Turnos y dejó el Calendario, tocar "Agenda" tiene que
 // llevar al calendario y no a una pantalla que ese negocio no tiene.
-const conModulo = (destinos, negocio) => {
+const conModulo = (destinos, negocio, quien) => {
   const activos = negocio?.modulos_activos ?? [];
   return destinos
-    .filter((d) => !d.modulo || estaPrendido(d.modulo, activos))
+    .filter((d) => (!d.modulo || estaPrendido(d.modulo, activos)) && (!d.permiso || puede(quien, d.permiso)))
     .map((d) => {
       if (!d.hijos) return d;
       const prendidos = hijosActivos(d.modulo, activos).map((h) => h.clave);
@@ -115,8 +118,8 @@ const conModulo = (destinos, negocio) => {
 // respetando el orden en que están escritos. El cuarto lugar es "Más".
 const DIRECTOS_EN_CELULAR = 3;
 
-const paraCelular = (destinos, negocio) => {
-  const disponibles = conModulo(destinos, negocio);
+const paraCelular = (destinos, negocio, quien) => {
+  const disponibles = conModulo(destinos, negocio, quien);
   const elegidos = disponibles.filter((d) => d.celular);
 
   for (const d of disponibles) {
@@ -136,6 +139,7 @@ const paraCelular = (destinos, negocio) => {
 // La lista de secciones con ícono y palabra. La usan la barra lateral y el
 // panel de "Más", así las dos muestran lo mismo en el mismo orden.
 function ListaDeSecciones({ destinos, ruta, grande = false }) {
+  const { t } = useIdioma();
   return (
     <ul className="flex flex-col gap-1">
       {destinos.map((d) => {
@@ -154,7 +158,7 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
               ].join(" ")}
             >
               <Icono nombre={d.icono} className="size-7" />
-              {d.palabra}
+              {palabraDeBarra(d.modulo ?? d.id, t)}
             </Link>
           </li>
         );
@@ -168,9 +172,11 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
 const LLAVE_BARRA = "marmanager.barra-cerrada";
 
 export function BarraLateral() {
+  const { t } = useIdioma();
   const ruta = usePathname();
   const { negocio } = useDatos();
-  const [arriba, alPie] = partir(conModulo(DESTINOS, negocio));
+  const { usuario } = useAuth();
+  const [arriba, alPie] = partir(conModulo(DESTINOS, negocio, usuario));
   const [cerrada, setCerrada] = useState(false);
   const boton = useRef(null);
   const recienTocado = useRef(false);
@@ -211,8 +217,8 @@ export function BarraLateral() {
       ref={boton}
       type="button"
       onClick={() => cambiar(!cerrada)}
-      aria-label={cerrada ? "Abrir el menú" : "Cerrar el menú"}
-      title={cerrada ? "Abrir el menú" : "Cerrar el menú"}
+      aria-label={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
+      title={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
       aria-expanded={!cerrada}
       className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
     >
@@ -231,7 +237,7 @@ export function BarraLateral() {
   }
 
   return (
-    <nav aria-label="Secciones" className="hidden w-64 shrink-0 border-r border-borde bg-fondo md:block">
+    <nav aria-label={t("navegacion.secciones")} className="hidden w-64 shrink-0 border-r border-borde bg-fondo md:block">
       {/* Del alto de la pantalla y quieta mientras la página se mueve, así el
           pie queda siempre abajo. Si las secciones no entran, se mueve sólo
           la lista de arriba y el pie no se tapa. */}
@@ -252,7 +258,7 @@ export function BarraLateral() {
             </span>
           )}
           <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
-            {negocio?.nombre ?? "Mi negocio"}
+            {negocio?.nombre ?? t("negocio.titulo")}
           </span>
           {botonDeBarra}
         </div>
@@ -298,10 +304,12 @@ const CLASE_DESTINO =
   "[@media(max-height:480px)]:gap-2";
 
 export function BarraCelular() {
+  const { t } = useIdioma();
   const ruta = usePathname();
   const { negocio } = useDatos();
-  const directos = paraCelular(DESTINOS, negocio);
-  const todos = conModulo(DESTINOS, negocio);
+  const { usuario } = useAuth();
+  const directos = paraCelular(DESTINOS, negocio, usuario);
+  const todos = conModulo(DESTINOS, negocio, usuario);
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
   const botonMas = useRef(null);
@@ -329,7 +337,7 @@ export function BarraCelular() {
     <>
       <nav
         ref={ref}
-        aria-label="Secciones principales"
+        aria-label={t("navegacion.seccionesPrincipales")}
         className="fixed inset-x-0 bottom-0 z-20 border-t border-borde bg-tarjeta md:hidden"
       >
         <ul className="mx-auto flex max-w-lg">
@@ -343,7 +351,7 @@ export function BarraCelular() {
                   className={[CLASE_DESTINO, acá ? "font-bold text-azul" : "text-tinta-media"].join(" ")}
                 >
                   <Icono nombre={d.icono} className="size-7" />
-                  {d.palabra}
+                  {palabraDeBarra(d.modulo ?? d.id, t)}
                 </Link>
               </li>
             );
@@ -362,7 +370,7 @@ export function BarraCelular() {
               ].join(" ")}
             >
               <Icono nombre="secciones" className="size-7" />
-              Más
+              {t("navegacion.mas")}
             </button>
           </li>
         </ul>
@@ -384,6 +392,7 @@ export function BarraCelular() {
 // lateral de la computadora. Se cierra con "Cerrar", con Escape o eligiendo
 // una sección. Mientras está abierto, la página de atrás no se mueve.
 function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
+  const { t } = useIdioma();
   const cerrar = useRef(null);
 
   useEffect(() => {
@@ -424,7 +433,7 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
           )}
           <div className="min-w-0">
             <h2 id="panel-secciones-titulo" className="text-seccion">
-              Todas las secciones
+              {t("navegacion.todasLasSecciones")}
             </h2>
             <p className="truncate text-apoyo text-tinta-suave">{negocio?.nombre}</p>
           </div>
@@ -436,12 +445,12 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
           className="flex min-h-12 shrink-0 cursor-pointer items-center gap-2 rounded-campo px-3 font-bold text-azul hover:bg-azul-claro"
         >
           <Icono nombre="cruz" />
-          Cerrar
+          {t("navegacion.cerrar")}
         </button>
       </div>
       {/* Partida igual que la barra de la computadora: Mi negocio y Mi
           perfil en un grupo aparte, al final. */}
-      <nav aria-label="Todas las secciones">
+      <nav aria-label={t("navegacion.todasLasSecciones")}>
         <ListaDeSecciones destinos={partir(destinos)[0]} ruta={ruta} grande />
         <div className="mt-4 border-t border-borde pt-4">
           <ListaDeSecciones destinos={partir(destinos)[1]} ruta={ruta} grande />

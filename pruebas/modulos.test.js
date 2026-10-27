@@ -31,10 +31,12 @@ test("los submódulos no ensucian la lista de módulos", () => {
   assert.deepEqual(claves(LISTA_MODULOS), [
     "agenda",
     "clientes",
+    "dashboard",
     "ecuaciones",
     "equipo",
     "historial",
     "inventario",
+    "lienzo",
     "presupuesto",
   ]);
   for (const s of LISTA_SUBMODULOS) {
@@ -47,7 +49,7 @@ test("los módulos van en el orden de la barra lateral", () => {
   // lugar.
   assert.deepEqual(
     LISTA_MODULOS.map((m) => m.clave),
-    ["agenda", "clientes", "inventario", "ecuaciones", "presupuesto", "equipo", "historial"]
+    ["agenda", "clientes", "inventario", "ecuaciones", "lienzo", "presupuesto", "equipo", "historial", "dashboard"]
   );
 });
 
@@ -59,8 +61,8 @@ test("Ecuaciones personalizadas apunta a su pantalla y empieza apagado", () => {
 
 test("el módulo de /aprobar se llama como en el menú", () => {
   // SCRUM-121. Se llamaba "Presupuesto" y apagarlo no apagaba ningún
-  // presupuesto: sólo la pantalla "A aprobar".
-  assert.equal(MODULOS.presupuesto.nombre, "A aprobar");
+  // presupuesto: sólo la pantalla "Pendientes de aprobación".
+  assert.equal(MODULOS.presupuesto.nombre, "Pendientes de aprobación");
   assert.equal(MODULOS.presupuesto.ruta, "/aprobar");
 });
 

@@ -1,7 +1,9 @@
 -- ============================================================
--- 053_roles.sql — roles por negocio, con permisos (etapa 1 de docs/roles.md)
+-- 057_roles.sql — roles por negocio, con permisos (etapa 1 de docs/roles.md)
 --
--- Correr entero en el SQL Editor de Supabase, después de 001..052.
+-- Correr entero en el SQL Editor de Supabase, después de 001..056. Las 053,
+-- 054 y 056 (landing, baja de avisos, aviso de volver) todavía preguntan por
+-- el rol viejo: la 058 las pasa a permisos.
 -- Es idempotente. Después, correr supabase/pruebas/roles.sql.
 --
 -- Hasta acá un rol era una de tres palabras ('duenio', 'encargado',
@@ -11,7 +13,7 @@
 -- ficha queda apuntando a un rol con exactamente los permisos de su rol viejo.
 --
 -- empleado.rol (la palabra vieja) sigue mientras dure la transición: un
--- trigger le pone a cada ficha el rol_id que le corresponde. Se va en la 059.
+-- trigger le pone a cada ficha el rol_id que le corresponde. Se va en la 063.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -38,7 +40,7 @@ as $$
   ]::text[];
 $$;
 
--- Los únicos que valen de visita en una sede vinculada (057).
+-- Los únicos que valen de visita en una sede vinculada (061).
 create or replace function permisos_de_mirar()
 returns text[]
 language sql
@@ -97,7 +99,7 @@ $$;
 -- ------------------------------------------------------------
 -- `clave` es la palabra vieja de la que salió el rol, para el pasaje y para
 -- el trigger de la sección 4. Los roles que se creen a mano no la tienen. Se
--- va en la 059.
+-- va en la 063.
 create table if not exists rol (
   id          uuid primary key default gen_random_uuid(),
   negocio_id  uuid        not null references negocio (id) on delete cascade,
@@ -113,7 +115,7 @@ create unique index if not exists rol_nombre_unico on rol (negocio_id, lower(nom
 create unique index if not exists rol_un_duenio on rol (negocio_id) where es_duenio;
 create unique index if not exists rol_clave_unica on rol (negocio_id, clave) where clave is not null;
 
--- Se lee con la RLS; se escribe sólo por las funciones (056).
+-- Se lee con la RLS; se escribe sólo por las funciones (060).
 alter table rol enable row level security;
 revoke all on rol from anon;
 revoke insert, update, delete on rol from authenticated;
@@ -193,7 +195,7 @@ revoke all on function rol_de_clave(uuid, text) from authenticated;
 -- 4. La ficha apunta a un rol
 -- ------------------------------------------------------------
 -- `no action` y no `restrict`: al borrar el negocio, fichas y roles se borran
--- en el mismo comando y el control va al final (058).
+-- en el mismo comando y el control va al final (062).
 alter table empleado add column if not exists rol_id uuid references rol (id);
 
 -- Mientras haya código que escribe la palabra vieja (crear_mi_negocio,
@@ -282,7 +284,7 @@ create trigger negocio_crea_sus_roles
 -- 7. Los permisos de quien llama
 -- ------------------------------------------------------------
 -- La única función que decide. puede_en, puede_aca y mis_permisos leen de
--- acá; la 057 le suma las visitas entre sedes y nadie más cambia.
+-- acá; la 061 le suma las visitas entre sedes y nadie más cambia.
 create or replace function permisos_efectivos(p_negocio uuid)
 returns text[]
 language sql
@@ -331,7 +333,7 @@ grant execute on function puede_aca(text) to authenticated;
 
 -- Para la API y el front: con qué rol está quien llama y qué puede, en el
 -- negocio activo. Sin ficha, rol null y los permisos que le toquen (vacío,
--- hasta la 057).
+-- hasta la 061).
 create or replace function mis_permisos()
 returns jsonb
 language sql

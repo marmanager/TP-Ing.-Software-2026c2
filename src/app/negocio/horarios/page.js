@@ -13,12 +13,13 @@
 // módulos: son seis decisiones y cada una tiene su porqué. Se llega desde
 // "Mi negocio", no desde la navegación: el menú es para trabajar.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
 import {
   ANTICIPACIONES,
   HORIZONTE_DE_FABRICA,
@@ -28,14 +29,17 @@ import {
   HORARIOS_DE_FABRICA,
   horariosListos,
   huecosDelDia,
+  nombreDelDia,
   normalizarHorarios,
+  palabraDeAnticipacion,
+  palabraDeHorizonte,
   problemasDeHorarios,
 } from "@/lib/horarios";
-import { linkDeWhatsApp } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
+import Frase from "@/componentes/Frase";
+import LinkCompartido from "@/componentes/LinkCompartido";
 import {
   Boton,
-  Campo,
   Cargando,
   Tarjeta,
   TituloPantalla,
@@ -45,23 +49,34 @@ import {
 const comoHora = (fecha) =>
   `${fecha.getHours()}:${String(fecha.getMinutes()).padStart(2, "0")}`;
 
+// Las palabras del link para pedir turno. El bloque en sí es el de
+// LinkCompartido, el mismo del editor de la landing. El mensaje de WhatsApp lo
+// manda el negocio: sale en su idioma.
+const textosDelLink = (t) => ({
+  etiqueta: t("negocio.horarios.link.etiqueta"),
+  explicacion: t("negocio.horarios.link.explicacion"),
+  armar: t("negocio.horarios.link.armar"),
+  armado: t("negocio.horarios.link.armado"),
+  whatsapp: (nombre, link) => t("negocio.horarios.link.whatsapp", { nombre, link }),
+  dejar: t("negocio.horarios.link.dejar"),
+  pregunta: t("negocio.horarios.link.pregunta"),
+  aviso: t("negocio.horarios.link.aviso"),
+  cortado: t("negocio.horarios.link.cortado"),
+});
+
 export default function Horarios() {
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { usuario } = useAuth();
-  useTitulo("Cuándo atendés");
+  const { idioma, locale, t } = useIdioma();
+  useTitulo(t("negocio.horarios.titulo"));
+  // Un día en medio de una frase: en castellano va en minúscula, en inglés no.
+  const nombreEnFrase = (diaJs) => (idioma === "es" ? nombreDelDia(diaJs, locale).toLowerCase() : nombreDelDia(diaJs, locale));
 
   // Se edita sobre un borrador, igual que la ficha del negocio: así
   // "Cancelar" deshace de verdad y nadie deja la agenda a medio configurar
   // por irse de la pantalla.
   const [borrador, setBorrador] = useState(null);
-  const [compartiendo, setCompartiendo] = useState(false);
-  const [errorLink, setErrorLink] = useState(null);
-  const [cortando, setCortando] = useState(false);
-  // El origen sale del navegador: así el link anda igual en localhost y el
-  // día que esto se publique.
-  const [origen, setOrigen] = useState("");
-  useEffect(() => setOrigen(window.location.origin), []);
 
   if (cargando) return <Cargando />;
 
@@ -70,9 +85,7 @@ export default function Horarios() {
   const actual = borrador ?? guardado;
   const editando = borrador !== null;
 
-  const problemas = problemasDeHorarios(actual);
-  const linkAgenda =
-    origen && negocio?.agenda_codigo ? origen + "/turnos/" + negocio.agenda_codigo : "";
+  const problemas = problemasDeHorarios(actual, t);
   const cambiar = (que) => setBorrador((b) => ({ ...(b ?? guardado ?? HORARIOS_DE_FABRICA), ...que }));
 
   const alternarDia = (clave) => {
@@ -104,28 +117,33 @@ export default function Horarios() {
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />
-        Volver a Mi negocio
+        {t("negocio.volver")}
       </Link>
 
-      <TituloPantalla apoyo="Los días y horas en los que das turnos. Es lo que va a ver un cliente cuando quiera pedir uno.">
-        Cuándo atendés
+      <TituloPantalla apoyo={t("negocio.horarios.apoyo")}>
+        {t("negocio.horarios.titulo")}
       </TituloPantalla>
 
       {!puedeConfigurar ? (
         <Tarjeta>
-          <p className="max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.configurar_negocio}</p>
+          <p className="max-w-[65ch] text-tinta-media">{quienPuede("configurar_negocio", t)}</p>
           {guardado ? (
             <p className="mt-3 text-tinta-media">
-              Hoy atendés{" "}
-              <span className="font-bold text-tinta">
-                {DIAS.filter((d) => guardado.dias.includes(d.clave))
-                  .map((d) => d.nombre.toLowerCase())
-                  .join(", ")}
-              </span>{" "}
-              de {guardado.desde} a {guardado.hasta}.
+              <Frase
+                texto={t("negocio.horarios.hoyAtendes", { desde: guardado.desde, hasta: guardado.hasta })}
+                partes={{
+                  dias: (
+                    <span className="font-bold text-tinta">
+                      {DIAS.filter((d) => guardado.dias.includes(d.clave))
+                        .map((d) => nombreEnFrase(d.diaJs))
+                        .join(", ")}
+                    </span>
+                  ),
+                }}
+              />
             </p>
           ) : (
-            <p className="mt-3 text-tinta-media">Todavía no hay horarios configurados.</p>
+            <p className="mt-3 text-tinta-media">{t("negocio.horarios.sinHorarios")}</p>
           )}
         </Tarjeta>
       ) : (
@@ -134,16 +152,14 @@ export default function Horarios() {
             <Tarjeta className="mb-8">
               <p className="flex items-start gap-2 font-bold text-cuerpo text-espera">
                 <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                <span>Todavía no configuraste tus horarios</span>
+                <span>{t("negocio.horarios.sinConfigTitulo")}</span>
               </p>
               <p className="mt-2 max-w-[65ch] text-tinta-media">
-                Hasta que lo hagas, tus clientes no pueden pedir turno solos. Te
-                dejamos abajo un horario de arranque —de lunes a viernes, de 9 a 18,
-                cortando al mediodía— para que lo ajustes en vez de empezar de cero.
+                {t("negocio.horarios.sinConfigTexto")}
               </p>
               <div className="mt-4">
                 <Boton icono="calendario" onClick={() => setBorrador(HORARIOS_DE_FABRICA)}>
-                  Configurar mis horarios
+                  {t("negocio.horarios.configurarMis")}
                 </Boton>
               </div>
             </Tarjeta>
@@ -151,7 +167,7 @@ export default function Horarios() {
 
           {(guardado || editando) && (
             <>
-              <TituloSeccion>Qué días atendés</TituloSeccion>
+              <TituloSeccion>{t("negocio.horarios.queDias")}</TituloSeccion>
               <Tarjeta className="mb-8">
                 <ul className="flex flex-wrap gap-2.5">
                   {DIAS.map((d) => {
@@ -173,7 +189,7 @@ export default function Horarios() {
                               negro se tiene que seguir entendiendo cuáles
                               están puestos (cartilla, 02). */}
                           <Icono nombre={puesto ? "listo" : "circulo"} className="size-5" />
-                          {d.nombre}
+                          {nombreDelDia(d.diaJs, locale)}
                         </button>
                       </li>
                     );
@@ -181,18 +197,18 @@ export default function Horarios() {
                 </ul>
               </Tarjeta>
 
-              <TituloSeccion>En qué horario</TituloSeccion>
+              <TituloSeccion>{t("negocio.horarios.enQueHorario")}</TituloSeccion>
               <Tarjeta className="mb-8">
                 <div className="flex flex-wrap items-end gap-4">
                   <Hora
                     id="desde"
-                    etiqueta="Abrís a las"
+                    etiqueta={t("negocio.horarios.abris")}
                     value={actual?.desde ?? "09:00"}
                     onChange={(v) => cambiar({ desde: v })}
                   />
                   <Hora
                     id="hasta"
-                    etiqueta="Cerrás a las"
+                    etiqueta={t("negocio.horarios.cerras")}
                     value={actual?.hasta ?? "18:00"}
                     onChange={(v) => cambiar({ hasta: v })}
                   />
@@ -213,20 +229,20 @@ export default function Horarios() {
                       nombre={actual?.corte ? "listo" : "circulo"}
                       className="size-6"
                     />
-                    Cortás al mediodía
+                    {t("negocio.horarios.cortas")}
                   </button>
 
                   {actual?.corte && (
                     <div className="mt-3 flex flex-wrap items-end gap-4">
                       <Hora
                         id="corte-desde"
-                        etiqueta="Cerrás a las"
+                        etiqueta={t("negocio.horarios.cerras")}
                         value={actual.corte.desde}
                         onChange={(v) => cambiar({ corte: { ...actual.corte, desde: v } })}
                       />
                       <Hora
                         id="corte-hasta"
-                        etiqueta="Volvés a las"
+                        etiqueta={t("negocio.horarios.volves")}
                         value={actual.corte.hasta}
                         onChange={(v) => cambiar({ corte: { ...actual.corte, hasta: v } })}
                       />
@@ -235,42 +251,37 @@ export default function Horarios() {
                 </div>
               </Tarjeta>
 
-              <TituloSeccion>Cada cuánto das un turno</TituloSeccion>
+              <TituloSeccion>{t("negocio.horarios.cadaCuanto")}</TituloSeccion>
               <Tarjeta className="mb-8">
                 <p className="mb-3 max-w-[65ch] text-tinta-media">
-                  No es cuánto va a durar el trabajo —eso no se sabe de antemano—
-                  sino cada cuánto entra alguien. Un auto puede quedarse tres días;
-                  el lugar que ocupa en la agenda es este.
+                  {t("negocio.horarios.cadaCuantoTexto")}
                 </p>
                 <Elegir
-                  opciones={DURACIONES.map((m) => ({ valor: m, palabra: `${m} minutos` }))}
+                  opciones={DURACIONES.map((m) => ({ valor: m, palabra: t("negocio.horarios.minutos", { m }) }))}
                   valor={actual?.minutos ?? 30}
                   alElegir={(v) => cambiar({ minutos: v })}
                 />
               </Tarjeta>
 
-              <TituloSeccion>Con cuánta anticipación te pueden pedir</TituloSeccion>
+              <TituloSeccion>{t("negocio.horarios.anticipacion")}</TituloSeccion>
               <Tarjeta className="mb-8">
                 <p className="mb-3 max-w-[65ch] text-tinta-media">
-                  Para que nadie pida un turno para dentro de diez minutos y no haya
-                  quién lo atienda.
+                  {t("negocio.horarios.anticipacionTexto")}
                 </p>
                 <Elegir
-                  opciones={ANTICIPACIONES.map((a) => ({ valor: a.horas, palabra: a.palabra }))}
+                  opciones={ANTICIPACIONES.map((a) => ({ valor: a.horas, palabra: palabraDeAnticipacion(a.horas, t) }))}
                   valor={actual?.anticipacionHoras ?? 2}
                   alElegir={(v) => cambiar({ anticipacionHoras: v })}
                 />
               </Tarjeta>
 
-              <TituloSeccion>Hasta cuándo te pueden pedir</TituloSeccion>
+              <TituloSeccion>{t("negocio.horarios.hasta")}</TituloSeccion>
               <Tarjeta className="mb-8">
                 <p className="mb-3 max-w-[65ch] text-tinta-media">
-                  Cuánto para adelante se ve en el calendario. Más allá de eso los
-                  días aparecen tachados, para que nadie se anote para una fecha en
-                  la que todavía no sabés si vas a abrir.
+                  {t("negocio.horarios.hastaTexto")}
                 </p>
                 <Elegir
-                  opciones={HORIZONTES.map((x) => ({ valor: x.dias, palabra: x.palabra }))}
+                  opciones={HORIZONTES.map((x) => ({ valor: x.dias, palabra: palabraDeHorizonte(x.dias, t) }))}
                   valor={actual?.horizonteDias ?? HORIZONTE_DE_FABRICA}
                   alElegir={(v) => cambiar({ horizonteDias: v })}
                 />
@@ -279,7 +290,7 @@ export default function Horarios() {
               {/* En qué se convierte todo lo de arriba. Es lo único que
                   contesta "¿entonces qué va a ver el cliente?" sin tener que
                   guardar y abrir la otra pantalla. */}
-              <TituloSeccion>En qué queda</TituloSeccion>
+              <TituloSeccion>{t("negocio.horarios.enQueQueda")}</TituloSeccion>
               <Tarjeta className="mb-8">
                 {problemas.length > 0 ? (
                   <ul className="flex flex-col gap-2">
@@ -293,16 +304,20 @@ export default function Horarios() {
                 ) : ejemplo ? (
                   <>
                     <p className="text-tinta-media">
-                      Un{" "}
-                      <span className="font-bold text-tinta">
-                        {DIAS.find((d) => d.diaJs === ejemplo.fecha.getDay())?.nombre.toLowerCase()}
-                      </span>{" "}
-                      das{" "}
-                      <span className="font-bold text-tinta">
-                        {ejemplo.huecos.length} turnos
-                      </span>
-                      , de {comoHora(ejemplo.huecos[0])} a{" "}
-                      {comoHora(ejemplo.huecos[ejemplo.huecos.length - 1])}.
+                      <Frase
+                        texto={t("negocio.horarios.ejemplo", {
+                          desde: comoHora(ejemplo.huecos[0]),
+                          hasta: comoHora(ejemplo.huecos[ejemplo.huecos.length - 1]),
+                        })}
+                        partes={{
+                          dia: <span className="font-bold text-tinta">{nombreEnFrase(ejemplo.fecha.getDay())}</span>,
+                          turnos: (
+                            <span className="font-bold text-tinta">
+                              {t("negocio.horarios.ejemploTurnos", { n: ejemplo.huecos.length })}
+                            </span>
+                          ),
+                        }}
+                      />
                     </p>
                     <ul className="mt-3 flex flex-wrap gap-2">
                       {ejemplo.huecos.map((h) => (
@@ -317,7 +332,7 @@ export default function Horarios() {
                   </>
                 ) : (
                   <p className="text-tinta-media">
-                    Con estos días no sale ningún turno en los próximos siete días.
+                    {t("negocio.horarios.ningunTurno")}
                   </p>
                 )}
               </Tarjeta>
@@ -328,129 +343,17 @@ export default function Horarios() {
                   pantalla sin horarios. */}
               {!editando && horariosListos(actual) && (
                 <>
-                  <TituloSeccion>El link para pedir turno</TituloSeccion>
-                  <Tarjeta className="mb-8">
-                    {errorLink && (
-                      <p className="mb-3 flex items-start gap-2 font-bold text-rojo">
-                        <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                        <span>{errorLink}</span>
-                      </p>
-                    )}
-
-                    {!negocio?.agenda_codigo ? (
-                      <>
-                        <p className="max-w-[65ch] text-tinta-media">
-                          Un link para poner en tu Instagram, en tu WhatsApp o donde
-                          quieras. Quien lo abra ve los horarios que te quedan libres
-                          y se anota solo, sin llamarte y sin crear ninguna cuenta.
-                        </p>
-                        <div className="mt-4">
-                          <Boton
-                            icono="calendario"
-                            motivo={compartiendo ? "armando el link" : null}
-                            onClick={async () => {
-                              setErrorLink(null);
-                              setCompartiendo(true);
-                              const r = await datos.compartirAgenda();
-                              setCompartiendo(false);
-                              if (!r.ok) return setErrorLink(r.error);
-                              datos.avisarExito(
-                                "Listo. Ya podés repartir el link para pedir turno."
-                              );
-                            }}
-                          >
-                            Armar el link
-                          </Boton>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <Campo
-                          id="link-agenda"
-                          etiqueta="El link de tu agenda"
-                          ayuda="Es el mismo siempre. Podés repartirlo donde quieras."
-                          value={linkAgenda}
-                          readOnly
-                          onFocus={(ev) => ev.target.select()}
-                        />
-
-                        <div className="-mt-2 flex flex-wrap gap-3">
-                          <Boton
-                            icono="copiar"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(linkAgenda);
-                                datos.avisarExito(
-                                  "Copiamos el link. Pegalo donde lo quieras poner."
-                                );
-                              } catch {
-                                document.getElementById("link-agenda")?.select();
-                                datos.avisarExito("Quedó seleccionado. Copialo con Ctrl+C.");
-                              }
-                            }}
-                          >
-                            Copiar el link
-                          </Boton>
-                          <a
-                            href={linkDeWhatsApp(
-                              "Hola, te escribimos de " +
-                                (negocio?.nombre ?? "tu negocio") +
-                                ". Podés pedir tu turno acá, sin llamar: " +
-                                linkAgenda
-                            )}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
-                          >
-                            <Icono nombre="chat" />
-                            Mandarlo por WhatsApp
-                          </a>
-                        </div>
-
-                        {cortando ? (
-                          <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                            <p className="font-bold text-cuerpo">
-                              ¿Dejar de compartir la agenda?
-                            </p>
-                            <p className="mt-1 max-w-[65ch] text-tinta-media">
-                              El link deja de funcionar ahora mismo y nadie va a poder
-                              pedir turno por ahí. Los turnos que ya te pidieron quedan
-                              como están.
-                            </p>
-                            <div className="mt-4 flex flex-wrap gap-3">
-                              <Boton
-                                variante="peligro"
-                                icono="tacho"
-                                onClick={async () => {
-                                  setCortando(false);
-                                  const r = await datos.dejarDeCompartirAgenda();
-                                  if (!r.ok) return setErrorLink(r.error);
-                                  datos.avisarExito("Listo. Ese link dejó de funcionar.");
-                                }}
-                              >
-                                Sí, dejar de compartirla
-                              </Boton>
-                              <Boton variante="plano" onClick={() => setCortando(false)}>
-                                Seguir compartiéndola
-                              </Boton>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-2">
-                            <Boton
-                              variante="plano"
-                              icono="tacho"
-                              onClick={() => setCortando(true)}
-                            >
-                              Dejar de compartir la agenda
-                            </Boton>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </Tarjeta>
-
-
+                  <TituloSeccion>{t("negocio.horarios.linkTitulo")}</TituloSeccion>
+                  <LinkCompartido
+                    id="link-agenda"
+                    codigo={negocio?.agenda_codigo}
+                    ruta="/turnos/"
+                    icono="calendario"
+                    nombre={negocio?.nombre}
+                    compartir={datos.compartirAgenda}
+                    dejarDeCompartir={datos.dejarDeCompartirAgenda}
+                    textos={textosDelLink(t)}
+                  />
                 </>
               )}
 
@@ -462,14 +365,14 @@ export default function Horarios() {
                     motivo={problemas.length > 0 ? problemas[0] : null}
                     onClick={() => {
                       datos.guardarHorarios(borrador);
-                      datos.avisarExito("Listo, tus horarios quedaron guardados.");
+                      datos.avisarExito(t("negocio.horarios.guardado"));
                       setBorrador(null);
                     }}
                   >
-                    Guardar los horarios
+                    {t("negocio.horarios.guardar")}
                   </Boton>
                   <Boton variante="plano" onClick={() => setBorrador(null)}>
-                    Cancelar
+                    {t("casos.comun.cancelar")}
                   </Boton>
                 </div>
               )}

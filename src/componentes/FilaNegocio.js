@@ -1,3 +1,5 @@
+"use client";
+
 // Una fila de negocio: la foto —o el ícono de local—, el nombre y el rubro, y
 // el rol si se pasa. Es sólo el contenido: quien la usa pone alrededor el
 // botón o la tarjeta, porque en el selector la fila entera se toca y en Mi
@@ -5,9 +7,11 @@
 
 import Link from "next/link";
 import { preset } from "@/lib/presets";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 
 export default function FilaNegocio({ negocio, rol }) {
+  const { idioma } = useIdioma();
   return (
     <>
       {/* Sin texto alternativo: el nombre está al lado. */}
@@ -21,7 +25,7 @@ export default function FilaNegocio({ negocio, rol }) {
       <span className="min-w-0 flex-1">
         <span className="block font-bold text-cuerpo">{negocio.nombre}</span>
         <span className="block text-tinta-media">
-          {preset(negocio.rubro).nombre}
+          {preset(negocio.rubro, idioma).nombre}
           {rol && ` · ${rol}`}
         </span>
       </span>
@@ -31,6 +35,7 @@ export default function FilaNegocio({ negocio, rol }) {
 
 // La última fila: un "+" en el lugar de la foto.
 export function FilaNuevoNegocio() {
+  const { t } = useIdioma();
   return (
     <Link
       href="/crear-negocio"
@@ -39,7 +44,7 @@ export function FilaNuevoNegocio() {
       <span className="flex size-12 shrink-0 items-center justify-center rounded-campo bg-azul-claro">
         <Icono nombre="mas" />
       </span>
-      Nuevo negocio
+      {t("acceso.negocios.nuevo")}
     </Link>
   );
 }

@@ -2,56 +2,40 @@
 
 // "Recordatorios por WhatsApp" — los mensajes que le llegan solos al cliente.
 //
-// Son dos (R-4b): el de después de entregar, que ya existía y hasta ahora
-// sólo se veía al cerrar un caso, y el de antes del turno. Cada uno con su
-// interruptor, su plazo y su texto.
+// Son cuatro: el de después de entregar, el de antes del turno (R-4b), el de
+// cuando le toca volver (R-2b) y el del presupuesto sin respuesta (R-5b).
+// Con dos, entraban en una pantalla: eran seis campos, el máximo de la
+// cartilla. El tercero ya no entraba, y vienen más (R-6), así que esta
+// pantalla es la lista y cada uno se edita en la suya,
+// /negocio/recordatorios/[tipo], con sus tres campos y su botón.
 //
-// Pantalla propia y no una sección más de "Mi negocio", igual que horarios y
-// módulos: los dos juntos son seis campos, el máximo de la cartilla para una
-// pantalla, y Mi negocio ya tiene su botón azul. Acá hay uno solo, que
-// guarda los dos y manda sólo lo que cambió: apagar uno no toca el otro.
-//
-// El texto sugerido según el rubro lo arma la API (sugeridaTurno): llega en
-// la configuración y se edita. Con la agenda apagada, el de turnos no se ve:
-// no se configura algo que no se usa.
+// Cada fila dice cómo está y cuándo sale, para no tener que entrar a mirar.
+// Las filas salen de lib/recordatorios.js (filasDeRecordatorios): sumar un
+// recordatorio no toca esta pantalla. Con la agenda apagada, el de turnos
+// no aparece: no se configura algo que no se usa.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { estaPrendido } from "@/lib/modulos";
-import { vocabulario } from "@/lib/presets";
-import {
-  cambiosDeRecordatorios,
-  cuandoSaleEnPalabras,
-  erroresDelRecordatorio,
-  recordatoriosDeLaApi,
-} from "@/lib/recordatorios";
+import { filasDeRecordatorios } from "@/lib/recordatorios";
 import Icono from "@/componentes/Icono";
-import {
-  Boton,
-  BotonPrincipalFijo,
-  Campo,
-  Cargando,
-  ErrorGeneral,
-  Interruptor,
-  Tarjeta,
-  TituloPantalla,
-} from "@/componentes/ui";
+import { Boton, Cargando, ErrorGeneral, Tarjeta, TituloPantalla } from "@/componentes/ui";
 
 export default function Recordatorios() {
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { usuario } = useAuth();
-  useTitulo("Recordatorios por WhatsApp");
+  const { idioma, locale, t } = useIdioma();
+  useTitulo(t("negocio.recordatorios.titulo"));
 
-  const [guardado, setGuardado] = useState(null);
-  const [borrador, setBorrador] = useState(null);
+  const [configuracion, setConfiguracion] = useState(null);
   const [error, setError] = useState(null);
-  const [leyendo, setLeyendo] = useState(true);
-  const [guardando, setGuardando] = useState(false);
   const [intento, setIntento] = useState(0);
   const acciones = useRef(datos);
   acciones.current = datos;
@@ -60,193 +44,97 @@ export default function Recordatorios() {
   useEffect(() => {
     if (!negocioId) return;
     let vivo = true;
-    setLeyendo(true);
     setError(null);
     (async () => {
       const r = await acciones.current.consultarSeguimiento();
       if (!vivo) return;
-      setLeyendo(false);
       if (!r.ok) return setError(r.error);
-      const editable = recordatoriosDeLaApi(r.configuracion);
-      setGuardado(editable);
-      setBorrador(editable);
+      setConfiguracion(r.configuracion);
     })();
     return () => { vivo = false; };
   }, [negocioId, intento]);
 
-  if (cargando || (leyendo && !error)) return <Cargando />;
+  if (cargando || (!configuracion && !error)) return <Cargando />;
 
   const puedeConfigurar = puede(usuario, "entregar_y_reabrir");
   const conAgenda = estaPrendido("agenda", negocio?.modulos_activos ?? []);
-  const { cita } = vocabulario(negocio?.rubro);
-  const antesDe = `Antes ${cita.segun("del", "de la")} ${cita.palabra()}`;
 
   const volver = (
     <Link href="/negocio" className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
       <Icono nombre="volver" />
-      Volver a Mi negocio
+      {t("negocio.volver")}
     </Link>
   );
 
-  if (!borrador) {
+  if (!configuracion) {
     return (
       <>
         {volver}
-        <TituloPantalla>Recordatorios por WhatsApp</TituloPantalla>
-        <ErrorGeneral>{error}</ErrorGeneral>
-        <Boton className="mt-4" onClick={() => setIntento((n) => n + 1)}>Volver a cargar</Boton>
+        <TituloPantalla>{t("negocio.recordatorios.titulo")}</TituloPantalla>
+        <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
+        <Boton className="mt-4" onClick={() => setIntento((n) => n + 1)}>{t("negocio.recordatorios.recargar")}</Boton>
       </>
     );
   }
 
-  // Los errores sólo cuentan para lo prendido: lo apagado no se manda.
-  const erroresDe = (tipo) => (borrador[tipo].activo ? erroresDelRecordatorio({ tipo, ...borrador[tipo] }) : {});
-  const errores = { cierre: erroresDe("cierre"), turno: conAgenda ? erroresDe("turno") : {} };
-  const cambios = cambiosDeRecordatorios(guardado, conAgenda ? borrador : { ...borrador, turno: guardado.turno });
-  const hayCambios = Object.keys(cambios).length > 0;
-
-  const motivo = guardando
-    ? "se está guardando"
-    : errores.cierre.mensaje || errores.turno.mensaje
-      ? "falta el texto del mensaje"
-      : errores.cierre.plazo || errores.turno.plazo
-        ? "revisá el plazo"
-        : !hayCambios
-          ? "no cambiaste nada"
-          : null;
-
-  const cambiar = (tipo, que) => setBorrador((b) => ({ ...b, [tipo]: { ...b[tipo], ...que } }));
-
-  async function guardar() {
-    setGuardando(true);
-    setError(null);
-    const r = await datos.configurarSeguimiento(cambios);
-    setGuardando(false);
-    if (!r.ok) return setError(r.error);
-    const editable = recordatoriosDeLaApi(r.configuracion);
-    setGuardado(editable);
-    setBorrador(editable);
-    const prendidos = [
-      editable.cierre.activo && "el de después de entregar",
-      conAgenda && editable.turno.activo && `el de antes ${cita.segun("del", "de la")} ${cita.palabra()}`,
-    ].filter(Boolean);
-    datos.avisarExito(
-      prendidos.length
-        ? `Listo. Quedaron prendidos ${prendidos.join(" y ")}.`
-        : "Listo. Los recordatorios quedaron apagados."
-    );
-  }
+  const filas = filasDeRecordatorios({ configuracion, rubro: negocio?.rubro, conAgenda }, { t, locale, idioma });
 
   return (
     <>
       {volver}
-      <TituloPantalla apoyo="Mensajes que le llegan solos al cliente por WhatsApp. Prendé los que quieras usar.">
-        Recordatorios por WhatsApp
+      <TituloPantalla apoyo={t("negocio.recordatorios.apoyo")}>
+        {t("negocio.recordatorios.titulo")}
       </TituloPantalla>
 
       {!puedeConfigurar && (
-        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.entregar_y_reabrir}</p>
+        <p className="mb-6 max-w-[65ch] text-tinta-media">{quienPuede("entregar_y_reabrir", t)}</p>
       )}
 
-      <fieldset disabled={!puedeConfigurar || guardando}>
-        <Recordatorio
-          id="cierre"
-          titulo="Después de entregar"
-          interruptor="Mensaje después de entregar"
-          ayudaInterruptor="Al entregar cada caso elegís si se lo mandás."
-          valor={borrador.cierre}
-          errores={errores.cierre}
-          frase={cuandoSaleEnPalabras({ tipo: "cierre", plazo: borrador.cierre.plazo, rubro: negocio?.rubro })}
-          etiquetaPlazo="¿Cuántos días después de entregar?"
-          ayudaPlazo="Poné 0 para mandarlo apenas entregás."
-          max={3650}
-          min={0}
-          alCambiar={(que) => cambiar("cierre", que)}
-        />
-
-        {conAgenda && (
-          <Recordatorio
-            id="turno"
-            titulo={antesDe}
-            interruptor={`Recordatorio ${cita.segun("del", "de la")} ${cita.palabra()}`}
-            ayudaInterruptor={`Le llega a cada cliente con teléfono que tenga ${cita.un()} anotad${cita.segun("o", "a")}.`}
-            valor={borrador.turno}
-            errores={errores.turno}
-            frase={cuandoSaleEnPalabras({ tipo: "turno", plazo: borrador.turno.plazo, rubro: negocio?.rubro })}
-            etiquetaPlazo="¿Cuántas horas antes?"
-            ayudaPlazo="24 es el día anterior, a la misma hora. Hasta 168, una semana."
-            max={168}
-            min={1}
-            alCambiar={(que) => cambiar("turno", que)}
-          />
-        )}
-      </fieldset>
-
-      {error && <ErrorGeneral>{error}</ErrorGeneral>}
-
-      {puedeConfigurar && (
-        <BotonPrincipalFijo icono="check" motivo={motivo} onClick={guardar}>
-          Guardar los recordatorios
-        </BotonPrincipalFijo>
-      )}
+      <ul className="flex flex-col gap-4">
+        {filas.map((fila) => (
+          <li key={fila.tipo}>
+            <FilaRecordatorio fila={fila} puedeConfigurar={puedeConfigurar} />
+          </li>
+        ))}
+      </ul>
     </>
   );
 }
 
-function Recordatorio({
-  id, titulo, interruptor, ayudaInterruptor, valor, errores, frase,
-  etiquetaPlazo, ayudaPlazo, min, max, alCambiar,
-}) {
-  const plazoValido = !errores.plazo && String(valor.plazo).trim() !== "";
+function FilaRecordatorio({ fila, puedeConfigurar }) {
+  const { t } = useIdioma();
   return (
-    <Tarjeta className="mb-8">
-      <h2 className="mb-4 flex items-center gap-2 text-seccion">
-        <Icono nombre="whatsapp" className="size-6 text-completo" />
-        {titulo}
-      </h2>
-      <Interruptor
-        prendido={valor.activo}
-        onChange={(activo) => alCambiar({ activo })}
-        ayuda={ayudaInterruptor}
-      >
-        {interruptor}
-      </Interruptor>
+    <Tarjeta>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id={`${fila.tipo}-nombre`} className="flex items-center gap-2 text-subtitulo font-bold">
+          <Icono nombre="whatsapp" className="size-6 text-completo" />
+          {fila.nombre}
+        </h2>
+        <span
+          className={[
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-etiqueta",
+            fila.prendido ? "bg-azul-claro text-azul" : "bg-superficie text-tinta-media",
+          ].join(" ")}
+        >
+          <Icono nombre={fila.prendido ? "listo" : "cruz"} className="size-5" />
+          {fila.prendido ? t("ui.prendido") : t("ui.apagado")}
+        </span>
+      </div>
 
-      {valor.activo && (
-        <div className="mt-6">
-          {plazoValido && (
-            <p id={`${id}-frase`} className="mb-6 max-w-[65ch] font-bold text-tinta">
-              {frase}
-            </p>
-          )}
-          <Campo
-            id={`${id}-plazo`}
-            etiqueta={etiquetaPlazo}
-            ayuda={ayudaPlazo}
-            type="number" min={min} max={max} step="1" inputMode="numeric"
-            value={valor.plazo}
-            error={errores.plazo}
-            onChange={(e) => alCambiar({ plazo: e.target.value })}
-          />
-          <Campo
-            id={`${id}-mensaje`}
-            etiqueta="Lo que le llega al cliente"
-            ayuda="Viene con una sugerencia según tu rubro. Cambiala como quieras."
-            error={errores.mensaje}
-          >
-            <textarea
-              id={`${id}-mensaje`}
-              rows={4}
-              maxLength={3000}
-              value={valor.mensaje}
-              onChange={(e) => alCambiar({ mensaje: e.target.value })}
-              aria-invalid={errores.mensaje ? "true" : undefined}
-              aria-describedby={[`${id}-mensaje-ayuda`, errores.mensaje && `${id}-mensaje-error`].filter(Boolean).join(" ")}
-              className={`mt-2 block w-full resize-y rounded-campo border-2 bg-tarjeta p-4 text-cuerpo ${errores.mensaje ? "border-rojo" : "border-borde-fuerte"}`}
-            />
-          </Campo>
-        </div>
-      )}
+      <p className="mt-3 max-w-[65ch] text-tinta-media">
+        {fila.prendido ? fila.cuando : t("negocio.recordatorios.apagadoSinCliente")}
+      </p>
+
+      <div className="mt-4">
+        <Link
+          href={fila.href}
+          aria-describedby={`${fila.tipo}-nombre`}
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-azul hover:bg-azul-claro"
+        >
+          <Icono nombre={puedeConfigurar ? "pincel" : "ojo"} className="size-6" />
+          {puedeConfigurar ? t("negocio.recordatorios.configurar") : t("negocio.recordatorios.verComo")}
+        </Link>
+      </div>
     </Tarjeta>
   );
 }

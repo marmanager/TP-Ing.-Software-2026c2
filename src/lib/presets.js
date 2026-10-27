@@ -22,6 +22,8 @@
 // Sumar una palabra nueva —"cliente" que en un consultorio sea "paciente"—
 // es agregarla acá en todos los rubros y usarla con vocabulario(rubro).cliente.
 
+import { PRESETS_EN, SEGUIMIENTO_GENERICO_EN } from "./presets-en.js";
+
 export const PRESETS = {
   taller: {
     clave: "taller",
@@ -71,7 +73,6 @@ export const PRESETS = {
     ],
     modulos: ["agenda", "inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Patente", enFrase: "la patente", ejemplo: "AB 123 CD" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Mecánico" },
     // Lo que el taller tiene en stock. Era "repuesto", y pasó a "producto"
     // porque en el estante hay más que repuestos: tornillos, herramientas,
     // lubricantes, y "Agregar un repuesto" para cargar una llave de 13 no se
@@ -139,7 +140,6 @@ export const PRESETS = {
     ],
     modulos: ["agenda", "presupuesto"],
     identificador: { nombre: "DNI", enFrase: "el DNI", ejemplo: "30123456" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Profesional" },
     // Guantes, jeringas, gasas: en un consultorio no hay "repuestos" ni
     // "productos", hay insumos.
     palabras: {
@@ -196,7 +196,6 @@ export const PRESETS = {
     ],
     modulos: ["inventario", "equipo", "presupuesto"],
     identificador: { nombre: "Número de serie", enFrase: "el número de serie", ejemplo: "SN-48219" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Técnico" },
     // Igual que el taller: el estante tiene más que repuestos.
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
@@ -251,7 +250,6 @@ export const PRESETS = {
     motivos: [],
     modulos: ["-clientes", "-historial"],
     identificador: { nombre: "Referencia", enFrase: "la referencia", ejemplo: "Orden 1520" },
-    roles: { duenio: "Dueño", encargado: "Encargado", tecnico: "Colaborador" },
     palabras: {
       articulo: { uno: "producto", varios: "productos", genero: "m" },
       cita: { uno: "turno", varios: "turnos", genero: "m" },
@@ -269,21 +267,18 @@ export const PRESETS = {
   },
 };
 
-// Los tres roles del equipo son fijos, igual que los cinco estados: la base
-// no acepta otros. Lo que cambia por rubro es cómo se llaman.
-export const ORDEN_ROLES = ["duenio", "encargado", "tecnico"];
-
 export const RUBROS = Object.values(PRESETS);
 
-export const preset = (rubro) => PRESETS[rubro] ?? PRESETS.taller;
+// En inglés se superponen los textos de presets-en.js. Lo que falte queda en
+// castellano, como en t() (docs/idiomas.md).
+export const preset = (rubro, idioma = "es") => {
+  const base = PRESETS[rubro] ?? PRESETS.taller;
+  return idioma === "en" ? { ...base, ...PRESETS_EN[base.clave] } : base;
+};
 
 // La palabra que ve el usuario para un estado, en el idioma de su rubro.
-export const etiquetaEstado = (rubro, estado) =>
-  preset(rubro).etiquetas[estado] ?? estado;
-
-// Lo mismo para los roles del equipo: el que arregla autos es "Mecánico" en
-// un taller y "Profesional" en un consultorio.
-export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
+export const etiquetaEstado = (rubro, estado, idioma = "es") =>
+  preset(rubro, idioma).etiquetas[estado] ?? estado;
 
 // Cómo llama cada rubro a lo que identifica el caso: la patente del auto, el
 // DNI del paciente, el número de serie del equipo.
@@ -295,15 +290,15 @@ export const etiquetaRol = (rubro, rol) => preset(rubro).roles[rol] ?? rol;
 // "nombre" es para la etiqueta del campo y "enFrase" para meterlo en medio de
 // una oración: van separados porque no alcanza con pasar el nombre a
 // minúsculas — "el DNI" no es "el dni".
-export const comoSeIdentifica = (rubro) => preset(rubro).identificador;
+export const comoSeIdentifica = (rubro, idioma = "es") => preset(rubro, idioma).identificador;
 
 // Los textos de muestra de los formularios, en el oficio del negocio.
-export const ejemplosDe = (rubro) => preset(rubro).ejemplos;
+export const ejemplosDe = (rubro, idioma = "es") => preset(rubro, idioma).ejemplos;
 
 // Cómo llama cada rubro a las dos cosas por las que un caso puede estar
 // frenado: la respuesta del cliente, o algo que tiene que conseguir el
 // negocio. Un taller espera un repuesto y un consultorio, un estudio.
-export const comoSeEspera = (rubro) => preset(rubro).espera;
+export const comoSeEspera = (rubro, idioma = "es") => preset(rubro, idioma).espera;
 
 // Cada cuánto le toca volver al cliente en este rubro: { meses } o null.
 export const cadaCuantoVuelve = (rubro) => preset(rubro).volver ?? null;
@@ -337,15 +332,28 @@ export function formas({ uno, varios, genero }) {
   };
 }
 
+// En inglés no hay género: "a part", "the parts". segun() devuelve la
+// primera forma; quien la llama en inglés ya pasa un texto de t().
+export function formasEn({ uno, varios, an }) {
+  return {
+    palabra: (n = 1) => (n === 1 ? uno : varios),
+    un: () => `${an ? "an" : "a"} ${uno}`,
+    el: (n = 1) => `the ${n === 1 ? uno : varios}`,
+    cuantos: (n) => `${n} ${n === 1 ? uno : varios}`,
+    segun: (masculino) => masculino,
+  };
+}
+
 // Todas las palabras del rubro, declinadas. Se usa así:
 //
 //   const { articulo } = vocabulario(negocio?.rubro);
 //   `Agregar ${articulo.un()}`              → "Agregar un producto" (taller)
 //   `${articulo.cuantos(3)} en camino`      → "3 insumos en camino" (medicina)
-export function vocabulario(rubro) {
-  const palabras = preset(rubro).palabras ?? {};
+export function vocabulario(rubro, idioma = "es") {
+  const palabras = preset(rubro, idioma).palabras ?? {};
+  const armar = idioma === "en" ? formasEn : formas;
   return Object.fromEntries(
-    Object.entries(palabras).map(([clave, palabra]) => [clave, formas(palabra)])
+    Object.entries(palabras).map(([clave, palabra]) => [clave, armar(palabra)])
   );
 }
 
@@ -353,7 +361,7 @@ export function vocabulario(rubro) {
 // partida: el negocio agrega las suyas, y la lista completa —éstas más las
 // que ya usan sus productos— la arma categoriasDisponibles(), en
 // lib/inventario.js.
-export const categoriasDe = (rubro) => preset(rubro).categorias ?? [];
+export const categoriasDe = (rubro, idioma = "es") => preset(rubro, idioma).categorias ?? [];
 
 // La primera letra en mayúscula, para cuando la palabra arranca un título o
 // un botón: "Repuestos en camino". Con toUpperCase y no a mano, así las
@@ -385,8 +393,8 @@ export const SEGUIMIENTO_GENERICO = {
 // Lo que el link de seguimiento le dice al cliente en un estado, en las
 // palabras de su rubro.
 //
-// No sale de ESTADOS[].significado: ese texto está escrito para adentro del
-// negocio ("detenido por algo de afuera: una aprobación, un insumo o la
+// Va aparte de lo que el negocio lee de sus estados: ese texto está escrito
+// para adentro del negocio ("detenido por algo de afuera: una aprobación, un insumo o la
 // respuesta del cliente"), y del otro lado el cliente ES esa respuesta que
 // se está esperando. Leerse nombrado en tercera persona es raro.
 //
@@ -394,11 +402,13 @@ export const SEGUIMIENTO_GENERICO = {
 // paciente y una notebook. Pasaron acá cuando hizo falta que cada rubro
 // nombrara lo suyo: el vehículo, el equipo, o a la persona.
 //
-// Va a PRESETS directo y no por preset() a propósito: preset() cae en el
+// Va a PRESETS (y a PRESETS_EN en inglés) directo y no por preset() a propósito: preset() cae en el
 // taller cuando no conoce el rubro, y "personalizable", que no trae textos
 // propios, terminaría hablándole al cliente de su vehículo. Tiene test:
 // pruebas/presets.test.js
-export function queSignificaPara(rubro, estado) {
-  return (PRESETS[rubro]?.seguimiento ?? SEGUIMIENTO_GENERICO)[estado];
+export function queSignificaPara(rubro, estado, idioma = "es") {
+  const propios = idioma === "en" ? PRESETS_EN[rubro]?.seguimiento : PRESETS[rubro]?.seguimiento;
+  const generico = idioma === "en" ? SEGUIMIENTO_GENERICO_EN : SEGUIMIENTO_GENERICO;
+  return (propios ?? generico)[estado];
 }
 

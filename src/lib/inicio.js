@@ -29,6 +29,7 @@
 // "modulosActivos.includes(...)" acá escondía las tarjetas de Clientes e
 // Historial en todos los negocios que no los tienen escritos, que son todos.
 import { estaPrendido } from "./modulos";
+import { tCastellano } from "./idioma.js";
 
 export const COLUMNAS = 6;
 export const MAX_ALTO = 6;
@@ -38,6 +39,13 @@ export const MAX_ALTO = 6;
 // otra para saber cuántas celdas se arrastró el mouse.
 export const ALTO_FILA = 112;
 export const SEPARACION = 16;
+
+// El alto (y por lo tanto la fila donde arranca el de abajo) va de a media
+// celda. De a una entera eran 128 px por paso: en un celular, un salto así es
+// casi media pantalla y no había forma de dejar un módulo del tamaño justo.
+// Lo guardado antes, en celdas enteras, sigue valiendo tal cual.
+export const PASO_ALTO = 0.5;
+const enPasos = (n) => Math.round(n / PASO_ALTO) * PASO_ALTO;
 
 // Cuántas filas de contenido entran según el alto. Es lo que de verdad
 // importa: no cuántos píxeles mide, sino cuánto se ve sin abrir la sección.
@@ -110,7 +118,7 @@ export const CATALOGO = {
   },
   aprobar: {
     clave: "aprobar",
-    nombre: "A aprobar",
+    nombre: "Pendientes de aprobación",
     icono: "persona-check",
     ruta: "/aprobar",
     modulo: "presupuesto",
@@ -167,6 +175,16 @@ export const CATALOGO = {
 
 export const LISTA_CATALOGO = Object.values(CATALOGO);
 
+// Una entrada del catálogo con sus textos en el idioma de t (inicio.catalogo.
+// <clave>.*). Sin t salen en castellano, igual que las constantes de arriba.
+export const traducirDelCatalogo = (def, t = tCastellano) =>
+  def && {
+    ...def,
+    nombre: t(`inicio.catalogo.${def.clave}.nombre`, {}, def.nombre),
+    queMuestra: t(`inicio.catalogo.${def.clave}.queMuestra`, {}, def.queMuestra),
+    filtros: def.filtros && def.filtros.map((f) => ({ ...f, palabra: t(`inicio.catalogo.${def.clave}.filtros.${f.clave}`, {}, f.palabra) })),
+  };
+
 // Cómo arranca la pantalla si nadie la tocó: lo urgente arriba y ancho, los
 // casos grandes a la izquierda, a la derecha, en columna, lo del día, y abajo
 // de todo, a todo el ancho, el historial.
@@ -189,6 +207,10 @@ const esLugar = (n) => Number.isInteger(n) && n >= 0;
 // Un tamaño, no: un módulo de ancho cero no existe. Si viene así, es un dato
 // roto y vale más el tamaño del catálogo que achicarlo a una celda.
 const esMedida = (n) => Number.isInteger(n) && n >= 1;
+
+// Lo vertical admite medias celdas (PASO_ALTO).
+const esFila = (n) => Number.isFinite(n) && n >= 0 && enPasos(n) === n;
+const esAlto = (n) => esFila(n) && n >= 1;
 
 const filtroPorDefecto = (clave) => CATALOGO[clave]?.filtros?.[0]?.clave ?? null;
 
@@ -227,7 +249,7 @@ function acomodar(layout, { clavada = null, subir }) {
     // donde lo dejaron y sólo baja si le pisa a alguien.
     if (subir) item.y = 0;
     let vueltas = 0;
-    while (puestos.some((p) => sePisan(item, p)) && vueltas++ < 500) item.y += 1;
+    while (puestos.some((p) => sePisan(item, p)) && vueltas++ < 1000) item.y += PASO_ALTO;
     puestos.push(item);
   }
 
@@ -265,8 +287,8 @@ export function normalizarInicio(guardado) {
     .map((m) => {
       const def = CATALOGO[m.clave];
       const ancho = esMedida(m.ancho) ? entre(m.ancho, 1, COLUMNAS) : def.ancho;
-      const alto = esMedida(m.alto) ? entre(m.alto, 1, MAX_ALTO) : def.alto;
-      const tieneLugar = esLugar(m.x) && esLugar(m.y);
+      const alto = esAlto(m.alto) ? entre(m.alto, 1, MAX_ALTO) : def.alto;
+      const tieneLugar = esLugar(m.x) && esFila(m.y);
 
       const item = {
         clave: m.clave,
@@ -311,7 +333,7 @@ export function colocar(layout, clave, x, y) {
   const puesto = {
     ...item,
     x: entre(x, 0, COLUMNAS - item.ancho),
-    y: Math.max(0, y),
+    y: Math.max(0, enPasos(y)),
   };
 
   return resolver(
@@ -329,7 +351,7 @@ export function redimensionar(layout, clave, ancho, alto) {
   const puesto = {
     ...item,
     ancho: entre(ancho, 1, COLUMNAS - item.x),
-    alto: entre(alto, 1, MAX_ALTO),
+    alto: entre(enPasos(alto), 1, MAX_ALTO),
   };
 
   return resolver(
@@ -361,6 +383,25 @@ export function intercambiar(layout, clave, pasos) {
       return m;
     })
   );
+}
+
+// Llevar un módulo, en el orden de lectura, hasta el lugar de otro. Es lo que
+// hace el arrastre en el celular: de a un vecino por vez, así cada paso es el
+// mismo intercambio que Subir y Bajar, y los del medio se corren uno.
+export const posicion = (layout, clave) =>
+  [...layout].sort((a, b) => a.y - b.y || a.x - b.x).findIndex((m) => m.clave === clave);
+
+export function llevarA(layout, clave, otra) {
+  const hasta = posicion(layout, otra);
+  if (posicion(layout, clave) < 0 || hasta < 0) return layout;
+
+  let resultado = layout;
+  for (let vueltas = 0; vueltas < layout.length; vueltas++) {
+    const desde = posicion(resultado, clave);
+    if (desde === hasta) break;
+    resultado = intercambiar(resultado, clave, desde < hasta ? 1 : -1);
+  }
+  return resultado;
 }
 
 // Un módulo nuevo entra abajo de todo, a la izquierda, con el tamaño que

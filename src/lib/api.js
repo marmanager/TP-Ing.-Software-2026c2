@@ -104,6 +104,11 @@ export async function api(
     metodo = "GET",
     cuerpo,
     token,
+    // El encabezado Authorization tal cual ("Llave abc…"), para quien no es
+    // una cuenta del sistema: el cliente de la landing (src/lib/llave-landing.js).
+    // No pasa por la sesión del dueño: si viniera como "token", prepararToken
+    // lo cambiaría por el de quien tenga la app abierta en el mismo navegador.
+    autorizacion,
     idempotencia,
     segundos = SEGUNDOS,
     fetcher = typeof fetch === "function" ? fetch : null,
@@ -125,7 +130,7 @@ export async function api(
   }
 
   let tokenPreparado = token;
-  if (token && prepararToken) {
+  if (token && prepararToken && !autorizacion) {
     try {
       tokenPreparado = await prepararToken(token);
     } catch {
@@ -141,7 +146,7 @@ export async function api(
   // lleva clave de idempotencia: sin ella, repetir podría cobrar dos veces.
   const sePuedeRepetir = reintentar ?? (metodo === "GET" || Boolean(idempotencia));
 
-  const opciones = { metodo, cuerpo, token: tokenPreparado, idempotencia, segundos, fetcher, base, avisarSiVence };
+  const opciones = { metodo, cuerpo, token: tokenPreparado, autorizacion, idempotencia, segundos, fetcher, base, avisarSiVence };
   let respuesta = await unIntento(ruta, opciones);
   if (!respuesta.ok && respuesta.reintentable && sePuedeRepetir) {
     respuesta = await unIntento(ruta, opciones);
@@ -152,7 +157,7 @@ export async function api(
   return limpia;
 }
 
-async function unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, fetcher, base, avisarSiVence }) {
+async function unIntento(ruta, { metodo, cuerpo, token, autorizacion, idempotencia, segundos, fetcher, base, avisarSiVence }) {
   const cortar = typeof AbortController === "function" ? new AbortController() : null;
   const reloj = cortar ? setTimeout(() => cortar.abort(), segundos * 1000) : null;
 
@@ -162,7 +167,7 @@ async function unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, 
       method: metodo,
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(autorizacion || token ? { Authorization: autorizacion || `Bearer ${token}` } : {}),
         ...(idempotencia ? { "Idempotency-Key": idempotencia } : {}),
       },
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
@@ -203,9 +208,19 @@ async function unIntento(ruta, { metodo, cuerpo, token, idempotencia, segundos, 
     ? { codigo: suyo.codigo ?? "error", mensaje: suyo.mensaje, ...(suyo.campo ? { campo: suyo.campo } : {}), ...(suyo.detalles ? { detalles: suyo.detalles } : {}) }
     : { ...(PORQUE[r.status] ?? SE_ROMPIO) };
 
+  const error = { ...elError, ...(pedido ? { pedido } : {}) };
+  // OJO: la marca es no enumerable a propósito, para no cambiar la forma del
+  // error (tests y llamadores comparan sus claves). Por eso se pierde con
+  // spread, JSON o structuredClone y el error vuelve al texto genérico del
+  // diccionario: no copies errores con {...error}, pasá la misma referencia.
+  // Si el mensaje lo escribió la API para esta situación (y no es una de las
+  // frases genéricas de arriba), se marca aparte: textoDeError lo respeta en
+  // castellano. No es enumerable, así que no cambia la forma del error.
+  if (suyo?.mensaje) Object.defineProperty(error, "propio", { value: true });
+
   return {
     ok: false,
-    error: { ...elError, ...(pedido ? { pedido } : {}) },
+    error,
     // Lo que falló del lado del servidor se puede reintentar; lo que falló
     // porque el pedido estaba mal, no: reintentarlo da el mismo error.
     reintentable: r.status >= 500,

@@ -2,13 +2,14 @@
 // tiene, cómo viene de fábrica, qué colores se leen y cómo se pinta.
 //
 // Lógica pura, sin React: la usan el editor (/negocio/landing), la vista
-// previa y, más adelante, la página pública. Pruebas: pruebas/landing.test.js.
+// previa y la página pública (/n/[codigo]). Pruebas: pruebas/landing.test.js.
 //
 // Las claves de SECCIONES y FUENTES están también en la API
 // (src/modulos/negocio/esquemas.ts), que no deja guardar otras. Si se suma
 // una, se suma en los dos lados.
 
-import { LISTA_MODULOS, estaPrendido } from "./modulos.js";
+import { LISTA_MODULOS, estaPrendido, traducirModulo } from "./modulos.js";
+import { tCastellano } from "./idioma.js";
 
 // El modelo fijo: el negocio no crea ni borra secciones, sólo las ordena.
 // "modulo" es el módulo sin el cual la sección no tiene sentido: sin Agenda
@@ -39,6 +40,24 @@ export const SECCIONES = [
     modulo: "agenda",
   },
 ];
+
+// Los textos fijos de la landing (etiquetas de sección, colores, tipografías)
+// son de fábrica: salen del diccionario por la clave (landing.secciones.*,
+// landing.partes.*, landing.fuentes.*), y sin t en castellano. Lo que el
+// negocio escribió (nombre, descripción, teléfono) no pasa por acá.
+export const traducirSeccion = (s, t = tCastellano) => ({
+  ...s,
+  nombre: t(`landing.secciones.${s.clave}.nombre`, {}, s.nombre),
+  queMuestra: t(`landing.secciones.${s.clave}.queMuestra`, {}, s.queMuestra),
+});
+
+export const traducirParte = (p, t = tCastellano) => ({
+  ...p,
+  nombre: t(`landing.partes.${p.clave}.nombre`, {}, p.nombre),
+  ayuda: t(`landing.partes.${p.clave}.ayuda`, {}, p.ayuda),
+});
+
+export const nombreDeFuente = (f, t = tCastellano) => t(`landing.fuentes.${f.clave}`, {}, f.nombre);
 
 // Los cuatro colores que elige el negocio, cada uno con el de su texto.
 export const PARTES = [
@@ -125,16 +144,30 @@ export function moverSeccion(orden, clave, paso) {
 }
 
 // Las secciones en el orden elegido, con si aparecen y, si no, por qué. El
-// editor las muestra todas; la vista previa, sólo las visibles.
-export function estadoDeSecciones(orden, modulosActivos = []) {
+// editor las muestra todas; la vista previa y la página pública, sólo las
+// visibles.
+//
+// Las de turnos piden dos cosas: la Agenda prendida y los horarios publicados
+// ("horariosListos", que lo decide la API con la misma regla que la agenda
+// pública). Sin horarios no hay turnos que ofrecer. Por defecto se da por
+// hecho que están, así lo que ya usaba esta función no cambia.
+export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = true, t = tCastellano) {
   return normalizarLanding({ orden }).orden.map((clave) => {
     const seccion = SECCIONES.find((s) => s.clave === clave);
-    const visible = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos ?? []);
+    const prendido = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos ?? []);
+    // El módulo apagado manda: avisar que faltan horarios cuando ni siquiera
+    // está la Agenda mandaría a la persona a un lugar que todavía no existe.
+    const sinHorarios = prendido && seccion.modulo === "agenda" && !horariosListos;
+    const visible = prendido && !sinHorarios;
     const modulo = LISTA_MODULOS.find((m) => m.clave === seccion.modulo);
     return {
-      ...seccion,
+      ...traducirSeccion(seccion, t),
       visible,
-      motivo: visible ? null : `Aparece cuando prendés el módulo ${modulo?.nombre ?? seccion.modulo}.`,
+      motivo: visible
+        ? null
+        : sinHorarios
+          ? t("landing.motivo.sinHorarios")
+          : t("landing.motivo.modulo", { modulo: traducirModulo(modulo, t)?.nombre ?? seccion.modulo }),
     };
   });
 }

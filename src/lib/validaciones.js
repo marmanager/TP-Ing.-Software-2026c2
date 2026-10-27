@@ -1,9 +1,13 @@
 // Validaciones compartidas entre pantallas. Sin dependencias ni "use client":
 // se pueden probar con Jest (pruebas/validaciones.test.js).
 
-// "Con característica, sin el 0 ni el 15": diez dígitos que no arrancan en 0.
-export const telefonoValido = (valor = "") =>
-  /^\d{10}$/.test(valor.replace(/\D/g, "")) && !valor.trim().startsWith("0");
+import { normalizarTelefono } from "./telefono.js";
+import { tCastellano } from "./idioma.js";
+
+// Un teléfono completo, con código de país: el que arma el campo de teléfono
+// (src/lib/telefono.js) con el país del selector. Antes eran diez dígitos sin
+// país, que la API ya no acepta y WhatsApp no sabe adónde mandar (B-1b).
+export const telefonoValido = (valor = "") => normalizarTelefono(valor).ok;
 
 // Forma mínima de un mail: algo, arroba, algo, punto, algo.
 export const emailValido = (valor = "") =>
@@ -26,12 +30,13 @@ export function estadoDeLaContrasena(authUsuario, { recienCreada = false } = {})
 // Por qué no se puede guardar todavía una contraseña nueva, o null si se
 // puede. Se pide dos veces porque se escribe sin verla: sin repetirla, un
 // dedazo deja a alguien afuera de su propia cuenta. La usan Mi perfil y la
-// pantalla a la que lleva el link del mail.
-export const motivoDeContrasenaNueva = (nueva = "", repetida = "") =>
+// pantalla a la que lleva el link del mail. `t` es el de la pantalla (idioma);
+// sin él sale en castellano.
+export const motivoDeContrasenaNueva = (nueva = "", repetida = "", t = tCastellano) =>
   !contrasenaValida(nueva)
-    ? "necesita 8 caracteres o más"
+    ? t("ui.validaciones.necesitaOcho")
     : nueva !== repetida
-      ? "repetila igual abajo"
+      ? t("ui.validaciones.repetilaIgual")
       : null;
 
 // El monto va en números y sin puntos (cartilla, sección 05: «Escribí el
@@ -68,14 +73,14 @@ export const montoCobrado = (valor = "") => {
 // Antes el botón decía sólo el primer faltante: con el formulario en blanco
 // había que completar, mirar el botón, completar, mirar el botón, cuatro
 // veces (auditoría, H9). Ahora la pantalla puede marcar todos a la vez.
-export function faltantesDelAlta({ nombre, telefono, identificador, servicio }, identificadorEnFrase) {
+export function faltantesDelAlta({ nombre, telefono, identificador, servicio }, identificadorEnFrase, t = tCastellano) {
   const faltan = [];
-  if (!nombre?.trim()) faltan.push({ campo: "cliente", frase: "falta el nombre" });
+  if (!nombre?.trim()) faltan.push({ campo: "cliente", frase: t("ui.validaciones.faltaNombre") });
   if (!telefono?.trim() || !telefonoValido(telefono))
-    faltan.push({ campo: "telefono", frase: "falta el teléfono" });
+    faltan.push({ campo: "telefono", frase: t("ui.validaciones.faltaTelefono") });
   if (!identificador?.trim())
-    faltan.push({ campo: "identificador", frase: `falta ${identificadorEnFrase}` });
-  if (!servicio?.trim()) faltan.push({ campo: "servicio", frase: "falta qué necesita" });
+    faltan.push({ campo: "identificador", frase: t("ui.validaciones.faltaIdentificador", { identificador: identificadorEnFrase }) });
+  if (!servicio?.trim()) faltan.push({ campo: "servicio", frase: t("ui.validaciones.faltaServicio") });
   return faltan;
 }
 
@@ -135,5 +140,5 @@ export function clienteDelAlta({ nombre, telefono, clientes = [], elegido = null
 
 // Lo que dice el botón apagado: el dato si falta uno solo, la cuenta si
 // faltan varios (y entonces los campos vacíos van marcados en la pantalla).
-export const motivoDeFaltantes = (faltan) =>
-  faltan.length === 0 ? null : faltan.length === 1 ? faltan[0].frase : `faltan ${faltan.length} datos`;
+export const motivoDeFaltantes = (faltan, t = tCastellano) =>
+  faltan.length === 0 ? null : faltan.length === 1 ? faltan[0].frase : t("ui.validaciones.faltanDatos", { n: faltan.length });

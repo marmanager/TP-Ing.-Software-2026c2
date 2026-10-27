@@ -26,9 +26,14 @@
 // nada: lo que llega es lo que se puede mostrar.
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { buscarSeguimiento, responderDesdeElLink } from "@/lib/datos";
 import { ESTADOS, pesos } from "@/lib/estados";
+import { conElementos } from "@/lib/conElementos";
+import { textoDeError } from "@/lib/idioma";
+import { useIdioma } from "@/lib/useIdioma";
+import { normalizarLanding } from "@/lib/landing";
 import {
   comoSeEspera,
   comoSeIdentifica,
@@ -45,11 +50,18 @@ import {
   totalAprobado,
 } from "@/lib/seguimiento";
 import { cuantoHace, diaPasado, elDia } from "@/lib/fechas";
+import { telefonoLegible } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
+import SelectorIdioma from "@/componentes/SelectorIdioma";
+import Lienzo from "@/componentes/landing/Lienzo";
 import { Boton, Cargando } from "@/componentes/ui";
 
 export default function Seguimiento() {
   const { codigo } = useParams();
+  // Es la pantalla del cliente del negocio: sale en el idioma de su navegador
+  // (o el que eligió abajo), nunca en el del negocio. Lo que escribió el
+  // negocio (su nombre, el caso, los pasos, sus notas) se muestra tal cual.
+  const { idioma, locale, t } = useIdioma();
   const [mirando, setMirando] = useState(true);
   const [caso, setCaso] = useState(null);
   // Cuál paso está preguntando, y qué se le va a contestar.
@@ -66,9 +78,9 @@ export default function Seguimiento() {
   // negocio. El nombre que corresponde es el del que mandó el link.
   useEffect(() => {
     document.title = caso?.negocio_nombre
-      ? `Cómo viene lo tuyo · ${caso.negocio_nombre}`
-      : "Cómo viene lo tuyo";
-  }, [caso]);
+      ? `${t("seguimiento.titulo")} · ${caso.negocio_nombre}`
+      : t("seguimiento.titulo");
+  }, [caso, t]);
 
   // Después de contestar se vuelve a pedir el caso entero en vez de
   // remendar lo que hay en pantalla: así lo que se dibuja sale siempre del
@@ -101,7 +113,7 @@ export default function Seguimiento() {
     setDecidiendo(null);
 
     if (!r.ok) {
-      setProblema(r.motivo);
+      setProblema(r.error ?? r.motivo);
       // Se vuelve a pedir igual: si el paso ya estaba contestado, lo que hay
       // en pantalla quedó viejo y mostrarlo otra vez sería mentir.
       await traer();
@@ -135,9 +147,11 @@ export default function Seguimiento() {
         <div className="rounded-tarjeta border border-borde bg-tarjeta p-6">
           <p className="flex items-start gap-3 font-titulo font-extrabold text-seccion">
             <Icono nombre="alerta" className="mt-1 size-7 shrink-0 text-espera" />
-            <span>No pudimos mostrarte cómo viene lo tuyo</span>
+            <span>{t("seguimiento.noPudo")}</span>
           </p>
-          <p className="mt-3 max-w-[65ch] text-tinta-media">{caso.problema}</p>
+          <p className="mt-3 max-w-[65ch] text-tinta-media">
+            {textoDeError(t, caso.error ?? caso.problema)}
+          </p>
         </div>
       </Marco>
     );
@@ -155,12 +169,10 @@ export default function Seguimiento() {
         <div className="rounded-tarjeta border border-borde bg-tarjeta p-6">
           <p className="flex items-start gap-3 font-titulo font-extrabold text-seccion">
             <Icono nombre="alerta" className="mt-1 size-7 shrink-0 text-espera" />
-            <span>Este link ya no sirve</span>
+            <span>{t("seguimiento.linkNoSirve")}</span>
           </p>
           <p className="mt-3 max-w-[65ch] text-tinta-media">
-            Puede ser que esté cortado, que se haya copiado de más o que el
-            negocio lo haya dado de baja. Pedile uno nuevo a quien te lo mandó
-            y vas a poder seguir mirando desde ahí.
+            {t("seguimiento.linkNoSirveTexto")}
           </p>
         </div>
       </Marco>
@@ -168,7 +180,7 @@ export default function Seguimiento() {
   }
 
   const e = ESTADOS[caso.estado];
-  const comoIdent = comoSeIdentifica(caso.rubro);
+  const comoIdent = comoSeIdentifica(caso.rubro, idioma);
   const pasos = caso.pasos ?? [];
   const porResponder = caso.por_responder ?? [];
   const total = totalAprobado(pasos);
@@ -181,19 +193,21 @@ export default function Seguimiento() {
     estado: caso.estado,
     queFalta: caso.que_falta,
     porResponder: porResponder.length,
-    espera: comoSeEspera(caso.rubro),
-    generico: preset(caso.rubro).explica.esperando,
-  });
+    espera: comoSeEspera(caso.rubro, idioma),
+    // El texto genérico lo escribió, al mover el estado, quien lo movió: en el
+    // idioma de su pantalla, que puede no ser el de quien mira.
+    generico: [preset(caso.rubro, "es").explica.esperando, preset(caso.rubro, "en").explica.esperando],
+  }, t);
 
   return (
-    <Marco negocio={caso.negocio_nombre}>
+    <Marco negocio={caso.negocio_nombre} landing={caso.landing} landingCodigo={caso.landing_codigo}>
       {/* El estado, lo más grande de la pantalla. Color, ícono y palabra: si
           se imprime en blanco y negro se sigue entendiendo (cartilla, 02). */}
       <div className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
         <div className={`h-2 w-full ${e.barra}`} aria-hidden="true" />
         <div className="p-5 sm:p-6">
           {caso.cliente_nombre && (
-            <p className="text-tinta-media">Hola {caso.cliente_nombre},</p>
+            <p className="text-tinta-media">{t("seguimiento.hola", { nombre: caso.cliente_nombre })}</p>
           )}
           <h1 className="mt-1 text-ident">
             {caso.identificador ? (
@@ -201,7 +215,7 @@ export default function Seguimiento() {
                 {comoIdent.nombre} {caso.identificador}
               </>
             ) : (
-              <>Lo que dejaste en {caso.negocio_nombre}</>
+              <>{t("seguimiento.loQueDejaste", { negocio: caso.negocio_nombre })}</>
             )}
           </h1>
           {caso.servicio && <p className="mt-1 text-tinta-media">{caso.servicio}</p>}
@@ -250,7 +264,7 @@ export default function Seguimiento() {
                     </span>
                     <span className="min-w-0">
                       <span className={`block text-apoyo ${paso.actual ? "font-bold" : ""}`}>
-                        {etiquetaEstado(caso.rubro, paso.estado)}
+                        {etiquetaEstado(caso.rubro, paso.estado, idioma)}
                       </span>
                       {/* Sin fecha no se dice nada: un caso puede saltear
                           etapas, y poner palabras encima del tilde sería
@@ -258,10 +272,10 @@ export default function Seguimiento() {
                       {(paso.actual || paso.cuando || paso.pendiente) && (
                         <span className="block text-apoyo text-tinta-suave">
                           {paso.actual
-                            ? "Acá está ahora"
+                            ? t("seguimiento.aquiEsta")
                             : paso.cuando
-                              ? diaPasado(paso.cuando)
-                              : "Todavía no"}
+                              ? diaPasado(paso.cuando, locale, t)
+                              : t("seguimiento.todaviaNo")}
                         </span>
                       )}
                     </span>
@@ -293,7 +307,7 @@ export default function Seguimiento() {
               quién es la pelota, y eso lo dice el bloque de abajo. */}
           {!espera && (
             <p className="mt-5 max-w-[65ch] text-cuerpo">
-              {queSignificaPara(caso.rubro, caso.estado)}
+              {queSignificaPara(caso.rubro, caso.estado, idioma)}
             </p>
           )}
 
@@ -327,8 +341,7 @@ export default function Seguimiento() {
           )}
 
           <p className="mt-5 text-apoyo text-tinta-suave">
-            Última novedad {cuantoHace(caso.actualizado_en ?? caso.abierto_en)}. Cada
-            vez que abrís este link ves cómo está en ese momento.
+            {t("seguimiento.ultimaNovedad", { cuando: cuantoHace(caso.actualizado_en ?? caso.abierto_en, t) })}
           </p>
         </div>
       </div>
@@ -358,27 +371,27 @@ export default function Seguimiento() {
                 className="size-7 shrink-0"
               />
               {contestado.respuesta === "aprobado"
-                ? "Listo, quedó aprobado"
-                : "Listo, anotamos que no"}
+                ? t("seguimiento.listoAprobado")
+                : t("seguimiento.listoNo")}
             </p>
 
             <p className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <span className="min-w-0 font-bold text-cuerpo">«{contestado.nombre}»</span>
-              <span className="font-bold tabular-nums">{pesos(contestado.monto)}</span>
+              <span className="min-w-0 font-bold text-cuerpo">{t("seguimiento.entreComillas", { nombre: contestado.nombre })}</span>
+              <span className="font-bold tabular-nums">{pesos(contestado.monto, locale)}</span>
             </p>
 
             <p className="mt-2 max-w-[65ch] text-tinta-media">
               {contestado.respuesta === "aprobado" ? (
                 <>
-                  {caso.negocio_nombre} ya lo ve y lo va a hacer. Con este, lo que
-                  aprobaste hasta ahora suma{" "}
-                  <span className="font-bold text-tinta">{pesos(contestado.total)}</span>.
+                  {conElementos(t("seguimiento.comprobanteSi", { negocio: caso.negocio_nombre }), {
+                    total: <span className="font-bold text-tinta">{pesos(contestado.total, locale)}</span>,
+                  })}
                 </>
               ) : (
                 <>
-                  No lo van a hacer y no te lo van a cobrar. Lo que aprobaste sigue
-                  siendo <span className="font-bold text-tinta">{pesos(contestado.total)}</span>
-                  . Si cambiás de idea, pedíselo a {caso.negocio_nombre}.
+                  {conElementos(t("seguimiento.comprobanteNo", { negocio: caso.negocio_nombre }), {
+                    total: <span className="font-bold text-tinta">{pesos(contestado.total, locale)}</span>,
+                  })}
                 </>
               )}
             </p>
@@ -392,7 +405,7 @@ export default function Seguimiento() {
           className="mt-4 flex items-start gap-2 rounded-campo bg-espera-fondo p-4 font-bold text-espera"
         >
           <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-          <span>{problema}</span>
+          <span>{textoDeError(t, problema)}</span>
         </p>
       )}
 
@@ -406,12 +419,9 @@ export default function Seguimiento() {
           con plata en un solo dedazo. */}
       {porResponder.length > 0 && (
         <>
-          <h2 className="mt-10 mb-1 text-seccion">Falta que contestes</h2>
+          <h2 className="mt-10 mb-1 text-seccion">{t("seguimiento.faltaTitulo")}</h2>
           <p className="mb-3 max-w-[65ch] text-tinta-media">
-            {porResponder.length === 1
-              ? "Hay un trabajo esperando tu respuesta."
-              : `Hay ${porResponder.length} trabajos esperando tu respuesta.`}{" "}
-            Contestá de a uno. Lo que aprobás se hace y se cobra; lo que no, no.
+            {t("seguimiento.faltaTexto", { n: porResponder.length })}
           </p>
 
           <ul className="flex flex-col gap-3">
@@ -427,7 +437,7 @@ export default function Seguimiento() {
                     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                       <p className="min-w-0 font-bold text-subtitulo">{paso.nombre}</p>
                       <p className="font-titulo font-extrabold text-subtitulo tabular-nums">
-                        {pesos(paso.monto)}
+                        {pesos(paso.monto, locale)}
                       </p>
                     </div>
                     {/* Lo que el negocio escribió para explicárselo, o el
@@ -437,16 +447,14 @@ export default function Seguimiento() {
                       <p className="mt-2 max-w-[65ch] text-tinta-media">{paso.descripcion}</p>
                     ) : (
                       <p className="mt-2 max-w-[65ch] text-tinta-media">
-                        {caso.negocio_nombre} no dejó una explicación de este trabajo. Si
-                        no te queda claro qué te van a hacer, preguntale antes de
-                        aprobar.
+                        {t("seguimiento.sinExplicacion", { negocio: caso.negocio_nombre })}
                       </p>
                     )}
 
                     {preguntando === "aprobado" ? (
                       <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                         <p className="font-bold text-subtitulo">
-                          ¿Aprobás «{paso.nombre}»?
+                          {t("seguimiento.apruebas", { nombre: paso.nombre })}
                         </p>
 
                         {/* Dos renglones, y cada uno contesta una pregunta
@@ -459,25 +467,26 @@ export default function Seguimiento() {
                             leer dos veces lo mismo. */}
                         <dl className="mt-3 flex flex-col gap-2">
                           <div>
-                            <dt className="font-bold text-cuerpo">Cuánto te van a cobrar</dt>
+                            <dt className="font-bold text-cuerpo">{t("seguimiento.cuantoCobran")}</dt>
                             <dd className="max-w-[65ch] text-tinta-media">
-                              <span className="font-bold text-tinta tabular-nums">
-                                {pesos(paso.monto)}
-                              </span>{" "}
-                              por este trabajo. Con este, lo que aprobaste pasa de{" "}
-                              {pesos(total)} a{" "}
-                              <span className="font-bold text-tinta tabular-nums">
-                                {pesos(total + Number(paso.monto || 0))}
-                              </span>
-                              .
+                              {conElementos(t("seguimiento.cuantoTexto", { total: pesos(total, locale) }), {
+                                monto: (
+                                  <span className="font-bold text-tinta tabular-nums">
+                                    {pesos(paso.monto, locale)}
+                                  </span>
+                                ),
+                                nuevo: (
+                                  <span className="font-bold text-tinta tabular-nums">
+                                    {pesos(total + Number(paso.monto || 0), locale)}
+                                  </span>
+                                ),
+                              })}
                             </dd>
                           </div>
                           <div>
-                            <dt className="font-bold text-cuerpo">Qué pasa después</dt>
+                            <dt className="font-bold text-cuerpo">{t("seguimiento.quePasa")}</dt>
                             <dd className="max-w-[65ch] text-tinta-media">
-                              {caso.negocio_nombre} lo va a empezar a hacer. Desde esta
-                              pantalla no vas a poder volver atrás: si cambiás de idea,
-                              tenés que hablarlo con ellos.
+                              {t("seguimiento.quePasaTexto", { negocio: caso.negocio_nombre })}
                             </dd>
                           </div>
                         </dl>
@@ -489,26 +498,29 @@ export default function Seguimiento() {
                             className="min-h-14 w-full sm:min-h-12 sm:w-auto"
                             onClick={() => contestar(paso, "aprobado")}
                           >
-                            Sí, lo apruebo
+                            {t("seguimiento.siApruebo")}
                           </Boton>
                           <Boton variante="plano" onClick={() => setDecidiendo(null)}>
-                            Todavía no
+                            {t("seguimiento.todaviaNoBoton")}
                           </Boton>
                         </div>
                       </div>
                     ) : preguntando === "rechazado" ? (
                       <div className="mt-4 rounded-tarjeta bg-superficie p-4">
                         <p className="font-bold text-subtitulo">
-                          ¿Decís que no a «{paso.nombre}»?
+                          {t("seguimiento.decisNo", { nombre: paso.nombre })}
                         </p>
                         <p className="mt-3 max-w-[65ch] text-tinta-media">
-                          No lo van a hacer y no te van a cobrar esos {pesos(paso.monto)}:
-                          lo que aprobaste sigue siendo{" "}
-                          <span className="font-bold text-tinta tabular-nums">
-                            {pesos(total)}
-                          </span>
-                          . Si más adelante cambiás de idea, pedíselo a{" "}
-                          {caso.negocio_nombre} y te lo vuelven a ofrecer.
+                          {conElementos(
+                          t("seguimiento.decisNoTexto", { monto: pesos(paso.monto, locale), negocio: caso.negocio_nombre }),
+                          {
+                            total: (
+                              <span className="font-bold text-tinta tabular-nums">
+                                {pesos(total, locale)}
+                              </span>
+                            ),
+                          }
+                        )}
                         </p>
                         <div className="mt-4 flex flex-wrap gap-3">
                           <Boton
@@ -517,10 +529,10 @@ export default function Seguimiento() {
                             className="min-h-14 w-full sm:min-h-12 sm:w-auto"
                             onClick={() => contestar(paso, "rechazado")}
                           >
-                            Sí, no lo hago
+                            {t("seguimiento.siNoLoHago")}
                           </Boton>
                           <Boton variante="plano" onClick={() => setDecidiendo(null)}>
-                            Volver atrás
+                            {t("seguimiento.volverAtras")}
                           </Boton>
                         </div>
                       </div>
@@ -537,7 +549,7 @@ export default function Seguimiento() {
                             setDecidiendo({ id: paso.id, respuesta: "aprobado" });
                           }}
                         >
-                          Lo apruebo
+                          {t("seguimiento.loApruebo")}
                         </Boton>
                         <Boton
                           variante="neutro"
@@ -548,7 +560,7 @@ export default function Seguimiento() {
                             setDecidiendo({ id: paso.id, respuesta: "rechazado" });
                           }}
                         >
-                          No lo hago
+                          {t("seguimiento.noLoHago")}
                         </Boton>
                       </div>
                     )}
@@ -560,8 +572,7 @@ export default function Seguimiento() {
 
           {porResponder.length > 1 && (
             <p className="mt-3 max-w-[65ch] text-apoyo text-tinta-suave">
-              Si aprobás todo, son {pesos(totalAprobado(porResponder))} más de lo que ya
-              venías aprobando.
+              {t("seguimiento.siApruebasTodo", { monto: pesos(totalAprobado(porResponder), locale) })}
             </p>
           )}
 
@@ -573,32 +584,35 @@ export default function Seguimiento() {
               Va acá abajo y no arriba: primero lo que tiene que decidir,
               después la ayuda para decidirlo. */}
           <div className="mt-6 rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-5">
-            <p className="font-bold text-subtitulo">¿No estás seguro?</p>
+            <p className="font-bold text-subtitulo">{t("seguimiento.noEstasSeguro")}</p>
             <p className="mt-1 max-w-[65ch] text-tinta-media">
-              Preguntale a {caso.negocio_nombre} antes de decidir. Mientras no
-              contestes no se hace nada, y el link te va a seguir esperando acá.
+              {t("seguimiento.preguntale", { negocio: caso.negocio_nombre })}
             </p>
 
             {caso.negocio_telefono ? (
               <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
-                <a
-                  href={linkDeWhatsAppA(
-                    caso.negocio_telefono,
-                    mensajeDeConsulta({
-                      clienteNombre: caso.cliente_nombre,
-                      identificador: caso.identificador,
-                      servicio: caso.servicio,
-                      numero: caso.numero,
-                      paso: porResponder.length === 1 ? porResponder[0].nombre : null,
-                    })
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
-                >
-                  <Icono nombre="chat" />
-                  Escribirle por WhatsApp
-                </a>
+                {/* Un teléfono del negocio de antes de B-1b, sin código de
+                    país, no arma link de WhatsApp: se ofrece sólo llamar. */}
+                {linkDeWhatsAppA(caso.negocio_telefono, "") && (
+                  <a
+                    href={linkDeWhatsAppA(
+                      caso.negocio_telefono,
+                      mensajeDeConsulta({
+                        clienteNombre: caso.cliente_nombre,
+                        identificador: caso.identificador,
+                        servicio: caso.servicio,
+                        numero: caso.numero,
+                        paso: porResponder.length === 1 ? porResponder[0].nombre : null,
+                      }, t)
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
+                  >
+                    <Icono nombre="chat" />
+                    {t("seguimiento.escribirWhatsapp")}
+                  </a>
+                )}
                 {/* El número escrito al lado y no sólo en el enlace: en una
                     computadora "Llamar" puede no hacer nada, y ahí lo que
                     salva es poder leerlo y marcarlo a mano. */}
@@ -607,12 +621,12 @@ export default function Seguimiento() {
                   className="inline-flex min-h-13 cursor-pointer items-center justify-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-5 font-bold text-cuerpo text-tinta hover:bg-superficie"
                 >
                   <Icono nombre="telefono" />
-                  Llamar al {caso.negocio_telefono}
+                  {t("seguimiento.llamar", { telefono: telefonoLegible(caso.negocio_telefono) })}
                 </a>
               </div>
             ) : (
               <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
-                Escribile o llamalo por donde venís hablando con ellos.
+                {t("seguimiento.escribileOLlamalo")}
               </p>
             )}
           </div>
@@ -640,16 +654,19 @@ export default function Seguimiento() {
           falta cargar. */}
       {pasos.length > 0 && (
         <>
-          <h2 className="mt-10 mb-1 text-seccion">Lo que aprobaste</h2>
+          <h2 className="mt-10 mb-1 text-seccion">{t("seguimiento.loQueAprobaste")}</h2>
           {/* El avance de lo que pagó. Sólo cuando hay algo hecho: antes de
               que empiecen, "0 de 3 hechos" es una forma de decir "nada",
               y "nada" ya lo dice el estado de arriba. */}
           {hechos > 0 && (
             <p className="mb-3 text-tinta-media">
-              <span className="font-bold text-tinta">
-                {hechos} de {pasos.length}
-              </span>{" "}
-              {pasos.length === 1 ? "ya está hecho" : "ya están hechos"}.
+              {conElementos(t("seguimiento.hechos", { n: pasos.length }), {
+                conteo: (
+                  <span className="font-bold text-tinta">
+                    {t("seguimiento.conteo", { hechos, n: pasos.length })}
+                  </span>
+                ),
+              })}
             </p>
           )}
           {hechos === 0 && <div className="mb-3" />}
@@ -673,32 +690,35 @@ export default function Seguimiento() {
                     {paso.hecho && (
                       <>
                         {" "}
-                        <span className="font-bold text-apoyo text-completo">Hecho</span>
+                        <span className="font-bold text-apoyo text-completo">{t("seguimiento.hecho")}</span>
                       </>
                     )}
                   </span>
                 </span>
-                <span className="font-bold tabular-nums">{pesos(paso.monto)}</span>
+                <span className="font-bold tabular-nums">{pesos(paso.monto, locale)}</span>
               </li>
             ))}
             <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 bg-superficie p-4">
-              <span className="font-bold text-cuerpo">Total aprobado</span>
+              <span className="font-bold text-cuerpo">{t("seguimiento.totalAprobado")}</span>
               <span className="font-titulo font-extrabold text-subtitulo tabular-nums">
-                {pesos(total)}
+                {pesos(total, locale)}
               </span>
             </li>
           </ul>
           <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
-            Es lo que aceptaste hasta ahora. Si te ofrecieron algo más y todavía no
-            contestaste, no está contado acá.
+            {t("seguimiento.esLoQueAceptaste")}
           </p>
         </>
       )}
 
       <p className="mt-10 max-w-[65ch] text-apoyo text-tinta-suave">
-        Entró {elDia(caso.abierto_en)}
-        {caso.numero ? ` · Caso ${caso.numero}` : ""}. Si algo no coincide, hablá
-        directamente con {caso.negocio_nombre}.
+        {caso.numero
+          ? t("seguimiento.pieConCaso", {
+              cuando: elDia(caso.abierto_en, locale, t),
+              caso: t("casos.nombre.caso", { numero: caso.numero }),
+              negocio: caso.negocio_nombre,
+            })
+          : t("seguimiento.pie", { cuando: elDia(caso.abierto_en, locale, t), negocio: caso.negocio_nombre })}
       </p>
     </Marco>
   );
@@ -708,6 +728,7 @@ export default function Seguimiento() {
 // (026_pago_en_el_seguimiento.sql): cuánto pagó, cuánto falta y los links
 // que le mandaron. Nada de cómo pagó cada cosa ni de descuentos.
 function SeccionPago({ pago, completado, principal }) {
+  const { locale, t } = useIdioma();
   const pendientes = pago.pendientes ?? [];
   const todoPago = pago.falta === 0 && pendientes.length === 0;
   const claseBoton = principal
@@ -716,26 +737,30 @@ function SeccionPago({ pago, completado, principal }) {
 
   return (
     <>
-      <h2 className="mt-10 mb-3 text-seccion">El pago</h2>
+      <h2 className="mt-10 mb-3 text-seccion">{t("seguimiento.pago.titulo")}</h2>
       <div className="rounded-tarjeta border border-borde bg-tarjeta p-5 sm:p-6">
         {todoPago ? (
           <p className="flex items-start gap-2 font-bold text-completo">
             <Icono nombre="listo" className="mt-0.5 size-6 shrink-0" />
             <span>
-              Está todo pago{pago.pagado > 0 ? `: pagaste ${pesos(pago.pagado)}` : ""}. Gracias.
+              {pago.pagado > 0
+                ? t("seguimiento.pago.todoPagoConMonto", { monto: pesos(pago.pagado, locale) })
+                : t("seguimiento.pago.todoPago")}
             </span>
           </p>
         ) : (
           <>
             {pago.pagado > 0 && (
               <p className="text-tinta-media">
-                Ya pagaste <span className="font-bold text-tinta">{pesos(pago.pagado)}</span>.
+                {conElementos(t("seguimiento.pago.yaPagaste"), {
+                  monto: <span className="font-bold text-tinta">{pesos(pago.pagado, locale)}</span>,
+                })}
               </p>
             )}
             {pago.falta > 0 && (
               <>
-                <p className="mt-1 text-tinta-media">Falta pagar</p>
-                <p className="font-titulo font-extrabold text-dato tabular-nums">{pesos(pago.falta)}</p>
+                <p className="mt-1 text-tinta-media">{t("seguimiento.pago.faltaPagar")}</p>
+                <p className="font-titulo font-extrabold text-dato tabular-nums">{pesos(pago.falta, locale)}</p>
               </>
             )}
 
@@ -743,8 +768,10 @@ function SeccionPago({ pago, completado, principal }) {
             {pendientes.map((x, i) => (
               <div key={i} className="mt-4 rounded-campo bg-superficie p-4">
                 <p className="text-tinta-media">
-                  {pago.falta > 0 ? "Además, te mandaron" : "Te mandaron"} un
-                  link para pagar <span className="font-bold text-tinta">{pesos(x.monto)}</span>.
+                  {conElementos(
+                    t(pago.falta > 0 ? "seguimiento.pago.ademasLink" : "seguimiento.pago.link"),
+                    { monto: <span className="font-bold text-tinta">{pesos(x.monto, locale)}</span> }
+                  )}
                 </p>
                 {x.link ? (
                   <a
@@ -754,16 +781,16 @@ function SeccionPago({ pago, completado, principal }) {
                     className={`mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-campo px-5 font-bold text-cuerpo sm:min-h-12 sm:w-auto sm:inline-flex ${claseBoton}`}
                   >
                     <Icono nombre="listo" className="size-6" />
-                    Pagar {pesos(x.monto)}
+                    {t("seguimiento.pago.pagar", { monto: pesos(x.monto, locale) })}
                   </a>
                 ) : (
                   <p className="mt-2 text-tinta-suave">
-                    El link todavía no está listo. Pedíselo al negocio.
+                    {t("seguimiento.pago.linkNoListo")}
                   </p>
                 )}
                 {x.vence_en && (
                   <p className="mt-2 text-apoyo text-tinta-suave">
-                    El link sirve hasta {elDia(x.vence_en)}.
+                    {t("seguimiento.pago.linkSirve", { dia: elDia(x.vence_en, locale, t) })}
                   </p>
                 )}
               </div>
@@ -771,9 +798,7 @@ function SeccionPago({ pago, completado, principal }) {
 
             {pago.falta > 0 && (
               <p className="mt-4 max-w-[65ch] text-tinta-media">
-                {completado
-                  ? "Si preferís, pagalo directamente en el local."
-                  : "Si preferís, pagalo en el local cuando lo retires."}
+                {completado ? t("seguimiento.pago.enElLocal") : t("seguimiento.pago.enElLocalAlRetirar")}
               </p>
             )}
           </>
@@ -786,8 +811,15 @@ function SeccionPago({ pago, completado, principal }) {
 // El marco de la pantalla. A sangre completa, sin la navegación del sistema
 // y con una columna angosta: se abre casi siempre en un celular, y en una
 // pantalla grande una línea de texto de punta a punta no se lee.
-function Marco({ negocio, children }) {
-  return (
+//
+// Si el negocio publicó su landing ("landingCodigo"), la pantalla se pinta
+// con sus colores y su letra y lleva de vuelta a ella: quien llegó desde
+// "Mis casos" sigue en la página del negocio. Sin landing publicada, queda
+// como siempre. Mientras carga, o si el link no sirve, todavía no se sabe de
+// qué negocio es, así que tampoco.
+function Marco({ negocio, landing, landingCodigo, children }) {
+  const { t } = useIdioma();
+  const pantalla = (
     <div className="min-h-screen bg-fondo">
       <header className="border-b border-borde bg-tarjeta">
         <div className="mx-auto flex w-full max-w-[640px] items-center gap-3 px-4 py-4">
@@ -796,13 +828,28 @@ function Marco({ negocio, children }) {
           </span>
           <div className="min-w-0">
             <p className="truncate font-titulo font-extrabold text-subtitulo leading-tight">
-              {negocio ?? "Seguimiento"}
+              {negocio ?? t("seguimiento.marco")}
             </p>
-            <p className="text-apoyo text-tinta-suave">Cómo viene lo tuyo</p>
+            <p className="text-apoyo text-tinta-suave">{t("seguimiento.titulo")}</p>
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">
+        {landingCodigo && (
+          <Link
+            href={`/n/${landingCodigo}`}
+            className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+          >
+            <Icono nombre="volver" />
+            {t("seguimiento.volverA", { negocio })}
+          </Link>
+        )}
+        {children}
+        <div className="mt-4">
+          <SelectorIdioma />
+        </div>
+      </main>
     </div>
   );
+  return landingCodigo ? <Lienzo landing={normalizarLanding(landing)}>{pantalla}</Lienzo> : pantalla;
 }

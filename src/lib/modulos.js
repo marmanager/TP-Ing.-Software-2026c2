@@ -10,6 +10,11 @@
 // El orden es el de la barra lateral, a propósito: quien busca en "Módulos"
 // la sección que ve en el menú la encuentra en el mismo lugar.
 
+import { tCastellano } from "./idioma.js";
+
+// Los textos de abajo son el castellano de fábrica. Lo que se muestra sale del
+// diccionario con traducirModulo() (más abajo), por la clave del módulo.
+
 // "descripcion" es el renglón corto, para listas y resúmenes.
 // "queHace" es la explicación de la pantalla de módulos, donde alguien está
 // decidiendo si le sirve o no: dice para qué se usa, con un ejemplo.
@@ -59,6 +64,15 @@ export const MODULOS = {
     queHace:
       "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
   },
+  lienzo: {
+    clave: "lienzo",
+    nombre: "Lienzo",
+    icono: "pincel",
+    ruta: "/lienzo",
+    descripcion: "Un papel en blanco para dibujar y explicar.",
+    queHace:
+      "Un lienzo blanco para hacer un dibujo rápido y explicarle algo a alguien: lápiz, pincel, colores y formas. No se guarda: si te sirve, lo bajás como imagen.",
+  },
   // SCRUM-121. La clave sigue siendo "presupuesto" y no "aprobar": está
   // escrita en la lista de módulos de cada negocio que existe y en cada preset,
   // y cambiarla obligaba a migrar todo eso para decir lo mismo.
@@ -66,11 +80,11 @@ export const MODULOS = {
   // Lo que cambió es el nombre, porque el de antes prometía algo que no
   // hacía. Se llamaba "Presupuesto" y apagarlo no apagaba ningún presupuesto:
   // los pasos se siguen armando y aprobando adentro de cada caso. Lo único que
-  // prende y apaga es la pantalla "A aprobar" y su tarjeta del Inicio. Ahora
+  // prende y apaga es la pantalla "Pendientes de aprobación" y su tarjeta del Inicio. Ahora
   // se llama como lo que hace, y es el mismo nombre que tiene en el menú.
   presupuesto: {
     clave: "presupuesto",
-    nombre: "A aprobar",
+    nombre: "Pendientes de aprobación",
     icono: "persona-check",
     ruta: "/aprobar",
     descripcion: "Los casos que esperan que el cliente conteste.",
@@ -96,6 +110,15 @@ export const MODULOS = {
     descripcion: "Todo lo que fue pasando en el negocio.",
     queHace:
       "Lo que fue pasando en los casos, día por día y con quién lo hizo: lo que entró, lo que se entregó y la plata. Apagarlo saca la sección del menú: lo que pasa se sigue anotando, y cada caso sigue mostrando el suyo.",
+  },
+  dashboard: {
+    clave: "dashboard",
+    nombre: "Estadísticas",
+    icono: "grafico",
+    ruta: "/dashboard",
+    descripcion: "La actividad del negocio, organizada por categoría.",
+    queHace:
+      "Un lugar para consultar la actividad del negocio por casos, cobros, clientes e inventario. Sus categorías se recorren desde una barra superior y se prenden o apagan juntas con este módulo.",
   },
 };
 
@@ -310,3 +333,33 @@ export function alternarModulo(clave, activos = []) {
 // De una lista de claves a las definiciones, salteando las que no existan.
 export const modulosDe = (claves = []) =>
   claves.map((c) => MODULOS[c]).filter(Boolean);
+
+// El módulo (o submódulo) con su nombre, descripción y queHace en el idioma de
+// t. Los textos están en el diccionario (modulos.<clave>.*), con la misma
+// clave que el módulo; si falta alguno, queda el castellano de arriba. Sin t,
+// salen en castellano, igual que las constantes.
+export const traducirModulo = (m, t = tCastellano) =>
+  m && {
+    ...m,
+    nombre: t(`modulos.${m.clave}.nombre`, {}, m.nombre),
+    descripcion: t(`modulos.${m.clave}.descripcion`, {}, m.descripcion),
+    queHace: t(`modulos.${m.clave}.queHace`, {}, m.queHace),
+  };
+
+// Sólo el nombre, para títulos y etiquetas ("Las pantallas de Inventario").
+export const nombreDeModulo = (clave, t = tCastellano) =>
+  traducirModulo(MODULOS[clave] ?? SUBMODULOS[clave], t)?.nombre ?? clave;
+
+// La palabra de cada lugar de la barra de secciones. Los módulos se llaman en
+// la barra como en Mi negocio → Módulos (mismo texto, modulos.<clave>.nombre);
+// los que no son módulos tienen el suyo. "ecuaciones" es la excepción: en la
+// barra es la palabra corta, y el módulo se llama "Ecuaciones personalizadas".
+const PALABRA_PROPIA_DE_BARRA = {
+  inicio: "inicio.titulo",
+  casos: "casos.lista.titulo",
+  ecuaciones: "navegacion.ecuaciones",
+  negocio: "negocio.titulo",
+  perfil: "cuenta.titulo",
+};
+export const palabraDeBarra = (clave, t = tCastellano) =>
+  PALABRA_PROPIA_DE_BARRA[clave] ? t(PALABRA_PROPIA_DE_BARRA[clave]) : nombreDeModulo(clave, t);

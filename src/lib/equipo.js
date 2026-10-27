@@ -4,13 +4,17 @@
 // grupo de WhatsApp. Quién puede lo decide la base.
 
 import { mandar, traer } from "./api.js";
+import { tCastellano } from "./idioma.js";
 
-const conError = (r) => ({ ok: false, error: r.error.mensaje });
+// El error se devuelve entero ({ codigo, mensaje }): la pantalla lo traduce
+// con textoDeError al dibujar. Un texto suelto también se muestra tal cual.
+const conError = (r) => ({ ok: false, error: r.error });
 
 export const linkDeInvitacion = (codigo, origen) => `${origen}/unirme/${codigo}`;
 
-export const mensajeDeInvitacion = (nombreDelNegocio, link) =>
-  `Sumate al equipo de ${nombreDelNegocio} en MarManager: ${link}`;
+// Lo que se manda al grupo: sale en el idioma de quien lo manda.
+export const mensajeDeInvitacion = (nombreDelNegocio, link, t = tCastellano) =>
+  t("equipo.mensajeDeInvitacion", { negocio: nombreDelNegocio, link });
 
 export async function linkDeEquipo(token) {
   const r = await traer("/equipo/link", token);
@@ -27,8 +31,8 @@ export async function pedidosDeIngreso(token) {
   return r.ok ? { ok: true, pedidos: r.datos.pedidos } : conError(r);
 }
 
-export async function aprobarPedido(id, rol, token) {
-  const r = await mandar(`/equipo/pedidos/${encodeURIComponent(id)}/aprobar`, { rol }, token);
+export async function aprobarPedido(id, rolId, token) {
+  const r = await mandar(`/equipo/pedidos/${encodeURIComponent(id)}/aprobar`, { rol_id: rolId }, token);
   return r.ok ? { ok: true, empleados: r.datos.empleados } : conError(r);
 }
 

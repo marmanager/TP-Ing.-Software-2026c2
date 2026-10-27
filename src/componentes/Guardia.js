@@ -13,13 +13,18 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
 import { useDatos } from "@/lib/datos";
+import { bloquea, RUTAS_SIN_SUSCRIPCION } from "@/lib/suscripcion";
+import { ContextoSuscripcion, useSuscripcion } from "@/lib/useSuscripcion";
 import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
+import FranjaDeVisita from "./FranjaDeVisita";
 import Link from "next/link";
-import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
+import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos, traducirModulo } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
+import { seguirAlSistema } from "@/lib/tema";
 
 // Pantallas a las que se llega sin haber entrado. "confirma-tu-mail" está
 // acá porque con la verificación prendida el alta no deja sesión abierta.
@@ -41,6 +46,10 @@ const RUTA_NEGOCIOS = "/negocios";
 // columna angosta y centrada, y la landing va a sangre completa.
 const RUTA_BIENVENIDA = "/bienvenida";
 
+// Elegir un plan y el mes de prueba (lib/suscripcion.js).
+const RUTA_PLANES = "/planes";
+const RUTA_PRUEBA = "/prueba";
+
 // "/unirme/<código>" se abre desde el link de una invitación, así que tiene
 // que ser alcanzable en cualquier estado: sin cuenta, con cuenta y sin
 // negocio, o con negocio. La pantalla explica qué pasa en cada caso.
@@ -60,6 +69,12 @@ const esSeguimiento = (ruta) => ruta.startsWith("/seguimiento");
 // que un cliente pida turno solo (024). Mismas reglas que la de seguimiento,
 // y por el mismo motivo: quien la abre no tiene cuenta y no la va a tener.
 const esAgendaPublica = (ruta) => ruta.startsWith("/turnos");
+
+// "/n/<código>" es la landing del negocio (docs/landing-por-negocio.md): lo
+// que ve un cliente desde el Instagram del negocio. Mismas reglas que las dos
+// anteriores. Con la barra: "/n" a secas agarraría también "/negocio",
+// "/negocios" y "/nueva-contrasena", y el sistema se quedaría sin navegación.
+const esLanding = (ruta) => ruta.startsWith("/n/");
 
 // La pantalla de un módulo apagado se sigue pudiendo escribir en la barra de
 // direcciones: un favorito viejo, un link que alguien pasó, el módulo apagado
@@ -96,17 +111,23 @@ const moduloApagado = (ruta, negocio) => {
 };
 
 export default function Guardia({ children }) {
+  const { t } = useIdioma();
   const { cargando, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
   const { cargando: datosCargando, negocio } = useDatos();
+  const suscripcion = useSuscripcion();
   const ruta = usePathname();
   const router = useRouter();
 
-  const publica = esSeguimiento(ruta) || esAgendaPublica(ruta);
+  // Guardia está en todas las pantallas: acá se escucha el cambio de tema
+  // del sistema, para quien eligió seguirlo.
+  useEffect(seguirAlSistema, []);
+
+  const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta);
   const hayEntrada = Boolean(sesion);
   const tieneNegocio = Boolean(usuario?.negocio_id);
 
   // A dónde tendría que estar parada la persona según su estado.
-  const esperando = cargando || datosCargando;
+  const esperando = cargando || datosCargando || suscripcion.cargando;
 
   let destino = null;
   if (!esperando && !publica) {
@@ -132,6 +153,14 @@ export default function Guardia({ children }) {
       // iniciado sesión recién —así se vuelve de Google—: toca elegir
       // negocio. /crear-negocio y /negocios se pueden visitar teniendo negocio.
       destino = RUTA_NEGOCIOS;
+    } else if (
+      bloquea(suscripcion.datos) &&
+      !RUTAS_SIN_SUSCRIPCION.includes(ruta) &&
+      !esInvitacion(ruta)
+    ) {
+      // Sin suscripción ni prueba, el negocio va a elegir un plan. Es también
+      // lo primero que ve después de crear el negocio.
+      destino = RUTA_PLANES;
     }
   }
 
@@ -166,11 +195,23 @@ export default function Guardia({ children }) {
 
   if (enEntrada) return <PantallaEntrada>{children}</PantallaEntrada>;
 
+  // Planes y Prueba van sin la navegación: con el negocio bloqueado, cada
+  // link de la barra rebotaría de vuelta acá.
+  if (ruta === RUTA_PLANES || ruta === RUTA_PRUEBA) {
+    return <ContextoSuscripcion.Provider value={suscripcion}>{children}</ContextoSuscripcion.Provider>;
+  }
+
   // Con la navegación puesta, así se puede ir a otro lado sin volver atrás.
-  const apagado = moduloApagado(ruta, negocio);
+  const apagado = traducirModulo(moduloApagado(ruta, negocio), t);
+  // La frase lleva el enlace adentro: se escribe entera, con un marcador
+  // {enlace}, y se parte ahí; no se arma pegando pedazos traducidos. El
+  // nombre y la descripción del módulo vienen de modulos.js.
+  const [antesDelEnlace, despuesDelEnlace] = apagado
+    ? t("ui.moduloApagado.texto", { descripcion: apagado.descripcion }).split("{enlace}")
+    : [];
 
   return (
-    <>
+    <ContextoSuscripcion.Provider value={suscripcion}>
       {/* Lo primero de la página, para quien usa teclado o lector de
           pantalla: sin esto, en cada pantalla había que pasar por las nueve
           secciones de la barra antes de llegar a lo que se vino a hacer
@@ -181,7 +222,7 @@ export default function Guardia({ children }) {
         href="#contenido"
         className="fixed top-3 left-3 z-50 -translate-y-[200%] whitespace-nowrap rounded-campo bg-azul px-4 py-3 font-bold text-white focus:translate-y-0"
       >
-        Ir al contenido
+        {t("ui.irAlContenido")}
       </a>
       <div className="flex min-h-screen">
         <BarraLateral />
@@ -190,6 +231,7 @@ export default function Guardia({ children }) {
           tabIndex={-1}
           className="min-w-0 flex-1 pb-[calc(var(--alto-barra,4rem)+1rem)] focus:outline-none md:pb-0"
         >
+          <FranjaDeVisita />
           {/* "@container": las grillas de las pantallas eligen sus columnas por el
                 ancho de ESTE bloque y no por el de la ventana. En escritorio la
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
@@ -198,12 +240,12 @@ export default function Guardia({ children }) {
             <div className="@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
             <Aviso />
             {apagado ? (
-              <Vacio icono="tuerca" titulo={`Tu negocio no tiene ${apagado.nombre}`}>
-                {apagado.descripcion} Si te sirve, se prende desde{" "}
+              <Vacio icono="tuerca" titulo={t("ui.moduloApagado.titulo", { nombre: apagado.nombre })}>
+                {antesDelEnlace}
                 <Link href="/negocio/modulos" className="font-bold text-azul">
-                  Mi negocio
+                  {t("ui.moduloApagado.enlace")}
                 </Link>
-                , y lo que ya tengas cargado sigue estando.
+                {despuesDelEnlace}
               </Vacio>
             ) : (
               children
@@ -212,6 +254,6 @@ export default function Guardia({ children }) {
         </main>
       </div>
       <BarraCelular />
-    </>
+    </ContextoSuscripcion.Provider>
   );
 }

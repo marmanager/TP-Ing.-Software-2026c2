@@ -1,18 +1,18 @@
 // Correr con: npm test
 //
-// Los permisos de la interfaz: el mismo catálogo que la base (053_roles.sql)
+// Los permisos de la interfaz: el mismo catálogo que la base (057_roles.sql)
 // y la API (src/compartido/permisos.ts). Si acá sobra un permiso, se ofrece un
 // botón que la base va a rechazar; si falta, se esconde algo que sí se podía.
 
 import { test } from "@jest/globals";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, puede, queCambiaConElRol } from "../src/lib/permisos.js";
+import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, conImplicados, implicadoPor, puede, queCambiaConElRol, rolPorDefecto, rolesQuePuedeDar } from "../src/lib/permisos.js";
 
 const claves = PERMISOS.map((p) => p.clave);
 
-test("son las mismas 23 claves que la 053, en el mismo orden", () => {
-  const sql = readFileSync(new URL("../supabase/053_roles.sql", import.meta.url), "utf8");
+test("son las mismas 23 claves que la 057, en el mismo orden", () => {
+  const sql = readFileSync(new URL("../supabase/057_roles.sql", import.meta.url), "utf8");
   const bloque = sql.slice(sql.indexOf("function permisos_conocidos()"), sql.indexOf("]::text[]"));
   assert.deepEqual(claves, [...bloque.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
 });
@@ -62,4 +62,46 @@ test("pasar a Dueño gana todo lo que no tenía", () => {
   const { gana, pierde } = queCambiaConElRol({ es_duenio: false, permisos: ["cobrar"] }, { es_duenio: true, permisos: [] });
   assert.equal(gana.length, 22);
   assert.equal(pierde.length, 0);
+});
+
+test("se ofrecen sólo los roles dentro de lo propio, y Dueño sólo a un Dueño", () => {
+  const roles = [
+    { id: "d", nombre: "Dueño", es_duenio: true, permisos: [] },
+    { id: "c", nombre: "Caja", es_duenio: false, permisos: ["cobrar"] },
+    { id: "e", nombre: "Encargado", es_duenio: false, permisos: ["cobrar", "crear_casos"] },
+  ];
+  const recepcion = { es_duenio: false, permisos: ["manejar_roles", "cobrar"] };
+  assert.deepEqual(rolesQuePuedeDar(recepcion, roles).map((r) => r.id), ["c"]);
+  assert.deepEqual(rolesQuePuedeDar({ es_duenio: true, permisos: [] }, roles).map((r) => r.id), ["d", "c", "e"]);
+});
+
+test("el rol por defecto de un pedido nunca es Dueño: el de menos permisos, o ninguno", () => {
+  const d = { id: "d", es_duenio: true, permisos: [] };
+  const a = { id: "a", es_duenio: false, permisos: ["cobrar", "crear_casos"] };
+  const b = { id: "b", es_duenio: false, permisos: ["cobrar"] };
+  const c = { id: "c", es_duenio: false, permisos: ["crear_casos"] };
+  assert.equal(rolPorDefecto([d]), null);
+  assert.equal(rolPorDefecto([]), null);
+  assert.equal(rolPorDefecto(undefined), null);
+  assert.equal(rolPorDefecto([d, a, b]), "b");
+  assert.equal(rolPorDefecto([a, b, c]), "b");
+});
+
+// Algunos permisos no sirven sin el de mirar lo mismo: guardar_rol (060) los
+// suma en la base y el editor los prende y explica.
+test("conImplicados suma el permiso de mirar que va con cada uno", () => {
+  assert.deepEqual(conImplicados(["editar_clientes"]), ["ver_clientes", "editar_clientes"]);
+  assert.deepEqual(conImplicados(["crear_casos", "manejar_turnos", "editar_inventario"]),
+    ["ver_todos_los_casos", "crear_casos", "ver_agenda", "manejar_turnos", "ver_inventario", "editar_inventario"]);
+  assert.deepEqual(conImplicados(["cobrar"]), ["cobrar"]);
+  assert.equal(implicadoPor(["editar_clientes", "ver_clientes"], "ver_clientes")?.clave, "editar_clientes");
+  assert.equal(implicadoPor(["ver_clientes"], "ver_clientes"), null);
+});
+
+test("los implícitos son los mismos que suma guardar_rol en la 060", () => {
+  const sql = readFileSync(new URL("../supabase/060_roles_editables.sql", import.meta.url), "utf8");
+  const bloque = sql.slice(sql.indexOf("function guardar_rol"), sql.indexOf("i(clave, implicado)"));
+  const deLaBase = [...bloque.matchAll(/\('([a-z_]+)', '([a-z_]+)'\)/g)].map((m) => `${m[1]}>${m[2]}`).sort();
+  const deAca = PERMISOS.flatMap((p) => (p.implica ?? []).map((i) => `${p.clave}>${i}`)).sort();
+  assert.deepEqual(deAca, deLaBase);
 });

@@ -1,15 +1,20 @@
-import nextEnv from "@next/env";
+// siembra.js carga las mismas variables que ve Next (.env.local y compañía):
+// ahí van E2E_API_URL y E2E_SEMILLA_CLAVE.
 import { limpiarSembradas } from "./pruebas/e2e/siembra.js";
-
-// Las mismas variables que ve Next (.env.local y compañía): ahí van
-// E2E_API_URL y E2E_SEMILLA_CLAVE (pruebas/e2e/siembra.js).
-nextEnv.loadEnvConfig(process.cwd());
 
 export const config = {
   runner: "local",
   specs: ["./pruebas/e2e/**/*.e2e.js"],
   maxInstances: 1,
-  capabilities: [{ browserName: "chrome", "wdio:enforceWebDriverClassic": true }],
+  // Chrome headless manda Accept-Language en inglés: sin esto los e2e, que
+  // buscan textos en castellano, verían la app en inglés (docs/idiomas.md).
+  capabilities: [
+    {
+      browserName: "chrome",
+      "wdio:enforceWebDriverClassic": true,
+      "goog:chromeOptions": { args: ["--lang=es-AR"], prefs: { "intl.accept_languages": "es-AR,es" } },
+    },
+  ],
   logLevel: "warn",
   baseUrl: "http://localhost:3000",
   waitforTimeout: 10000,

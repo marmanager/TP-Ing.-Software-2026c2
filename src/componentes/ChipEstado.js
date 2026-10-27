@@ -2,6 +2,7 @@
 
 import { presentacionEstado } from "@/lib/presentacion-estados";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 
 // Tres señales por estado: color, ícono y palabra.
@@ -13,10 +14,11 @@ import Icono from "./Icono";
 // corresponde es el del negocio que le mandó el link.
 export default function ChipEstado({ estado, rubro, configuracion, className = "", grande = false }) {
   const { negocio } = useDatos();
+  const { idioma } = useIdioma();
   const negocioVisual = configuracion
     ? { rubro: rubro ?? negocio?.rubro, estados: configuracion }
     : rubro ? { rubro } : negocio;
-  const e = presentacionEstado(negocioVisual, estado);
+  const e = presentacionEstado(negocioVisual, estado, idioma);
   if (!e) return null;
 
   return (

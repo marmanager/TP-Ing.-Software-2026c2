@@ -62,7 +62,7 @@ test("los montos que vienen como texto desde la base se suman como números", ()
 });
 
 // ---------------------------------------------------------------
-// "A aprobar": qué casos entran y con cuánta plata
+// "Pendientes de aprobación": qué casos entran y con cuánta plata
 // ---------------------------------------------------------------
 // Misma razón que arriba: el número que sale acá es el que alguien mira
 // para saber cuánto tiene esperando respuesta.

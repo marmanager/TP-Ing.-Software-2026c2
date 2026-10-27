@@ -75,6 +75,15 @@ pruebas) y la borran al terminar: `entrar(ruta, escenario)` en
    API o a Render: las dos usan la misma base.
 3. `npm run test:e2e`.
 
+**O todo local, sin `.env` ni base en la nube:** `npm run test:e2e:local`. Usa el
+Supabase del stack de Docker (`npx supabase start` en este repo, con el schema de
+`supabase/migrations/`) y levanta por su cuenta una API en el puerto 4100 (de
+`../TP-IngeSoft-API`, o de `E2E_API_DIR`) y el front en el 3000, con las claves
+públicas del stack y la siembra prendida. Kapso y Mercado Pago quedan apuntando a
+ningún lado: no sale ningún WhatsApp ni se crea ningún cobro. Un solo archivo:
+`npm run test:e2e:local -- --spec ./pruebas/e2e/roles.e2e.js`. Está en
+`pruebas/e2e/local/`.
+
 Conviene reservar Jest para reglas, cálculos y validaciones, y WebdriverIO para
 unos pocos caminos críticos (iniciar sesión, crear un caso, aprobar un presupuesto
 y cobrar). Los tests E2E son más lentos y más sensibles a cambios visuales.
@@ -89,13 +98,49 @@ todo en el navegador; se fue porque obligaba a tener las reglas copiadas acá.
 ## Conectar la base de Supabase
 
 1. En el SQL Editor de Supabase, correr **en orden numérico** todos los archivos
-   de `supabase/`, del `001_schema.sql` al `047_red_de_sedes.sql` (el `028`
+   de `supabase/`, del `001_schema.sql` al `063_roles_limpieza.sql` (el `028`
    es opcional y se usa sólo para vincular Google Calendar; el `002`
    ya no existe: traía datos inventados y se sacó). Todos se pueden volver a
-   correr cuantas veces haga falta.
+   correr cuantas veces haga falta, con una condición: en una base que ya
+   tiene la `063`, volver a correr cualquier migración anterior obliga a
+   correr la `063` otra vez al final. Algunas anteriores fallan (usan el rol
+   viejo, que la `063` borró) y otras vuelven a instalar funciones o
+   políticas de antes de los roles por negocio; la `063` es idempotente y
+   deja la base como estaba en los dos casos. Si lo que se volvió a correr
+   reinstala una función que pregunta por el rol viejo (por ejemplo la `053`
+   o la `054` del equipo), la guardia de la `063` frena y la nombra: correr
+   la `058` y después la `063`. Correr todo de nuevo, del `001` al `063`, deja
+   la base igual.
 
-   Después de la 038, correr `supabase/pruebas/multinegocio.sql`: prueba el
-   aislamiento y los permisos contra la base y no deja nada guardado.
+   **Los roles por negocio (057 a 063) van en dos tandas, con la publicación
+   en el medio:**
+
+   1. Correr de la `057` a la `062`, en orden.
+   2. Publicar la API y el front de los roles **juntos** (la API en Render y
+      `main` del front en Vercel).
+   3. Antes de la `063`, mirar las políticas que se crearon desde el panel:
+
+      ```sql
+      select tablename, policyname, qual, with_check from pg_policies
+       where tablename in ('negocio_seguimiento', 'seguimiento_whatsapp', 'seguimiento_whatsapp_respuesta');
+      ```
+
+      Ninguna puede nombrar `mi_rol()` ni `puedo_cargar()`. La `058` ya
+      reescribe las de esas tres tablas (y las del aviso del presupuesto, si
+      se corrió a mano: `MIGRACION.md` de la API) con `puede_aca('entregar_y_reabrir')`
+      y frena, nombrándola, si encuentra otra en cualquier tabla.
+   4. Correr la `063`. Empieza con una guardia: si algo todavía depende de
+      `mi_rol()` o `puedo_cargar()`, frena antes de tocar nada y dice qué es.
+
+   Volver a correr cualquier migración anterior después de la `063` obliga a
+   correr la `063` otra vez al final.
+
+   Las pruebas de `supabase/pruebas/` se corren al final, enteras, en el SQL
+   Editor; no dejan nada guardado y, si pasan, dan "Success. No rows returned":
+   `multinegocio.sql` (el aislamiento y los permisos, desde la 038),
+   `pedido_idempotente.sql` (039), `red_de_sedes.sql` (047),
+   `equipo_por_link.sql` (051), `landing.sql` (053) y `roles.sql` (los roles y permisos por
+   negocio, de la 057 a la 063).
 
    Si una base existente muestra `function gen_random_bytes(integer) does not exist`,
    ejecutar `supabase/029_reparar_codigos.sql` en el SQL Editor. Actualiza las
@@ -995,6 +1040,10 @@ puede cambiar el rol propio, y `empleado.usuario_id` no se escribe desde el
 navegador: sólo lo pone aceptar una invitación. Al correrla, las etiquetas que
 ya no coincidían se corrigen para decir la verdad: la migración no le cambia el
 acceso a nadie.
+
+Desde la 063 (roles por negocio, `docs/roles.md`), el rol está sólo en la ficha
+(`empleado.rol_id`, que apunta a un rol del negocio): `usuario.rol`,
+`empleado.rol`, `mi_rol()` y `puedo_cargar()` ya no existen.
 
 **Varios negocios por cuenta** (`038_multinegocio.sql`, diseño en
 `docs/multinegocio.md`). Una cuenta puede estar en varios negocios —sus

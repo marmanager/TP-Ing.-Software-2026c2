@@ -9,13 +9,15 @@ import {
   PRESETS,
   RUBROS,
   preset,
-  ORDEN_ROLES,
-  etiquetaRol,
   comoSeIdentifica,
   ejemplosDe,
   queSignificaPara,
   SEGUIMIENTO_GENERICO,
+  vocabulario,
+  etiquetaEstado,
+  formasEn,
 } from "../src/lib/presets.js";
+import { PRESETS_EN, SEGUIMIENTO_GENERICO_EN } from "../src/lib/presets-en.js";
 import { LISTA_MODULOS, MODULOS, estaPrendido } from "../src/lib/modulos.js";
 import { ORDEN_ESTADOS } from "../src/lib/estados.js";
 
@@ -75,29 +77,6 @@ test("un rubro desconocido o vacío cae en taller", () => {
 
 test("ya no existe el preset veterinaria", () => {
   assert.equal(PRESETS.veterinaria, undefined);
-});
-
-// Mismo criterio que los estados: los tres roles son fijos porque la base no
-// acepta otros, pero cómo se llaman sale del rubro.
-test("cada preset le pone nombre a los tres roles", () => {
-  for (const r of RUBROS) {
-    for (const rol of ORDEN_ROLES) {
-      assert.equal(typeof r.roles[rol], "string", `${r.clave} sin nombre para ${rol}`);
-      assert.ok(r.roles[rol].trim().length > 0, `${r.clave}.${rol} está vacío`);
-    }
-  }
-});
-
-test("el que hace el trabajo se llama distinto en cada rubro", () => {
-  assert.equal(etiquetaRol("taller", "tecnico"), "Mecánico");
-  assert.equal(etiquetaRol("medicina", "tecnico"), "Profesional");
-  assert.equal(etiquetaRol("service", "tecnico"), "Técnico");
-
-  // Dueño y encargado se dicen igual en todos.
-  for (const r of RUBROS) {
-    assert.equal(etiquetaRol(r.clave, "duenio"), "Dueño");
-    assert.equal(etiquetaRol(r.clave, "encargado"), "Encargado");
-  }
 });
 
 // El identificador es lo más certero para reconocer un caso, y se pide al
@@ -203,4 +182,68 @@ test("los textos genéricos cubren los cinco estados", () => {
   for (const estado of ORDEN_ESTADOS) {
     assert.ok(SEGUIMIENTO_GENERICO[estado]?.trim(), `falta el genérico de ${estado}`);
   }
+});
+
+// Mismas claves en los dos idiomas: un texto de fábrica que falta en inglés
+// se vería en castellano en medio de una pantalla en inglés.
+const camposDeTexto = [
+  "etiquetas", "explica", "seguimiento", "ejemplos", "palabras", "identificador", "espera", "motivos",
+];
+
+test("cada rubro tiene sus textos en inglés, con las mismas claves", () => {
+  for (const r of RUBROS) {
+    const en = PRESETS_EN[r.clave];
+    assert.ok(en, `${r.clave} sin inglés`);
+    assert.equal(typeof en.nombre, "string");
+    assert.equal(typeof en.queEs, "string");
+    for (const campo of camposDeTexto) {
+      if (r[campo] == null) continue;
+      assert.deepEqual(
+        Object.keys(en[campo] ?? {}).sort(),
+        Object.keys(r[campo]).sort(),
+        `${r.clave}.${campo}`
+      );
+    }
+    assert.equal(en.seguimiento == null, r.seguimiento == null, `${r.clave}.seguimiento`);
+    assert.equal((en.categorias ?? []).length, (r.categorias ?? []).length, `${r.clave}.categorias`);
+  }
+});
+
+test("el seguimiento genérico tiene los cinco estados en inglés", () => {
+  assert.deepEqual(Object.keys(SEGUIMIENTO_GENERICO_EN).sort(), Object.keys(SEGUIMIENTO_GENERICO).sort());
+});
+
+test("en inglés, a/an y the, sin género", () => {
+  const parte = formasEn({ uno: "part", varios: "parts" });
+  assert.equal(parte.un(), "a part");
+  assert.equal(parte.el(1), "the part");
+  assert.equal(parte.el(2), "the parts");
+  assert.equal(parte.cuantos(1), "1 part");
+  assert.equal(parte.cuantos(3), "3 parts");
+  assert.equal(formasEn({ uno: "analysis", varios: "analyses", an: true }).un(), "an analysis");
+});
+
+test("sin idioma, todo sigue en castellano", () => {
+  assert.equal(etiquetaEstado("taller", "en_proceso"), "Está en el taller");
+  assert.equal(preset("taller").nombre, "Taller mecánico");
+});
+
+test("en inglés, el preset y el vocabulario salen en inglés", () => {
+  assert.notEqual(etiquetaEstado("taller", "en_proceso", "en"), "Está en el taller");
+  assert.notEqual(preset("taller", "en").nombre, "Taller mecánico");
+  assert.ok(vocabulario("taller", "en").articulo.un().match(/^an? /));
+});
+
+test("los módulos no se traducen: son los mismos en los dos idiomas", () => {
+  for (const r of RUBROS) assert.deepEqual(preset(r.clave, "en").modulos, preset(r.clave).modulos);
+});
+
+test("queSignificaPara en inglés, y personalizable usa el genérico en inglés", () => {
+  assert.equal(queSignificaPara("personalizable", "nuevo", "en"), SEGUIMIENTO_GENERICO_EN.nuevo);
+  assert.equal(queSignificaPara("taller", "nuevo", "en"), PRESETS_EN.taller.seguimiento.nuevo);
+});
+
+test("rubro desconocido en inglés: queSignificaPara da el genérico y preset() el taller, en inglés", () => {
+  assert.equal(queSignificaPara("zzz", "nuevo", "en"), SEGUIMIENTO_GENERICO_EN.nuevo);
+  assert.equal(preset("zzz", "en").nombre, PRESETS_EN.taller.nombre);
 });

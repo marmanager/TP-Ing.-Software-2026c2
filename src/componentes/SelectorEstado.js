@@ -14,12 +14,14 @@
 // consultorio "En consulta". Es el mismo estado abajo.
 
 import { useEffect, useRef, useState } from "react";
-import { AL_PASAR_A, estadosAElegir } from "@/lib/estados";
+import { AL_PASAR_A, estadosAElegir, significadoDeEstado } from "@/lib/estados";
 import { preset } from "@/lib/presets";
 import { presentacionEstado } from "@/lib/presentacion-estados";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 
 export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar, alElegir }) {
+  const { t, idioma } = useIdioma();
   const [abierto, setAbierto] = useState(false);
   const caja = useRef(null);
 
@@ -42,11 +44,11 @@ export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar,
   }, [abierto]);
 
   const negocioVisual = negocio ?? { rubro };
-  const actual = presentacionEstado(negocioVisual, estado);
+  const actual = presentacionEstado(negocioVisual, estado, idioma);
   if (!actual) return null;
 
   const palabra = actual.nombre;
-  const explica = preset(negocioVisual?.rubro).explica ?? {};
+  const explica = preset(negocioVisual?.rubro, idioma).explica ?? {};
 
   // Sin permiso para cambiarlo, el chip es un chip y nada más.
   if (!sePuedeCambiar) {
@@ -67,7 +69,7 @@ export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar,
         onClick={() => setAbierto((v) => !v)}
         aria-haspopup="true"
         aria-expanded={abierto}
-        aria-label={`El caso está en «${palabra}». Tocá para cambiarlo.`}
+        aria-label={t("casos.selector.aria", { estado: palabra })}
         className={`inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full px-4 font-bold text-etiqueta ${actual.fondo} ${actual.texto} hover:brightness-95`}
       >
         <Icono nombre={actual.icono} className="size-5" />
@@ -86,11 +88,11 @@ export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar,
       {abierto && (
         <div className="absolute left-0 z-20 mt-2 w-[min(18rem,calc(100vw-3rem))] overflow-hidden rounded-tarjeta border border-borde bg-tarjeta shadow-sm sm:left-auto sm:right-0">
           <p className="border-b border-borde px-4 py-3 font-bold text-etiqueta">
-            Pasar el caso a
+            {t("casos.selector.pasarA")}
           </p>
           <ul>
             {estadosAElegir(estado).map((otro) => {
-              const e = presentacionEstado(negocioVisual, otro);
+              const e = presentacionEstado(negocioVisual, otro, idioma);
               const suPalabra = e.nombre;
               return (
                 <li key={otro} className="border-b border-borde last:border-b-0">
@@ -100,7 +102,7 @@ export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar,
                       setAbierto(false);
                       alElegir(otro, AL_PASAR_A[otro]);
                     }}
-                    aria-label={`Marcar el caso como ${suPalabra}`}
+                    aria-label={t("casos.selector.marcar", { estado: suPalabra })}
                     className="flex w-full min-h-12 cursor-pointer flex-col items-start gap-1 px-4 py-3 text-left hover:bg-superficie"
                   >
                     <span
@@ -110,7 +112,7 @@ export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar,
                       {suPalabra}
                     </span>
                     <span className="text-apoyo text-tinta-suave">
-                      {explica[otro] ?? e.significado}
+                      {explica[otro] ?? significadoDeEstado(otro, t)}
                     </span>
                   </button>
                 </li>

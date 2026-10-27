@@ -62,6 +62,28 @@ test("sin sesión no manda la cabecera vacía", async () => {
   assert.equal(llamadas[0].headers.Authorization, undefined);
 });
 
+test("la autorización propia viaja tal cual: ni Bearer ni el token de la sesión del dueño", async () => {
+  const { fetcher, llamadas } = apiFalsa(200, ok({ casos: [] }));
+  await traer("/publico/landing/abc12345/mis-casos", null, { base: BASE, fetcher, autorizacion: "Llave abc123" });
+  assert.equal(llamadas[0].headers.Authorization, "Llave abc123");
+});
+
+test("con autorización propia no se toca el token ni se le pide nada a la sesión", async () => {
+  // La llave de la landing no es un token de la app: si pasara por
+  // prepararToken, se cambiaría por el del dueño que tenga la app abierta.
+  let pedidos = 0;
+  alPedirConSesion(async () => {
+    pedidos++;
+    return "el-del-dueno";
+  });
+  const { fetcher, llamadas } = apiFalsa(200, ok({ casos: [] }));
+  await traer("/publico/landing/abc12345/mis-casos", "token-suelto", { base: BASE, fetcher, autorizacion: "Llave abc123" });
+  alPedirConSesion(null);
+
+  assert.equal(pedidos, 0);
+  assert.equal(llamadas[0].headers.Authorization, "Llave abc123");
+});
+
 test("la clave de idempotencia viaja sólo si se la pasan", async () => {
   const { fetcher, llamadas } = apiFalsa(200, ok({}));
   await mandar("/cobros", { monto: 1 }, "t", { base: BASE, fetcher, idempotencia: "clave-1" });
@@ -290,6 +312,26 @@ test("el pedido que renueva la sesión puede no avisar: su 401 lo maneja quien r
   const { fetcher } = apiFalsa(401, { ok: false, error: { codigo: "sesion_vencida", mensaje: "Tu sesión venció." } });
   const r = await mandar("/sesiones/renovar", { refresh_token: "r" }, null, { base: BASE, fetcher, avisarSiVence: false });
   assert.equal(r.error.codigo, "sesion_vencida");
+  assert.equal(avisos, 0);
+  alVencerLaSesion(null);
+});
+
+test("un 401 de la landing, sin avisar, deja la sesión del dueño como estaba", async () => {
+  // Quien mira la landing puede ser el dueño con la app abierta en el mismo
+  // navegador: que la llave venza no le puede cerrar su sesión.
+  let avisos = 0;
+  alVencerLaSesion(() => avisos++);
+  const { fetcher } = apiFalsa(401, {
+    ok: false,
+    error: { codigo: "llave_vencida", mensaje: "Pasó un rato desde que entraste. Volvé a poner tus datos." },
+  });
+  const r = await traer("/publico/landing/abc12345/mis-turnos", null, {
+    base: BASE,
+    fetcher,
+    autorizacion: "Llave abc123",
+    avisarSiVence: false,
+  });
+  assert.equal(r.error.codigo, "llave_vencida");
   assert.equal(avisos, 0);
   alVencerLaSesion(null);
 });

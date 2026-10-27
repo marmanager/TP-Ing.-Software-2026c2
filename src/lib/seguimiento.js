@@ -14,6 +14,8 @@
 // Next, pero este archivo también lo importa Jest sobre Node, que sigue el
 // estándar y no adivina el ".js".
 import { ORDEN_ESTADOS } from "./estados.js";
+import { normalizarTelefono, telefonoParaLlamar } from "./telefono.js";
+import { tCastellano } from "./idioma.js";
 
 // Lo que contesta la API, a la forma que ya conoce la pantalla.
 //
@@ -59,14 +61,14 @@ export function laEspera({
   porResponder = 0,
   espera = {},
   generico,
-} = {}) {
+} = {}, t = tCastellano) {
   if (estado !== "esperando") return null;
 
   if (porResponder > 0) {
     return {
       deQuien: "cliente",
-      titulo: `Estamos esperando ${espera.cliente ?? "tu respuesta"}.`,
-      detalle: "Está acá abajo. Apenas contestes, seguimos.",
+      titulo: t("seguimiento.espera.titulo", { que: espera.cliente ?? t("seguimiento.espera.tuRespuesta") }),
+      detalle: t("seguimiento.espera.detalleCliente"),
     };
   }
 
@@ -82,13 +84,16 @@ export function laEspera({
   //   mover el estado desde el desplegable, y adentro del negocio alcanza;
   //   acá es justo la confusión que esta pantalla vino a sacar.
   const escrito = (queFalta ?? "").trim();
-  const sirve = escrito && escrito !== ESPERA_AL_CLIENTE && escrito !== generico;
-  const loQueFalta = sirve ? escrito : (espera.negocio ?? "algo");
+  // `generico` puede venir en los dos idiomas: el texto lo escribió, al mover
+  // el estado, quien lo movió, en el suyo.
+  const genericos = [generico].flat();
+  const sirve = escrito && escrito !== ESPERA_AL_CLIENTE && !genericos.includes(escrito);
+  const loQueFalta = sirve ? escrito : (espera.negocio ?? t("seguimiento.espera.algo"));
 
   return {
     deQuien: "negocio",
-    titulo: `Estamos esperando ${primeraMinuscula(loQueFalta)}.`,
-    detalle: "No hace falta que hagas nada: te avisamos apenas podamos seguir.",
+    titulo: t("seguimiento.espera.titulo", { que: primeraMinuscula(loQueFalta) }),
+    detalle: t("seguimiento.espera.detalleNegocio"),
   };
 }
 
@@ -97,7 +102,8 @@ export function laEspera({
 // Sólo se baja la mayúscula cuando la primera palabra es un artículo. Mirar
 // si empieza en mayúscula no alcanza: "Bosch, que confirme el precio"
 // también empieza en mayúscula, y bajarla lo rompe. El test lo agarró.
-const ARTICULOS = ["el", "la", "los", "las", "un", "una", "unos", "unas", "que"];
+// Los de castellano y los de inglés: lo escribió el negocio en su idioma.
+const ARTICULOS = ["el", "la", "los", "las", "un", "una", "unos", "unas", "que", "the", "a", "an"];
 
 const primeraMinuscula = (texto) => {
   const primera = texto.split(/[\s,.]/)[0].toLowerCase();
@@ -161,6 +167,8 @@ export const linkDeSeguimiento = (origen, codigo) =>
 // terminado con un tilde y lo que todavía no, con un punto— porque decir
 // "ya está todo" cuando falta algo es la clase de mentira que el cliente
 // descubre al llegar al mostrador.
+//
+// Lo manda el negocio: sale en el idioma de quien lo arma (`t`, al final).
 export function mensajeDeLoHecho({
   negocioNombre,
   clienteNombre,
@@ -170,20 +178,21 @@ export function mensajeDeLoHecho({
   entregado = false,
   pasos = [],
   link,
-}) {
-  const hola = clienteNombre ? `Hola ${clienteNombre}` : "Hola";
-  const cual = identificador || servicio || "lo que nos dejaste";
+}, t = tCastellano) {
+  const cual = identificador || servicio || t("casos.aviso.mensaje.loQueDejo");
 
   return [
-    `${hola}, te escribimos de ${negocioNombre} por ${cual}.`,
+    clienteNombre
+      ? t("casos.aviso.mensaje.conNombre", { nombre: clienteNombre, negocio: negocioNombre, cual })
+      : t("casos.aviso.mensaje.sinNombre", { negocio: negocioNombre, cual }),
     "",
-    entregado ? "Esto es lo que le hicimos:" : "Ya terminamos el trabajo:",
+    entregado ? t("casos.aviso.mensaje.hicimos") : t("casos.aviso.mensaje.terminamos"),
     ...pasos.map((p) => `${p.hecho ? "✓" : "•"} ${p.nombre}`),
     "",
     entregado
-      ? `El caso quedó como ${estadoEnPalabras}. Cualquier cosa, escribinos.`
-      : `Está en ${estadoEnPalabras}: lo revisamos antes de entregártelo y te avisamos apenas esté para retirar.`,
-    ...(link ? ["", `Podés seguir mirándolo acá: ${link}`] : []),
+      ? t("casos.aviso.mensaje.entregado", { estado: estadoEnPalabras })
+      : t("casos.aviso.mensaje.revision", { estado: estadoEnPalabras }),
+    ...(link ? ["", t("casos.aviso.mensaje.seguirMirando", { link })] : []),
   ].join("\n");
 }
 
@@ -196,42 +205,39 @@ export const linkDeWhatsApp = (mensaje) =>
 // Lo mismo pero hacia un número concreto: el del negocio, para que el
 // cliente pueda preguntar antes de aprobar.
 //
-// El sistema pide los teléfonos como los dice la gente acá —"con
-// característica, sin el 0 ni el 15"—, o sea diez dígitos: 341 456 7890.
-// WhatsApp los quiere en formato internacional, y para un celular argentino
-// eso es 54 9 delante. Esa traducción vive sólo acá.
-//
-// Si el número ya viene con el 54, se respeta: alguien puede haber cargado
-// un número de otro país, y romperlo poniéndole otro 54 sería peor que no
-// ofrecer el botón.
+// WhatsApp quiere el número internacional, que es como se guarda desde B-1b
+// (5493414567890). Uno de antes, sin código de país, no arma link: antes se
+// le pegaba un 549 a ciegas, y si era de otro país el mensaje se iba a otro
+// lado. Mejor no ofrecer el botón que mandarlo mal.
 export function linkDeWhatsAppA(telefono, mensaje) {
-  const digitos = soloDigitos(telefono);
-  if (!digitos) return null;
-  const internacional = digitos.startsWith("54") ? digitos : `549${digitos}`;
-  return `https://wa.me/${internacional}?text=${encodeURIComponent(mensaje)}`;
+  const r = normalizarTelefono(telefono);
+  if (!r.ok) return null;
+  return `https://wa.me/${r.telefono}?text=${encodeURIComponent(mensaje)}`;
 }
 
 // Llamar. En una computadora puede no hacer nada, y por eso el número se
 // muestra escrito al lado: en el peor caso se copia a mano.
 export const linkDeLlamada = (telefono) => {
-  const digitos = soloDigitos(telefono);
-  return digitos ? `tel:${digitos}` : null;
+  const numero = telefonoParaLlamar(telefono);
+  return numero ? `tel:${numero}` : null;
 };
-
-const soloDigitos = (telefono) => (telefono ?? "").replace(/\D/g, "");
 
 // Lo que el cliente le escribe al negocio cuando no está seguro. Ya viene
 // escrito porque del otro lado alguien tiene que entender de qué caso le
 // hablan sin preguntar tres veces.
-export function mensajeDeConsulta({ clienteNombre, identificador, servicio, numero, paso }) {
-  const quien = clienteNombre ? `Hola, soy ${clienteNombre}.` : "Hola.";
+//
+// Lo escribe el cliente, en el idioma en que está mirando el link (`t`, al final).
+export function mensajeDeConsulta({ clienteNombre, identificador, servicio, numero, paso }, t = tCastellano) {
+  const quien = clienteNombre ? t("seguimiento.consulta.soy", { nombre: clienteNombre }) : t("seguimiento.consulta.hola");
   const cual = identificador
-    ? `por ${identificador}`
+    ? t("seguimiento.consulta.porIdentificador", { identificador })
     : numero
-      ? `por el caso ${numero}`
-      : `por ${servicio ?? "lo que dejé"}`;
+      ? t("seguimiento.consulta.porCaso", { numero })
+      : servicio
+        ? t("seguimiento.consulta.porServicio", { servicio })
+        : t("seguimiento.consulta.porLoQueDeje");
 
   return paso
-    ? `${quien} Te escribo ${cual}. Quería preguntarte por «${paso}» antes de decidir.`
-    : `${quien} Te escribo ${cual}. Quería hacerte una consulta.`;
+    ? t("seguimiento.consulta.conPaso", { quien, cual, paso })
+    : t("seguimiento.consulta.sinPaso", { quien, cual });
 }

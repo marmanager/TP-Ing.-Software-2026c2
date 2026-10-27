@@ -13,6 +13,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
 import { contrasenaValida, motivoDeContrasenaNueva } from "@/lib/validaciones";
@@ -22,8 +24,9 @@ import Icono from "@/componentes/Icono";
 export default function NuevaContrasena() {
   const router = useRouter();
   const { sesion, cargando, definirContrasena } = useAuth();
+  const { t } = useIdioma();
   const { avisarExito } = useDatos();
-  useTitulo("Poner una contraseña nueva");
+  useTitulo(t("acceso.nueva.titulo"));
 
   const [contrasena, setContrasena] = useState("");
   const [repetida, setRepetida] = useState("");
@@ -33,15 +36,15 @@ export default function NuevaContrasena() {
 
   const errorContrasena =
     tocado && contrasena && !contrasenaValida(contrasena)
-      ? "La contraseña necesita al menos 8 caracteres."
+      ? t("acceso.contrasenaCorta")
       : null;
 
   // Se pide dos veces, como en Mi perfil: se escribe sin verla.
   const motivo = !contrasena
-    ? "falta la contraseña"
+    ? t("acceso.nueva.faltaContrasena")
     : enviando
-      ? "guardando…"
-      : motivoDeContrasenaNueva(contrasena, repetida);
+      ? t("acceso.nueva.guardando")
+      : motivoDeContrasenaNueva(contrasena, repetida, t);
 
   async function guardar() {
     setError(null);
@@ -52,7 +55,7 @@ export default function NuevaContrasena() {
       setError(r.error);
       return;
     }
-    avisarExito("Listo, ya tenés una contraseña nueva.");
+    avisarExito(t("acceso.nueva.exito"));
     router.replace("/");
   }
 
@@ -61,11 +64,10 @@ export default function NuevaContrasena() {
   if (!sesion) {
     return (
       <>
-        <TituloPantalla>Este enlace ya no sirve</TituloPantalla>
+        <TituloPantalla>{t("acceso.nueva.vencido.titulo")}</TituloPantalla>
         <Tarjeta>
           <p className="max-w-[65ch] text-tinta-media">
-            Los enlaces para cambiar la contraseña duran un rato corto. Pedí uno nuevo y
-            usalo apenas te llegue.
+            {t("acceso.nueva.vencido.texto")}
           </p>
           <div className="mt-6">
             <Link
@@ -73,7 +75,7 @@ export default function NuevaContrasena() {
               className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
               <Icono nombre="sobre" />
-              Pedir un enlace nuevo
+              {t("acceso.nueva.vencido.pedir")}
             </Link>
           </div>
         </Tarjeta>
@@ -83,15 +85,15 @@ export default function NuevaContrasena() {
 
   return (
     <>
-      <TituloPantalla apoyo="La vas a usar la próxima vez que entres.">
-        Poner una contraseña nueva
+      <TituloPantalla apoyo={t("acceso.nueva.apoyo")}>
+        {t("acceso.nueva.titulo")}
       </TituloPantalla>
 
       <Tarjeta>
         <CampoContrasena
           id="contrasena"
-          etiqueta="Tu contraseña nueva"
-          ayuda="Al menos 8 caracteres."
+          etiqueta={t("acceso.nueva.contrasena")}
+          ayuda={t("acceso.nueva.ayuda")}
           error={errorContrasena}
           autoComplete="new-password"
           value={contrasena}
@@ -103,9 +105,9 @@ export default function NuevaContrasena() {
         />
         <CampoContrasena
           id="contrasena-repetida"
-          etiqueta="Escribila de nuevo"
-          error={repetida && contrasena !== repetida ? "Las dos no son iguales." : null}
-          exito={repetida && contrasena === repetida ? "Coinciden." : null}
+          etiqueta={t("acceso.nueva.repetida")}
+          error={repetida && contrasena !== repetida ? t("acceso.nueva.noIguales") : null}
+          exito={repetida && contrasena === repetida ? t("acceso.nueva.coinciden") : null}
           autoComplete="new-password"
           value={repetida}
           onChange={(e) => {
@@ -115,7 +117,7 @@ export default function NuevaContrasena() {
         />
 
         {error && (
-          <ErrorGeneral>{error}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
         )}
 
         <Boton
@@ -125,7 +127,7 @@ export default function NuevaContrasena() {
           onClick={guardar}
           className="min-h-14 w-full"
         >
-          Guardar la contraseña
+          {t("acceso.nueva.boton")}
         </Boton>
       </Tarjeta>
     </>

@@ -17,27 +17,33 @@
 
 import { montoValido } from "./validaciones.js";
 import { pesos } from "./estados.js";
+import { tCastellano } from "./idioma.js";
 
 // ------------------------------------------------------------
 // Cómo se pagó
 // ------------------------------------------------------------
 // "enElLocal" son los que el negocio anota a mano porque la plata ya la
 // tiene en la mano. Los otros los crea la API de pagos.
+//
+// `palabra` es la de castellano (la misma del diccionario, casos.cobros.medio):
+// quien muestra el medio en otro idioma pide palabraDelMedio(clave, t).
 export const MEDIOS = {
-  efectivo: { clave: "efectivo", palabra: "Efectivo", enElLocal: true },
-  transferencia: { clave: "transferencia", palabra: "Transferencia", enElLocal: true },
-  tarjeta: { clave: "tarjeta", palabra: "Tarjeta en el local", enElLocal: true },
-  link: { clave: "link", palabra: "Link de pago", enElLocal: false },
-  qr: { clave: "qr", palabra: "QR en el local", enElLocal: false },
+  efectivo: { clave: "efectivo", palabra: tCastellano("casos.cobros.medio.efectivo"), enElLocal: true },
+  transferencia: { clave: "transferencia", palabra: tCastellano("casos.cobros.medio.transferencia"), enElLocal: true },
+  tarjeta: { clave: "tarjeta", palabra: tCastellano("casos.cobros.medio.tarjeta"), enElLocal: true },
+  link: { clave: "link", palabra: tCastellano("casos.cobros.medio.link"), enElLocal: false },
+  qr: { clave: "qr", palabra: tCastellano("casos.cobros.medio.qr"), enElLocal: false },
   // Los cobros anotados antes de que existiera esta tabla (012): se sabe
   // cuánto y cuándo, no cómo.
-  sin_dato: { clave: "sin_dato", palabra: "Sin dato de cómo se pagó", enElLocal: true },
+  sin_dato: { clave: "sin_dato", palabra: tCastellano("casos.cobros.medio.sin_dato"), enElLocal: true },
 };
 
 export const MEDIOS_DEL_LOCAL = ["efectivo", "transferencia", "tarjeta"];
 export const MEDIOS_EN_LINEA = ["link", "qr"];
 
 export const medioDe = (clave) => MEDIOS[clave] ?? MEDIOS.sin_dato;
+
+export const palabraDelMedio = (clave, t = tCastellano) => t(`casos.cobros.medio.${medioDe(clave).clave}`);
 
 // ------------------------------------------------------------
 // En qué quedó cada cobro
@@ -49,42 +55,42 @@ export const medioDe = (clave) => MEDIOS[clave] ?? MEDIOS.sin_dato;
 export const ESTADOS_COBRO = {
   pendiente: {
     clave: "pendiente",
-    palabra: "Esperando el pago",
+    palabra: tCastellano("casos.cobros.estado.pendiente"),
     icono: "reloj",
     texto: "text-espera",
     cuenta: false,
   },
   pagado: {
     clave: "pagado",
-    palabra: "Pagado",
+    palabra: tCastellano("casos.cobros.estado.pagado"),
     icono: "listo",
     texto: "text-completo",
     cuenta: true,
   },
   rechazado: {
     clave: "rechazado",
-    palabra: "El pago no pasó",
+    palabra: tCastellano("casos.cobros.estado.rechazado"),
     icono: "alerta",
     texto: "text-rojo",
     cuenta: false,
   },
   vencido: {
     clave: "vencido",
-    palabra: "Venció sin pagarse",
+    palabra: tCastellano("casos.cobros.estado.vencido"),
     icono: "reloj",
     texto: "text-tinta-suave",
     cuenta: false,
   },
   anulado: {
     clave: "anulado",
-    palabra: "Anulado",
+    palabra: tCastellano("casos.cobros.estado.anulado"),
     icono: "cruz",
     texto: "text-tinta-suave line-through",
     cuenta: false,
   },
   devuelto: {
     clave: "devuelto",
-    palabra: "Devuelto",
+    palabra: tCastellano("casos.cobros.estado.devuelto"),
     icono: "deshacer",
     texto: "text-tinta-suave",
     cuenta: false,
@@ -92,6 +98,8 @@ export const ESTADOS_COBRO = {
 };
 
 export const estadoDeCobro = (estado) => ESTADOS_COBRO[estado] ?? ESTADOS_COBRO.pendiente;
+
+export const palabraDelCobro = (estado, t = tCastellano) => t(`casos.cobros.estado.${estadoDeCobro(estado).clave}`);
 
 // ------------------------------------------------------------
 // Las cuentas
@@ -249,10 +257,19 @@ export const hayPagosEnCamino = (cobros = []) =>
 
 // El mensaje de WhatsApp con el link. Sin datos del caso que el cliente no
 // necesite: quién cobra, cuánto, y dónde pagar.
-export function mensajeDePago({ negocio, cliente, monto, link }) {
-  const saludo = cliente ? `Hola ${String(cliente).split(" ")[0]}` : "Hola";
-  const quien = negocio ? ` Te escribimos de ${negocio}.` : "";
-  return `${saludo}.${quien} Podés pagar los ${pesos(monto)} desde acá: ${link}`;
+//
+// Lo manda el negocio: sale en el idioma de quien lo manda (`t`), con los
+// números a su manera (`locale`). Cuatro frases enteras según haya o no
+// nombre del cliente y del negocio; no se pegan pedazos.
+export function mensajeDePago({ negocio, cliente, monto, link }, t = tCastellano, locale = "es-AR") {
+  const vars = {
+    nombre: cliente ? String(cliente).split(" ")[0] : "",
+    negocio,
+    monto: pesos(monto, locale),
+    link,
+  };
+  if (cliente) return t(negocio ? "casos.cobros.mensaje.completo" : "casos.cobros.mensaje.sinNegocio", vars);
+  return t(negocio ? "casos.cobros.mensaje.sinNombre" : "casos.cobros.mensaje.solo", vars);
 }
 
 // ------------------------------------------------------------

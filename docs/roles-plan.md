@@ -1,5 +1,7 @@
 # Roles y permisos configurables — plan de implementación
 
+> **Nota de integración:** al integrar `development` (que trajo sus propias 053 a 056), las migraciones de este plan se renumeraron a 057–063: 053_roles → 057, 054_politicas_por_permiso → 058, 055_mis_negocios_con_rol → 059, 056_roles_editables → 060, 057_visitas_entre_sedes → 061, 058_borrar_negocio → 062, 059_roles_limpieza → 063. El texto de abajo conserva los números originales.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reemplazar los tres roles fijos (`duenio`, `encargado`, `tecnico`) por roles por negocio con nombre libre y un set de permisos, con un rol Dueño que puede todo, roles base por rubro, visitas de sólo lectura entre sedes vinculadas y borrado del negocio por quien lo creó.

@@ -31,9 +31,11 @@ import { estadoDeTurno, turnoEnPie } from "@/lib/turnos";
 import { diaLargo, horaYMinutos } from "@/lib/fechas";
 import { normalizarHorarios, semanasDelMes } from "@/lib/horarios";
 import { casoEnFrase } from "@/lib/nombres";
+import { conElementos } from "@/lib/conElementos";
+import { useIdioma } from "@/lib/useIdioma";
 import {
-  DIAS_DE_LA_SEMANA,
-  MES_LARGO,
+  diasDeLaSemana,
+  mesLargo,
   aniosOfrecidos,
   claveDia,
   deClaveDia,
@@ -68,8 +70,14 @@ const SOLO_DIA = "block md:hidden [@media(max-height:480px)]:hidden";
 
 export default function Calendario() {
   const datos = useDatos();
+  const { locale, t: tr } = useIdioma();
   const { cargando, turnos, clientes, casos, negocio } = datos;
-  useTitulo("Calendario");
+  useTitulo(tr("agenda.calendario.titulo"));
+  const enlaceATurnos = (
+    <Link href="/agenda" className="font-bold text-azul">
+      {tr("agenda.titulo")}
+    </Link>
+  );
 
   const hoy = new Date();
   const [elegido, setElegido] = useState(() => claveDia(hoy));
@@ -112,20 +120,20 @@ export default function Calendario() {
       <Pestanas padre="agenda" />
 
       <div className="mb-6">
-        <h1 className="text-pantalla">Calendario</h1>
-        <p className="mt-1 text-tinta-media">El mes entero, día por día.</p>
+        <h1 className="text-pantalla">{tr("agenda.calendario.titulo")}</h1>
+        <p className="mt-1 text-tinta-media">{tr("agenda.calendario.subtitulo")}</p>
         <VincularGoogleCalendar />
       </div>
 
       {/* ---------- El mes o la semana ---------- */}
-      <section className={SOLO_MES} aria-label={enSemana ? "La semana" : "El mes"}>
+      <section className={SOLO_MES} aria-label={enSemana ? tr("agenda.calendario.laSemana") : tr("agenda.calendario.elMes")}>
         {/* Cómo se mira. Va arriba de los controles de navegación porque
             decide qué controles son: en el mes se elige mes y año, en la
             semana se elige un día y se corre de a siete. */}
         <div className="mb-4 flex flex-wrap gap-2">
           {[
-            ["mes", "Mensual", "calendario"],
-            ["semana", "Semanal", "reloj"],
+            ["mes", tr("agenda.calendario.mensual"), "calendario"],
+            ["semana", tr("agenda.calendario.semanal"), "reloj"],
           ].map(([clave, palabra, icono]) => (
             <button
               key={clave}
@@ -153,7 +161,7 @@ export default function Calendario() {
                   htmlFor="cal-semana"
                   className="block font-bold text-etiqueta text-tinta-media"
                 >
-                  Semana del
+                  {tr("agenda.calendario.semanaDel")}
                 </label>
                 <input
                   id="cal-semana"
@@ -168,24 +176,24 @@ export default function Calendario() {
                 <Boton
                   variante="plano"
                   icono="flecha-izq"
-                  aria-label="Ver la semana anterior"
+                  aria-label={tr("agenda.calendario.verSemanaAnterior")}
                   onClick={() => correrDia(-7)}
                 >
-                  Anterior
+                  {tr("agenda.calendario.anterior")}
                 </Boton>
                 <Boton
                   variante="plano"
                   icono="flecha-der"
-                  aria-label="Ver la semana siguiente"
+                  aria-label={tr("agenda.calendario.verSemanaSiguiente")}
                   onClick={() => correrDia(7)}
                 >
-                  Siguiente
+                  {tr("agenda.calendario.siguiente")}
                 </Boton>
               </div>
             </div>
 
             <h2 className="mb-3 text-seccion first-letter:uppercase">
-              {tituloDeSemana(laSemana)}
+              {tituloDeSemana(laSemana, locale, tr)}
             </h2>
 
             <SemanaDeTurnos
@@ -198,13 +206,7 @@ export default function Calendario() {
             />
 
             <p className="mt-3 text-apoyo text-tinta-suave">
-              Cada turno se dibuja donde empieza y del alto que ocupa. Los que pidió un
-              cliente por el link y todavía no confirmó nadie van con el recuadro azul. Los
-              cancelados no se dibujan: ese horario quedó libre, y están en{" "}
-              <Link href="/agenda" className="font-bold text-azul">
-                Turnos
-              </Link>
-              .
+              {conElementos(tr("agenda.calendario.notaSemana"), { enlace: enlaceATurnos })}
             </p>
           </>
         ) : (
@@ -221,7 +223,7 @@ export default function Calendario() {
         <div className="mb-4 flex flex-wrap items-end gap-x-3 gap-y-2">
           <div>
             <label htmlFor="cal-mes" className="block font-bold text-etiqueta text-tinta-media">
-              Mes
+              {tr("agenda.calendario.mes")}
             </label>
             <select
               id="cal-mes"
@@ -229,9 +231,9 @@ export default function Calendario() {
               value={mirando.mes}
               onChange={(e) => setMirando({ ...mirando, mes: Number(e.target.value) })}
             >
-              {MES_LARGO.map((nombre, i) => (
-                <option key={nombre} value={i}>
-                  {nombre}
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i}>
+                  {mesLargo(i, locale)}
                 </option>
               ))}
             </select>
@@ -239,7 +241,7 @@ export default function Calendario() {
 
           <div>
             <label htmlFor="cal-anio" className="block font-bold text-etiqueta text-tinta-media">
-              Año
+              {tr("agenda.calendario.anio")}
             </label>
             <select
               id="cal-anio"
@@ -259,29 +261,29 @@ export default function Calendario() {
             <Boton
               variante="plano"
               icono="flecha-izq"
-              aria-label={`Ver ${MES_LARGO[mesAnterior(mirando).mes]} de ${mesAnterior(mirando).anio}`}
+              aria-label={tr("agenda.calendario.verMes", { mes: mesLargo(mesAnterior(mirando).mes, locale), anio: mesAnterior(mirando).anio })}
               onClick={() => setMirando(mesAnterior(mirando))}
             >
-              Anterior
+              {tr("agenda.calendario.anterior")}
             </Boton>
             <Boton
               variante="plano"
               icono="flecha-der"
-              aria-label={`Ver ${MES_LARGO[mesSiguiente(mirando).mes]} de ${mesSiguiente(mirando).anio}`}
+              aria-label={tr("agenda.calendario.verMes", { mes: mesLargo(mesSiguiente(mirando).mes, locale), anio: mesSiguiente(mirando).anio })}
               onClick={() => setMirando(mesSiguiente(mirando))}
             >
-              Siguiente
+              {tr("agenda.calendario.siguiente")}
             </Boton>
           </div>
         </div>
 
         <table className="w-full table-fixed border-collapse text-center">
           <caption className="sr-only">
-            {MES_LARGO[mirando.mes]} de {mirando.anio}. Cada día dice cuántos turnos tiene.
+            {tr("agenda.calendario.caption", { mes: mesLargo(mirando.mes, locale), anio: mirando.anio })}
           </caption>
           <thead>
             <tr>
-              {DIAS_DE_LA_SEMANA.map((d) => (
+              {diasDeLaSemana(locale).map((d) => (
                 <th key={d} scope="col" className="pb-1 text-apoyo font-normal text-tinta-suave">
                   {d}
                 </th>
@@ -312,9 +314,9 @@ export default function Calendario() {
                         type="button"
                         aria-pressed={esEste}
                         aria-label={[
-                          diaLargo(fecha),
-                          enPie.length === 1 ? "1 turno" : `${enPie.length} turnos`,
-                          sinVer.length ? `${sinVer.length} sin confirmar` : null,
+                          diaLargo(fecha, locale, tr),
+                          tr("agenda.calendario.turnos", { n: enPie.length }),
+                          sinVer.length ? tr("agenda.calendario.sinConfirmar", { n: sinVer.length }) : null,
                         ]
                           .filter(Boolean)
                           .join(", ")}
@@ -357,18 +359,17 @@ export default function Calendario() {
         </table>
 
             <p className="mt-3 text-apoyo text-tinta-suave">
-              El número de abajo son los turnos de ese día. En azul y con un punto, los que
-              pidió un cliente por el link y todavía no confirmó nadie.
+              {tr("agenda.calendario.notaMes")}
             </p>
           </>
         )}
       </section>
 
       {/* ---------- El día, con el teléfono parado ---------- */}
-      <section className={SOLO_DIA} aria-label="El día">
+      <section className={SOLO_DIA} aria-label={tr("agenda.calendario.elDia")}>
         <div className="mb-4">
           <label htmlFor="cal-dia" className="block font-bold text-etiqueta text-tinta-media">
-            Qué día querés ver
+            {tr("agenda.calendario.queDia")}
           </label>
           <input
             id="cal-dia"
@@ -383,18 +384,18 @@ export default function Calendario() {
           <Boton
             className="flex-1"
             icono="flecha-izq"
-            aria-label="Ver el día anterior"
+            aria-label={tr("agenda.calendario.verDiaAnterior")}
             onClick={() => correrDia(-1)}
           >
-            Ayer
+            {tr("fechas.ayer")}
           </Boton>
           <Boton
             className="flex-1"
             icono="flecha-der"
-            aria-label="Ver el día siguiente"
+            aria-label={tr("agenda.calendario.verDiaSiguiente")}
             onClick={() => correrDia(1)}
           >
-            Mañana
+            {tr("fechas.manana")}
           </Boton>
         </div>
       </section>
@@ -403,17 +404,13 @@ export default function Calendario() {
       {/* Uno solo para las dos vistas: es el mismo día y la misma lista. */}
       <section aria-labelledby="cal-titulo-dia" className="mt-8">
         <h2 id="cal-titulo-dia" className="text-seccion first-letter:uppercase">
-          {diaLargo(fechaElegida)}
+          {diaLargo(fechaElegida, locale, tr)}
         </h2>
 
         {delDia.length === 0 ? (
           <div className="mt-4">
-            <Vacio icono="calendario" titulo="No hay turnos ese día">
-              Los turnos se anotan en{" "}
-              <Link href="/agenda" className="font-bold text-azul">
-                Turnos
-              </Link>
-              , y el que quede para este día va a aparecer acá.
+            <Vacio icono="calendario" titulo={tr("agenda.calendario.sinTurnos")}>
+              {conElementos(tr("agenda.calendario.sinTurnosTexto"), { enlace: enlaceATurnos })}
             </Vacio>
           </div>
         ) : (
@@ -424,46 +421,52 @@ export default function Calendario() {
               const cancelado = t.estado === "cancelado";
 
               return (
+                // Como en Turnos: en celular una grilla de dos columnas, con
+                // la hora y el estado arriba en una línea y el texto debajo a
+                // todo el ancho. Desde sm vuelve la fila de siempre. Todos
+                // los hijos llevan order-*, porque en una grilla los que no
+                // lo tienen se colocarían antes que los que sí.
                 <li
                   key={t.id}
-                  className="flex flex-wrap items-center gap-4 border-b border-borde p-4 last:border-b-0"
+                  className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 border-b border-borde p-4 last:border-b-0 sm:flex sm:flex-wrap sm:items-center sm:gap-4"
                 >
-                  <p className="w-20 font-titulo font-extrabold text-subtitulo tabular-nums">
-                    {horaYMinutos(t.empieza_en)}
+                  <p className="order-1 font-titulo font-extrabold text-subtitulo tabular-nums sm:order-none sm:w-20">
+                    {horaYMinutos(t.empieza_en, locale)}
                   </p>
-                  <div className="min-w-0 flex-1">
+                  <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-1">
                     <p
-                      className={`font-bold ${cancelado ? estadoDeTurno("cancelado").texto : ""}`}
+                      className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado", tr).texto : ""}`}
                     >
                       {t.motivo}
                     </p>
-                    <p className="text-tinta-media">
-                      {cliente?.nombre ?? "Sin cliente todavía"}
+                    <p className="text-tinta-media [overflow-wrap:anywhere]">
+                      {cliente?.nombre ?? tr("agenda.sinCliente")}
                       {t.origen === "cliente" && t.estado === "agendado" && (
                         <>
                           {" · "}
-                          <span className="font-bold text-azul">lo pidió por el link</span>
+                          <span className="font-bold text-azul">{tr("agenda.pidioPorLink")}</span>
                         </>
                       )}
                       {caso && (
                         <>
                           {" · "}
                           <Link href={`/casos/${caso.id}`} className="text-azul">
-                            {casoEnFrase(caso)}
+                            {casoEnFrase(caso, tr)}
                           </Link>
                         </>
                       )}
                     </p>
                   </div>
 
-                  {/* En celular el estado baja a su propio renglón: en 375 px
-                      compartir la línea con el motivo le dejaba al motivo una
-                      columna de tres letras (auditoría, Responsive). */}
+                  {/* En celular el estado va arriba, al lado de la hora: en
+                      375 px compartir la línea con el motivo le dejaba al
+                      motivo una columna de tres letras (auditoría,
+                      Responsive), y en un renglón propio al final se perdía. */}
                   <p
-                    className={`flex w-full items-center gap-1.5 font-bold text-etiqueta sm:w-auto ${estadoDeTurno(t.estado).texto}`}
+                    className={`order-2 flex items-center gap-1.5 whitespace-nowrap font-bold text-etiqueta sm:order-none ${estadoDeTurno(t.estado, tr).texto}`}
                   >
-                    <Icono nombre={estadoDeTurno(t.estado).icono} className="size-5" />
-                    {estadoDeTurno(t.estado).palabra}
+                    <Icono nombre={estadoDeTurno(t.estado, tr).icono} className="size-5" />
+                    {estadoDeTurno(t.estado, tr).palabra}
                   </p>
                 </li>
               );
@@ -475,12 +478,7 @@ export default function Calendario() {
             link lo dice en vez de hacer que alguien lo descubra. */}
         {delDia.length > 0 && (
           <p className="mt-3 text-apoyo text-tinta-suave">
-            Para anotar un turno, confirmarlo, cancelarlo o marcar que alguien vino, entrá
-            a{" "}
-            <Link href="/agenda" className="font-bold text-azul">
-              Turnos
-            </Link>
-            .
+            {conElementos(tr("agenda.calendario.paraAnotar"), { enlace: enlaceATurnos })}
           </p>
         )}
       </section>

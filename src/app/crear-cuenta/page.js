@@ -15,8 +15,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useTitulo } from "@/lib/useTitulo";
-import { emailValido, telefonoValido, contrasenaValida } from "@/lib/validaciones";
+import { emailValido, contrasenaValida } from "@/lib/validaciones";
+import { paisInicial } from "@/lib/telefono";
+import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { Boton, Campo, Tarjeta, TituloPantalla, ErrorGeneral } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
@@ -24,11 +28,16 @@ import BotonGoogle, { SeparadorO } from "@/componentes/BotonGoogle";
 export default function CrearCuenta() {
   const router = useRouter();
   const { crearCuenta, hayGoogle } = useAuth();
-  useTitulo("Crear cuenta");
+  const { t } = useIdioma();
+  useTitulo(t("acceso.crearCuenta.titulo"));
 
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
-  const [telefono, setTelefono] = useState("");
+  // Todavía no hay negocio del que sacar el país: arranca en Argentina, y se
+  // cambia en el selector.
+  const paisPorDefecto = paisInicial(null);
+  const tel = useTelefono("", paisPorDefecto);
+  const telefono = tel.telefono;
   const [contrasena, setContrasena] = useState("");
   const [verContrasena, setVerContrasena] = useState(false);
   const [tocado, setTocado] = useState({});
@@ -43,33 +52,30 @@ export default function CrearCuenta() {
 
   const errorEmail =
     tocado.email && email.trim() && !emailValido(email)
-      ? "El mail ingresado es incorrecto."
+      ? t("acceso.crearCuenta.mailIncorrecto")
       : null;
-  const errorTelefono =
-    tocado.telefono && telefono.trim() && !telefonoValido(telefono)
-      ? "El teléfono no es válido. Escribilo con característica y sin el 0 ni el 15:"
-      : null;
+  const errorTelefono = tocado.telefono && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
   const errorContrasena =
     tocado.contrasena && contrasena && !contrasenaValida(contrasena)
-      ? "La contraseña necesita al menos 8 caracteres."
+      ? t("acceso.contrasenaCorta")
       : null;
 
   const motivo = !nombre.trim()
-    ? "falta tu nombre"
+    ? t("acceso.crearCuenta.faltaNombre")
     : !email.trim()
-      ? "falta el mail"
+      ? t("acceso.crearCuenta.faltaMail")
       : !emailValido(email)
-        ? "El mail ingresado no tiene el formato correcto"
-        : !telefono.trim()
-          ? "Se necesita un teléfono"
-          : !telefonoValido(telefono)
-            ? "el teléfono no es válido"
+        ? t("acceso.crearCuenta.mailFormato")
+        : tel.vacio
+          ? t("acceso.crearCuenta.faltaTelefono")
+          : !tel.armado.ok
+            ? t("acceso.crearCuenta.telefonoInvalido")
             : !contrasena
-              ? "Se necesita una contraseña"
+              ? t("acceso.crearCuenta.faltaContrasena")
               : !contrasenaValida(contrasena)
-                ? "la contraseña es muy corta"
+                ? t("acceso.crearCuenta.contrasenaMuyCorta")
                 : enviando
-                  ? "creando la cuenta…"
+                  ? t("acceso.crearCuenta.creando")
                   : null;
 
   async function crear() {
@@ -86,8 +92,8 @@ export default function CrearCuenta() {
 
   return (
     <>
-      <TituloPantalla apoyo="Con esto empezás. El nombre del negocio se pone después.">
-        Crear tu cuenta
+      <TituloPantalla apoyo={t("acceso.crearCuenta.apoyo")}>
+        {t("acceso.crearCuenta.encabezado")}
       </TituloPantalla>
 
       <Tarjeta>
@@ -95,15 +101,15 @@ export default function CrearCuenta() {
             salen de la cuenta de Google, y no hay contraseña que inventar. */}
         {hayGoogle && (
           <>
-            <BotonGoogle>Crear la cuenta con Google</BotonGoogle>
+            <BotonGoogle>{t("acceso.crearCuenta.conGoogle")}</BotonGoogle>
             <SeparadorO />
           </>
         )}
 
         <Campo
           id="nombre"
-          etiqueta="Tu nombre"
-          ayuda="Cómo te va a ver tu equipo. Con esto se firma lo que hacés en cada caso."
+          etiqueta={t("acceso.crearCuenta.nombre")}
+          ayuda={t("acceso.crearCuenta.nombreAyuda")}
           ejemplo="Mateo Guevara"
           autoComplete="name"
           value={nombre}
@@ -112,58 +118,53 @@ export default function CrearCuenta() {
 
         <Campo
           id="email"
-          etiqueta="Tu mail"
-          ayuda="Con este mail vas a entrar. Ejemplo: nombre@taller.com."
+          etiqueta={t("acceso.crearCuenta.mail")}
+          ayuda={t("acceso.crearCuenta.mailAyuda", { ejemplo: t("acceso.ejemploMail") })}
           error={errorEmail}
-          ejemplo="nombre@taller.com"
+          ejemplo={t("acceso.ejemploMail")}
           type="email"
           inputMode="email"
           autoComplete="email"
           value={email}
           onChange={alEscribir(setEmail)}
-          onBlur={() => setTocado((t) => ({ ...t, email: true }))}
+          onBlur={() => setTocado((antes) => ({ ...antes, email: true }))}
         />
 
-        <Campo
+        <CampoTelefono
           id="telefono"
-          etiqueta="Tu teléfono"
-          ayuda="Con característica, sin el 0 ni el 15."
+          etiqueta={t("acceso.crearCuenta.telefono")}
+          paisPorDefecto={paisPorDefecto}
           error={errorTelefono}
-          ejemplo="341 456 7890"
-          exito={
-            telefono.trim() && telefonoValido(telefono)
-              ? "Listo. Te vamos a poder avisar por acá."
-              : null
-          }
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          value={telefono}
-          onChange={alEscribir(setTelefono)}
-          onBlur={() => setTocado((t) => ({ ...t, telefono: true }))}
+          exito={tel.armado.ok ? t("acceso.crearCuenta.telefonoListo") : null}
+          valor={tel.valor}
+          onChange={(v) => {
+            setErrorGeneral(null);
+            tel.setValor(v);
+          }}
+          onBlur={() => setTocado((antes) => ({ ...antes, telefono: true }))}
         />
 
         <Campo
           id="contrasena"
-          etiqueta="Una contraseña"
-          ayuda="Al menos 8 caracteres."
+          etiqueta={t("acceso.crearCuenta.contrasena")}
+          ayuda={t("acceso.crearCuenta.contrasenaAyuda")}
           error={errorContrasena}
           type={verContrasena ? "text" : "password"}
           autoComplete="new-password"
           value={contrasena}
           onChange={alEscribir(setContrasena)}
-          onBlur={() => setTocado((t) => ({ ...t, contrasena: true }))}
+          onBlur={() => setTocado((antes) => ({ ...antes, contrasena: true }))}
         />
         <button
           type="button"
           onClick={() => setVerContrasena((v) => !v)}
           className="-mt-3 mb-6 inline-flex min-h-12 items-center font-bold text-azul"
         >
-          {verContrasena ? "Ocultar la contraseña" : "Mostrar la contraseña"}
+          {verContrasena ? t("ui.ocultarContrasena") : t("ui.mostrarContrasena")}
         </button>
 
         {errorGeneral && (
-          <ErrorGeneral>{errorGeneral}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, errorGeneral)}</ErrorGeneral>
         )}
 
         <Boton
@@ -173,14 +174,14 @@ export default function CrearCuenta() {
           onClick={crear}
           className="min-h-14 w-full"
         >
-          Crear cuenta
+          {t("acceso.crearCuenta.titulo")}
         </Boton>
       </Tarjeta>
 
       <p className="mt-6 text-tinta-media">
-        ¿Ya tenés cuenta?{" "}
+        {t("acceso.crearCuenta.yaTenes")}{" "}
         <Link href="/iniciar-sesion" className="font-bold text-azul">
-          Iniciá sesión
+          {t("acceso.iniciaSesion")}
         </Link>
         .
       </p>

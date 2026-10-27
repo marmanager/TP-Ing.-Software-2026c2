@@ -16,18 +16,42 @@
 // necesitaría guardar el suyo. El día que pase, el lugar donde se arregla es
 // este archivo y no las pantallas.
 
+import { tCastellano } from "./idioma.js";
+
 // Los días, en el orden en que los dice la gente: la semana arranca el lunes.
 // getDay() de JavaScript arranca el domingo y devuelve 0, así que la
 // traducción vive acá y no en cada pantalla.
+//
+// Los nombres de los días salen de Intl con el locale de quien mira, no del
+// diccionario: nombreDelDia(1, "en-US") es "Monday". `nombre` y `corto` de
+// cada día quedan en castellano, para los que todavía no pasan locale.
+const capitalizar = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1);
+
+// diaJs es el de getDay(): 0 domingo. El 7 de enero de 2024 fue domingo.
+export const nombreDelDia = (diaJs, locale = "es-AR") =>
+  capitalizar(
+    new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(
+      new Date(Date.UTC(2024, 0, 7 + diaJs))
+    )
+  );
+
+// "Lun", "Mié", "Sáb" / "Mon", "Wed", "Sat".
+export const cortoDelDia = (diaJs, locale = "es-AR") => nombreDelDia(diaJs, locale).slice(0, 3);
+
 export const DIAS = [
-  { clave: "lun", nombre: "Lunes", corto: "Lun", diaJs: 1 },
-  { clave: "mar", nombre: "Martes", corto: "Mar", diaJs: 2 },
-  { clave: "mie", nombre: "Miércoles", corto: "Mié", diaJs: 3 },
-  { clave: "jue", nombre: "Jueves", corto: "Jue", diaJs: 4 },
-  { clave: "vie", nombre: "Viernes", corto: "Vie", diaJs: 5 },
-  { clave: "sab", nombre: "Sábado", corto: "Sáb", diaJs: 6 },
-  { clave: "dom", nombre: "Domingo", corto: "Dom", diaJs: 0 },
-];
+  ["lun", 1],
+  ["mar", 2],
+  ["mie", 3],
+  ["jue", 4],
+  ["vie", 5],
+  ["sab", 6],
+  ["dom", 0],
+].map(([clave, diaJs]) => ({
+  clave,
+  nombre: nombreDelDia(diaJs),
+  corto: cortoDelDia(diaJs),
+  diaJs,
+}));
 
 export const diaDe = (fecha) => DIAS.find((d) => d.diaJs === fecha.getDay()) ?? null;
 
@@ -39,21 +63,24 @@ export const DURACIONES = [15, 30, 45, 60, 90];
 // Con cuánta anticipación mínima se puede pedir. "Sin mínimo" deja pedir
 // para dentro de un rato, que a un taller de barrio le sirve y a un
 // consultorio no.
-export const ANTICIPACIONES = [
-  { horas: 0, palabra: "Sin mínimo" },
-  { horas: 2, palabra: "2 horas antes" },
-  { horas: 24, palabra: "Un día antes" },
-  { horas: 48, palabra: "Dos días antes" },
-];
+export const ANTICIPACIONES = [0, 2, 24, 48].map((horas) => ({
+  horas,
+  palabra: tCastellano(`turnos.horarios.anticipacion.h${horas}`),
+}));
+
+// Lo mismo en el idioma de quien mira.
+export const palabraDeAnticipacion = (horas, t = tCastellano) =>
+  t(`turnos.horarios.anticipacion.h${horas}`);
 
 // Hasta cuándo se puede pedir. Sin tope, alguien podría anotarse para
 // dentro de un año, cuando el negocio no sabe ni si va a abrir ese día.
-export const HORIZONTES = [
-  { dias: 14, palabra: "Dos semanas" },
-  { dias: 30, palabra: "Un mes" },
-  { dias: 60, palabra: "Dos meses" },
-  { dias: 90, palabra: "Tres meses" },
-];
+export const HORIZONTES = [14, 30, 60, 90].map((dias) => ({
+  dias,
+  palabra: tCastellano(`turnos.horarios.horizonte.d${dias}`),
+}));
+
+export const palabraDeHorizonte = (dias, t = tCastellano) =>
+  t(`turnos.horarios.horizonte.d${dias}`);
 export const HORIZONTE_DE_FABRICA = 60;
 
 // La configuración de fábrica: de lunes a viernes, de 9 a 18, cortando de 13
@@ -117,17 +144,17 @@ const enMinutos = (hora) => {
 // Qué le falta a la configuración para poder abrir la página de turnos.
 // Devuelve la lista de problemas, en el orden de la pantalla, o vacío si
 // está lista.
-export function problemasDeHorarios(horarios) {
+export function problemasDeHorarios(horarios, t = tCastellano) {
   const h = normalizarHorarios(horarios);
-  if (!h) return ["Todavía no configuraste tus horarios."];
+  if (!h) return [t("turnos.horarios.problema.sinConfigurar")];
 
   const problemas = [];
-  if (h.dias.length === 0) problemas.push("Elegí al menos un día.");
+  if (h.dias.length === 0) problemas.push(t("turnos.horarios.problema.sinDias"));
 
   const abre = enMinutos(h.desde);
   const cierra = enMinutos(h.hasta);
   const horarioAlReves = cierra <= abre;
-  if (horarioAlReves) problemas.push("La hora de cierre tiene que ser posterior a la de apertura.");
+  if (horarioAlReves) problemas.push(t("turnos.horarios.problema.cierreAntes"));
 
   // Con el horario al revés, avisar además que el corte se cae afuera es
   // ruido: no hay adentro en el que pueda caer. Se arregla lo de arriba y
@@ -135,15 +162,15 @@ export function problemasDeHorarios(horarios) {
   if (h.corte && !horarioAlReves) {
     const cd = enMinutos(h.corte.desde);
     const ch = enMinutos(h.corte.hasta);
-    if (ch <= cd) problemas.push("El corte del mediodía termina antes de empezar.");
-    else if (cd < abre || ch > cierra) problemas.push("El corte tiene que caer adentro del horario.");
+    if (ch <= cd) problemas.push(t("turnos.horarios.problema.corteAlReves"));
+    else if (cd < abre || ch > cierra) problemas.push(t("turnos.horarios.problema.corteAfuera"));
   }
 
   // Sin esto la configuración es válida pero no produce un solo turno, y en
   // la pantalla pública se vería como "no hay horarios" sin que nadie
   // entienda por qué.
   if (problemas.length === 0 && tramosDelDia(h).length === 0) {
-    problemas.push(`No entra ningún turno de ${h.minutos} minutos en ese horario.`);
+    problemas.push(t("turnos.horarios.problema.noEntra", { minutos: h.minutos }));
   }
 
   return problemas;
@@ -325,11 +352,11 @@ export function mesesConLugar(dias = []) {
 // Una franja sin huecos no aparece.
 export const CORTE_DE_LA_TARDE = 13;
 
-export function enFranjas(huecos = []) {
+export function enFranjas(huecos = [], t = tCastellano) {
   const manana = huecos.filter((h) => new Date(h).getHours() < CORTE_DE_LA_TARDE);
   const tarde = huecos.filter((h) => new Date(h).getHours() >= CORTE_DE_LA_TARDE);
   return [
-    { nombre: "A la mañana", huecos: manana },
-    { nombre: "A la tarde", huecos: tarde },
+    { nombre: t("turnos.franja.manana"), huecos: manana },
+    { nombre: t("turnos.franja.tarde"), huecos: tarde },
   ].filter((f) => f.huecos.length > 0);
 }

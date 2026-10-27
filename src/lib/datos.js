@@ -8,18 +8,28 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth";
-import { preset } from "./presets";
-import { productoParaLaApi } from "./inventario";
-import { sePuedeMarcarHecho } from "./estados";
+import { comoSeIdentifica, preset, queFaltaPara, vocabulario } from "./presets";
+import { buscarIgual, categoriaParaGuardar, limpiarProducto, productoParaLaApi } from "./inventario";
+import {
+  FIRMA_DEL_CLIENTE,
+  alLlegarInsumo,
+  alPedirInsumo,
+  elClienteDestraba,
+  elClienteVolvioADarTrabajo,
+  pesos,
+  sePuedeMarcarHecho,
+} from "./estados";
 import { normalizarInicio } from "./inicio";
 import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
+import { normalizarLanding } from "./landing.js";
+import { borrarLlave, guardarLlave, leerLlave } from "./llave-landing.js";
 import { pagosEnLinea } from "./pagos.js";
 import { API, mandar, nuevaClave, parchar, quitar, reemplazar, traer } from "./api.js";
 import { instanteParaLaApi, turnoParaLaApi } from "./turnos.js";
 import { reemplazarUnicoPorId, unicosPorId } from "./listas.js";
 import { erroresSeguimiento, seguimientoParaLaApi } from "./seguimiento-whatsapp.js";
-import { avisoAlAnotar, volverEnParaLaApi } from "./recordatorios.js";
+import { avisoAlAnotar, conAvisoDeVolver, errorAlRevertirBaja, porQueNoSeAviso, volverEnParaLaApi } from "./recordatorios.js";
 import {
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
@@ -28,6 +38,13 @@ import {
   sePuedeAnular,
 } from "./cobros.js";
 import { mismaExpresion, nuevaEcuacion } from "./ecuaciones.js";
+import { tCastellano, textoDeError } from "./idioma.js";
+import { useIdioma } from "./useIdioma";
+
+// Un error que se arma acá, sin que la API lo diga: { codigo, mensaje } igual
+// que los de la API, así las pantallas lo muestran con textoDeError y sigue al
+// idioma. El castellano sale del diccionario (errores.<codigo>), una sola vez.
+const errorLocal = (codigo) => ({ codigo, mensaje: tCastellano(`errores.${codigo}`) });
 
 const VACIO = {
   negocio: null,
@@ -44,6 +61,9 @@ const VACIO = {
   // [{ usuario_id, foto }]. Se cruza con empleado.usuario_id en Equipo.
   fotosEquipo: [],
   ecuaciones: [],
+  // La lista de "Editar categorías" (064), o null si el negocio nunca la
+  // editó y usa las de fábrica de su rubro.
+  categorias: null,
 };
 
 const Contexto = createContext(null);
@@ -63,9 +83,12 @@ const nuevoId = () =>
 // decir que "ya no sirve" sería mentira.
 export async function buscarSeguimiento(codigo) {
   if (!API) return { sirve: false };
-  const s = seguimientoDeLaApi(await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`));
+  const r = await traer(`/publico/seguimiento/${encodeURIComponent(codigo)}`);
+  const s = seguimientoDeLaApi(r);
   if (s.sirve) return s;
-  return s.problema ? { sirve: false, problema: s.problema } : { sirve: false };
+  // `error` es el { codigo, mensaje } de la API: la pantalla lo traduce por
+  // código (textoDeError), así sigue al idioma si cambia con el error a la vista.
+  return s.problema ? { sirve: false, problema: s.problema, error: r.error } : { sirve: false };
 }
 
 // La respuesta del cliente a un paso del presupuesto, desde el link
@@ -77,11 +100,16 @@ export async function buscarSeguimiento(codigo) {
 // Devuelve { ok } o { ok: false, motivo }. El motivo está escrito para el
 // cliente y se muestra tal cual.
 export async function responderDesdeElLink(codigo, pasoId, respuesta) {
-  if (!API) return { ok: false, motivo: "Por ahora no se puede contestar desde acá. Hablá con el negocio." };
-  return respuestaDeLaApi(await mandar(
+  if (!API) {
+    const mensaje = "Por ahora no se puede contestar desde acá. Hablá con el negocio.";
+    return { ok: false, motivo: mensaje, error: { codigo: "sin_api_contestar", mensaje } };
+  }
+  const r = await mandar(
     `/publico/seguimiento/${encodeURIComponent(codigo)}/pasos/${encodeURIComponent(pasoId)}/respuesta`,
     { respuesta }
-  ));
+  );
+  const x = respuestaDeLaApi(r);
+  return x.ok ? x : { ...x, error: r.error };
 }
 
 // Los horarios de un negocio y sus turnos tomados, desde afuera del sistema.
@@ -94,7 +122,7 @@ export async function buscarAgenda(codigo) {
   if (!API) return { sirve: false };
   const r = await traer(`/publico/agenda/${encodeURIComponent(codigo)}`);
   if (r.ok) return agendaDeLaApi(r.datos);
-  if (r.error.codigo !== "agenda_no_encontrada") return { sirve: false, problema: r.error.mensaje };
+  if (r.error.codigo !== "agenda_no_encontrada") return { sirve: false, problema: r.error.mensaje, error: r.error };
   return { sirve: false };
 }
 
@@ -102,7 +130,10 @@ export async function buscarAgenda(codigo) {
 // escrito para que el cliente lo lea tal cual. La que decide si ese horario
 // se puede pedir es la API.
 export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }) {
-  if (!API) return { ok: false, motivo: "Por ahora no se puede pedir turno desde acá. Llamá al negocio." };
+  if (!API) {
+    const mensaje = "Por ahora no se puede pedir turno desde acá. Llamá al negocio.";
+    return { ok: false, motivo: mensaje, error: { codigo: "sin_api_turno", mensaje } };
+  }
   const r = await mandar(`/publico/agenda/${encodeURIComponent(codigo)}/turnos`, {
     empieza_en: new Date(cuando).toISOString(),
     motivo,
@@ -110,7 +141,138 @@ export async function reservarTurno({ codigo, cuando, motivo, nombre, telefono }
     telefono: telefono || null,
   });
   if (r.ok) return { ok: true, cuando: r.datos.cuando, minutos: r.datos.minutos };
-  return { ok: false, motivo: r.error.mensaje };
+  return { ok: false, motivo: r.error.mensaje, error: r.error };
+}
+
+// ------------------------------------------------------------
+// La landing pública de un negocio (/n/[codigo])
+// ------------------------------------------------------------
+// Funciones sueltas, como las de arriba: quien abre la landing no tiene
+// sesión ni negocio. Tres cosas valen para todas:
+//
+//   · Van sin token. Lo único que identifica al cliente es su llave
+//     (src/lib/llave-landing.js), y viaja por "autorizacion" y no por
+//     "token": api.js cambia el token por el de la sesión del dueño.
+//   · Van con avisarSiVence: false. Un 401 acá (datos incorrectos, llave
+//     vencida) es del cliente; si avisara, le cerraría la sesión al dueño que
+//     tenga la app abierta en el mismo navegador.
+//   · Las que escriben son POST sin clave de idempotencia, así que api.js no
+//     las repite: un intento de entrar de más cuenta para el bloqueo.
+//
+// Las que piden algo devuelven { ok: true, ... } o { ok: false, codigo,
+// mensaje }: el código es sobre lo que se ramifica; el mensaje, para mostrar.
+const enLanding = (codigo, resto = "") => `/publico/landing/${encodeURIComponent(codigo)}${resto}`;
+const SIN_AVISO = { avisarSiVence: false };
+const conLlave = (llave) => ({ ...SIN_AVISO, autorizacion: `Llave ${llave}` });
+
+const falla = (r) => ({ ok: false, codigo: r.error.codigo, mensaje: r.error.mensaje });
+
+// Sin llave guardada no se pregunta: la respuesta de la API sería la misma.
+const SIN_LLAVE = {
+  ok: false,
+  codigo: "llave_vencida",
+  mensaje: "Pasó un rato desde que entraste. Volvé a poner tus datos.",
+};
+
+// Lo que se ve sin entrar. La landing viene normalizada (lo que el negocio
+// no eligió, de fábrica) y "horarios" viene null si el negocio no publicó los
+// suyos: lo decide la API. Si la API no contesta se dice eso y no "el link no
+// sirve", que sería mentira.
+export async function buscarLanding(codigo) {
+  const r = await traer(enLanding(codigo), null, SIN_AVISO);
+  if (r.ok) {
+    const { negocio, landing, modulos_activos, horarios } = r.datos;
+    return { sirve: true, negocio, landing: normalizarLanding(landing), modulos_activos, horarios };
+  }
+  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje, error: r.error };
+  return { sirve: false };
+}
+
+// Los días con lugar para "Sacar turno": lo mismo que buscarAgenda().
+export async function agendaDeLanding(codigo) {
+  const r = await traer(enLanding(codigo, "/agenda"), null, SIN_AVISO);
+  if (r.ok) return agendaDeLaApi(r.datos);
+  if (r.error.codigo !== "landing_no_encontrada") return { sirve: false, problema: r.error.mensaje, error: r.error };
+  return { sirve: false };
+}
+
+// Entrar con el identificador (la patente, en un taller) y los últimos 4 del
+// teléfono. Si coinciden, la llave queda guardada en este navegador; si no,
+// el código dice por qué (datos_incorrectos, muchos_intentos...).
+export async function entrarALanding(codigo, { identificador, ultimos4 }) {
+  const r = await mandar(
+    enLanding(codigo, "/ingresar"),
+    { identificador: String(identificador ?? "").trim(), ultimos4: String(ultimos4 ?? "").trim() },
+    null,
+    SIN_AVISO
+  );
+  if (!r.ok) return falla(r);
+  // Sin dónde guardarla, entrar no serviría de nada: en la pantalla siguiente
+  // habría que volver a poner los datos.
+  if (!guardarLlave(codigo, r.datos))
+    return {
+      ok: false,
+      codigo: "sin_almacenamiento",
+      mensaje: "Tu navegador no nos deja recordar que entraste. Probá abrir el link en otro navegador.",
+    };
+  return { ok: true };
+}
+
+// Lo suyo, con la llave guardada. Si la API dice que la llave venció, se
+// borra: seguir mandándola sólo repetiría el error.
+async function loSuyo(codigo, resto) {
+  const llave = leerLlave(codigo);
+  if (!llave) return { ...SIN_LLAVE };
+  const r = await traer(enLanding(codigo, resto), null, conLlave(llave));
+  if (r.ok) return r;
+  if (r.error.codigo === "llave_vencida") borrarLlave(codigo);
+  return falla(r);
+}
+
+export async function misCasosEnLanding(codigo) {
+  const r = await loSuyo(codigo, "/mis-casos");
+  return r.ok ? { ok: true, casos: r.datos.casos ?? [] } : r;
+}
+
+export async function misTurnosEnLanding(codigo) {
+  const r = await loSuyo(codigo, "/mis-turnos");
+  return r.ok ? { ok: true, turnos: r.datos.turnos ?? [] } : r;
+}
+
+// Sacar turno. Con llave, el turno va a nombre de quien entró y sólo viajan el
+// horario y el motivo. Sin llave es el registro: viajan también nombre,
+// teléfono e identificador, y si sale la API devuelve una llave, así que la
+// persona queda adentro sin entrar aparte. La que decide si ese horario se
+// puede pedir es la API.
+export async function reservarEnLanding(codigo, { cuando, motivo, nombre, telefono, identificador }) {
+  const llave = leerLlave(codigo);
+  // Sin llave y sin datos de registro es que entró y la llave venció en el
+  // camino: se dice eso, y no "falta con qué te identificamos".
+  if (!llave && !String(identificador ?? "").trim()) return { ...SIN_LLAVE };
+  const pedido = {
+    empieza_en: new Date(cuando).toISOString(),
+    motivo,
+    ...(llave
+      ? {}
+      : {
+          nombre: String(nombre ?? "").trim(),
+          telefono: String(telefono ?? "").trim(),
+          identificador: String(identificador ?? "").trim(),
+        }),
+  };
+  const r = await mandar(enLanding(codigo, "/turnos"), pedido, null, llave ? conLlave(llave) : SIN_AVISO);
+  if (!r.ok) {
+    if (r.error.codigo === "llave_vencida") borrarLlave(codigo);
+    return falla(r);
+  }
+  if (r.datos.llave) guardarLlave(codigo, r.datos);
+  return { ok: true, cuando: r.datos.cuando, minutos: r.datos.minutos };
+}
+
+// Salir: este navegador se olvida de la llave. La llave sigue valiendo en la
+// base hasta que venza, pero sin la llave en la mano no sirve de nada.
+export function salirDeLanding(codigo) {
+  borrarLlave(codigo);
 }
 
 // Un negocio guardado antes de que existieran los módulos no trae la lista.
@@ -132,6 +294,13 @@ export function DatosProvider({ children }) {
   // la manera de volver a correr el efecto de carga sin escribir la lectura
   // dos veces, una para entrar y otra para refrescar.
   const [refresco, setRefresco] = useState(0);
+  // Los textos que arma este proveedor (avisos, "Listo…") salen en el idioma de
+  // quien mira. El ref evita rehacer todas las acciones al cambiar de idioma.
+  const idioma = useIdioma();
+  const idiomaRef = useRef(idioma);
+  idiomaRef.current = idioma;
+  const tt = (clave, vars) => idiomaRef.current.t(clave, vars);
+  // Un aviso es un texto, o un error { codigo, mensaje } que Aviso.js traduce.
   const [aviso, setAviso] = useState(null);
   // Confirmamos con el dato que la persona acaba de escribir, así sabe que
   // guardó lo correcto (cartilla, sección 07).
@@ -221,16 +390,12 @@ export function DatosProvider({ children }) {
           return;
         }
 
-        setAviso(
-          "Tu negocio todavía no aparece en la base. Esperá unos segundos y volvé a entrar."
-        );
+        setAviso({ codigo: "negocio_sin_base", mensaje: tCastellano("errores.negocio_sin_base") });
         setDatos(VACIO);
         setCargando(false);
       } catch {
         if (!vivo) return;
-        setAviso(
-          "No se pudo leer el servidor. Fijate la conexión y volvé a entrar."
-        );
+        setAviso({ codigo: "servidor_sin_leer", mensaje: tCastellano("errores.servidor_sin_leer") });
         setDatos(VACIO);
         setCargando(false);
       }
@@ -281,7 +446,7 @@ export function DatosProvider({ children }) {
     const enLaApi = async (pedir, alSalir) => {
       const r = await pedir(await tokenDeSesion());
       if (r.ok) return alSalir?.(r.datos);
-      setAviso(r.error.mensaje);
+      setAviso(r.error);
       setRefresco((n) => n + 1);
     };
 
@@ -296,9 +461,13 @@ export function DatosProvider({ children }) {
     const sinVersionDelNegocio = (cambios) =>
       setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios, actualizado_en: undefined } }));
 
+    // Las respuestas de editar un caso no traen su aviso de volver (R-2a):
+    // sólo las lecturas. Lo que ya se sabía de él se conserva.
     const incorporarCasoApi = ({ caso, cliente, turno, evento, eventos = [] }) => setDatos((d) => ({
       ...d,
-      casos: caso ? reemplazarUnicoPorId(d.casos, caso) : unicosPorId(d.casos),
+      casos: caso
+        ? reemplazarUnicoPorId(d.casos, "aviso_volver" in caso ? caso : conAvisoDeVolver(caso, null, d.casos.find((c) => c.id === caso.id)))
+        : unicosPorId(d.casos),
       clientes: cliente ? (d.clientes.some((x) => x.id === cliente.id)
         ? d.clientes.map((x) => x.id === cliente.id ? cliente : x) : [...d.clientes, cliente]) : d.clientes,
       turnos: turno ? d.turnos.map((x) => x.id === turno.id ? turno : x) : d.turnos,
@@ -316,7 +485,7 @@ export function DatosProvider({ children }) {
     return {
       ecuaciones: datos.ecuaciones ?? [],
       async crearEcuacion(form) {
-        const creada = nuevaEcuacion(form);
+        const creada = nuevaEcuacion(form, datos.ecuaciones ?? [], idiomaRef.current.t);
         if (creada.error) return { ok: false, error: creada.error, campo: creada.campo };
         const duplicada = datos.ecuaciones?.find((e) => mismaExpresion(e.formula, creada.ecuacion.formula));
         if (duplicada && !form.confirmarVariante) {
@@ -328,13 +497,13 @@ export function DatosProvider({ children }) {
         }, await tokenDeSesion(), { idempotencia: nuevaClave() });
         if (!r.ok) {
           if (r.error.codigo === "ecuacion_duplicada") return { ok: false, duplicada: true };
-          return { ok: false, error: r.error.mensaje, campo: r.error.campo };
+          return { ok: false, error: r.error, campo: r.error.campo };
         }
         setDatos((d) => ({ ...d, ecuaciones: [r.datos.ecuacion, ...(d.ecuaciones ?? [])] }));
         return { ok: true, ecuacion: r.datos.ecuacion };
       },
       async editarEcuacion(id, form) {
-        const editada = nuevaEcuacion(form);
+        const editada = nuevaEcuacion(form, datos.ecuaciones ?? [], idiomaRef.current.t);
         if (editada.error) return { ok: false, error: editada.error, campo: editada.campo };
         const duplicada = datos.ecuaciones?.find((e) => e.id !== id && mismaExpresion(e.formula, editada.ecuacion.formula));
         if (duplicada && !form.confirmarVariante) return { ok: false, duplicada: true };
@@ -344,7 +513,7 @@ export function DatosProvider({ children }) {
         }, await tokenDeSesion());
         if (!r.ok) {
           if (r.error.codigo === "ecuacion_duplicada") return { ok: false, duplicada: true };
-          return { ok: false, error: r.error.mensaje, campo: r.error.campo };
+          return { ok: false, error: r.error, campo: r.error.campo };
         }
         setDatos((d) => ({ ...d, ecuaciones: ponerFila(d.ecuaciones ?? [], r.datos.ecuacion) }));
         return { ok: true, ecuacion: r.datos.ecuacion };
@@ -353,7 +522,7 @@ export function DatosProvider({ children }) {
         const r = await quitar(`/ecuaciones/${encodeURIComponent(id)}`, await tokenDeSesion());
         if (!r.ok) return {
           ok: false,
-          error: r.error.mensaje,
+          error: r.error,
           codigo: r.error.codigo,
           dependientes: r.error.detalles?.filter((d) => d.campo === "dependencias").map((d) => d.mensaje) ?? [],
         };
@@ -377,14 +546,14 @@ export function DatosProvider({ children }) {
             ? { cliente_id: clienteId, telefono: telefono || null }
             : { cliente: { nombre: nombreCliente, telefono: telefono || null } }),
         }, { idempotencia: nuevaClave() });
-        if (!r.ok) { setAviso(r.error.mensaje); return null; }
+        if (!r.ok) { setAviso(r.error); return null; }
         incorporarCasoApi(r.datos);
         return r.datos.caso;
       },
 
       async asignarResponsable(casoId, empleadoId) {
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/asignar`, { responsable_id: empleadoId });
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         incorporarCasoApi(r.datos); return r.datos.caso;
       },
 
@@ -394,7 +563,7 @@ export function DatosProvider({ children }) {
       async cargarDiagnostico(casoId, diagnostico) {
         const actual = datos.casos.find((c) => c.id === casoId);
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, { diagnostico, actualizado_en: actual?.actualizado_en }, { metodo: "PATCH" });
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         incorporarCasoApi(r.datos); return r.datos.caso;
       },
 
@@ -405,7 +574,7 @@ export function DatosProvider({ children }) {
       async ponerIdentificador(casoId, identificador) {
         const actual = datos.casos.find((c) => c.id === casoId);
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, { identificador, actualizado_en: actual?.actualizado_en }, { metodo: "PATCH" });
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         incorporarCasoApi(r.datos); return r.datos.caso;
       },
 
@@ -418,7 +587,7 @@ export function DatosProvider({ children }) {
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, {
           nombre: nombre.trim() || null, servicio: servicio.trim(), actualizado_en: caso.actualizado_en,
         }, { metodo: "PATCH" });
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         incorporarCasoApi(r.datos); return r.datos.caso;
       },
 
@@ -428,15 +597,15 @@ export function DatosProvider({ children }) {
       // si otro cambió el caso mientras tanto (409), además vuelve a leer.
       async corregirVolverEn(casoId, volverEn) {
         const caso = datos.casos.find((c) => c.id === casoId);
-        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        if (!caso) return { ok: false, error: errorLocal("caso_ya_no_esta") };
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}`, {
           volver_en: volverEnParaLaApi(volverEn), actualizado_en: caso.actualizado_en,
         }, { metodo: "PATCH" });
         if (!r.ok) {
           if (r.error.codigo === "choque") setRefresco((n) => n + 1);
-          return { ok: false, error: r.error.mensaje };
+          return { ok: false, error: r.error };
         }
-        incorporarCasoApi(r.datos);
+        incorporarCasoApi({ ...r.datos, caso: conAvisoDeVolver(r.datos.caso, r.datos.volver, caso) });
         return { ok: true, caso: r.datos.caso };
       },
 
@@ -444,7 +613,7 @@ export function DatosProvider({ children }) {
       // historial se agrega, nunca se reescribe.
       async anotarNota(casoId, texto) {
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/notas`, { texto }, { idempotencia: nuevaClave() });
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         incorporarCasoApi({ evento: r.datos }); return r.datos;
       },
 
@@ -464,15 +633,18 @@ export function DatosProvider({ children }) {
           ? `/casos/${encodeURIComponent(casoId)}/reabrir` : `/casos/${encodeURIComponent(casoId)}/estado`;
         const r = await llamarCasos(ruta, ruta.endsWith("/estado")
           ? { estado, notificar_cliente: Boolean(notificarCliente) } : {});
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         incorporarCasoApi(r.datos);
-        if (r.datos.notificacion?.estado === "fallido") {
-          setAviso("El estado se cambió, pero no pudimos enviar el aviso por WhatsApp.");
+        // Si el cliente pidió no recibir avisos (R-8a), el estado cambia
+        // igual: no es un error, se dice por qué no se le avisó.
+        if (r.datos.sin_aviso) {
+          setDeshacerExito(null);
+          setExito(tt("datos.estadoListoSinAviso", { motivo: porQueNoSeAviso(r.datos.sin_aviso, idiomaRef.current) }));
+        } else if (r.datos.notificacion?.estado === "fallido") {
+          setAviso(errorLocal("estado_sin_aviso"));
         } else if (r.datos.notificacion) {
           setDeshacerExito(null);
-          setExito(r.datos.notificacion.estado === "enviado"
-            ? "Listo, se cambió el estado y se le avisó al cliente por WhatsApp."
-            : "Listo, se cambió el estado y el aviso por WhatsApp quedó pendiente de envío.");
+          setExito(tt(r.datos.notificacion.estado === "enviado" ? "datos.estadoListoEnviado" : "datos.estadoListoPendiente"));
         }
         return r.datos.caso;
       },
@@ -488,18 +660,18 @@ export function DatosProvider({ children }) {
       // y los marca pagados ella, cuando el medio de pago confirma.
       async registrarCobro({ casoId, monto, medio, nota = null }) {
         const caso = datos.casos.find((c) => c.id === casoId);
-        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        if (!caso) return { ok: false, error: errorLocal("caso_ya_no_esta") };
         if (!montoDeCobroValido(String(monto ?? ""))) {
-          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+          return { ok: false, error: errorLocal("monto_mal_escrito") };
         }
         if (!MEDIOS_DEL_LOCAL.includes(medio)) {
-          return { ok: false, error: "Los cobros por link o QR se piden desde el sistema de pagos." };
+          return { ok: false, error: errorLocal("cobro_en_linea_aparte") };
         }
 
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros`, {
           monto: Number(monto), medio, nota,
         }, await tokenDeSesion(), { idempotencia: nuevaClave() });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         const nuevo = r.datos.cobro ?? r.datos;
         setDatos((d) => ponerCobro(d, nuevo));
         if (r.datos.evento) setDatos((d) => ({ ...d, eventos: [r.datos.evento, ...d.eventos] }));
@@ -512,7 +684,7 @@ export function DatosProvider({ children }) {
       async cambiarDescuento(casoId, monto, { antes = 0 } = {}) {
         const nuevo = Math.max(0, Number(monto) || 0);
         const r = await reemplazar(`/casos/${encodeURIComponent(casoId)}/descuento`, { monto: nuevo }, await tokenDeSesion());
-        if (!r.ok) { setAviso(r.error.mensaje); return { ok: false, error: r.error.mensaje }; }
+        if (!r.ok) { setAviso(r.error); return { ok: false, error: r.error }; }
         setDatos((d) => ({ ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso ?? r.datos : c) }));
         if (r.datos.evento) setDatos((d) => ({ ...d, eventos: [r.datos.evento, ...d.eventos] }));
         return { ok: true };
@@ -527,31 +699,31 @@ export function DatosProvider({ children }) {
 
       async estadoMercadoPago() {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: errorLocal("sesion_vencida") };
         const r = await traer("/cobros/mercadopago/status", token);
         return r.ok ? { ok: true, conectado: Boolean(r.datos?.conectado) }
-          : { ok: false, error: r.error.mensaje };
+          : { ok: false, error: r.error };
       },
 
       async conectarMercadoPago() {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: errorLocal("sesion_vencida") };
         const r = await mandar("/cobros/mercadopago/conectar", {}, token);
-        return r.ok ? { ok: true, url: r.datos.url } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true, url: r.datos.url } : { ok: false, error: r.error };
       },
 
       async desvincularMercadoPago() {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: errorLocal("sesion_vencida") };
         const r = await quitar("/cobros/mercadopago/vinculacion", token);
-        return r.ok ? { ok: true } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
 
       async conciliarCobrosMercadoPago(casoId) {
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: errorLocal("sesion_vencida") };
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/conciliar`, {}, token);
-        return r.ok ? { ok: true, ...r.datos } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true, ...r.datos } : { ok: false, error: r.error };
       },
 
       // Pedir un pago: la API arma el link o el QR y guarda el cobro
@@ -559,20 +731,20 @@ export function DatosProvider({ children }) {
       // API; acá nunca.
       async pedirCobroEnLinea({ casoId, monto, medio }) {
         const caso = datos.casos.find((c) => c.id === casoId);
-        if (!caso) return { ok: false, error: "Ese caso ya no está." };
+        if (!caso) return { ok: false, error: errorLocal("caso_ya_no_esta") };
         if (!montoDeCobroValido(String(monto ?? ""))) {
-          return { ok: false, error: "El monto va con números, sin puntos, y mayor que cero." };
+          return { ok: false, error: errorLocal("monto_mal_escrito") };
         }
-        if (!MEDIOS_EN_LINEA.includes(medio)) return { ok: false, error: "Elegí link o QR." };
+        if (!MEDIOS_EN_LINEA.includes(medio)) return { ok: false, error: errorLocal("medio_en_linea_invalido") };
 
-        if (!pagosEnLinea().disponible) return { ok: false, error: "Todavía no está conectado el sistema de pagos." };
+        if (!pagosEnLinea().disponible) return { ok: false, error: errorLocal("pagos_no_conectados") };
 
         const token = await tokenDeSesion();
-        if (!token) return { ok: false, error: "Tu sesión venció. Volvé a entrar y probá de nuevo." };
+        if (!token) return { ok: false, error: errorLocal("sesion_vencida") };
         const r = await mandar(`/casos/${encodeURIComponent(casoId)}/cobros/en-linea`, {
           monto: Number(monto), medio,
         }, token, { idempotencia: nuevaClave() });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         const nuevo = r.datos.cobro;
         setDatos((d) => ponerCobro(d, nuevo));
         // El renglón del historial lo anota la API y lo devuelve.
@@ -601,14 +773,14 @@ export function DatosProvider({ children }) {
       // anula: se devuelve desde el medio de pago.
       async anularCobro(cobroId, motivo = null) {
         const cobro = datos.cobros.find((c) => c.id === cobroId);
-        if (!cobro) return { ok: false, error: "Ese cobro ya no está." };
+        if (!cobro) return { ok: false, error: errorLocal("cobro_ya_no_esta") };
         if (!sePuedeAnular(cobro)) {
           return {
             ok: false,
             error:
               cobro.estado === "pagado"
-                ? "Ese pago ya entró por el medio de pago. Para devolverlo, hay que hacerlo desde ahí."
-                : "Ese cobro ya no cuenta: no hay nada que anular.",
+                ? errorLocal("pago_ya_entro")
+                : errorLocal("cobro_sin_efecto"),
           };
         }
 
@@ -616,26 +788,70 @@ export function DatosProvider({ children }) {
         // medio de pago: si no, el cliente todavía podría pagarlo.
         const r = await mandar(`/cobros/${encodeURIComponent(cobroId)}/anular`, { motivo },
           await tokenDeSesion(), { idempotencia: nuevaClave() });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         const anulado = r.datos.cobro;
         setDatos((d) => ponerCobro(d, anulado));
         if (r.datos.evento) setDatos((d) => ({ ...d, eventos: [r.datos.evento, ...d.eventos] }));
         return { ok: true, cobro: anulado };
       },
 
+      // Los agregados se consultan por separado de las listas de la pantalla.
+      async consultarCasosDashboard(periodo) {
+        const r = await traer(`/dashboard/casos?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: errorLocal("cambio_de_negocio") };
+        if (!r.datos.cerrados || !Array.isArray(r.datos.cerrados.por_dia))
+          return { ok: false, error: errorLocal("cierres_sin_datos") };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarCobrosDashboard(periodo) {
+        const r = await traer(`/dashboard/cobros?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: errorLocal("cambio_de_negocio") };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarInventarioDashboard() {
+        const r = await traer("/dashboard/inventario", await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: errorLocal("cambio_de_negocio") };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarClientesDashboard(periodo) {
+        const r = await traer(`/dashboard/clientes?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: errorLocal("cambio_de_negocio") };
+        return { ok: true, estadisticas: r.datos };
+      },
+
+      async consultarResumenDashboard(periodo) {
+        const r = await traer(`/dashboard/resumen?${new URLSearchParams(periodo)}`, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        if (r.datos.negocio_id !== datos.negocio?.id)
+          return { ok: false, error: errorLocal("cambio_de_negocio") };
+        return { ok: true, resumen: r.datos };
+      },
+
       // Los mensajes por WhatsApp: el de seguimiento que se manda al
       // entregar y el recordatorio de turno (R-4b).
       async consultarSeguimiento() {
         const r = await traer("/negocio/seguimiento", await tokenDeSesion());
-        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error };
       },
 
-      // Los dos recordatorios van por el mismo camino: arriba el posventa
-      // ({ activo, dias, mensaje }) y en "turno" el de turnos
-      // ({ activo, horas, mensaje }). Se manda sólo lo que cambió.
+      // Los recordatorios van por el mismo camino: arriba el posventa
+      // ({ activo, dias, mensaje }), en "turno" el de turnos
+      // ({ activo, horas, mensaje }) y en "volver" el de cuándo le toca
+      // volver ({ activo, dias, mensaje }). Se manda sólo lo que cambió.
       async configurarSeguimiento(cambios) {
         const r = await parchar("/negocio/seguimiento", cambios, await tokenDeSesion());
-        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+        return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error };
       },
 
       // Entregar: cobrar y cerrar en un gesto. La API guarda cobro,
@@ -653,18 +869,25 @@ export function DatosProvider({ children }) {
           ...seguimientoParaLaApi(seguimiento),
         }, await tokenDeSesion(), { idempotencia: nuevaClave() });
         // El campo dice en qué paso de la entrega mostrar el error.
-        if (!r.ok) return { ok: false, error: r.error.mensaje, campo: r.error.campo };
+        if (!r.ok) return { ok: false, error: r.error, campo: r.error.campo };
         setDatos((d) => {
-          let siguiente = { ...d, casos: d.casos.map((c) => c.id === casoId ? r.datos.caso : c) };
+          let siguiente = {
+            ...d,
+            casos: d.casos.map((c) => c.id === casoId ? conAvisoDeVolver(r.datos.caso, r.datos.volver, c) : c),
+          };
           if (r.datos.cobro) siguiente = ponerCobro(siguiente, r.datos.cobro);
           if (r.datos.evento) siguiente = { ...siguiente, eventos: [r.datos.evento, ...siguiente.eventos] };
           return siguiente;
         });
         const avisos = [];
-        if (seguimiento?.enviar && !r.datos.seguimiento) {
-          avisos.push("El caso se cerró, pero no se programó el mensaje: el seguimiento está desactivado en el negocio.");
+        // Sin mensaje porque el cliente pidió no recibir avisos (R-8a): no es
+        // un problema, va en el "Listo" de la entrega, y no se confunde con
+        // el seguimiento apagado.
+        const noSeAviso = porQueNoSeAviso(r.datos.sin_aviso, idiomaRef.current);
+        if (!noSeAviso && seguimiento?.enviar && !r.datos.seguimiento) {
+          avisos.push(tt("datos.cierre.seguimientoApagado"));
         } else if (r.datos.seguimiento?.estado === "fallido") {
-          avisos.push("El caso se cerró, pero no pudimos enviar el mensaje de seguimiento por WhatsApp.");
+          avisos.push(tt("datos.cierre.seguimientoFallo"));
         }
         // El borrador conserva el texto guardado al abrir el formulario. Sólo
         // actualizamos el predeterminado después de usarlo en un cierre confirmado.
@@ -675,11 +898,11 @@ export function DatosProvider({ children }) {
             mensaje: seguimiento.mensaje.trim(),
           }, await tokenDeSesion());
           if (!actualizado.ok) {
-            avisos.push(`El caso se cerró, pero no pudimos guardar el mensaje para los próximos casos. ${actualizado.error.mensaje}`);
+            avisos.push(tt("datos.cierre.mensajeNoGuardado", { motivo: textoDeError(idiomaRef.current.t, actualizado.error) }));
           }
         }
         if (avisos.length) setAviso(avisos.join(" "));
-        return { ok: true, ...r.datos };
+        return { ok: true, ...r.datos, noSeAviso };
       },
 
       // Marcar que un paso aprobado ya se hizo, o desmarcarlo (flujo, 7).
@@ -698,7 +921,7 @@ export function DatosProvider({ children }) {
       // propio trabajo no es mover plata (021_paso_hecho.sql).
       async marcarPasoHecho(pasoId, hecho) {
         const paso = datos.pasos.find((p) => p.id === pasoId);
-        if (!paso) return { ok: false, error: "Ese paso ya no está en el presupuesto." };
+        if (!paso) return { ok: false, error: errorLocal("paso_ya_no_esta") };
 
         const caso = datos.casos.find((c) => c.id === paso.caso_id);
         if (!sePuedeMarcarHecho(paso, caso)) {
@@ -706,8 +929,8 @@ export function DatosProvider({ children }) {
             ok: false,
             error:
               caso?.estado === "completado"
-                ? "El caso ya se entregó. Volvé a abrirlo si hay algo que corregir."
-                : "Sólo se marca lo que el cliente aprobó.",
+                ? errorLocal("paso_caso_entregado")
+                : errorLocal("paso_no_aprobado"),
           };
         }
 
@@ -715,7 +938,7 @@ export function DatosProvider({ children }) {
         if (Boolean(paso.hecho_en) === Boolean(hecho)) return { ok: true, cambio: false };
 
         const r = await llamarCasos(`/pasos/${encodeURIComponent(pasoId)}/hecho`, { hecho: Boolean(hecho) });
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         setDatos((d) => ({ ...d,
           pasos: d.pasos.map((x) => x.id === pasoId ? r.datos.paso : x),
           eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos,
@@ -731,7 +954,7 @@ export function DatosProvider({ children }) {
       // Mandar el link es pasarle la pelota al cliente, así que el caso queda
       // esperando su respuesta. Si no, el tablero seguiría diciendo que el
       // trabajo avanza mientras en realidad no se puede hacer nada hasta que
-      // conteste, y "A aprobar" no lo mostraría.
+      // conteste, y "Pendientes de aprobación" no lo mostraría.
       //
       // Son dos escrituras y no una: el código lo genera la base con su
       // propia función, y el estado va por el camino de siempre, con sus
@@ -739,11 +962,11 @@ export function DatosProvider({ children }) {
       // ya anda y el estado se puede mover a mano.
       async compartirCaso(casoId) {
         const caso = datos.casos.find((c) => c.id === casoId);
-        if (!caso) return { ok: false, error: "No encontramos ese caso." };
+        if (!caso) return { ok: false, error: errorLocal("caso_sin_encontrar") };
         if (caso.seguimiento_codigo) return { ok: true, codigo: caso.seguimiento_codigo };
 
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/compartir`, {});
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         incorporarCasoApi(r.datos);
         return { ok: true, codigo: r.datos.codigo, quedaEsperando: r.datos.queda_esperando };
       },
@@ -752,7 +975,7 @@ export function DatosProvider({ children }) {
       // la última visita se va con él: es de ese link, no del caso.
       async dejarDeCompartirCaso(casoId) {
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/dejar-de-compartir`, {});
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         setDatos((d) => ({ ...d, casos: d.casos.map((c) => c.id === casoId
           ? { ...c, seguimiento_codigo: null, seguimiento_visto_en: null } : c) }));
         return { ok: true };
@@ -765,7 +988,7 @@ export function DatosProvider({ children }) {
       async agregarPaso({ casoId, nombre, descripcion, monto }) {
         const r = await llamarCasos(`/casos/${encodeURIComponent(casoId)}/pasos`,
           { nombre, descripcion: descripcion || null, monto: Number(monto) }, { idempotencia: nuevaClave() });
-        if (!r.ok) { setAviso(r.error.mensaje); return null; }
+        if (!r.ok) { setAviso(r.error); return null; }
         setDatos((d) => ({ ...d, pasos: [...d.pasos, r.datos.paso],
           eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
         return r.datos.paso;
@@ -779,7 +1002,7 @@ export function DatosProvider({ children }) {
         if (!paso || paso.estado !== "esperando") return;
 
         const r = await llamarCasos(`/pasos/${encodeURIComponent(pasoId)}`, undefined, { metodo: "DELETE" });
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         setDatos((d) => ({ ...d, pasos: d.pasos.filter((p) => p.id !== pasoId),
           eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
         return r.datos.id;
@@ -800,7 +1023,7 @@ export function DatosProvider({ children }) {
         if (!paso || paso.estado === "aprobado") return;
 
         const r = await llamarCasos(`/pasos/${encodeURIComponent(pasoId)}/responder`, { estado });
-        if (!r.ok) return setAviso(r.error.mensaje);
+        if (!r.ok) return setAviso(r.error);
         setDatos((d) => ({ ...d, pasos: d.pasos.map((p) => p.id === pasoId ? r.datos.paso : p),
           eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
         return r.datos.paso;
@@ -815,7 +1038,7 @@ export function DatosProvider({ children }) {
         const insumo = datos.insumos.find((i) => i.id === insumoId);
         if (!insumo) return null;
         const r = await llamarCasos(`/insumos/${encodeURIComponent(insumoId)}/llego`, {}, { idempotencia: nuevaClave() });
-        if (!r.ok) { setAviso(r.error.mensaje); return null; }
+        if (!r.ok) { setAviso(r.error); return null; }
         setDatos((d) => ({ ...d,
           insumos: r.datos.sumado ? d.insumos.filter((i) => i.id !== insumoId).map((i) => i.id === r.datos.insumo.id ? r.datos.insumo : i)
             : d.insumos.map((i) => i.id === insumoId ? r.datos.insumo : i),
@@ -837,8 +1060,8 @@ export function DatosProvider({ children }) {
       // Con los mismos datos que el alta de un producto: al llegar se busca
       // uno igual en el stock por nombre, marca, modelo y cómo viene.
       async pedirInsumo({ casoId, ...form }) {
-        const r = await llamarCasos("/insumos/pedidos", { ...productoParaLaApi(form), caso_id: casoId || null }, { idempotencia: nuevaClave() });
-        if (!r.ok) { setAviso(r.error.mensaje); return null; }
+        const r = await llamarCasos("/insumos/pedidos", { ...productoParaLaApi({ ...form, categoria: categoriaParaGuardar(form.categoria, datos.negocio?.rubro) }), caso_id: casoId || null }, { idempotencia: nuevaClave() });
+        if (!r.ok) { setAviso(r.error); return null; }
         setDatos((d) => ({ ...d, insumos: [...d.insumos, r.datos.insumo],
           casos: r.datos.caso ? d.casos.map((c) => c.id === r.datos.caso.id ? r.datos.caso : c) : d.casos,
           eventos: r.datos.evento ? [r.datos.evento, ...d.eventos] : d.eventos }));
@@ -859,11 +1082,11 @@ export function DatosProvider({ children }) {
       // null. La clave de idempotencia hace que un reintento por mala
       // conexión no sume dos veces.
       async agregarInsumo(form) {
-        const r = await mandar("/insumos", productoParaLaApi(form), await tokenDeSesion(), {
+        const r = await mandar("/insumos", productoParaLaApi({ ...form, categoria: categoriaParaGuardar(form.categoria, datos.negocio?.rubro) }), await tokenDeSesion(), {
           idempotencia: nuevaClave(),
         });
         if (!r.ok) {
-          setAviso(r.error.mensaje);
+          setAviso(r.error);
           return null;
         }
         const { sumado, insumo, antes } = r.datos;
@@ -890,9 +1113,9 @@ export function DatosProvider({ children }) {
         const actual = datos.insumos.find((i) => i.id === insumoId);
         if (!actual) return null;
         const r = await reemplazar(`/insumos/${insumoId}`,
-          { ...productoParaLaApi(form), actualizado_en: actual.actualizado_en }, await tokenDeSesion());
+          { ...productoParaLaApi({ ...form, categoria: categoriaParaGuardar(form.categoria, datos.negocio?.rubro) }), actualizado_en: actual.actualizado_en }, await tokenDeSesion());
         if (!r.ok) {
-          setAviso(r.error.mensaje);
+          setAviso(r.error);
           if (r.error.codigo === "choque") setRefresco((n) => n + 1);
           return null;
         }
@@ -905,6 +1128,23 @@ export function DatosProvider({ children }) {
             .map((i) => (i.id === insumo.id ? insumo : i)),
         }));
         return resultado;
+      },
+
+      // "Editar categorías": la lista entera. Los productos de una categoría
+      // borrada vuelven de la API sin categoría. Devuelve true si se guardó.
+      async guardarCategorias(lista) {
+        const r = await reemplazar("/categorias", { valor: lista }, await tokenDeSesion());
+        if (!r.ok) {
+          setAviso(r.error);
+          return false;
+        }
+        const { categorias, insumos } = r.datos;
+        setDatos((d) => ({
+          ...d,
+          categorias,
+          insumos: d.insumos.map((i) => insumos.find((x) => x.id === i.id) ?? i),
+        }));
+        return true;
       },
 
       eliminarInsumo(insumoId) {
@@ -920,10 +1160,8 @@ export function DatosProvider({ children }) {
         setDatos((d) => ({ ...d, empleados: lista }));
       },
 
-      // OJO AL CAMBIAR ESTO. Desde la 037 el rol de la ficha es el que da los
-      // permisos: si la ficha es de una cuenta, la base pasa este rol a
-      // usuario.rol, que es de donde lee mi_rol() (008_permisos.sql). Antes
-      // era sólo el nombre con el que figuraba en la lista.
+      // OJO AL CAMBIAR ESTO. El rol de la ficha (rol_id) es el que da los
+      // permisos en ese negocio (057, 060).
       //
       // Por eso Equipo, antes de llamar acá por alguien con cuenta, pide
       // confirmación diciendo qué gana y qué pierde esa persona: en un
@@ -931,14 +1169,43 @@ export function DatosProvider({ children }) {
       // querer (auditoría, H5). Las fichas sin cuenta ya no se crean a mano (la 051
       // lo frena), pero siguen apareciendo: la siembra de datos de prueba las deja
       // y una cuenta borrada deja su ficha. Para ésas sirve el cambio directo.
-      cambiarRolEmpleado(empleadoId, rol) {
+      cambiarRolEmpleado(empleadoId, rolId) {
         setDatos((d) => ({
           ...d,
-          empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol } : e)),
+          empleados: d.empleados.map((e) => (e.id === empleadoId ? { ...e, rol_id: rolId } : e)),
         }));
-        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol, actualizado_en: version(datos.empleados, empleadoId) }, token),
+        enLaApi((token) => parchar(`/equipo/${empleadoId}/rol`, { rol_id: rolId }, token),
           ({ empleado }) => setDatos((d) => ({ ...d, empleados: ponerFila(d.empleados, empleado) })));
         return;
+      },
+
+      // ---------- roles (docs/roles.md) ----------
+      // enLaApi no devuelve el resultado (sólo avisa), y la pantalla de un rol
+      // necesita saber si salió bien y qué mensaje mostrar: van directo, como
+      // crearEcuacion. Sin cuentas no hay equipo al que dar roles: la
+      // pantalla lo dice (api() contesta "sin_api" si se llegara a pedir).
+      roles: datos.roles,
+
+      async cargarRoles() {
+        const r = await traer("/roles", await tokenDeSesion());
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        else setAviso(r.error);
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
+      },
+
+      async guardarRol({ id, nombre, permisos }) {
+        const token = await tokenDeSesion();
+        const r = id
+          ? await parchar(`/roles/${encodeURIComponent(id)}`, { nombre, permisos }, token)
+          : await mandar("/roles", { nombre, permisos }, token);
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
+      },
+
+      async borrarRol(id) {
+        const r = await quitar(`/roles/${encodeURIComponent(id)}`, await tokenDeSesion());
+        if (r.ok) setDatos((d) => ({ ...d, roles: r.datos.roles }));
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
 
       // Los casos que tenía quedan sin responsable, no se borran: la base los
@@ -987,11 +1254,25 @@ export function DatosProvider({ children }) {
       corregirTelefono(clienteId, telefono) {
         setDatos((d) => ({
           ...d,
-          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono } : c)),
+          // La marca de incompleto (055) la calcula la base: hasta que vuelva
+          // la fila de la API, la regla del front decide con el teléfono nuevo.
+          clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, telefono, telefono_incompleto: undefined } : c)),
         }));
         enLaApi((token) => parchar(`/clientes/${clienteId}`, { telefono, actualizado_en: version(datos.clientes, clienteId) }, token),
           ({ cliente }) => setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, cliente) })));
         return;
+      },
+
+      // Que el cliente vuelva a recibir avisos (R-8b). La baja la pidió él
+      // por WhatsApp y sólo se deshace por acá: la API saca la fecha y deja
+      // en su historial quién y cuándo. Se espera la respuesta, porque es el
+      // único camino y no hay nada que mostrar antes. El error va traducido.
+      async revertirBajaDeAvisos(clienteId) {
+        const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/revertir-baja`, {}, await tokenDeSesion());
+        // "errorOriginal" es el de la API: la pantalla lo traduce a su idioma.
+        if (!r.ok) return { ok: false, error: errorAlRevertirBaja(r.error, idiomaRef.current), errorOriginal: r.error };
+        setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, r.datos.cliente) }));
+        return { ok: true };
       },
 
       // ---------- agenda ----------
@@ -1016,7 +1297,7 @@ export function DatosProvider({ children }) {
           { idempotencia: nuevaClave() }
         );
         if (!r.ok) {
-          setAviso(r.error.mensaje);
+          setAviso(r.error);
           return null;
         }
         // El recordatorio por WhatsApp (R-4a) viaja al lado del turno: se
@@ -1027,7 +1308,7 @@ export function DatosProvider({ children }) {
           clientes: cliente ? [...d.clientes, cliente] : d.clientes,
           turnos: [...d.turnos, { ...turno, recordatorio }],
         }));
-        return { ok: true, avisoDelRecordatorio: avisoAlAnotar(recordatorio) };
+        return { ok: true, avisoDelRecordatorio: avisoAlAnotar(recordatorio), recordatorio };
       },
 
       // Pasar el turno a otro día u hora. La API corre el recordatorio con la
@@ -1038,9 +1319,9 @@ export function DatosProvider({ children }) {
           empieza_en: instanteParaLaApi(empiezaEn),
           actualizado_en: version(datos.turnos, turnoId),
         }, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         setDatos((d) => ({ ...d, turnos: ponerFila(d.turnos, r.datos) }));
-        return { ok: true, turno: r.datos, avisoDelRecordatorio: avisoAlAnotar(r.datos.recordatorio) };
+        return { ok: true, turno: r.datos, avisoDelRecordatorio: avisoAlAnotar(r.datos.recordatorio), recordatorio: r.datos.recordatorio };
       },
 
       // "Vino a buscarlo": el turno era por un trabajo que ya estaba en
@@ -1093,8 +1374,15 @@ export function DatosProvider({ children }) {
           await tokenDeSesion(),
           { idempotencia: nuevaClave() }
         );
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         return { ok: true, id: r.datos.id };
+      },
+
+      // Sólo quien creó el negocio (lo decide la base, 062). El nombre va en el
+      // cuerpo del DELETE como confirmación. Al salir bien, la pantalla recarga.
+      async borrarNegocio(nombre) {
+        const r = await quitar("/negocio", await tokenDeSesion(), { cuerpo: { nombre } });
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
 
       // El rubro se cambia sólo mientras el negocio no tiene casos (SCRUM-90):
@@ -1140,15 +1428,35 @@ export function DatosProvider({ children }) {
           return { ok: true, codigo: datos.negocio.agenda_codigo };
 
         const r = await mandar("/negocio/agenda/compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ agenda_codigo: r.datos.codigo });
         return { ok: true, codigo: r.datos.codigo };
       },
 
       async dejarDeCompartirAgenda() {
         const r = await mandar("/negocio/agenda/dejar-de-compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ agenda_codigo: null });
+        return { ok: true };
+      },
+
+      // Compartir la landing: el link para el Instagram del negocio. Igual que
+      // la agenda, devuelve siempre el mismo código: uno nuevo dejaría muerto el
+      // que ya está publicado.
+      async compartirLanding() {
+        if (datos.negocio?.landing_codigo)
+          return { ok: true, codigo: datos.negocio.landing_codigo };
+
+        const r = await mandar("/negocio/landing/compartir", {}, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        sinVersionDelNegocio({ landing_codigo: r.datos.codigo });
+        return { ok: true, codigo: r.datos.codigo };
+      },
+
+      async dejarDeCompartirLanding() {
+        const r = await mandar("/negocio/landing/dejar-de-compartir", {}, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        sinVersionDelNegocio({ landing_codigo: null });
         return { ok: true };
       },
 
@@ -1158,7 +1466,7 @@ export function DatosProvider({ children }) {
       // tiene que poder decir si salió.
       async guardarLanding(valor) {
         const r = await reemplazar("/negocio/landing", { valor }, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         if (r.datos.negocio) ponerNegocio(r.datos.negocio);
         return { ok: true };
       },
@@ -1172,14 +1480,14 @@ export function DatosProvider({ children }) {
           return { ok: true, codigo: datos.negocio.ics_codigo };
 
         const r = await mandar("/negocio/calendario/compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ ics_codigo: r.datos.codigo });
         return { ok: true, codigo: r.datos.codigo };
       },
 
       async dejarDeCompartirCalendario() {
         const r = await mandar("/negocio/calendario/dejar-de-compartir", {}, await tokenDeSesion());
-        if (!r.ok) return { ok: false, error: r.error.mensaje };
+        if (!r.ok) return { ok: false, error: r.error };
         sinVersionDelNegocio({ ics_codigo: null });
         return { ok: true };
       },
@@ -1195,7 +1503,7 @@ export function DatosProvider({ children }) {
         (async () => {
           const r = await reemplazar("/negocio/horarios", horarios, await tokenDeSesion());
           if (!r.ok) {
-            setAviso(r.error.mensaje);
+            setAviso(r.error);
             setRefresco((n) => n + 1);
             return;
           }
