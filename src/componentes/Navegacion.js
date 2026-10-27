@@ -73,6 +73,7 @@ const DESTINOS = [
     ],
   },
   { href: "/ecuaciones", icono: "nota", modulo: "ecuaciones" },
+  { href: "/lienzo", icono: "pincel", modulo: "lienzo" },
   { href: "/aprobar", icono: "persona-check", modulo: "presupuesto" },
   { href: "/equipo", icono: "personas", modulo: "equipo" },
   { href: "/historial", icono: "historial", modulo: "historial" },

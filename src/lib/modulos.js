@@ -64,6 +64,15 @@ export const MODULOS = {
     queHace:
       "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
   },
+  lienzo: {
+    clave: "lienzo",
+    nombre: "Lienzo",
+    icono: "pincel",
+    ruta: "/lienzo",
+    descripcion: "Un papel en blanco para dibujar y explicar.",
+    queHace:
+      "Un lienzo blanco para hacer un dibujo rápido y explicarle algo a alguien: lápiz, pincel, colores y formas. No se guarda: si te sirve, lo bajás como imagen.",
+  },
   // SCRUM-121. La clave sigue siendo "presupuesto" y no "aprobar": está
   // escrita en la lista de módulos de cada negocio que existe y en cada preset,
   // y cambiarla obligaba a migrar todo eso para decir lo mismo.

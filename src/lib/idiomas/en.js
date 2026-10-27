@@ -1840,6 +1840,12 @@ export default {
       queHace:
         "Save the formulas your business uses so you can find them and use them again. Turning the module off only removes it from the menu: saved equations aren't deleted.",
     },
+    lienzo: {
+      nombre: "Canvas",
+      descripcion: "A blank sheet to draw on and explain.",
+      queHace:
+        "A white canvas for a quick drawing to explain something to someone: pencil, brush, colors and shapes. It isn't saved: if it's useful, download it as an image.",
+    },
     presupuesto: {
       nombre: "Pending approval",
       descripcion: "Cases waiting for the customer to answer.",
@@ -2848,6 +2854,27 @@ export default {
     termino: "It ended on {fecha}. To keep going, choose a plan.",
     empezar: "You can start it from the plans.",
     noEmpezaste: "You haven't started your trial month yet",
+  },
+  lienzo: {
+    apoyo: "Draw to explain something. It isn't saved: download it as an image if it's useful.",
+    herramientas: "Tools",
+    lapiz: "Pencil",
+    pincel: "Brush",
+    linea: "Line",
+    flecha: "Arrow",
+    rectangulo: "Rectangle",
+    circulo: "Circle",
+    borrador: "Eraser",
+    grosor: "Thickness",
+    grosorN: "Thickness {n}",
+    color: "Color",
+    colorN: "Color {color}",
+    otroColor: "Other color",
+    deshacer: "Undo",
+    limpiar: "Clear",
+    descargar: "Download image",
+    area: "Drawing canvas",
+    archivo: "canvas.png",
   },
   ecuaciones: {
     apoyo: "Save formulas, find them and solve them whenever you need.",

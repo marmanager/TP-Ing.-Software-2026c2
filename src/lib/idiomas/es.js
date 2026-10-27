@@ -1846,6 +1846,12 @@ export default {
       queHace:
         "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
     },
+    lienzo: {
+      nombre: "Lienzo",
+      descripcion: "Un papel en blanco para dibujar y explicar.",
+      queHace:
+        "Un lienzo blanco para hacer un dibujo rápido y explicarle algo a alguien: lápiz, pincel, colores y formas. No se guarda: si te sirve, lo bajás como imagen.",
+    },
     presupuesto: {
       nombre: "Pendientes de aprobación",
       descripcion: "Los casos que esperan que el cliente conteste.",
@@ -2854,6 +2860,27 @@ export default {
     termino: "Terminó el {fecha}. Para seguir, elegí un plan.",
     empezar: "Lo podés empezar desde los planes.",
     noEmpezaste: "Todavía no empezaste tu mes de prueba",
+  },
+  lienzo: {
+    apoyo: "Dibujá para explicar algo. No se guarda: si te sirve, bajalo como imagen.",
+    herramientas: "Herramientas",
+    lapiz: "Lápiz",
+    pincel: "Pincel",
+    linea: "Línea",
+    flecha: "Flecha",
+    rectangulo: "Rectángulo",
+    circulo: "Círculo",
+    borrador: "Borrador",
+    grosor: "Grosor",
+    grosorN: "Grosor {n}",
+    color: "Color",
+    colorN: "Color {color}",
+    otroColor: "Otro color",
+    deshacer: "Deshacer",
+    limpiar: "Limpiar",
+    descargar: "Descargar imagen",
+    area: "Lienzo para dibujar",
+    archivo: "lienzo.png",
   },
   ecuaciones: {
     apoyo: "Guardá fórmulas, encontralas y resolvelas cuando las necesites.",
