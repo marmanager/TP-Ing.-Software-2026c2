@@ -61,6 +61,22 @@ const VACIO = {
 
 const Contexto = createContext(null);
 
+// Las respuestas por WhatsApp (R-10b). La bandeja ya viene recortada, pero
+// la del caso trae la fila entera: lo que mandó Kapso tal cual ("contenido")
+// y sus ids. Nada de eso se muestra, así que no entra a la pantalla.
+const PAGINAS_DE_RESPUESTAS = 10;
+const sinLoCrudo = ({ contenido, contacto_id, numero_emisor_id, ...respuesta }) => respuesta;
+
+async function paginaDeRespuestas(ruta, { limite, cursor }, token) {
+  const consulta = new URLSearchParams({
+    ...(limite ? { limite: String(limite) } : {}),
+    ...(cursor ? { cursor } : {}),
+  });
+  const r = await traer(consulta.toString() ? `${ruta}?${consulta}` : ruta, token);
+  if (!r.ok) return { ok: false, error: "No pudimos traer lo que contestaron los clientes. Probá de nuevo en un rato." };
+  return { ok: true, respuestas: (r.datos ?? []).map(sinLoCrudo), siguiente: r.siguiente ?? null };
+}
+
 const nuevoId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
@@ -824,6 +840,38 @@ export function DatosProvider({ children }) {
       async consultarSeguimiento() {
         const r = await traer("/negocio/seguimiento", await tokenDeSesion());
         return r.ok ? { ok: true, configuracion: r.datos } : { ok: false, error: r.error.mensaje };
+      },
+
+      // Lo que contestaron los clientes por WhatsApp (R-10b). Una página por
+      // pedido, con el limite y el cursor de todas las listas: la bandeja
+      // del negocio, de la más vieja a la más nueva, sin contexto.
+      async leerRespuestas({ limite, cursor } = {}) {
+        return paginaDeRespuestas("/seguimiento/respuestas", { limite, cursor }, await tokenDeSesion());
+      },
+
+      // Las de un caso, con el aviso que contestó cada una (contexto).
+      async leerRespuestasDelCaso(casoId, { limite, cursor } = {}) {
+        return paginaDeRespuestas(
+          `/casos/${encodeURIComponent(casoId)}/seguimiento/respuestas`, { limite, cursor }, await tokenDeSesion()
+        );
+      },
+
+      // Todas las del negocio, página por página, para la ficha de un
+      // cliente: la API no filtra por cliente. Con tope, para que un negocio
+      // con años de mensajes no se quede leyendo; "completas" dice si llegó
+      // al final.
+      async leerTodasLasRespuestas() {
+        const token = await tokenDeSesion();
+        const respuestas = [];
+        let cursor = null;
+        for (let i = 0; i < PAGINAS_DE_RESPUESTAS; i++) {
+          const r = await paginaDeRespuestas("/seguimiento/respuestas", { limite: 200, cursor }, token);
+          if (!r.ok) return r;
+          respuestas.push(...r.respuestas);
+          cursor = r.siguiente;
+          if (!cursor) return { ok: true, respuestas, completas: true };
+        }
+        return { ok: true, respuestas, completas: false };
       },
 
       // Los recordatorios van por el mismo camino: arriba el posventa

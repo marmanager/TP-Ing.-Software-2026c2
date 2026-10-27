@@ -75,6 +75,9 @@ const DESTINOS = [
   },
   { href: "/ecuaciones", icono: "nota", palabra: "Ecuaciones", modulo: "ecuaciones" },
   { href: "/aprobar", icono: "persona-check", palabra: "Pendientes de aprobación", modulo: "presupuesto" },
+  // Lo que los clientes contestaron por WhatsApp y no resolvió nada solo
+  // (R-10b). Núcleo: cualquier aviso puede tener respuesta.
+  { href: "/respuestas", icono: "chat", palabra: "Respuestas por WhatsApp" },
   { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
   { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
   { href: "/dashboard", icono: "grafico", palabra: "Estadísticas", modulo: "dashboard", permiso: "ver_todos_los_casos" },

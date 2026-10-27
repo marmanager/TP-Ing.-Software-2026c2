@@ -129,3 +129,85 @@ Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.tes
 - Ni el `mensaje` de `sin_aviso` ni el de un error al revertir se muestran: las frases
   salen de `porQueNoSeAviso()` y `errorAlRevertirBaja()` (`lib/recordatorios.js`), por
   código, como pide la sección 07 de la cartilla.
+
+## Respuestas del cliente por WhatsApp (R-10b)
+
+Lo que el cliente contesta a un aviso lo recibe el webhook de Kapso (R-10a, migraciones 069
+y 070). La API decide qué quiere decir (`seguimiento/interpretar.ts`) y lo guarda en dos
+lugares: el mensaje, en `seguimiento_whatsapp_respuesta`, y lo que cambió, en la fila que
+corresponde. El front sólo lee; las tres lecturas están en `datos.js`.
+
+### `GET /seguimiento/respuestas`: la bandeja del negocio
+
+```
+GET /v1/seguimiento/respuestas?limite=50&cursor=<siguiente>
+→ { ok: true, datos: Respuesta[], siguiente: string | null }
+
+Respuesta = {
+  id, negocio_id, cliente_id, caso_id, seguimiento_id,
+  contexto_mensaje_id,   // el mensaje que citó en WhatsApp, o null
+  mensaje_id, telefono,  // el número que escribió, internacional, o null
+  tipo,                  // "text", "audio", "image"…
+  texto,                 // lo que escribió, tal cual; null si no es texto
+  enviado_en,            // cuándo lo escribió (la hora de WhatsApp)
+  creado_en              // cuándo llegó
+}
+```
+
+- Pagina como todas las listas: de la más vieja a la más nueva por `(creado_en, id)`;
+  `limite` hasta 200 (50 si no viene).
+- **No trae `contexto`.** Tampoco `contenido`, `contacto_id` ni `numero_emisor_id`: los
+  recorta la API.
+- **No filtra por cliente.** La ficha lee la bandeja página por página
+  (`leerTodasLasRespuestas()`, hasta 10 páginas de 200) y se queda con las de ese cliente.
+- Trae todo, también lo que ya resolvió algo. Qué va a la pantalla de la bandeja lo decide
+  `respuestasPendientes()` (`lib/recordatorios.js`): sale el mensaje cuyo `enviado_en` es
+  el `respuesta_cliente_en` de un turno del mismo cliente (confirmó o avisó que no puede)
+  o el `avisos_baja_en` del cliente (la baja). La API guarda esa misma hora en las dos
+  filas. Un segundo «sí» que repite lo ya dicho no se anota en el turno, así que queda en
+  la bandeja.
+- La API no guarda cuáles se leyeron: no hay «marcar como leída».
+
+### `GET /casos/:casoId/seguimiento/respuestas`: las de un caso
+
+```
+GET /v1/casos/:casoId/seguimiento/respuestas?limite=50&cursor=<siguiente>
+→ { ok: true, datos: (Respuesta & { contexto })[], siguiente }
+
+contexto = {
+  seguimiento_id, mensaje_id,
+  texto,        // el aviso que le mandamos
+  tipo,         // "cierre" | "estado" | "turno" | "volver" | "presupuesto"
+  enviado_en,   // cuándo salió el aviso (procesado_en)
+  asociacion    // "citada" | "ultimo_aviso"
+} | null
+```
+
+- `asociacion: "citada"` es que el cliente respondió ese mensaje en WhatsApp; con
+  `"ultimo_aviso"`, la API lo asoció al último que le mandamos. `aQueContesto()` afirma lo
+  primero y dice lo segundo como deducción («Parece contestar a…»). El aviso se nombra por
+  su `tipo`; `contexto.texto` no se muestra.
+- 404 `caso_no_encontrado` si el caso no es del negocio.
+- **Ojo:** esta lectura hace `select("*")` y **sí** trae `contenido` (lo que mandó Kapso
+  tal cual), `contacto_id` y `numero_emisor_id`. `datos.js` los descarta antes de guardar
+  nada. Conviene que la API los recorte como en la bandeja.
+- Lo que contestan a un recordatorio de turno no tiene caso (`caso_id: null`): sólo está
+  en la bandeja, y por eso nunca trae contexto.
+
+### `turno.respuesta_cliente`
+
+`GET /datos` y `GET /turnos` traen el turno entero, con `respuesta_cliente`
+(`"confirmo"` | `"no_puede"` | `null`) y `respuesta_cliente_en`. La API sólo lo anota si
+el «sí» o el «no» contestan el recordatorio de un turno en pie que todavía no pasó. «No
+puede» no cancela el turno: lo marca, y el negocio decide. `respuestaDelTurno()` lo dice en
+la agenda, y «todavía no contestó» sólo si el recordatorio ya salió.
+
+### Pendiente en la base
+
+- **La 070** (`supabase/migrations/20261025230000_070_respuesta_a_recordatorio.sql`, en la
+  rama `pruebas-locales`) tiene que estar aplicada. Sin ella, lo que contestan a un
+  recordatorio de turno no entra (el check de la 069 pedía caso), y si entrara la bandeja
+  no lo mostraría.
+- Una respuesta que la API identifica sólo por el teléfono (sin aviso) llega con
+  `negocio_id` y sin `seguimiento_id`, y el check de la 070 la rechaza. Hoy esas no se
+  guardan.

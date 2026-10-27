@@ -6,7 +6,7 @@
 // el celular. Identificador, estado y "qué falta" tienen que entrar en la
 // primera pantalla, sin scrollear.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
@@ -42,6 +42,7 @@ import { cobrosConLoDeAntes, cobrosDelCaso, cuentaDelCaso, descuentoDelCaso } fr
 import SelectorEstado from "@/componentes/SelectorEstado";
 import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
 import CuandoVuelve from "@/componentes/CuandoVuelve";
+import ListaDeRespuestas from "@/componentes/ListaDeRespuestas";
 import { erroresSeguimiento, linkDelAvisoDeAvance, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
 import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
@@ -139,6 +140,32 @@ export default function VerCaso() {
   // Si cobra menos de lo que falta: ¿el resto lo paga después, o no se le
   // cobra? Sin esta pregunta, todo lo que no se cobra queda como deuda.
   const [elResto, setElResto] = useState("despues");
+
+  // Lo que el cliente contestó a los avisos de este caso (R-10b), con el
+  // aviso que contestaba cada vez. En el orden de la API, del primero al
+  // último, como se lee una conversación; "Ver más" trae los siguientes.
+  const [respuestas, setRespuestas] = useState({ lista: [], siguiente: null, error: null });
+  // Las acciones cambian con cada dato nuevo: con la de la última vuelta,
+  // el efecto corre al cambiar de caso y no con cada cambio de la pantalla.
+  const acciones = useRef(datos);
+  acciones.current = datos;
+  const negocioId = negocio?.id;
+  useEffect(() => {
+    if (!negocioId) return;
+    let vivo = true;
+    setRespuestas({ lista: [], siguiente: null, error: null });
+    acciones.current.leerRespuestasDelCaso(id, { limite: 50 }).then((r) => {
+      if (!vivo) return;
+      setRespuestas(r.ok ? { lista: r.respuestas, siguiente: r.siguiente, error: null } : { lista: [], siguiente: null, error: r.error });
+    });
+    return () => { vivo = false; };
+  }, [id, negocioId]);
+  const verMasRespuestas = async () => {
+    const r = await acciones.current.leerRespuestasDelCaso(id, { limite: 50, cursor: respuestas.siguiente });
+    setRespuestas((antes) =>
+      r.ok ? { lista: [...antes.lista, ...r.respuestas], siguiente: r.siguiente, error: null } : { ...antes, error: r.error }
+    );
+  };
 
   const caso = casos.find((c) => c.id === id);
   useTitulo(caso ? tituloDelCaso(caso) : "Caso");
@@ -1294,6 +1321,20 @@ export default function VerCaso() {
           Revisar y presupuestar son el mismo momento de trabajo, y estaban
           partidos en dos pantallas: se escribía acá qué se encontró y había
           que irse a otro lado a cargar lo que hay que hacer con eso. */}
+
+      {/* Sin respuestas no hay sección: una vacía no dice nada que sirva. */}
+      {(respuestas.lista.length > 0 || respuestas.error) && (
+        <section data-respuestas-del-caso className="mt-12">
+          <TituloSeccion>Lo que contestó el cliente</TituloSeccion>
+          {respuestas.lista.length > 0 && <ListaDeRespuestas respuestas={respuestas.lista} rubro={negocio?.rubro} />}
+          {respuestas.error && <p className="mt-2 text-tinta-media">{respuestas.error}</p>}
+          {respuestas.siguiente && (
+            <Boton variante="plano" icono="flecha-abajo" className="mt-3" onClick={verMasRespuestas}>
+              Ver más respuestas
+            </Boton>
+          )}
+        </section>
+      )}
 
       <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
         <TituloSeccion className="mb-0">Lo que pasó con este caso</TituloSeccion>
