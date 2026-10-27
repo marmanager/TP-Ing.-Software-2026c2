@@ -5,6 +5,7 @@ import { useTitulo } from "@/lib/useTitulo";
 import { useIdioma } from "@/lib/useIdioma";
 import { nombreDeModulo } from "@/lib/modulos";
 import { apilar, COLORES, GROSORES, puntasDeFlecha, radio, rectangulo } from "@/lib/lienzo";
+import Icono from "@/componentes/Icono";
 import { Boton, Tarjeta, TituloPantalla } from "@/componentes/ui";
 
 const HERRAMIENTAS = ["lapiz", "pincel", "linea", "flecha", "rectangulo", "circulo", "borrador"];
@@ -159,9 +160,17 @@ export default function Lienzo() {
       <Tarjeta className="mb-4 space-y-4">
         <div role="group" aria-label={t("lienzo.herramientas")} className="flex flex-wrap gap-2">
           {HERRAMIENTAS.map((h) => (
-            <Boton key={h} variante={herramienta === h ? "borde" : "neutro"} aria-pressed={herramienta === h} onClick={() => setHerramienta(h)}>
-              {t(`lienzo.${h}`)}
-            </Boton>
+            <button
+              key={h}
+              type="button"
+              aria-label={t(`lienzo.${h}`)}
+              aria-pressed={herramienta === h}
+              title={t(`lienzo.${h}`)}
+              onClick={() => setHerramienta(h)}
+              className={`flex size-12 cursor-pointer items-center justify-center rounded-campo border-2 ${herramienta === h ? "border-azul bg-azul-claro text-azul" : "border-borde-fuerte bg-tarjeta text-tinta hover:bg-superficie"}`}
+            >
+              <Icono nombre={h} className="size-7" />
+            </button>
           ))}
         </div>
 
