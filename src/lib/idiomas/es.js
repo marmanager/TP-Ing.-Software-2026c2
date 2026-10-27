@@ -2974,6 +2974,7 @@ export default {
     error_interno: "No pudimos completar la operación. Probá de nuevo en un rato.",
     sin_api: "La aplicación todavía no está conectada al servidor. Avisale a quien la configuró.",
     sin_sesion: "No hay una sesión abierta.",
+    sin_link: "No pudimos abrir el pago. Probá de nuevo.",
     sin_api_crear: "Para crear una cuenta hace falta que el sistema esté conectado a la API.",
     sin_api_entrar: "Para iniciar sesión hace falta que el sistema esté conectado a la API.",
     sin_api_google: "Para entrar con Google hace falta que el sistema esté conectado a la API.",

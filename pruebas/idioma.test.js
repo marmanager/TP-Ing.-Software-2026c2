@@ -79,3 +79,11 @@ test("un error se traduce por código y, si no se conoce, muestra su mensaje", (
 test("la cookie dura un año y vale para toda la app", () => {
   assert.equal(cookieDeIdioma("en"), "idioma=en; path=/; max-age=31536000; samesite=lax");
 });
+
+test("una clave que no apunta a un texto devuelve siFalta y no lanza", () => {
+  const ctx = { diccionario: { x: { a: "uno", p: { one: "uno" } } }, base: null, locale: "es" };
+  assert.equal(traducir(ctx, "x"), "x");
+  assert.equal(traducir(ctx, "x.p", { n: 2 }, "falta"), "falta");
+  assert.equal(traducir(ctx, "x.constructor", {}, "falta"), "falta");
+  assert.equal(traducir(ctx, "x.a", null), "uno");
+});

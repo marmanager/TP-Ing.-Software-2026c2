@@ -39,11 +39,14 @@ const buscar = (diccionario, clave) => clave.split(".").reduce((o, k) => o?.[k],
 //
 // Un texto con plural es { one, other } y elige Intl.PluralRules con vars.n.
 export function traducir({ diccionario, base, locale }, clave, vars = {}, siFalta = clave) {
+  vars = vars ?? {};
   let texto = buscar(diccionario, clave) ?? buscar(base, clave);
   if (texto == null) return siFalta;
   if (typeof texto === "object") {
     texto = texto[new Intl.PluralRules(locale).select(vars.n ?? 1)] ?? texto.other;
   }
+  // Un namespace, un plural sin "other" o una propiedad heredada no son texto.
+  if (typeof texto !== "string") return siFalta;
   return texto.replace(/\{(\w+)\}/g, (todo, k) => (k in vars ? String(vars[k]) : todo));
 }
 
