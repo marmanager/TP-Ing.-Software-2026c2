@@ -45,21 +45,21 @@ export function agruparPlanes(precios = []) {
 }
 
 // Un monto en la moneda elegida, o null si en pesos no hay cotización.
-export function monto(precio, moneda) {
+export function monto(precio, moneda, locale = "es-AR") {
   if (!precio) return null;
-  if (moneda === "USD") return `USD ${precio.usd.toLocaleString("es-AR")}`;
-  return precio.ars == null ? null : `$ ${precio.ars.toLocaleString("es-AR")}`;
+  if (moneda === "USD") return `USD ${precio.usd.toLocaleString(locale)}`;
+  return precio.ars == null ? null : `$ ${precio.ars.toLocaleString(locale)}`;
 }
 
 // Cuánto se ahorra con el anual frente a doce mensuales, en la misma forma
 // que monto(). null si falta alguno de los dos o no hay ahorro.
-export function ahorroAnual(mensual, anual, moneda) {
+export function ahorroAnual(mensual, anual, moneda, locale = "es-AR") {
   if (!mensual || !anual) return null;
   const ahorro = {
     usd: mensual.usd * 12 - anual.usd,
     ars: mensual.ars == null || anual.ars == null ? null : mensual.ars * 12 - anual.ars,
   };
-  return ahorro.usd > 0 ? monto(ahorro, moneda) : null;
+  return ahorro.usd > 0 ? monto(ahorro, moneda, locale) : null;
 }
 
 // Los días que le quedan a la prueba, redondeando para arriba: con medio día

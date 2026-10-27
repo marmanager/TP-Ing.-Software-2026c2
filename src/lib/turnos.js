@@ -17,39 +17,50 @@
 // Las clases de Tailwind van escritas enteras, igual que en estados.js: el
 // escáner lee el código fuente y un `text-${x}` no generaría nada.
 
+import { tCastellano } from "./idioma.js";
+
 export const ESTADOS_TURNO = {
   agendado: {
     clave: "agendado",
-    palabra: "Sin confirmar",
+    palabra: tCastellano("agenda.estado.agendado.palabra"),
     icono: "reloj",
     texto: "text-tinta-media",
-    significado: "Está anotado, pero la persona todavía no confirmó que viene.",
+    significado: tCastellano("agenda.estado.agendado.significado"),
   },
   confirmado: {
     clave: "confirmado",
-    palabra: "Confirmado",
+    palabra: tCastellano("agenda.estado.confirmado.palabra"),
     icono: "listo",
     texto: "text-completo",
-    significado: "La persona dijo que viene.",
+    significado: tCastellano("agenda.estado.confirmado.significado"),
   },
   cancelado: {
     clave: "cancelado",
-    palabra: "Cancelado",
+    palabra: tCastellano("agenda.estado.cancelado.palabra"),
     icono: "cruz",
     texto: "text-tinta-suave line-through",
-    significado: "No va a venir. Queda en la agenda para que se sepa que estaba.",
+    significado: tCastellano("agenda.estado.cancelado.significado"),
   },
   atendido: {
     clave: "atendido",
-    palabra: "Ya vino",
+    palabra: tCastellano("agenda.estado.atendido.palabra"),
     icono: "persona-check",
     texto: "text-tinta-suave",
-    significado:
-      "Vino y se la atendió. Si traía un trabajo, el turno queda apuntando al caso que salió de él.",
+    significado: tCastellano("agenda.estado.atendido.significado"),
   },
 };
 
-export const estadoDeTurno = (estado) => ESTADOS_TURNO[estado] ?? ESTADOS_TURNO.agendado;
+// Las palabras salen del diccionario (agenda.estado.*): en ESTADOS_TURNO están
+// en castellano, que es lo que leen los tests y los que todavía no pasan `t`;
+// estadoDeTurno(estado, t) las da en el idioma de quien mira.
+export function estadoDeTurno(estado, t = tCastellano) {
+  const e = ESTADOS_TURNO[estado] ?? ESTADOS_TURNO.agendado;
+  return {
+    ...e,
+    palabra: t(`agenda.estado.${e.clave}.palabra`),
+    significado: t(`agenda.estado.${e.clave}.significado`),
+  };
+}
 
 // Los turnos que pidió un cliente por el link y todavía no miró nadie.
 //

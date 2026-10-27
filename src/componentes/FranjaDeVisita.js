@@ -9,11 +9,13 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { misSedes } from "@/lib/sedes";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 
 export default function FranjaDeVisita() {
   const { usuario, sesion, entrarAlNegocio } = useAuth();
   const { negocio } = useDatos();
+  const { t } = useIdioma();
   const router = useRouter();
   const [sedes, setSedes] = useState([]);
   const [yendo, setYendo] = useState(false);
@@ -48,14 +50,14 @@ export default function FranjaDeVisita() {
       className="flex flex-wrap items-center gap-3 border-l-4 border-l-espera bg-espera-fondo px-4 py-3 text-espera"
     >
       <Icono nombre="ojo" />
-      <span className="font-bold">{negocio?.nombre} · Solo lectura</span>
+      <span className="font-bold">{t("agenda.visita.soloLectura", { negocio: negocio?.nombre })}</span>
       <button
         type="button"
         disabled={yendo}
         onClick={volver}
         className="ml-auto min-h-12 font-bold underline"
       >
-        Volver a {origen?.nombre ?? "la sede propia"}
+        {origen ? t("agenda.visita.volver", { sede: origen.nombre }) : t("agenda.visita.volverPropia")}
       </button>
     </div>
   );

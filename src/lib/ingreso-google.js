@@ -20,8 +20,9 @@ export function nombreDeLaCuenta(metadatos = {}) {
 // de Vercel pueden pedir iniciar sesión en Vercel antes de entregar el token.
 // Cuando Google o Supabase no dejan entrar, vuelven a la pantalla con el
 // error en la dirección (?error=... o #error=...). Esto lo traduce a una
-// frase para la persona, o null si no hubo error.
-export function errorDelIngreso(direccion) {
+// frase para la persona, o null si no hubo error. `t` es el de la pantalla
+// (idioma); sin él sale el castellano, que es lo que prueban los tests.
+export function errorDelIngreso(direccion, t = (clave, vars, siFalta) => siFalta) {
   let url;
   try {
     url = new URL(direccion);
@@ -34,10 +35,10 @@ export function errorDelIngreso(direccion) {
   if (!codigo) return null;
 
   if (codigo === "access_denied") {
-    return "No se completó el ingreso con Google. Si fue sin querer, probá de nuevo.";
+    return t("acceso.google.cancelo", {}, "No se completó el ingreso con Google. Si fue sin querer, probá de nuevo.");
   }
   if (/provider is not enabled|unsupported provider/i.test(detalle)) {
-    return "El ingreso con Google todavía no está activado. Por ahora entrá con tu mail y tu contraseña.";
+    return t("acceso.google.noActivado", {}, "El ingreso con Google todavía no está activado. Por ahora entrá con tu mail y tu contraseña.");
   }
-  return "No pudimos entrar con Google. Probá de nuevo o entrá con tu mail y tu contraseña.";
+  return t("acceso.google.fallo", {}, "No pudimos entrar con Google. Probá de nuevo o entrá con tu mail y tu contraseña.");
 }

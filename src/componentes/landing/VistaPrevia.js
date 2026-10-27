@@ -1,5 +1,8 @@
+"use client";
+
 import Lienzo from "./Lienzo";
 import Icono from "@/componentes/Icono";
+import { useIdioma } from "@/lib/useIdioma";
 
 // La landing en chico, con datos de ejemplo, para ver cómo queda mientras se
 // edita. Es una imitación: los botones son de mentira (no se pueden tocar ni
@@ -25,52 +28,55 @@ function BotonDeMentira({ icono, children }) {
   );
 }
 
+// Todo lo que muestra son datos de ejemplo del editor: los textos fijos salen
+// del diccionario (landing.vistaPrevia.*).
 const CONTENIDO = {
-  negocio: (negocio) => (
+  negocio: (negocio, t) => (
     <>
       <p>{negocio?.telefono || "341 555 1234"}</p>
-      <p>Lunes a viernes, de 9 a 18.</p>
-      <BotonDeMentira icono="whatsapp">Escribinos</BotonDeMentira>
+      <p>{t("landing.vistaPrevia.horario")}</p>
+      <BotonDeMentira icono="whatsapp">{t("landing.vistaPrevia.escribinos")}</BotonDeMentira>
     </>
   ),
-  sacar_turno: () => (
+  sacar_turno: (_negocio, t) => (
     <>
       <div className="flex flex-wrap gap-2">
-        {["Lun 20", "Mar 21", "Mié 22"].map((dia) => (
+        {["d1", "d2", "d3"].map((dia) => (
           <span key={dia} className="rounded-campo bg-azul-claro px-3 py-2 font-bold text-azul">
-            {dia}
+            {t(`landing.vistaPrevia.dias.${dia}`)}
           </span>
         ))}
       </div>
-      <BotonDeMentira>Pedir turno</BotonDeMentira>
+      <BotonDeMentira>{t("landing.vistaPrevia.pedirTurno")}</BotonDeMentira>
     </>
   ),
-  mis_casos: () => (
+  mis_casos: (_negocio, t) => (
     <>
       <p className="flex flex-wrap items-center gap-2 text-tinta">
-        Caso 248
+        {t("casos.nombre.caso", { numero: 248 })}
         <span className="lienzo-acento rounded-full px-3 py-1 font-bold text-etiqueta">
-          En proceso
+          {t("landing.vistaPrevia.enProceso")}
         </span>
       </p>
-      <span className="font-bold text-azul">Ver cómo viene</span>
+      <span className="font-bold text-azul">{t("landing.vistaPrevia.verComoViene")}</span>
     </>
   ),
-  mis_turnos: () => <p>Martes 21, 10:00 · Cambio de aceite</p>,
+  mis_turnos: (_negocio, t) => <p>{t("landing.vistaPrevia.turno")}</p>,
 };
 
 export default function VistaPrevia({ landing, negocio, secciones }) {
+  const { t } = useIdioma();
   return (
     <figure>
       <figcaption className="mb-2 font-bold text-etiqueta text-tinta-media">
-        Así la ve tu cliente
+        {t("landing.vistaPrevia.asiLaVe")}
       </figcaption>
       <Lienzo landing={landing} className="mx-auto max-w-sm rounded-tarjeta border border-borde-fuerte p-4">
-        <h2 className="text-seccion font-extrabold">{negocio?.nombre ?? "Tu negocio"}</h2>
+        <h2 className="text-seccion font-extrabold">{negocio?.nombre ?? t("landing.vistaPrevia.tuNegocio")}</h2>
         <div className="mt-4 grid gap-3">
           {secciones.map((s) => (
             <Seccion key={s.clave} titulo={s.nombre}>
-              {CONTENIDO[s.clave](negocio)}
+              {CONTENIDO[s.clave](negocio, t)}
             </Seccion>
           ))}
         </div>

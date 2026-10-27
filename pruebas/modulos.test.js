@@ -35,6 +35,7 @@ test("los submódulos no ensucian la lista de módulos", () => {
     "equipo",
     "historial",
     "inventario",
+    "lienzo",
     "presupuesto",
   ]);
   for (const s of LISTA_SUBMODULOS) {
@@ -47,7 +48,7 @@ test("los módulos van en el orden de la barra lateral", () => {
   // lugar.
   assert.deepEqual(
     LISTA_MODULOS.map((m) => m.clave),
-    ["agenda", "clientes", "inventario", "ecuaciones", "presupuesto", "equipo", "historial", "dashboard"]
+    ["agenda", "clientes", "inventario", "ecuaciones", "lienzo", "presupuesto", "equipo", "historial", "dashboard"]
   );
 });
 

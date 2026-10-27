@@ -15,6 +15,8 @@ import { useDatos } from "@/lib/datos";
 import { ejemplosDe } from "@/lib/presets";
 import { paraInput } from "@/lib/fechas";
 import { paisInicial } from "@/lib/telefono";
+import { useIdioma } from "@/lib/useIdioma";
+import { avisoAlAnotar } from "@/lib/recordatorios";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 
@@ -27,6 +29,7 @@ export default function AltaDeTurno({
   className = "",
 }) {
   const datos = useDatos();
+  const { idioma, locale, t } = useIdioma();
   const { clientes, negocio } = datos;
   const [form, setForm] = useState({ ...VACIO, empiezaEn: cuandoSugerido });
   // El teléfono, con el selector de país (B-1b). Sólo cuenta si es alguien
@@ -48,13 +51,13 @@ export default function AltaDeTurno({
   const errorTelefono = pideTelefono && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   const motivoApagado = guardando
-    ? "se está guardando"
+    ? t("agenda.alta.guardando")
     : errorTelefono
-    ? "el teléfono no sirve todavía"
+    ? t("agenda.alta.telefonoNoSirve")
     : !form.motivo.trim()
-    ? "falta el motivo"
+    ? t("agenda.alta.faltaMotivo")
     : !form.empiezaEn
-      ? "falta el día y la hora"
+      ? t("agenda.alta.faltaCuando")
       : null;
 
   async function guardar() {
@@ -69,7 +72,7 @@ export default function AltaDeTurno({
     // dio datos.js y el formulario queda con lo escrito, para cambiar la hora.
     if (!r) return;
     datos.avisarExito(
-      [`Listo. El turno de ${form.motivo.trim()} quedó anotado.`, r.avisoDelRecordatorio].filter(Boolean).join(" ")
+      [t("agenda.alta.listo", { motivo: form.motivo.trim() }), avisoAlAnotar(r.recordatorio, { t, locale, idioma })].filter(Boolean).join(" ")
     );
     setForm({ ...VACIO, empiezaEn: cuandoSugerido });
     tel.cargar("");
@@ -78,13 +81,13 @@ export default function AltaDeTurno({
 
   return (
     <Tarjeta className={`max-w-[560px] ${className}`}>
-      <TituloSeccion>Nuevo turno</TituloSeccion>
+      <TituloSeccion>{t("agenda.alta.titulo")}</TituloSeccion>
 
       <Campo
         id="turno-cliente"
-        etiqueta="Para quién"
-        ayuda="Si todavía no está cargado, escribí su nombre igual: lo damos de alta con el turno."
-        exito={yaEsCliente ? `Ya es cliente. Le sumamos este turno a ${yaEsCliente.nombre}.` : null}
+        etiqueta={t("agenda.alta.paraQuien")}
+        ayuda={t("agenda.alta.paraQuienAyuda")}
+        exito={yaEsCliente ? t("agenda.alta.yaEsCliente", { nombre: yaEsCliente.nombre }) : null}
         value={form.nombreCliente}
         onChange={(e) => setForm({ ...form, nombreCliente: e.target.value })}
         list="clientes-de-la-agenda"
@@ -101,8 +104,8 @@ export default function AltaDeTurno({
       {pideTelefono && (
         <CampoTelefono
           id="turno-telefono"
-          etiqueta="Su teléfono"
-          ayuda="Opcional. Sirve para avisarle si hay que mover el turno."
+          etiqueta={t("agenda.alta.telefono")}
+          ayuda={t("agenda.alta.telefonoAyuda")}
           paisPorDefecto={paisNegocio}
           error={errorTelefono}
           valor={tel.valor}
@@ -112,15 +115,15 @@ export default function AltaDeTurno({
 
       <Campo
         id="turno-motivo"
-        etiqueta="Para qué viene"
-        ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).turno}.`}
+        etiqueta={t("agenda.alta.paraQue")}
+        ayuda={t("agenda.alta.paraQueAyuda", { ejemplo: ejemplosDe(negocio?.rubro, idioma).turno })}
         value={form.motivo}
         onChange={(e) => setForm({ ...form, motivo: e.target.value })}
       />
       <Campo
         id="turno-cuando"
-        etiqueta="Qué día y a qué hora"
-        ayuda="Se puede cambiar después."
+        etiqueta={t("agenda.alta.cuando")}
+        ayuda={t("agenda.alta.cuandoAyuda")}
         type="datetime-local"
         min={paraInput()}
         value={form.empiezaEn}
@@ -141,7 +144,7 @@ export default function AltaDeTurno({
           className="w-full sm:w-auto"
           onClick={guardar}
         >
-          Guardar el turno
+          {t("agenda.alta.guardar")}
         </Boton>
         {alCancelar && (
           <Boton
@@ -153,7 +156,7 @@ export default function AltaDeTurno({
               alCancelar();
             }}
           >
-            Cancelar
+            {t("agenda.alta.cancelar")}
           </Boton>
         )}
       </div>

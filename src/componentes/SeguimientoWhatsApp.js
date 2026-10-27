@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Icono from "./Icono";
 import { Boton, Campo } from "./ui";
 import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
+import { textoDeError } from "@/lib/idioma";
+import { useIdioma } from "@/lib/useIdioma";
 
 export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar, guardando }) {
+  const { t } = useIdioma();
   const [configuracion, setConfiguracion] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
@@ -50,17 +53,17 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
   }
 
   const conTelefono = telefonoWhatsAppValido(telefono);
-  const errores = erroresSeguimiento(valor);
+  const errores = erroresSeguimiento(valor, t);
   const disponible = configuracion?.activo && conTelefono && !activando;
 
   return (
     <fieldset className="my-6 border-t border-borde pt-6" disabled={guardando}>
       <legend className="flex items-center gap-2 pt-6 font-titulo font-extrabold text-seccion">
         <Icono nombre="whatsapp" className="size-6 text-completo" />
-        Seguimiento por WhatsApp
+        {t("casos.seguimiento.titulo")}
       </legend>
       <p className="mb-3 text-etiqueta text-tinta-media">
-        El mensaje que uses quedará guardado para los próximos casos. Los días se aplican a este cierre.
+        {t("casos.seguimiento.apoyo")}
       </p>
       <label className="inline-flex min-h-12 cursor-pointer items-center gap-3 font-bold text-cuerpo">
         <input
@@ -71,23 +74,23 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
           aria-describedby="seguimiento-entrega-ayuda"
           className="size-5 accent-azul"
         />
-        Enviar mensaje de seguimiento
+        {t("casos.seguimiento.enviar")}
       </label>
       <p id="seguimiento-entrega-ayuda" className="mb-4 text-etiqueta text-tinta-media">
         {!conTelefono
-          ? "Agregá al cliente un teléfono con código de país para poder avisarle."
-          : "Marcá esta opción sólo si el cliente aceptó recibir el mensaje."}
+          ? t("casos.seguimiento.sinTelefono")
+          : t("casos.seguimiento.soloSiAcepto")}
       </p>
-      {cargando && <p role="status" className="mb-4 text-tinta-media">Cargando la configuración del seguimiento…</p>}
-      {error && <p role="alert" className="mb-4 font-bold text-rojo">{error}</p>}
+      {cargando && <p role="status" className="mb-4 text-tinta-media">{t("casos.seguimiento.cargando")}</p>}
+      {error && <p role="alert" className="mb-4 font-bold text-rojo">{textoDeError(t, error)}</p>}
       {!cargando && !configuracion && (
-        <Boton variante="plano" onClick={() => setIntento((n) => n + 1)}>Volver a cargar</Boton>
+        <Boton variante="plano" onClick={() => setIntento((n) => n + 1)}>{t("casos.seguimiento.volverACargar")}</Boton>
       )}
       {configuracion && !configuracion.activo && (
         <div className="mb-4 rounded-campo bg-espera-fondo p-4">
-          <p className="mb-2 text-espera">El seguimiento está desactivado para este negocio.</p>
-          <Boton variante="borde" motivo={activando ? "activando" : null} onClick={activar}>
-            Activar seguimiento en el negocio
+          <p className="mb-2 text-espera">{t("casos.seguimiento.desactivado")}</p>
+          <Boton variante="borde" motivo={activando ? t("casos.seguimiento.activando") : null} onClick={activar}>
+            {t("casos.seguimiento.activar")}
           </Boton>
         </div>
       )}
@@ -95,15 +98,15 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
         <div className="mt-4">
           <Campo
             id="seguimiento-entrega-dias"
-            etiqueta="¿Cuántos días después del cierre?"
-            ayuda="Poné 0 para enviarlo al cerrar el caso."
+            etiqueta={t("casos.seguimiento.cuantosDias")}
+            ayuda={t("casos.seguimiento.cuantosDiasAyuda")}
             type="number" min="0" max="3650" step="1" inputMode="numeric"
             value={valor.dias}
             error={errores.dias}
             disabled={!valor.enviar || !disponible}
             onChange={(e) => alCambiar({ ...valor, dias: e.target.value })}
           />
-          <Campo id="seguimiento-entrega-mensaje" etiqueta="Mensaje para el cliente" error={errores.mensaje}>
+          <Campo id="seguimiento-entrega-mensaje" etiqueta={t("casos.seguimiento.mensaje")} error={errores.mensaje}>
             <textarea
               id="seguimiento-entrega-mensaje" rows={5} maxLength={3000}
               value={valor.mensaje}

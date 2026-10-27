@@ -25,6 +25,7 @@
 
 import { useState } from "react";
 import { Campo, claseDeEntrada } from "./ui";
+import { useIdioma } from "@/lib/useIdioma";
 import {
   armarTelefono,
   ayudaDelPais,
@@ -40,8 +41,9 @@ import {
 // misma cuenta: telefono es el internacional si sirve, o lo escrito si no
 // (y entonces armado dice por qué).
 export function useTelefono(guardado, paisPorDefecto) {
+  const { t } = useIdioma();
   const [valor, setValor] = useState(() => paraEditar(guardado, null));
-  const armado = armarTelefono(valor.pais ?? paisPorDefecto, valor.numero);
+  const armado = armarTelefono(valor.pais ?? paisPorDefecto, valor.numero, t);
   return {
     valor,
     setValor,
@@ -55,7 +57,7 @@ export function useTelefono(guardado, paisPorDefecto) {
 
 export default function CampoTelefono({
   id,
-  etiqueta = "Teléfono",
+  etiqueta,
   // Lo que la pantalla quiera decir antes del formato del país: "Opcional.
   // Lo va a ver el cliente…".
   ayuda,
@@ -68,6 +70,7 @@ export default function CampoTelefono({
   falta = false,
   autoFocus,
 }) {
+  const { t } = useIdioma();
   const pais = valor?.pais ?? paisPorDefecto;
   const numero = valor?.numero ?? "";
   // Un + con un código que no está en la lista: se avisa al momento, sin
@@ -80,13 +83,13 @@ export default function CampoTelefono({
   const describe = [idAyuda, idError].filter(Boolean).join(" ");
 
   const alEscribir = (texto) => {
-    const r = separarLoEscrito(texto, pais);
+    const r = separarLoEscrito(texto, pais, t);
     setAviso(r.mensaje ?? null);
     onChange({ pais: r.pais, numero: r.numero });
   };
 
   return (
-    <Campo id={id} etiqueta={etiqueta} falta={falta} ayuda={[ayuda, ayudaDelPais(pais)].filter(Boolean).join(" ")} error={errorVisible} exito={exito}>
+    <Campo id={id} etiqueta={etiqueta ?? t("ui.telefono.etiqueta")} falta={falta} ayuda={[ayuda, ayudaDelPais(pais, t)].filter(Boolean).join(" ")} error={errorVisible} exito={exito}>
       <div className="mt-2 flex gap-2">
         <div
           className={[
@@ -105,7 +108,7 @@ export default function CampoTelefono({
           </span>
           <select
             id={`${id}-pais`}
-            aria-label="País del teléfono"
+            aria-label={t("ui.telefono.pais")}
             aria-describedby={idAyuda}
             value={pais}
             onChange={(e) => {
@@ -116,7 +119,7 @@ export default function CampoTelefono({
           >
             {PAISES.map((p) => (
               <option key={p.codigo} value={p.codigo}>
-                {p.bandera} {nombreDelPais(p.codigo)}
+                {p.bandera} {nombreDelPais(p.codigo, t)}
               </option>
             ))}
           </select>

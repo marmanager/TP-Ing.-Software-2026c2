@@ -9,6 +9,7 @@
 // La extensión va escrita: Next la perdona, pero `node --test` corre con el
 // ESM de Node, que la pide. Sin ella los tests no encuentran el módulo.
 import { preset } from "./presets.js";
+import { tCastellano } from "./idioma.js";
 
 export const ORDEN_ESTADOS = [
   "nuevo",
@@ -26,7 +27,6 @@ export const ESTADOS = {
     fondo: "bg-nuevo-fondo",
     barra: "bg-nuevo",
     borde: "border-nuevo",
-    significado: "El caso está anotado pero todavía nadie empezó a trabajarlo.",
   },
   en_proceso: {
     clave: "en_proceso",
@@ -35,7 +35,6 @@ export const ESTADOS = {
     fondo: "bg-proceso-fondo",
     barra: "bg-proceso",
     borde: "border-proceso",
-    significado: "Alguien del equipo lo está atendiendo ahora.",
   },
   esperando: {
     clave: "esperando",
@@ -44,8 +43,6 @@ export const ESTADOS = {
     fondo: "bg-espera-fondo",
     barra: "bg-espera",
     borde: "border-espera",
-    significado:
-      "Está detenido por algo de afuera: una aprobación, un insumo o la respuesta del cliente.",
   },
   revision_final: {
     clave: "revision_final",
@@ -54,7 +51,6 @@ export const ESTADOS = {
     fondo: "bg-revision-fondo",
     barra: "bg-revision",
     borde: "border-revision",
-    significado: "El trabajo está hecho y se está controlando antes de entregarlo.",
   },
   completado: {
     clave: "completado",
@@ -63,9 +59,13 @@ export const ESTADOS = {
     fondo: "bg-completo-fondo",
     barra: "bg-completo",
     borde: "border-completo",
-    significado: "Entregado al cliente y cerrado.",
   },
 };
+
+// Qué quiere decir cada estado, en el idioma de quien mira. Está en el
+// diccionario (casos.significado.<estado>) y no en ESTADOS: es texto para
+// mostrar, y una función de src/lib/ que lo devuelve recibe `t` al final.
+export const significadoDeEstado = (estado, t = tCastellano) => t(`casos.significado.${estado}`);
 
 // Un caso está abierto mientras no se entregó.
 export const estaAbierto = (caso) => caso.estado !== "completado";
@@ -80,19 +80,27 @@ export const estaAbierto = (caso) => caso.estado !== "completado";
 //
 // El orden importa: gana lo más concreto. Que el cliente conteste tres pasos
 // es más accionable que "está en el taller".
-export function queFalta(caso, { rubro, pasos = [], insumos = [], cliente } = {}) {
-  if (caso.estado === "completado") return "Nada, el caso está cerrado.";
+//
+// Se calcula cada vez que se dibuja, no se guarda: sale en el idioma de quien
+// mira. `idioma` va con el resto del contexto porque el preset del rubro lo
+// necesita; `t` va al final, como en el resto de src/lib/.
+export function queFalta(
+  caso,
+  { rubro, pasos = [], insumos = [], cliente, idioma = "es" } = {},
+  t = tCastellano
+) {
+  if (caso.estado === "completado") return t("casos.queFalta.cerrado");
 
   if (caso.estado === "nuevo" && !caso.responsable_id) {
-    return "Asignar a alguien del equipo";
+    return t("casos.queFalta.asignar");
   }
 
   const sinContestar = pasos.filter(
     (p) => p.caso_id === caso.id && p.estado === "esperando"
   ).length;
   if (sinContestar > 0) {
-    const quien = cliente?.nombre ?? "el cliente";
-    return `Que ${quien} apruebe ${sinContestar} ${sinContestar === 1 ? "paso" : "pasos"}`;
+    const quien = cliente?.nombre ?? t("casos.comun.elCliente");
+    return t("casos.queFalta.aprobar", { quien, n: sinContestar });
   }
 
   const trabado = insumos.find(
@@ -100,14 +108,14 @@ export function queFalta(caso, { rubro, pasos = [], insumos = [], cliente } = {}
   );
   // Entre comillas y con su mayúscula: el artículo depende del género del
   // insumo ("la correa", "el filtro") y no vale la pena adivinarlo.
-  if (trabado) return `Que llegue «${trabado.nombre}»`;
+  if (trabado) return t("casos.queFalta.llegue", { nombre: trabado.nombre });
 
-  const p = preset(rubro);
+  const p = preset(rubro, idioma);
   if (caso.estado === "revision_final") return p.explica.revision_final;
   if (caso.estado === "esperando") return p.explica.esperando;
 
   const mios = pasos.filter((x) => x.caso_id === caso.id);
-  return mios.length === 0 ? "Armar el presupuesto" : "Hacer el trabajo";
+  return mios.length === 0 ? t("casos.queFalta.presupuesto") : t("casos.queFalta.trabajo");
 }
 
 // Qué queda escrito en el historial al pasar a cada estado.
@@ -159,29 +167,32 @@ export const estadosAElegir = (actual) =>
 
 // "Quién lo tiene". Si nadie del equipo lo tiene, se deriva del estado
 // en vez de mostrar un hueco (cartilla, lista de casos de la sección 05).
-export function quienLoTiene(caso, empleados) {
+export function quienLoTiene(caso, empleados, t = tCastellano) {
   const persona = empleados.find((e) => e.id === caso.responsable_id);
   if (persona) return persona.nombre;
-  if (caso.estado === "completado") return "Entregado";
-  if (caso.estado === "esperando") return "Proveedor";
-  return "Sin asignar";
+  if (caso.estado === "completado") return t("casos.quien.entregado");
+  if (caso.estado === "esperando") return t("casos.quien.proveedor");
+  return t("casos.quien.sinAsignar");
 }
 
 // Lo mismo, dicho como frase para la cabecera del caso: ahí no hay una
 // columna con título que diga qué es el dato, así que la frase lo dice
 // sola. "Diego" suelto no aclara si es el cliente o quien hace el trabajo;
 // "Lo tiene Diego", sí (auditoría, H2).
-export function quienLoTieneEnPalabras(caso, empleados) {
+export function quienLoTieneEnPalabras(caso, empleados, t = tCastellano) {
   const persona = empleados.find((e) => e.id === caso.responsable_id);
-  if (persona) return `Lo tiene ${persona.nombre}`;
-  if (caso.estado === "completado") return "Ya se entregó";
-  if (caso.estado === "esperando") return "Lo tiene el proveedor";
-  return "Todavía no lo tiene nadie";
+  if (persona) return t("casos.quien.loTiene", { nombre: persona.nombre });
+  if (caso.estado === "completado") return t("casos.quien.yaEntregado");
+  if (caso.estado === "esperando") return t("casos.quien.loTieneProveedor");
+  return t("casos.quien.nadie");
 }
 
 // El botón de cada fila: uno solo, el que casi siempre se va a tocar.
 // Va con borde, nunca azul lleno: un solo botón azul por pantalla.
-export function accionDeFila(caso, { pasos = [], insumos = [] } = {}) {
+//
+// La palabra sale del diccionario (casos.accion.<tipo>) y la comparte la
+// landing, que dibuja el recorte de esta misma lista.
+export function accionDeFila(caso, { pasos = [], insumos = [] } = {}, t = tCastellano) {
   const tienePasosEsperando = pasos.some(
     (p) => p.caso_id === caso.id && p.estado === "esperando"
   );
@@ -191,23 +202,23 @@ export function accionDeFila(caso, { pasos = [], insumos = [] } = {}) {
 
   switch (caso.estado) {
     case "nuevo":
-      return { tipo: "asignar", etiqueta: "Asignar responsable", icono: "persona-mas" };
+      return { tipo: "asignar", etiqueta: t("casos.accion.asignar"), icono: "persona-mas" };
     case "en_proceso":
-      return { tipo: "ir", etiqueta: "Cargar diagnóstico", icono: "diagnostico" };
+      return { tipo: "ir", etiqueta: t("casos.accion.diagnostico"), icono: "diagnostico" };
     case "esperando":
       if (insumoPendiente && !tienePasosEsperando) {
         return {
           tipo: "insumo",
-          etiqueta: "Marcar que llegó",
+          etiqueta: t("casos.accion.insumo"),
           icono: "camion",
           insumoId: insumoPendiente.id,
         };
       }
-      return { tipo: "pasos", etiqueta: "Ver los pasos", icono: "nota" };
+      return { tipo: "pasos", etiqueta: t("casos.accion.pasos"), icono: "nota" };
     case "revision_final":
-      return { tipo: "entregar", etiqueta: "Entregar y cerrar", icono: "listo" };
+      return { tipo: "entregar", etiqueta: t("casos.accion.entregar"), icono: "listo" };
     default:
-      return { tipo: "ir", etiqueta: "Ver el caso", icono: "carpeta" };
+      return { tipo: "ir", etiqueta: t("casos.accion.ver"), icono: "carpeta" };
   }
 }
 
@@ -249,8 +260,8 @@ export function casosPorAprobar(casos, pasos) {
     .sort((a, b) => b.plata - a.plata);
 }
 
-export const pesos = (n) =>
-  "$" + Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
+export const pesos = (n, locale = "es-AR") =>
+  "$" + Number(n || 0).toLocaleString(locale, { maximumFractionDigits: 0 });
 
 // Con qué firma el historial lo que contestó el cliente desde su link.
 //

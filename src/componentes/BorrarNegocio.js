@@ -6,10 +6,13 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { Boton, Campo, ErrorGeneral, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 export default function BorrarNegocio() {
   const { usuario } = useAuth();
+  const { t } = useIdioma();
   const datos = useDatos();
   const { negocio } = datos;
   const [abierto, setAbierto] = useState(false);
@@ -26,7 +29,7 @@ export default function BorrarNegocio() {
     const r = await datos.borrarNegocio(nombre);
     if (r?.ok) window.location.assign("/");
     else {
-      setError(r?.error ?? "No se pudo eliminar el negocio.");
+      setError(r?.error ?? { mensaje: "" });
       setEliminando(false);
     }
   }
@@ -39,18 +42,18 @@ export default function BorrarNegocio() {
 
   return (
     <Tarjeta className="mt-12 border-rojo">
-      <TituloSeccion>Eliminar el negocio</TituloSeccion>
+      <TituloSeccion>{t("cuenta.borrar.titulo")}</TituloSeccion>
       <p className="mb-4 text-tinta-media">
-        Se eliminan el negocio y todo lo cargado: casos, clientes, agenda, inventario, cobros y equipo. No se puede deshacer.
+        {t("cuenta.borrar.texto")}
       </p>
       {!abierto ? (
-        <Boton variante="peligro" icono="tacho" onClick={() => setAbierto(true)}>Eliminar el negocio</Boton>
+        <Boton variante="peligro" icono="tacho" onClick={() => setAbierto(true)}>{t("cuenta.borrar.titulo")}</Boton>
       ) : (
         <>
-          {error && <ErrorGeneral>{error}</ErrorGeneral>}
+          {error && <ErrorGeneral>{textoDeError(t, error) || t("cuenta.borrar.fallo")}</ErrorGeneral>}
           <Campo
             id="confirmar-nombre"
-            etiqueta={`Para confirmar, escriba «${negocio.nombre}»`}
+            etiqueta={t("cuenta.borrar.confirmar", { nombre: negocio.nombre })}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
@@ -60,11 +63,11 @@ export default function BorrarNegocio() {
               icono="tacho"
               onClick={borrar}
               disabled={eliminando}
-              motivo={!eliminando && nombre.trim() !== negocio.nombre.trim() ? "el nombre no coincide" : null}
+              motivo={!eliminando && nombre.trim() !== negocio.nombre.trim() ? t("cuenta.borrar.noCoincide") : null}
             >
-              {eliminando ? "Eliminando" : "Eliminar definitivamente"}
+              {eliminando ? t("cuenta.borrar.eliminando") : t("cuenta.borrar.definitivo")}
             </Boton>
-            <Boton variante="borde" onClick={cancelar} disabled={eliminando}>Cancelar</Boton>
+            <Boton variante="borde" onClick={cancelar} disabled={eliminando}>{t("cuenta.borrar.cancelar")}</Boton>
           </div>
         </>
       )}

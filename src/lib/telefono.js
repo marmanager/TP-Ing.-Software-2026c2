@@ -27,6 +27,12 @@
 // telefono-internacional.test.js de este lado).
 //
 // Pura, sin red ni base: la vigila pruebas/fronteras.test.js.
+//
+// Los textos que devuelve (errores, ayudas, nombres de país) salen del
+// diccionario con el `t` de la pantalla, siempre como último parámetro. Sin
+// `t` salen en castellano, que es lo que prueban los tests.
+
+import { tCastellano } from "./idioma.js";
 
 // Ordenados como se muestran en el selector. Los códigos no se pisan entre
 // sí (ninguno es el principio de otro), así que el país sale sin ambigüedad
@@ -80,6 +86,12 @@ const soloDigitos = (texto) => String(texto ?? "").replace(/\D/g, "");
 
 export const paisPorCodigo = (codigo) => PAISES.find((p) => p.codigo === codigo) ?? null;
 
+// El nombre y el formato de cada país, en el idioma de quien mira. La tabla
+// de PAISES queda como está (es la misma que la de la API): la traducción se
+// busca por el código del país.
+const nombreDe = (p, t) => t(`ui.telefono.paises.${p.codigo}.nombre`, {}, p.nombre);
+const formatoDe = (p, t) => t(`ui.telefono.paises.${p.codigo}.formato`, {}, p.formato);
+
 // Con qué país arranca el selector: el del negocio. Un negocio de antes de
 // la 055, una cuenta que todavía no tiene negocio (crear cuenta) o un país
 // que este front no conoce arrancan en Argentina, que es el de todos los que
@@ -94,16 +106,16 @@ export function chipDelPais(codigo) {
 }
 
 // Cómo se nombra cada opción para quien no ve la bandera: "Argentina, +54 9".
-export const nombreDelPais = (codigo) => {
+export const nombreDelPais = (codigo, t = tCastellano) => {
   const p = paisPorCodigo(codigo) ?? POR_DEFECTO;
-  return `${p.nombre}, ${chipDelPais(p.codigo).split(" ").slice(1).join(" ")}`;
+  return `${nombreDe(p, t)}, ${chipDelPais(p.codigo).split(" ").slice(1).join(" ")}`;
 };
 
 // Lo que se lee debajo de la etiqueta antes de escribir nada, y que cambia
 // con el país.
-export function ayudaDelPais(codigo) {
+export function ayudaDelPais(codigo, t = tCastellano) {
   const p = paisPorCodigo(codigo) ?? POR_DEFECTO;
-  return `${p.formato} Ejemplo: ${p.ejemplo}.`;
+  return t("ui.telefono.ayuda", { formato: formatoDe(p, t), ejemplo: p.ejemplo });
 }
 
 // Los dígitos agrupados como el ejemplo del país: 3414567890 → 341 456 7890.
@@ -121,12 +133,11 @@ const falla = (motivo, mensaje) => ({ ok: false, motivo, mensaje });
 // El error dice qué pasa, qué se espera y un ejemplo del país elegido
 // (cartilla, 07: "el error no acusa"). El ejemplo va como se escribe en el
 // campo, sin el código: el código ya está en el selector.
-const explica = (p, causa) => `${causa} ${p.formato} Por ejemplo: ${p.ejemplo}.`;
+const explica = (p, causa, t) =>
+  t("ui.telefono.explica", { causa, formato: formatoDe(p, t), ejemplo: p.ejemplo });
 
-const NO_SOPORTADO = falla(
-  "pais_no_soportado",
-  `Ese código de país no está entre los que manejamos: ${PAISES.map((p) => p.nombre).join(", ")}. Elegí uno de la lista.`
-);
+const noSoportado = (t) =>
+  falla("pais_no_soportado", t("ui.telefono.noSoportado", { paises: PAISES.map((p) => nombreDe(p, t)).join(", ") }));
 
 // El 15 de los celulares argentinos, que se marca dentro del país y no va en
 // el formato internacional: adelante de todo, o después de la característica
@@ -137,14 +148,15 @@ function conQuince(p, resto) {
 }
 
 // Los dígitos que van después del código de un país, a internacional.
-function delPais(p, digitosDespuesDelCodigo) {
+function delPais(p, digitosDespuesDelCodigo, t) {
   let resto = digitosDespuesDelCodigo;
   if (p.celular && resto.startsWith(p.celular)) resto = resto.slice(p.celular.length);
-  if (resto.startsWith("0")) return falla("empieza_con_cero", explica(p, "Escribilo sin el 0 de adelante."));
-  if (conQuince(p, resto)) return falla("con_quince", explica(p, "Escribilo sin el 15."));
-  if (resto.length < p.digitos) return falla("corto", explica(p, `Al número le faltan dígitos para ${p.nombre}.`));
-  if (resto.length > p.digitos) return falla("largo", explica(p, `Al número le sobran dígitos para ${p.nombre}.`));
-  if (!new RegExp(`^${p.patron}$`).test(resto)) return falla("no_es_celular", explica(p, `No es un celular de ${p.nombre}.`));
+  const pais = nombreDe(p, t);
+  if (resto.startsWith("0")) return falla("empieza_con_cero", explica(p, t("ui.telefono.sinCero"), t));
+  if (conQuince(p, resto)) return falla("con_quince", explica(p, t("ui.telefono.sinQuince"), t));
+  if (resto.length < p.digitos) return falla("corto", explica(p, t("ui.telefono.corto", { pais }), t));
+  if (resto.length > p.digitos) return falla("largo", explica(p, t("ui.telefono.largo", { pais }), t));
+  if (!new RegExp(`^${p.patron}$`).test(resto)) return falla("no_es_celular", explica(p, t("ui.telefono.noEsCelular", { pais }), t));
   return { ok: true, telefono: p.prefijo + p.celular + resto, pais: p.codigo };
 }
 
@@ -153,37 +165,37 @@ const sonCaracteresDeTelefono = (texto) => /^[\d\s()+.-]+$/.test(texto);
 // Lo que se escribió en el campo del número, con el país del selector:
 // { ok: true, telefono, pais } o { ok: false, motivo, mensaje }. Acepta
 // espacios, guiones, paréntesis y puntos, como se escriben los números.
-export function armarTelefono(codigo, numero) {
+export function armarTelefono(codigo, numero, t = tCastellano) {
   const p = paisPorCodigo(codigo) ?? POR_DEFECTO;
   const escrito = String(numero ?? "").trim();
-  if (!escrito) return falla("vacio", explica(p, "Falta el teléfono."));
-  if (!sonCaracteresDeTelefono(escrito)) return falla("no_es_numero", explica(p, "El teléfono va sólo con números."));
-  return delPais(p, soloDigitos(escrito));
+  if (!escrito) return falla("vacio", explica(p, t("ui.telefono.falta"), t));
+  if (!sonCaracteresDeTelefono(escrito)) return falla("no_es_numero", explica(p, t("ui.telefono.soloNumeros"), t));
+  return delPais(p, soloDigitos(escrito), t);
 }
 
 // Un teléfono ya completo —guardado, o pegado de un contacto—, la misma regla
 // que la API: con +, el código sale del principio; sin +, sólo vale lo que ya
 // es un número internacional completo de un país de la lista. Todo lo demás
 // es un número local: falta el país, y no se adivina.
-export function normalizarTelefono(texto) {
+export function normalizarTelefono(texto, t = tCastellano) {
   const escrito = String(texto ?? "").trim();
-  if (!escrito || !sonCaracteresDeTelefono(escrito)) return falla("no_es_numero", "El teléfono va sólo con números.");
+  if (!escrito || !sonCaracteresDeTelefono(escrito)) return falla("no_es_numero", t("ui.telefono.soloNumeros"));
   const conMas = escrito.replace(/[\s()]/g, "").startsWith("+");
   const digitos = soloDigitos(escrito);
   const p = PAISES.find((x) => digitos.startsWith(x.prefijo));
   if (!conMas) {
-    const r = p ? delPais(p, digitos.slice(p.prefijo.length)) : null;
-    return r?.ok ? r : falla("sin_pais", "Falta el código de país. Elegí el país y escribí el número.");
+    const r = p ? delPais(p, digitos.slice(p.prefijo.length), t) : null;
+    return r?.ok ? r : falla("sin_pais", t("ui.telefono.sinPais"));
   }
-  if (!p) return NO_SOPORTADO;
-  return delPais(p, digitos.slice(p.prefijo.length));
+  if (!p) return noSoportado(t);
+  return delPais(p, digitos.slice(p.prefijo.length), t);
 }
 
 // Lo que se pega o se escribe en el campo del número. Si viene el número
 // completo (+54 9 341…, o 5493414567890 copiado de un contacto), el campo lo
 // entiende: elige el país y deja el resto, en vez de rechazarlo. Un + con un
 // código que no está en la lista se avisa. Lo demás queda como se escribió.
-export function separarLoEscrito(texto, paisActual) {
+export function separarLoEscrito(texto, paisActual, t = tCastellano) {
   const escrito = String(texto ?? "");
   const p = paisPorCodigo(paisActual) ?? POR_DEFECTO;
   const conMas = escrito.trim().replace(/[\s()]/g, "").startsWith("+");
@@ -192,7 +204,7 @@ export function separarLoEscrito(texto, paisActual) {
   // Sin +, sólo se mira si ya no entra en el país elegido: un número local
   // que alguien está terminando de escribir no se toca.
   if (conMas || digitos.length > p.digitos + p.celular.length) {
-    const r = normalizarTelefono(escrito);
+    const r = normalizarTelefono(escrito, t);
     if (r.ok) {
       const del = paisPorCodigo(r.pais);
       return { pais: r.pais, numero: agrupar(r.telefono.slice(del.prefijo.length + del.celular.length), del) };
@@ -250,5 +262,7 @@ export function telefonoIncompleto(cliente) {
   return !!String(cliente?.telefono ?? "").trim() && !normalizarTelefono(cliente.telefono).ok;
 }
 
-export const FRASE_TELEFONO_INCOMPLETO =
-  "A este teléfono le falta el código de país, así que no le llegan los mensajes por WhatsApp. Corregilo eligiendo el país.";
+export const fraseTelefonoIncompleto = (t = tCastellano) => t("ui.telefono.incompleto");
+
+// La misma frase en castellano, para quien todavía no pasa su `t`.
+export const FRASE_TELEFONO_INCOMPLETO = fraseTelefonoIncompleto();

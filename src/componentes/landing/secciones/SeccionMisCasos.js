@@ -5,6 +5,8 @@ import Link from "next/link";
 import { misCasosEnLanding } from "@/lib/datos";
 import { elDia } from "@/lib/fechas";
 import { comoSeIdentifica } from "@/lib/presets";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton } from "@/componentes/ui";
@@ -19,10 +21,11 @@ import { Boton } from "@/componentes/ui";
 // lista de la anterior. Si la llave venció, alVencer() vuelve al Ingreso
 // diciendo por qué.
 export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
+  const { idioma, locale, t } = useIdioma();
   const [casos, setCasos] = useState(null);
   const [problema, setProblema] = useState(null);
   const [vuelta, setVuelta] = useState(0);
-  const ident = comoSeIdentifica(negocio.rubro);
+  const ident = comoSeIdentifica(negocio.rubro, idioma);
 
   useEffect(() => {
     let vivo = true;
@@ -30,8 +33,8 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
       const r = await misCasosEnLanding(codigo);
       if (!vivo) return;
       if (r.ok) setCasos(r.casos);
-      else if (r.codigo === "llave_vencida") alVencer(r.mensaje);
-      else setProblema(r.mensaje);
+      else if (r.codigo === "llave_vencida") alVencer({ codigo: r.codigo, mensaje: r.mensaje });
+      else setProblema({ codigo: r.codigo, mensaje: r.mensaje });
     })();
     return () => {
       vivo = false;
@@ -43,7 +46,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
       <div className="mt-2">
         <p role="alert" className="flex items-start gap-2 font-bold text-rojo">
           <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
-          <span>{problema}</span>
+          <span>{textoDeError(t, problema)}</span>
         </p>
         <Boton
           icono="deshacer"
@@ -53,7 +56,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
             setVuelta((v) => v + 1);
           }}
         >
-          Probar de nuevo
+          {t("landing.casos.probar")}
         </Boton>
       </div>
     );
@@ -62,7 +65,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
   if (!casos) {
     return (
       <p role="status" className="mt-2 text-tinta-media">
-        Buscando tus casos…
+        {t("landing.casos.buscando")}
       </p>
     );
   }
@@ -70,7 +73,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
   if (casos.length === 0) {
     return (
       <p className="mt-2 max-w-[65ch] text-tinta-media">
-        No tenés casos abiertos en {negocio.nombre}. Los que ya terminaron no aparecen acá.
+        {t("landing.casos.ninguno", { negocio: negocio.nombre })}
       </p>
     );
   }
@@ -82,7 +85,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             <div id={`caso-${c.numero}`} className="min-w-0">
               <p className="font-titulo font-extrabold text-subtitulo">
-                {c.servicio || `Caso ${c.numero}`}
+                {c.servicio || t("casos.nombre.caso", { numero: c.numero })}
               </p>
               {c.identificador && (
                 <p className="text-tinta-media">
@@ -90,7 +93,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
                 </p>
               )}
               <p className="text-apoyo text-tinta-suave">
-                Caso {c.numero} · Entró {elDia(c.abierto_en)}
+                {t("landing.casos.entro", { numero: c.numero, dia: elDia(c.abierto_en, locale, t) })}
               </p>
             </div>
             <ChipEstado estado={c.estado} rubro={negocio.rubro} configuracion={negocio.estados} />
@@ -101,7 +104,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
               aria-describedby={`caso-${c.numero}`}
               className="mt-2 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
-              Ver cómo viene
+              {t("landing.casos.verComoViene")}
               <Icono nombre="flecha" className="size-5" />
             </Link>
           )}

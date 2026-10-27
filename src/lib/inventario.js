@@ -6,6 +6,7 @@
 // llegada de un pedido.
 
 import { categoriasDe } from "./presets.js";
+import { tCastellano } from "./idioma.js";
 
 // La categoría de un producto que no tiene ninguna, para agrupar y mostrar.
 export const SIN_CATEGORIA = "Sin categoría";
@@ -135,10 +136,10 @@ export const formDeProducto = (i, { cantidad = i.cantidad } = {}) => ({
 // apagado del alta, del pedido y de "Editar". En el stock puede haber cero;
 // un pedido es de al menos uno (desdeUno).
 const enteroDesde = (v, desde) => Number.isInteger(Number(v)) && Number(v) >= desde;
-export function motivoDelProducto(form, { desdeUno = false } = {}) {
-  if (!String(form.nombre ?? "").trim()) return "falta el nombre";
-  if (form.unidad === "caja" && !enteroDesde(form.porCaja, 1)) return "falta cuántos vienen en cada caja";
-  if (desdeUno && !enteroDesde(form.cantidad, 1)) return "la cantidad va en números, desde 1";
+export function motivoDelProducto(form, { desdeUno = false } = {}, t = tCastellano) {
+  if (!String(form.nombre ?? "").trim()) return t("ui.validaciones.faltaNombre");
+  if (form.unidad === "caja" && !enteroDesde(form.porCaja, 1)) return t("inventario.motivo.faltaPorCaja");
+  if (desdeUno && !enteroDesde(form.cantidad, 1)) return t("inventario.motivo.cantidadDesdeUno");
   return null;
 }
 
@@ -162,50 +163,99 @@ export const igualAlEditar = (insumos, insumo, form) =>
 //
 // "guardadas" es la lista que el negocio armó con "Editar categorías" (064):
 // si existe, reemplaza a las de fábrica. null es que nunca la editó.
-export function categoriasDisponibles(rubro, insumos = [], agregadas = [], guardadas = null) {
+//
+// Las de fábrica salen en el idioma de quien mira (idioma, al final). Un
+// producto que guardó "Frenos" y alguien que lo mira en inglés ve "Brakes": ver
+// categoriaEnIdioma().
+export function categoriasDisponibles(rubro, insumos = [], agregadas = [], guardadas = null, idioma = "es") {
   const vistas = new Set();
   const quedarse = (lista) =>
-    lista.filter((c) => {
-      const k = normalizar(c);
-      if (!k || vistas.has(k)) return false;
-      vistas.add(k);
-      return true;
-    });
+    lista
+      .map((c) => categoriaEnIdioma(c, rubro, idioma))
+      .filter((c) => {
+        const k = claveDeCategoria(c, rubro);
+        if (!k || vistas.has(k)) return false;
+        vistas.add(k);
+        return true;
+      });
 
-  const deFabrica = quedarse(Array.isArray(guardadas) ? guardadas : categoriasDe(rubro));
+  const deFabrica = quedarse(Array.isArray(guardadas) ? guardadas : categoriasDe(rubro, idioma));
   const propias = quedarse([...insumos.map((i) => i.categoria), ...agregadas]).sort((a, b) =>
-    a.localeCompare(b, "es")
+    a.localeCompare(b, idioma)
   );
   return [...deFabrica, ...propias];
 }
 
+// Qué es de fábrica y qué escribió el negocio.
+//
+// Lo que un producto guarda es el texto de la categoría, no un código: quien
+// eligió "Frenos" guardó "Frenos", y quien lo hizo en inglés guardó "Brakes".
+// Para que las dos se vean y se cuenten como una sola, un texto igual (sin
+// mayúsculas ni tildes) a una categoría de fábrica del rubro, en castellano o
+// en inglés, cuenta como de fábrica: se muestra en el idioma de quien mira y
+// agrupa con la clave castellana. Las que el negocio agregó se ven como las
+// escribió. Costo conocido: un negocio que escribe a propósito, como propia, el
+// nombre de fábrica del otro idioma la ve traducida (igual que con los nombres
+// de estados: lib/presentacion-estados.js).
+function indiceDeFabrica(rubro, categoria) {
+  const k = normalizar(categoria);
+  if (!k) return -1;
+  for (const idioma of ["es", "en"]) {
+    const i = categoriasDe(rubro, idioma).findIndex((c) => normalizar(c) === k);
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+// La categoría tal como se muestra en este idioma.
+export function categoriaEnIdioma(categoria, rubro, idioma = "es") {
+  const i = indiceDeFabrica(rubro, categoria);
+  const propia = i >= 0 ? categoriasDe(rubro, idioma)[i] : null;
+  return propia && normalizar(propia) !== normalizar(categoria) ? propia : categoria;
+}
+
+// Con qué se compara y se agrupa: la misma para "Frenos" y "Brakes".
+export function claveDeCategoria(categoria, rubro) {
+  const i = indiceDeFabrica(rubro, categoria);
+  return normalizar(i >= 0 ? categoriasDe(rubro, "es")[i] : categoria);
+}
+
 // Si una categoría nueva ya existe, escrita de otra manera. Para que el "+" no
-// deje crear "tornillos" al lado de "Tornillos".
-export const categoriaExistente = (nueva, disponibles = []) =>
-  disponibles.find((c) => normalizar(c) === normalizar(nueva)) ?? null;
+// deje crear "tornillos" al lado de "Tornillos" (ni "Tornillos" al lado de
+// "Screws").
+export const categoriaExistente = (nueva, disponibles = [], rubro) =>
+  disponibles.find((c) => claveDeCategoria(c, rubro) === claveDeCategoria(nueva, rubro)) ?? null;
 
 // Los productos agrupados por categoría, para la vista "Categorías".
 //
 // Las categorías en orden alfabético, y "Sin categoría" siempre al final: es
 // lo que falta ordenar, no una categoría más. Adentro de cada una, los
 // productos también por nombre.
-export function porCategoria(insumos = []) {
+//
+// Con { idioma, rubro }, las de fábrica se ven (y ordenan) en ese idioma y las
+// guardadas en el otro idioma agrupan con ellas. "Sin categoría" sale de t.
+export function porCategoria(insumos = [], { rubro, idioma, t = tCastellano } = {}) {
   const grupos = new Map();
   for (const i of insumos) {
-    const nombre = i.categoria?.trim() || SIN_CATEGORIA;
-    const clave = nombre === SIN_CATEGORIA ? SIN_CATEGORIA : normalizar(nombre);
-    if (!grupos.has(clave)) grupos.set(clave, { categoria: nombre, productos: [] });
+    const escrita = i.categoria?.trim();
+    const nombre = escrita
+      ? idioma ? categoriaEnIdioma(escrita, rubro, idioma) : escrita
+      : t("inventario.sinCategoria");
+    const clave = escrita ? (idioma ? claveDeCategoria(escrita, rubro) : normalizar(escrita)) : SIN_CATEGORIA;
+    if (!grupos.has(clave)) grupos.set(clave, { clave, categoria: nombre, productos: [] });
     grupos.get(clave).productos.push(i);
   }
 
-  const porNombre = (a, b) => a.nombre.localeCompare(b.nombre, "es");
+  const locale = idioma ?? "es";
+  const porNombre = (a, b) => a.nombre.localeCompare(b.nombre, locale);
   return [...grupos.values()]
     .map((g) => ({ ...g, productos: g.productos.sort(porNombre) }))
     .sort((a, b) => {
-      if (a.categoria === SIN_CATEGORIA) return 1;
-      if (b.categoria === SIN_CATEGORIA) return -1;
-      return a.categoria.localeCompare(b.categoria, "es");
-    });
+      if (a.clave === SIN_CATEGORIA) return 1;
+      if (b.clave === SIN_CATEGORIA) return -1;
+      return a.categoria.localeCompare(b.categoria, locale);
+    })
+    .map(({ clave, ...g }) => (clave === SIN_CATEGORIA ? { ...g, sinCategoria: true } : g));
 }
 
 // ------------------------------------------------------------
@@ -216,11 +266,14 @@ export function porCategoria(insumos = []) {
 // En caja, la cantidad y el mínimo se cuentan en cajas, que es como se cuentan
 // en el estante. Si "unidad" trae otra cosa —un dato viejo escrito a mano—
 // se muestra tal cual antes que inventarle un plural.
-export function presentacion({ unidad, por_caja }, cantidad = 0) {
+export function presentacion({ unidad, por_caja }, cantidad = 0, t = tCastellano) {
+  // Una caja sin "por_caja" (dato incompleto) es sólo "caja(s)": nunca "de undefined".
   if (unidad === "caja") {
-    return `${cantidad === 1 ? "caja" : "cajas"} de ${por_caja}`;
+    return por_caja
+      ? t("inventario.presentacion.caja", { n: cantidad, porCaja: por_caja })
+      : t("dashboard.inventario.cajas", { n: cantidad });
   }
-  if (!unidad || unidad === "unidad") return cantidad === 1 ? "unidad" : "unidades";
+  if (!unidad || unidad === "unidad") return t("inventario.presentacion.unidad", { n: cantidad });
   return unidad;
 }
 
@@ -238,23 +291,19 @@ export const enTotal = ({ unidad, por_caja, cantidad }) =>
 
 // Lo que se puede filtrar, en el orden en que aparece. "unidad" es cómo viene
 // el producto: suelto o en caja.
-const CARACTERISTICAS = [
-  { clave: "categoria", titulo: "Categoría" },
-  { clave: "marca", titulo: "Marca" },
-  { clave: "modelo", titulo: "Modelo" },
-  { clave: "unidad", titulo: "Cómo viene" },
-];
-
-const COMO_VIENE = { unidad: "Suelto", caja: "En caja" };
+const CARACTERISTICAS = ["categoria", "marca", "modelo", "unidad"];
 
 // El valor de un producto para una característica, listo para comparar. Sin
-// "unidad" cargada es suelto, como en mismoProducto().
-const valorDe = (producto, clave) =>
+// "unidad" cargada es suelto, como en mismoProducto(). La categoría compara
+// por claveDeCategoria(): "Frenos" y "Brakes" son un solo valor.
+const valorDe = (producto, clave, rubro) =>
   clave === "unidad"
     ? producto.unidad === "caja"
       ? "caja"
       : "unidad"
-    : normalizar(producto[clave]);
+    : clave === "categoria"
+      ? claveDeCategoria(producto.categoria, rubro)
+      : normalizar(producto[clave]);
 
 // Los grupos de filtros que tiene sentido ofrecer, con cuántos productos tiene
 // cada valor.
@@ -263,16 +312,25 @@ const valorDe = (producto, clave) =>
 // muestra como apareció primero: dos pastillas iguales obligan a tocar las
 // dos. "Cómo viene" sólo aparece si algo viene en caja: si todo es suelto,
 // elegir "Suelto" no filtra nada.
-export function filtrosDisponibles(productos = []) {
+//
+// `opciones` es { rubro, idioma, t }: las categorías de fábrica se ven en ese
+// idioma, y los títulos y "Suelto" / "En caja" salen de t.
+export function filtrosDisponibles(productos = [], { rubro, idioma = "es", t = tCastellano } = {}) {
   const grupos = [];
-  for (const { clave, titulo } of CARACTERISTICAS) {
+  for (const clave of CARACTERISTICAS) {
+    const titulo = t(`inventario.filtro.${clave}`);
     const opciones = new Map();
     for (const p of productos) {
-      const valor = valorDe(p, clave);
+      const valor = valorDe(p, clave, rubro);
       if (!valor) continue;
       if (!opciones.has(valor)) {
+        const escrita = clave === "unidad" ? "" : String(p[clave]).trim().replace(/\s+/g, " ");
         const etiqueta =
-          clave === "unidad" ? COMO_VIENE[valor] : String(p[clave]).trim().replace(/\s+/g, " ");
+          clave === "unidad"
+            ? t(`inventario.comoViene.${valor}`)
+            : clave === "categoria"
+              ? categoriaEnIdioma(escrita, rubro, idioma)
+              : escrita;
         opciones.set(valor, { valor, etiqueta, cuantos: 0 });
       }
       opciones.get(valor).cuantos += 1;
@@ -285,7 +343,7 @@ export function filtrosDisponibles(productos = []) {
     const lista =
       clave === "unidad"
         ? ["unidad", "caja"].filter((v) => opciones.has(v)).map((v) => opciones.get(v))
-        : [...opciones.values()].sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
+        : [...opciones.values()].sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, idioma));
     grupos.push({ clave, titulo, opciones: lista });
   }
   return grupos;
@@ -300,15 +358,19 @@ export function filtrosDisponibles(productos = []) {
 //
 // `elegidos` es { clave: [valores] }, con los valores como los da
 // filtrosDisponibles().
-export function filtrarProductos(productos = [], { texto = "", elegidos = {} } = {}) {
+//
+// Con { rubro, idioma }, buscar también encuentra la categoría de fábrica en
+// el idioma de quien mira ("brakes" encuentra lo que se guardó como "Frenos").
+export function filtrarProductos(productos = [], { texto = "", elegidos = {}, rubro, idioma } = {}) {
   const buscado = normalizar(texto);
   const grupos = Object.entries(elegidos).filter(([, valores]) => valores?.length);
   return productos.filter((p) => {
     if (buscado) {
-      const donde = [p.nombre, p.marca, p.modelo, p.categoria].map(normalizar).join(" ");
+      const visible = idioma ? categoriaEnIdioma(p.categoria, rubro, idioma) : p.categoria;
+      const donde = [p.nombre, p.marca, p.modelo, p.categoria, visible].map(normalizar).join(" ");
       if (!donde.includes(buscado)) return false;
     }
-    return grupos.every(([clave, valores]) => valores.includes(valorDe(p, clave)));
+    return grupos.every(([clave, valores]) => valores.includes(valorDe(p, clave, rubro)));
   });
 }
 
@@ -354,4 +416,39 @@ export function buscarEnCategorias(grupos = [], texto = "") {
     const productos = g.productos.filter((p) => normalizar(p.nombre).includes(buscado));
     return productos.length ? [{ ...g, productos }] : [];
   });
+}
+
+// ------------------------------------------------------------
+// Lo que se guarda (la API compara el texto, no el idioma)
+// ------------------------------------------------------------
+// Se muestra en el idioma de quien mira, pero se guarda la forma castellana de
+// fábrica: si no, "Filters" y "Filtros" serían dos categorías para la API, que
+// al guardar la lista saca la categoría de todo producto cuyo texto no esté
+// en ella. Una categoría propia se guarda tal cual se escribió, y una de
+// fábrica ya escrita en castellano (aunque con otras mayúsculas) también.
+export function categoriaParaGuardar(categoria, rubro) {
+  const i = indiceDeFabrica(rubro, categoria);
+  const fabrica = i >= 0 ? categoriasDe(rubro, "es")[i] : null;
+  return fabrica && normalizar(fabrica) !== normalizar(categoria) ? fabrica : categoria;
+}
+
+// La lista de "Editar categorías" lista para mandar: cada una en su forma
+// guardable, sin repetir, y con la forma escrita de cada categoría que sigue
+// en uso (un producto guardado como "Filters" antes de esto): la API compara
+// texto y, sin ella, esos productos se quedarían sin categoría.
+export function listaParaGuardar(lista = [], insumos = [], rubro) {
+  const vistas = new Set();
+  const salida = [];
+  const sumar = (c) => {
+    const k = normalizar(c);
+    if (!k || vistas.has(k)) return;
+    vistas.add(k);
+    salida.push(c);
+  };
+  lista.forEach((c) => sumar(categoriaParaGuardar(c, rubro)));
+  const quedan = new Set(salida.map((c) => claveDeCategoria(c, rubro)));
+  for (const i of insumos) {
+    if (i.categoria && quedan.has(claveDeCategoria(i.categoria, rubro))) sumar(i.categoria.replace(/\s+/g, " "));
+  }
+  return salida;
 }

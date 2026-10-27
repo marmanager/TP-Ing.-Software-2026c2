@@ -13,9 +13,10 @@
 // cambiaría nada.
 
 import Link from "next/link";
-import { avisoDelTurno, avisoEnPalabras, porQueNoHayAviso } from "@/lib/recordatorios";
+import { avisoDelTurno, avisoEnPalabras, motivoDelRecordatorio, porQueNoHayAviso } from "@/lib/recordatorios";
 import { turnoEnPie } from "@/lib/turnos";
 import { vocabulario } from "@/lib/presets";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 
 // Cada estado con su color, su ícono y su palabra (cartilla, sección 02).
@@ -26,12 +27,14 @@ const COMO_SE_VE = {
 };
 
 export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActivo, ahora }) {
+  const { idioma, locale, t } = useIdioma();
+  const lang = { t, locale, idioma };
   if (!turnoEnPie(turno)) return null;
 
-  const enPalabras = avisoEnPalabras({ aviso: avisoDelTurno(turno), ahora });
+  const enPalabras = avisoEnPalabras({ aviso: avisoDelTurno(turno), ahora }, lang);
   const fichaDelCliente = cliente && (
     <Link href={`/clientes/${cliente.id}`} className="inline-flex min-h-12 items-center font-bold text-azul">
-      Completar el teléfono
+      {t("agenda.aviso.completarTelefono")}
     </Link>
   );
 
@@ -52,7 +55,7 @@ export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActiv
   // espera que llegue.
   if (!recordatorioActivo) return null;
 
-  const falta = porQueNoHayAviso({ turno, cliente, rubro });
+  const falta = porQueNoHayAviso({ turno, cliente, rubro }, lang);
   if (falta?.motivo === "baja_de_avisos") {
     return (
       <p data-aviso={falta.motivo} className="mt-1 flex items-start gap-1.5 text-etiqueta text-tinta-media">
@@ -81,11 +84,11 @@ export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActiv
   if (turno.recordatorio?.motivo === "baja_de_avisos") {
     return (
       <p data-aviso="anotado_en_baja" className="mt-1 text-etiqueta text-tinta-media">
-        Se anotó cuando el cliente no recibía avisos, así que no tiene recordatorio. Si {vocabulario(rubro).cita.segun("lo", "la")} movés, se programa.
+        {t(`agenda.aviso.anotadoEnBaja.${vocabulario(rubro, idioma).cita.segun("m", "f")}`)}
       </p>
     );
   }
-  const porQue = turno.recordatorio?.mensaje;
+  const porQue = turno.recordatorio?.mensaje && motivoDelRecordatorio(turno.recordatorio, lang);
   return porQue ? (
     <p data-aviso={turno.recordatorio.motivo} className="mt-1 text-etiqueta text-tinta-media">{porQue}</p>
   ) : null;

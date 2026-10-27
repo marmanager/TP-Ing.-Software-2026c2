@@ -11,6 +11,11 @@
 //
 // Los colores son muestras fijas y no un selector libre: cada una tiene su
 // versión para fondo claro y para fondo oscuro, con contraste medido.
+//
+// `palabra` es el nombre en castellano y queda como dato. Lo que se ve en
+// pantalla se traduce por la `clave` de cada opción (cuenta.tema.<grupo>.
+// <clave>, ver Tema.js); las letras de marca —Inter, Merriweather, JetBrains
+// Mono— no se traducen y se muestran con su `palabra`.
 
 export const TEMAS = [
   { clave: "claro", palabra: "Claro", fondo: "#fbf8f4", tarjeta: "#ffffff", tinta: "#241f1b" },

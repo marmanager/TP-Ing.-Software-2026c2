@@ -27,6 +27,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
+import Frase from "@/componentes/Frase";
 import { casosPorAprobar, casosQueContestoElCliente, estaAbierto, pesos } from "@/lib/estados";
 import { turnosSinVer } from "@/lib/turnos";
 import { casosConSaldo } from "@/lib/cobros";
@@ -54,6 +56,7 @@ import {
   quitar,
   redimensionar,
   resolver,
+  traducirDelCatalogo,
   visibles,
 } from "@/lib/inicio";
 import Modulo from "@/componentes/inicio/Modulo";
@@ -72,6 +75,7 @@ const enAlgoQueSeToca = (destino) =>
   destino instanceof Element && destino.closest("button, select, input, a, label");
 
 export default function Inicio() {
+  const { idioma, locale, t } = useIdioma();
   const {
     cargando,
     casos,
@@ -86,7 +90,7 @@ export default function Inicio() {
     avisarExito,
   } = useDatos();
   const { usuario } = useAuth();
-  useTitulo("Inicio");
+  useTitulo(t("inicio.titulo"));
 
   const [acomodando, setAcomodando] = useState(false);
   const [borrador, setBorrador] = useState(null);
@@ -207,40 +211,40 @@ export default function Inicio() {
   // stock", que desde SCRUM-113 es una de las dos pantallas del Inventario.
   const conStock = hijosActivos("inventario", modulosActivos).some((h) => h.clave === "stock");
   const prendido = (clave) => estaPrendido(clave, modulosActivos);
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
 
   const hayQueMirar = [
     conTurnos && turnosNuevos.length > 0 && {
       href: "/agenda",
       texto:
         turnosNuevos.length === 1
-          ? "Alguien pidió un turno por el link"
-          : `${turnosNuevos.length} turnos nuevos pedidos por el link`,
+          ? t("inicio.avisos.turnoUno")
+          : t("inicio.avisos.turnosVarios", { n: turnosNuevos.length }),
     },
     contestados.length > 0 && {
       href: contestados.length === 1 ? `/casos/${contestados[0].id}` : "/casos",
       texto:
         contestados.length === 1
-          ? `El cliente contestó el ${casoEnFrase(contestados[0])}`
-          : `${contestados.length} casos que contestó el cliente`,
+          ? t("inicio.avisos.contestoUno", { caso: casoEnFrase(contestados[0], t) })
+          : t("inicio.avisos.contestoVarios", { n: contestados.length }),
     },
     conSaldo.length > 0 && {
       href: conSaldo.length === 1 ? `/casos/${conSaldo[0].caso.id}` : "/casos",
       texto:
         conSaldo.length === 1
-          ? `Falta cobrar ${pesos(saldoTotal)} del ${casoEnFrase(conSaldo[0].caso)}`
-          : `Falta cobrar ${pesos(saldoTotal)} de ${conSaldo.length} casos entregados`,
+          ? t("inicio.avisos.saldoUno", { monto: pesos(saldoTotal, locale), caso: casoEnFrase(conSaldo[0].caso, t) })
+          : t("inicio.avisos.saldoVarios", { monto: pesos(saldoTotal, locale), n: conSaldo.length }),
     },
     prendido("presupuesto") && trabados > 0 && {
       href: "/aprobar",
-      texto: `${trabados} ${trabados === 1 ? "caso espera" : "casos esperan"} respuesta hace más de 3 días`,
+      texto: t("inicio.avisos.trabados", { n: trabados }),
     },
     conStock && bajoMinimo > 0 && {
       href: "/inventario",
-      texto: `${articulo.cuantos(bajoMinimo)} por debajo del mínimo`,
+      texto: t("inicio.avisos.bajoMinimo", { cuantos: articulo.cuantos(bajoMinimo) }),
     },
   ].filter(Boolean);
-  const fecha = new Intl.DateTimeFormat("es-AR", {
+  const fecha = new Intl.DateTimeFormat(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -349,9 +353,7 @@ export default function Inicio() {
     cambiarInicio([...acomodado, ...ocultos]);
     salirDeAcomodar();
     avisarExito(
-      subioAlgo
-        ? "Listo. Juntamos los módulos para arriba así no te quedan espacios en blanco."
-        : "Listo. Tu pantalla de inicio quedó como la dejaste.",
+      subioAlgo ? t("inicio.acomodar.guardadoJunto") : t("inicio.acomodar.guardado"),
       { deshacer: () => cambiarInicio(comoEstaba) }
     );
   }
@@ -375,7 +377,7 @@ export default function Inicio() {
     <>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-pantalla">Inicio</h1>
+          <h1 className="text-pantalla">{t("inicio.titulo")}</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media first-letter:uppercase">
             {acomodando ? (
               <>
@@ -384,15 +386,14 @@ export default function Inicio() {
                     pantalla. Si dijera "agarrá", alguien lo intenta, no pasa
                     nada y concluye que el sistema está roto (auditoría, H2). */}
                 <span className="md:hidden">
-                  Tocá un módulo y usá sus ajustes para moverlo o cambiarle el tamaño.
+                  {t("inicio.acomodar.movil")}
                 </span>
                 <span className="hidden md:inline">
-                  Agarrá un módulo del medio y llevalo donde quieras. Para el tamaño, tirá
-                  de la esquina punteada; para lo demás, tocalo y abrí sus ajustes.
+                  {t("inicio.acomodar.escritorio")}
                 </span>
               </>
             ) : (
-              `${fecha} · ${abiertos} ${abiertos === 1 ? "caso abierto" : "casos abiertos"}`
+              t("inicio.resumen", { fecha, n: abiertos })
             )}
           </p>
         </div>
@@ -400,10 +401,10 @@ export default function Inicio() {
         {acomodando ? (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Boton variante="plano" onClick={salirDeAcomodar}>
-              Descartar los cambios
+              {t("inicio.acomodar.descartar")}
             </Boton>
             <Boton variante="principal" icono="check" onClick={guardar}>
-              Guardar la pantalla
+              {t("inicio.acomodar.guardar")}
             </Boton>
           </div>
         ) : (
@@ -416,7 +417,7 @@ export default function Inicio() {
             <Link href="/casos/nuevo" className="flex-1 sm:flex-none">
               <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
                 <Icono nombre="mas" />
-                Abrir un caso nuevo
+                {t("inicio.abrirCaso")}
               </span>
             </Link>
           </div>
@@ -432,13 +433,10 @@ export default function Inicio() {
       {!acomodando && negocio?.rubro === "personalizable" && ningunoPrendido(modulosActivos) && (
         <Tarjeta className="mb-6">
           <p className="font-titulo font-extrabold text-subtitulo">
-            Te damos la bienvenida a MarManager
+            {t("inicio.bienvenida.titulo")}
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Tu negocio arranca con lo justo: los casos.{" "}
-            {puede(usuario, "configurar_negocio")
-              ? "Elegí qué más usar —la agenda, los clientes, el inventario, el equipo— desde Mi negocio → Módulos."
-              : "Qué más usar —la agenda, los clientes, el inventario, el equipo— lo elige el dueño desde Mi negocio → Módulos."}
+            {puede(usuario, "configurar_negocio") ? t("inicio.bienvenida.puede") : t("inicio.bienvenida.soloLectura")}
           </p>
           {puede(usuario, "configurar_negocio") && (
             <Link
@@ -446,7 +444,7 @@ export default function Inicio() {
               className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
             >
               <Icono nombre="tuerca" />
-              Elegir los módulos
+              {t("inicio.bienvenida.elegir")}
             </Link>
           )}
         </Tarjeta>
@@ -473,10 +471,8 @@ export default function Inicio() {
       )}
 
       {enPantalla.length === 0 ? (
-        <Vacio icono="cajas" titulo="Tu inicio está vacío">
-          {acomodando
-            ? "Agregá abajo los módulos que quieras ver."
-            : "Tocá «Acomodar la pantalla» y elegí qué querés ver al abrir."}
+        <Vacio icono="cajas" titulo={t("inicio.vacioTitulo")}>
+          {acomodando ? t("inicio.vacioAcomodando") : t("inicio.vacio")}
         </Vacio>
       ) : (
         <div ref={grillaRef} className="grilla-inicio">
@@ -506,18 +502,25 @@ export default function Inicio() {
 
       {acomodando && (
         <>
-          <TituloSeccion className="mt-12">Agregar un módulo</TituloSeccion>
+          <TituloSeccion className="mt-12">{t("inicio.acomodar.agregarTitulo")}</TituloSeccion>
           {sePuedenAgregar.length === 0 ? (
             <p className="max-w-[65ch] text-tinta-media">
-              Ya están todos los que podés usar. Para tener más, prendé otros módulos en{" "}
-              <Link href="/negocio/modulos" className="font-bold text-azul">
-                Mi negocio
-              </Link>
-              .
+              <Frase
+                texto={t("inicio.acomodar.yaEstanTodos")}
+                partes={{
+                  enlace: (
+                    <Link href="/negocio/modulos" className="font-bold text-azul">
+                      {t("negocio.titulo")}
+                    </Link>
+                  ),
+                }}
+              />
             </p>
           ) : (
             <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
-              {sePuedenAgregar.map((def) => (
+              {sePuedenAgregar.map((definicion) => {
+                const def = traducirDelCatalogo(definicion, t);
+                return (
                 <li key={def.clave}>
                   <button
                     type="button"
@@ -534,11 +537,12 @@ export default function Inicio() {
                     <span className="text-tinta-media">{def.queMuestra}</span>
                     <span className="mt-2 flex items-center gap-1 font-bold text-azul text-etiqueta">
                       <Icono nombre="mas" className="size-5" />
-                      Agregarlo al inicio
+                      {t("inicio.acomodar.agregarlo")}
                     </span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
 
@@ -551,7 +555,7 @@ export default function Inicio() {
                 setAjustando(null);
               }}
             >
-              Volver al orden de fábrica
+              {t("inicio.acomodar.fabrica")}
             </Boton>
           </div>
         </>
@@ -560,7 +564,7 @@ export default function Inicio() {
       {!acomodando && (
         <div className="mt-6">
           <Boton variante="plano" icono="cajas" onClick={empezarAAcomodar}>
-            Acomodar la pantalla
+            {t("inicio.acomodar.empezar")}
           </Boton>
         </div>
       )}

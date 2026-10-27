@@ -13,6 +13,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
 import { useDatos } from "@/lib/datos";
 import { bloquea, RUTAS_SIN_SUSCRIPCION } from "@/lib/suscripcion";
 import { ContextoSuscripcion, useSuscripcion } from "@/lib/useSuscripcion";
@@ -21,7 +22,7 @@ import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 import FranjaDeVisita from "./FranjaDeVisita";
 import Link from "next/link";
-import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
+import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos, traducirModulo } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
 import { seguirAlSistema } from "@/lib/tema";
 
@@ -110,6 +111,7 @@ const moduloApagado = (ruta, negocio) => {
 };
 
 export default function Guardia({ children }) {
+  const { t } = useIdioma();
   const { cargando, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
   const { cargando: datosCargando, negocio } = useDatos();
   const suscripcion = useSuscripcion();
@@ -200,7 +202,13 @@ export default function Guardia({ children }) {
   }
 
   // Con la navegación puesta, así se puede ir a otro lado sin volver atrás.
-  const apagado = moduloApagado(ruta, negocio);
+  const apagado = traducirModulo(moduloApagado(ruta, negocio), t);
+  // La frase lleva el enlace adentro: se escribe entera, con un marcador
+  // {enlace}, y se parte ahí; no se arma pegando pedazos traducidos. El
+  // nombre y la descripción del módulo vienen de modulos.js.
+  const [antesDelEnlace, despuesDelEnlace] = apagado
+    ? t("ui.moduloApagado.texto", { descripcion: apagado.descripcion }).split("{enlace}")
+    : [];
 
   return (
     <ContextoSuscripcion.Provider value={suscripcion}>
@@ -214,7 +222,7 @@ export default function Guardia({ children }) {
         href="#contenido"
         className="fixed top-3 left-3 z-50 -translate-y-[200%] whitespace-nowrap rounded-campo bg-azul px-4 py-3 font-bold text-white focus:translate-y-0"
       >
-        Ir al contenido
+        {t("ui.irAlContenido")}
       </a>
       <div className="flex min-h-screen">
         <BarraLateral />
@@ -232,12 +240,12 @@ export default function Guardia({ children }) {
             <div className="@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
             <Aviso />
             {apagado ? (
-              <Vacio icono="tuerca" titulo={`Tu negocio no tiene ${apagado.nombre}`}>
-                {apagado.descripcion} Si te sirve, se prende desde{" "}
+              <Vacio icono="tuerca" titulo={t("ui.moduloApagado.titulo", { nombre: apagado.nombre })}>
+                {antesDelEnlace}
                 <Link href="/negocio/modulos" className="font-bold text-azul">
-                  Mi negocio
+                  {t("ui.moduloApagado.enlace")}
                 </Link>
-                , y lo que ya tengas cargado sigue estando.
+                {despuesDelEnlace}
               </Vacio>
             ) : (
               children

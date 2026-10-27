@@ -19,14 +19,16 @@
 
 import { useState } from "react";
 import { enFranjas, mesesConLugar, semanasDelMes } from "@/lib/horarios";
-import { DIAS_DE_LA_SEMANA, MES_CORTO, MES_LARGO } from "@/lib/calendario";
-import { diaPasado } from "@/lib/fechas";
+import { diasDeLaSemana, mesCorto, mesLargo } from "@/lib/calendario";
+import { diaPasado, diaPasadoEnFrase } from "@/lib/fechas";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "@/componentes/Icono";
 
 export const comoHora = (fecha) =>
   `${fecha.getHours()}:${String(fecha.getMinutes()).padStart(2, "0")}`;
 
 export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 }) {
+  const { locale, t } = useIdioma();
   const Titulo = `h${nivel}`;
   const Franja = `h${nivel + 1}`;
   // El día que está mirando, como toDateString(). null = el primero que
@@ -45,11 +47,11 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
   // mes: al pasar de mes siempre hay algo abajo, nunca una tarjeta vacía.
   const delDia = delMes.find((d) => d.fecha.toDateString() === dia) ?? delMes[0];
   const conLugar = new Set(dias.map((d) => d.fecha.toDateString()));
-  const franjas = delDia ? enFranjas(delDia.huecos) : [];
+  const franjas = delDia ? enFranjas(delDia.huecos, t) : [];
 
   return (
     <>
-      <Titulo className="mt-8 mb-3 text-seccion">Qué día</Titulo>
+      <Titulo className="mt-8 mb-3 text-seccion">{t("turnos.calendario.queDia")}</Titulo>
       <Calendario
         mes={mes}
         antes={meses[posMes - 1]}
@@ -69,12 +71,10 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
 
       <div className="mt-6 rounded-tarjeta border border-borde bg-tarjeta p-4 sm:p-5">
         <Titulo className="text-subtitulo font-bold first-letter:uppercase">
-          {diaPasado(delDia.fecha)}
+          {diaPasado(delDia.fecha, locale, t)}
         </Titulo>
         <p className="text-tinta-media">
-          {delDia.huecos.length === 1
-            ? "Queda 1 horario libre."
-            : `Quedan ${delDia.huecos.length} horarios libres.`}
+          {t("turnos.calendario.quedan", { n: delDia.huecos.length })}
         </p>
 
         {franjas.map((f) => (
@@ -90,7 +90,7 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
                     <button
                       type="button"
                       aria-pressed={Boolean(puesto)}
-                      aria-label={`${diaPasado(delDia.fecha)} a las ${comoHora(h)}`}
+                      aria-label={t("turnos.calendario.diaALas", { dia: diaPasado(delDia.fecha, locale, t), hora: comoHora(h) })}
                       onClick={() => onElegir(h.toISOString())}
                       className={[
                         "flex min-h-12 w-full cursor-pointer items-center justify-center gap-1.5 rounded-campo border-2 font-bold text-cuerpo tabular-nums",
@@ -121,10 +121,11 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
 // demás van tachados y no se tocan. Abajo, en palabras, qué quiere decir
 // cada cosa: el tachado solo no alcanza para saber por qué no se puede.
 function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultimo }) {
+  const { locale, t } = useIdioma();
   // "Octubre 2026", sin el "de": con el "de" no entra en una línea al lado
   // de las flechas.
   const titulo =
-    new Intl.DateTimeFormat("es-AR", { month: "long" }).format(new Date(mes.anio, mes.mes, 1)) +
+    new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(mes.anio, mes.mes, 1)) +
     " " +
     mes.anio;
 
@@ -142,12 +143,12 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
           {antes ? (
             <button
               type="button"
-              aria-label={`Ver ${MES_LARGO[antes.mes]}`}
+              aria-label={t("turnos.calendario.verMes", { mes: mesLargo(antes.mes, locale) })}
               onClick={() => onMes(-1)}
               className="flex min-h-12 min-w-16 cursor-pointer items-center justify-center gap-0.5 rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
             >
               <Icono nombre="flecha-izq" className="size-5 shrink-0" />
-              {MES_CORTO[antes.mes]}
+              {mesCorto(antes.mes, locale)}
             </button>
           ) : (
             <span className="min-w-16" aria-hidden="true" />
@@ -155,11 +156,11 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
           {despues ? (
             <button
               type="button"
-              aria-label={`Ver ${MES_LARGO[despues.mes]}`}
+              aria-label={t("turnos.calendario.verMes", { mes: mesLargo(despues.mes, locale) })}
               onClick={() => onMes(1)}
               className="flex min-h-12 min-w-16 cursor-pointer items-center justify-center gap-0.5 rounded-campo px-2 font-bold text-azul hover:bg-azul-claro"
             >
-              {MES_CORTO[despues.mes]}
+              {mesCorto(despues.mes, locale)}
               <Icono nombre="flecha-der" className="size-5 shrink-0" />
             </button>
           ) : (
@@ -171,7 +172,7 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
       <table className="w-full table-fixed border-collapse text-center">
         <thead>
           <tr>
-            {DIAS_DE_LA_SEMANA.map((d) => (
+            {diasDeLaSemana(locale).map((d) => (
               <th key={d} scope="col" className="pb-1 text-apoyo font-normal text-tinta-suave">
                 {d}
               </th>
@@ -191,7 +192,7 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
                     <td key={j} className="py-0.5">
                       <span
                         className="mx-auto flex size-11 items-center justify-center text-cuerpo tabular-nums text-tinta-suave line-through"
-                        aria-label={`${numero}, sin lugar`}
+                        aria-label={t("turnos.calendario.sinLugar", { numero })}
                       >
                         {numero}
                       </span>
@@ -205,7 +206,7 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
                     <button
                       type="button"
                       aria-pressed={esEste}
-                      aria-label={diaPasado(fecha)}
+                      aria-label={diaPasado(fecha, locale, t)}
                       onClick={() => onDia(clave)}
                       className={[
                         "mx-auto flex size-12 cursor-pointer items-center justify-center rounded-full font-bold text-cuerpo tabular-nums",
@@ -227,18 +228,18 @@ function Calendario({ mes, antes, despues, onMes, conLugar, puesto, onDia, ultim
       <p className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 pl-2 text-apoyo text-tinta-media">
         <span className="flex items-center gap-2">
           <span className="inline-block size-4 rounded-full bg-azul-claro ring-1 ring-azul" />
-          Hay lugar
+          {t("turnos.calendario.hayLugar")}
         </span>
         <span className="flex items-center gap-2">
           <span className="text-tinta-suave line-through">15</span>
-          No se puede pedir
+          {t("turnos.calendario.noSePuede")}
         </span>
       </p>
       {/* Sin esto, las dos últimas semanas tachadas parecen un negocio
           lleno, cuando lo que pasa es que todavía no se dan turnos para
           esos días. */}
       <p className="mt-1 pl-2 text-apoyo text-tinta-media">
-        Se dan turnos hasta el {diaPasado(ultimo).toLowerCase()}.
+        {t("turnos.calendario.hasta", { dia: diaPasadoEnFrase(ultimo, locale, t) })}
       </p>
     </div>
   );

@@ -1,11 +1,12 @@
 import { intervalosDashboard } from "./dashboard-periodos.js";
+import { tCastellano } from "./idioma.js";
 
 const DIA = 86_400_000;
 
-export function serieAltasClientes(periodo, porDia) {
+export function serieAltasClientes(periodo, porDia, locale = "es-AR", t = tCastellano) {
   const dias = (Date.parse(periodo.hasta) - Date.parse(periodo.desde)) / DIA + 1;
   const agrupacion = dias <= 62 ? "día" : dias <= 366 ? "semana" : dias <= 1826 ? "mes" : "año";
-  const puntos = intervalosDashboard(periodo, agrupacion).map((punto) => ({ ...punto, cantidad: 0 }));
+  const puntos = intervalosDashboard(periodo, agrupacion, locale, t).map((punto) => ({ ...punto, cantidad: 0 }));
   let indice = 0;
   for (const fila of [...porDia].sort((a, b) => a.fecha.localeCompare(b.fecha))) {
     if (fila.fecha < periodo.desde || fila.fecha > periodo.hasta) continue;

@@ -8,7 +8,8 @@
 // (src/modulos/negocio/esquemas.ts), que no deja guardar otras. Si se suma
 // una, se suma en los dos lados.
 
-import { LISTA_MODULOS, estaPrendido } from "./modulos.js";
+import { LISTA_MODULOS, estaPrendido, traducirModulo } from "./modulos.js";
+import { tCastellano } from "./idioma.js";
 
 // El modelo fijo: el negocio no crea ni borra secciones, sólo las ordena.
 // "modulo" es el módulo sin el cual la sección no tiene sentido: sin Agenda
@@ -39,6 +40,24 @@ export const SECCIONES = [
     modulo: "agenda",
   },
 ];
+
+// Los textos fijos de la landing (etiquetas de sección, colores, tipografías)
+// son de fábrica: salen del diccionario por la clave (landing.secciones.*,
+// landing.partes.*, landing.fuentes.*), y sin t en castellano. Lo que el
+// negocio escribió (nombre, descripción, teléfono) no pasa por acá.
+export const traducirSeccion = (s, t = tCastellano) => ({
+  ...s,
+  nombre: t(`landing.secciones.${s.clave}.nombre`, {}, s.nombre),
+  queMuestra: t(`landing.secciones.${s.clave}.queMuestra`, {}, s.queMuestra),
+});
+
+export const traducirParte = (p, t = tCastellano) => ({
+  ...p,
+  nombre: t(`landing.partes.${p.clave}.nombre`, {}, p.nombre),
+  ayuda: t(`landing.partes.${p.clave}.ayuda`, {}, p.ayuda),
+});
+
+export const nombreDeFuente = (f, t = tCastellano) => t(`landing.fuentes.${f.clave}`, {}, f.nombre);
 
 // Los cuatro colores que elige el negocio, cada uno con el de su texto.
 export const PARTES = [
@@ -132,7 +151,7 @@ export function moverSeccion(orden, clave, paso) {
 // ("horariosListos", que lo decide la API con la misma regla que la agenda
 // pública). Sin horarios no hay turnos que ofrecer. Por defecto se da por
 // hecho que están, así lo que ya usaba esta función no cambia.
-export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = true) {
+export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = true, t = tCastellano) {
   return normalizarLanding({ orden }).orden.map((clave) => {
     const seccion = SECCIONES.find((s) => s.clave === clave);
     const prendido = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos ?? []);
@@ -142,13 +161,13 @@ export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = t
     const visible = prendido && !sinHorarios;
     const modulo = LISTA_MODULOS.find((m) => m.clave === seccion.modulo);
     return {
-      ...seccion,
+      ...traducirSeccion(seccion, t),
       visible,
       motivo: visible
         ? null
         : sinHorarios
-          ? "Aparece cuando publicás tus horarios."
-          : `Aparece cuando prendés el módulo ${modulo?.nombre ?? seccion.modulo}.`,
+          ? t("landing.motivo.sinHorarios")
+          : t("landing.motivo.modulo", { modulo: traducirModulo(modulo, t)?.nombre ?? seccion.modulo }),
     };
   });
 }

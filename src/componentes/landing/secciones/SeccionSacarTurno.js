@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { agendaDeLanding, reservarEnLanding } from "@/lib/datos";
-import { diaLargo } from "@/lib/fechas";
+import { diaLargo, diaLargoEnFrase } from "@/lib/fechas";
+import { SECCIONES, traducirSeccion } from "@/lib/landing";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { normalizarHorarios } from "@/lib/horarios";
 import { leerLlave } from "@/lib/llave-landing";
 import { comoSeIdentifica, preset } from "@/lib/presets";
 import CalendarioDeTurnos, { comoHora } from "@/componentes/CalendarioDeTurnos";
 import Icono from "@/componentes/Icono";
+import Frase from "@/componentes/Frase";
 import { Boton, Campo, ErrorGeneral } from "@/componentes/ui";
 
 // "Sacar turno", en la landing: lo mismo que la pantalla pública de pedir
@@ -35,8 +39,10 @@ import { Boton, Campo, ErrorGeneral } from "@/componentes/ui";
 const DEL_HORARIO = ["turno_ocupado", "horario_no_disponible", "agenda_sin_horarios"];
 
 export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, alEntrar, alVencer, alReservar }) {
-  const ident = comoSeIdentifica(negocio.rubro);
-  const motivos = preset(negocio.rubro).motivos;
+  const { idioma, locale, t } = useIdioma();
+  const ident = comoSeIdentifica(negocio.rubro, idioma);
+  const motivos = preset(negocio.rubro, idioma).motivos;
+  const seccionMisTurnos = traducirSeccion(SECCIONES.find((s) => s.clave === "mis_turnos"), t).nombre;
   const [agenda, setAgenda] = useState(null);
   const [vuelta, setVuelta] = useState(0);
   const [elegido, setElegido] = useState(null);
@@ -78,8 +84,8 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
     setGuardando(false);
 
     if (!r.ok) {
-      if (r.codigo === "llave_vencida") return alVencer(r.mensaje);
-      setProblema(r.mensaje);
+      if (r.codigo === "llave_vencida") return alVencer({ codigo: r.codigo, mensaje: r.mensaje });
+      setProblema({ codigo: r.codigo, mensaje: r.mensaje });
       if (DEL_HORARIO.includes(r.codigo)) {
         setElegido(null);
         setVuelta((v) => v + 1);
@@ -105,19 +111,18 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
         <div role="status" className="rounded-tarjeta border-2 border-completo bg-tarjeta p-5">
           <p className="flex items-center gap-2 font-titulo font-extrabold text-subtitulo">
             <Icono nombre="listo" className="size-7 shrink-0 text-completo" />
-            Listo, quedaste anotado
+            {t("landing.sacar.listo")}
           </p>
           <p className="mt-3 font-titulo font-extrabold text-ident first-letter:uppercase">
-            {diaLargo(listo.cuando)} a las {comoHora(listo.cuando)}
+            {t("turnos.cuando", { dia: diaLargo(listo.cuando, locale, t), hora: comoHora(listo.cuando) })}
           </p>
           <p className="mt-1 text-tinta-media">{listo.motivo}</p>
           <p className="mt-3 max-w-[65ch] text-tinta-media">
-            {negocio.nombre} ya lo ve en su agenda. Si no podés venir, avisale así le dan el lugar a otro.
+            {t("landing.sacar.yaLoVe", { negocio: negocio.nombre })}
           </p>
           {listo.adentro && (
             <p className="mt-3 max-w-[65ch] text-tinta-media">
-              Ya quedaste adentro: tus turnos están en «Mis turnos». Otro día volvés a entrar con{" "}
-              {ident.enFrase} y los últimos 4 números de tu teléfono.
+              {t("landing.sacar.yaAdentro", { seccion: seccionMisTurnos, identificador: ident.enFrase })}
             </p>
           )}
         </div>
@@ -130,7 +135,7 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
             setMotivo("");
           }}
         >
-          Sacar otro turno
+          {t("landing.sacar.otro")}
         </Boton>
       </div>
     );
@@ -139,7 +144,7 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
   if (!agenda) {
     return (
       <p role="status" className="mt-2 text-tinta-media">
-        Buscando los horarios libres…
+        {t("landing.sacar.buscando")}
       </p>
     );
   }
@@ -152,8 +157,9 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
         <p role="alert" className="flex items-start gap-2 font-bold text-rojo">
           <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
           <span>
-            {agenda.problema ??
-              `Por ahora no se puede sacar turno por acá. Escribile o llamá a ${negocio.nombre}.`}
+            {agenda.error
+              ? textoDeError(t, agenda.error)
+              : agenda.problema ?? t("landing.sacar.sinServicio", { negocio: negocio.nombre })}
           </span>
         </p>
         {agenda.problema && (
@@ -165,7 +171,7 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
               setVuelta((v) => v + 1);
             }}
           >
-            Probar de nuevo
+            {t("landing.sacar.probar")}
           </Boton>
         )}
       </div>
@@ -174,30 +180,30 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
 
   const minutos = normalizarHorarios(agenda.horarios)?.minutos;
   const falta = !motivo.trim()
-    ? "contanos para qué venís"
+    ? t("landing.sacar.faltaMotivo")
     : entrado
       ? null
       : vencida
-        ? "primero entrá de nuevo con tus datos"
+        ? t("landing.sacar.entrarDeNuevo")
         : !nombre.trim()
-          ? "falta tu nombre"
+          ? t("landing.sacar.faltaNombre")
           : telefono.replace(/\D/g, "").length < 4
-            ? "falta tu teléfono"
+            ? t("landing.sacar.faltaTelefono")
             : !identificador.trim()
-              ? `falta ${ident.enFrase}`
+              ? t("ui.validaciones.faltaIdentificador", { identificador: ident.enFrase })
               : null;
 
   return (
     <>
       <p className="mt-2 max-w-[65ch] text-tinta-media">
-        Elegí el día y la hora que te queden bien y te anotás acá mismo, sin llamar.
+        {t("landing.sacar.intro")}
       </p>
 
       {/* Sin horario elegido, el problema va arriba: el formulario ya no
           está (se lo ganaron y hay que elegir otro). */}
       {problema && !elegido && (
         <div className="mt-4">
-          <ErrorGeneral>{problema}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, problema)}</ErrorGeneral>
         </div>
       )}
 
@@ -205,9 +211,8 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
         <p className="mt-4 flex items-start gap-2 text-tinta-media">
           <Icono nombre="reloj" className="mt-0.5 size-5 shrink-0" />
           <span>
-            <span className="font-bold text-tinta">No queda ningún horario libre.</span> Por ahora{" "}
-            {negocio.nombre} no tiene lugar en los días que abrió para sacar turno. Probá más adelante o
-            escribile directamente.
+            <span className="font-bold text-tinta">{t("landing.sacar.sinLugar")}</span>{" "}
+            {t("landing.sacar.sinLugarTexto", { negocio: negocio.nombre })}
           </span>
         </p>
       ) : (
@@ -226,20 +231,25 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
           {elegido && (
             <>
               <h3 ref={datosRef} className="mt-8 mb-1 scroll-mt-4 text-seccion">
-                Tus datos
+                {t("landing.sacar.tusDatos")}
               </h3>
               <p className="mb-4 max-w-[65ch] text-tinta-media">
-                Pediste el turno para{" "}
-                <span className="font-bold text-tinta">
-                  {diaLargo(elegido).toLowerCase()} a las {comoHora(new Date(elegido))}
-                </span>
-                .{minutos ? ` Son ${minutos} minutos.` : ""}
+                <Frase
+                  texto={t(minutos ? "landing.sacar.pedisteMinutos" : "landing.sacar.pediste", { minutos })}
+                  partes={{
+                    cuando: (
+                      <span className="font-bold text-tinta">
+                        {t("turnos.cuando", { dia: diaLargoEnFrase(elegido, locale, t), hora: comoHora(new Date(elegido)) })}
+                      </span>
+                    ),
+                  }}
+                />
               </p>
 
               <Campo
                 id="turno-motivo"
-                etiqueta="¿Para qué venís?"
-                ayuda="Con tus palabras. Sirve para que sepan qué preparar."
+                etiqueta={t("landing.sacar.paraQue")}
+                ayuda={t("landing.sacar.paraQueAyuda")}
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 autoComplete="off"
@@ -269,11 +279,17 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
                 <p className="mb-6 flex items-start gap-2 rounded-campo bg-espera-fondo p-4 text-espera">
                   <Icono nombre="reloj" className="mt-0.5 size-5 shrink-0" />
                   <span>
-                    <span className="font-bold">Pasó un rato desde que entraste.</span>{" "}
-                    <a href="#ingreso" className="font-bold underline">
-                      Entrá de nuevo con tus datos
-                    </a>{" "}
-                    y pedí el turno: lo que elegiste queda acá.
+                    <span className="font-bold">{t("landing.sacar.vencidaAviso")}</span>{" "}
+                    <Frase
+                      texto={t("landing.sacar.vencidaTexto")}
+                      partes={{
+                        enlace: (
+                          <a href="#ingreso" className="font-bold underline">
+                            {t("landing.sacar.vencidaEnlace")}
+                          </a>
+                        ),
+                      }}
+                    />
                   </span>
                 </p>
               )}
@@ -283,24 +299,29 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
                   {/* Quien ya es cliente y no entró se registraría de nuevo
                       y quedaría dos veces: mejor que entre. */}
                   <p className="mb-6 max-w-[65ch] text-tinta-media">
-                    Si ya sos cliente de {negocio.nombre},{" "}
-                    <a href="#ingreso" className="font-bold text-azul underline">
-                      entrá con tus datos
-                    </a>{" "}
-                    y no hace falta que los pongas acá.
+                    <Frase
+                      texto={t("landing.sacar.yaSosCliente", { negocio: negocio.nombre })}
+                      partes={{
+                        enlace: (
+                          <a href="#ingreso" className="font-bold text-azul underline">
+                            {t("landing.sacar.yaSosClienteEnlace")}
+                          </a>
+                        ),
+                      }}
+                    />
                   </p>
                   <Campo
                     id="turno-nombre"
-                    etiqueta="Tu nombre"
-                    ayuda="Para saber quién viene."
+                    etiqueta={t("landing.sacar.nombre")}
+                    ayuda={t("landing.sacar.nombreAyuda")}
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     autoComplete="name"
                   />
                   <Campo
                     id="turno-telefono"
-                    etiqueta="Tu teléfono"
-                    ayuda="Por acá te avisan si pasa algo. Con los últimos 4 números vas a poder volver a entrar."
+                    etiqueta={t("landing.sacar.telefono")}
+                    ayuda={t("landing.sacar.telefonoAyuda")}
                     value={telefono}
                     onChange={(e) => setTelefono(e.target.value)}
                     inputMode="tel"
@@ -309,7 +330,7 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
                   <Campo
                     id="turno-identificador"
                     etiqueta={ident.nombre}
-                    ayuda={`Por ejemplo: ${ident.ejemplo}. Con esto y tu teléfono volvés a entrar a ver tus turnos y tus casos.`}
+                    ayuda={t("landing.sacar.identificadorAyuda", { ejemplo: ident.ejemplo })}
                     value={identificador}
                     onChange={(e) => setIdentificador(e.target.value)}
                     maxLength={40}
@@ -319,16 +340,16 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
                 </>
               )}
 
-              {problema && <ErrorGeneral>{problema}</ErrorGeneral>}
+              {problema && <ErrorGeneral>{textoDeError(t, problema)}</ErrorGeneral>}
 
               <Boton
                 variante="principal"
                 icono="calendario"
                 className="min-h-14 w-full sm:min-h-12 sm:w-auto"
-                motivo={guardando ? "anotándote" : falta}
+                motivo={guardando ? t("landing.sacar.anotandote") : falta}
                 onClick={pedir}
               >
-                Pedir el turno
+                {t("landing.sacar.pedir")}
               </Boton>
             </>
           )}

@@ -8,14 +8,16 @@ import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { nombreDelRol, puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "@/componentes/Icono";
 import { Cargando, Tarjeta, TituloPantalla, Vacio } from "@/componentes/ui";
 
 export default function Roles() {
   const datos = useDatos();
   const { usuario, haySupabase } = useAuth();
-  useTitulo("Roles");
+  const { t } = useIdioma();
+  useTitulo(t("negocio.roles.titulo"));
   const puedeManejar = puede(usuario, "manejar_roles");
   const sinRoles = !datos.roles;
 
@@ -29,9 +31,9 @@ export default function Roles() {
     return (
       <>
         <Volver />
-        <TituloPantalla>Roles</TituloPantalla>
-        <Vacio icono="candado" titulo="Requiere una cuenta">
-          Los roles se asignan a personas del equipo, y sumar personas requiere una cuenta.
+        <TituloPantalla>{t("negocio.roles.titulo")}</TituloPantalla>
+        <Vacio icono="candado" titulo={t("negocio.roles.requiere")}>
+          {t("negocio.roles.requiereTexto")}
         </Vacio>
       </>
     );
@@ -41,7 +43,7 @@ export default function Roles() {
   return (
     <>
       <Volver />
-      <TituloPantalla apoyo="Qué puede hacer cada persona del equipo.">Roles</TituloPantalla>
+      <TituloPantalla apoyo={t("negocio.roles.apoyo")}>{t("negocio.roles.titulo")}</TituloPantalla>
 
       {puedeManejar ? (
         <Link
@@ -49,10 +51,10 @@ export default function Roles() {
           className="mb-8 inline-flex min-h-12 items-center gap-2 rounded-campo bg-azul px-6 font-bold text-white"
         >
           <Icono nombre="mas" />
-          Crear un rol
+          {t("negocio.roles.crear")}
         </Link>
       ) : (
-        <p className="mb-8 text-tinta-media">{QUIEN_PUEDE.manejar_roles}</p>
+        <p className="mb-8 text-tinta-media">{quienPuede("manejar_roles", t)}</p>
       )}
 
       <ul className="grid gap-4">
@@ -61,13 +63,13 @@ export default function Roles() {
             <Link href={`/negocio/roles/${r.id}`} className="block min-h-12">
               <Tarjeta className="flex items-center justify-between gap-4">
                 <span>
-                  <span className="block font-bold">{r.nombre}</span>
+                  <span className="block font-bold">{nombreDelRol(r, t)}</span>
                   <span className="block text-tinta-media">
                     {r.es_duenio
-                      ? "Tiene todos los permisos"
-                      : `${r.permisos.length} ${r.permisos.length === 1 ? "permiso" : "permisos"}`}
+                      ? t("negocio.roles.todosLosPermisos")
+                      : t("negocio.roles.permisos", { n: r.permisos.length })}
                     {" · "}
-                    {r.personas === 1 ? "1 persona" : `${r.personas} personas`}
+                    {t("negocio.roles.personas", { n: r.personas })}
                   </span>
                 </span>
                 <Icono nombre={r.es_duenio ? "candado" : "flecha"} />
@@ -81,10 +83,11 @@ export default function Roles() {
 }
 
 function Volver() {
+  const { t } = useIdioma();
   return (
     <Link href="/negocio" className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
       <Icono nombre="volver" />
-      Volver a Mi negocio
+      {t("negocio.volver")}
     </Link>
   );
 }

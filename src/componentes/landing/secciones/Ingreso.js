@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { entrarALanding } from "@/lib/datos";
 import { comoSeIdentifica } from "@/lib/presets";
+import { textoDeError } from "@/lib/idioma";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, ErrorGeneral } from "@/componentes/ui";
 
@@ -22,16 +24,17 @@ import { Boton, Campo, ErrorGeneral } from "@/componentes/ui";
 //
 // "aviso" es por qué se le vuelven a pedir los datos (la llave venció).
 export default function Ingreso({ codigo, negocio, boton, aviso, principal, alEntrar }) {
-  const ident = comoSeIdentifica(negocio.rubro);
+  const { idioma, t } = useIdioma();
+  const ident = comoSeIdentifica(negocio.rubro, idioma);
   const [identificador, setIdentificador] = useState("");
   const [ultimos4, setUltimos4] = useState("");
   const [entrando, setEntrando] = useState(false);
   const [error, setError] = useState(null);
 
   const falta = !identificador.trim()
-    ? `falta ${ident.enFrase}`
+    ? t("ui.validaciones.faltaIdentificador", { identificador: ident.enFrase })
     : ultimos4.length !== 4
-      ? "faltan los 4 números"
+      ? t("landing.ingreso.faltan4")
       : null;
 
   async function entrar(ev) {
@@ -41,7 +44,7 @@ export default function Ingreso({ codigo, negocio, boton, aviso, principal, alEn
     setEntrando(true);
     const r = await entrarALanding(codigo, { identificador, ultimos4 });
     setEntrando(false);
-    if (!r.ok) return setError(r.mensaje);
+    if (!r.ok) return setError({ codigo: r.codigo, mensaje: r.mensaje });
     alEntrar();
   }
 
@@ -50,19 +53,18 @@ export default function Ingreso({ codigo, negocio, boton, aviso, principal, alEn
       {aviso && (
         <p role="status" className="mb-4 flex items-start gap-2 rounded-campo bg-espera-fondo p-4 font-bold text-espera">
           <Icono nombre="reloj" className="mt-0.5 size-5 shrink-0" />
-          <span>{aviso}</span>
+          <span>{textoDeError(t, aviso)}</span>
         </p>
       )}
 
       <p className="mb-6 max-w-[65ch] text-tinta-media">
-        Para ver lo tuyo, poné {ident.enFrase} y los últimos 4 números del teléfono que
-        le diste a {negocio.nombre}. No hace falta crear ninguna cuenta.
+        {t("landing.ingreso.intro", { identificador: ident.enFrase, negocio: negocio.nombre })}
       </p>
 
       <Campo
         id="ingreso-identificador"
         etiqueta={ident.nombre}
-        ayuda={`Por ejemplo: ${ident.ejemplo}. Con espacios o sin, da igual.`}
+        ayuda={t("landing.ingreso.identificadorAyuda", { ejemplo: ident.ejemplo })}
         value={identificador}
         onChange={(e) => setIdentificador(e.target.value)}
         maxLength={40}
@@ -71,8 +73,8 @@ export default function Ingreso({ codigo, negocio, boton, aviso, principal, alEn
       />
       <Campo
         id="ingreso-ultimos4"
-        etiqueta="Los últimos 4 números de tu teléfono"
-        ayuda="Si tu número es 341 456 7890, son 7890. Si el negocio no tiene tu teléfono, pedile que lo cargue."
+        etiqueta={t("landing.ingreso.ultimos4")}
+        ayuda={t("landing.ingreso.ultimos4Ayuda")}
         value={ultimos4}
         // Sólo números: el teclado numérico del celular igual deja pegar
         // otras cosas. Si pega el teléfono entero, quedan los últimos 4 (sin
@@ -83,14 +85,14 @@ export default function Ingreso({ codigo, negocio, boton, aviso, principal, alEn
         autoComplete="off"
       />
 
-      {error && <ErrorGeneral>{error}</ErrorGeneral>}
+      {error && <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>}
 
       <Boton
         type="submit"
         variante={principal ? "principal" : "borde"}
         icono="llave"
         className="min-h-14 w-full sm:min-h-12 sm:w-auto"
-        motivo={entrando ? "entrando" : falta}
+        motivo={entrando ? t("landing.ingreso.entrando") : falta}
       >
         {boton}
       </Boton>

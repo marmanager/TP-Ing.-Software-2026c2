@@ -7,7 +7,8 @@
 import { mandar, quitar, traer } from "./api.js";
 import { puede } from "./permisos.js";
 
-const conError = (r) => ({ ok: false, error: r.error.mensaje });
+// El error de la API, con su código: la pantalla lo traduce con textoDeError.
+const conError = (r) => ({ ok: false, error: r.error });
 
 export async function misSedes(token) {
   const r = await traer("/sedes", token);

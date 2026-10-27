@@ -17,7 +17,9 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import {
   CONTRASTE_MINIMO,
   FUENTES,
@@ -28,9 +30,11 @@ import {
   esDeFabrica,
   estadoDeSecciones,
   moverSeccion,
+  nombreDeFuente,
   normalizarLanding,
   seLee,
   textoRecomendado,
+  traducirParte,
 } from "@/lib/landing";
 import { horariosListos, normalizarHorarios } from "@/lib/horarios";
 import Icono from "@/componentes/Icono";
@@ -39,26 +43,25 @@ import { FUENTES_LANDING } from "@/componentes/landing/fuentes";
 import VistaPrevia from "@/componentes/landing/VistaPrevia";
 import { Boton, Cargando, Tarjeta, TituloPantalla, TituloSeccion } from "@/componentes/ui";
 
-// 4.478 → "4,4": se trunca, no se redondea, para que un contraste que no llega
-// nunca se muestre igual al mínimo.
-const conComa = (n) => (Math.floor(n * 10) / 10).toFixed(1).replace(".", ",");
+// 4.478 → "4,4" (en inglés "4.4"): se trunca, no se redondea, para que un
+// contraste que no llega nunca se muestre igual al mínimo.
+const conComa = (n, locale) =>
+  (Math.floor(n * 10) / 10).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 // Las palabras del link de la landing. El bloque en sí es el de
-// LinkCompartido, el mismo del link para pedir turno.
-const TEXTOS_DEL_LINK = {
-  etiqueta: "El link de tu landing",
-  explicacion:
-    "Un link para poner en tu Instagram o mandar por WhatsApp. Ahí tus clientes ven tus datos, sacan turno y siguen sus casos.",
-  armar: "Publicar la landing",
-  armado: "Listo. Tu landing ya tiene link para repartir.",
-  whatsapp: (nombre, link) =>
-    `Hola, te escribimos de ${nombre}. Acá podés sacar turno y ver cómo viene lo tuyo: ${link}`,
-  dejar: "Dejar de compartir la landing",
-  pregunta: "¿Dejar de compartir la landing?",
-  aviso:
-    "El link deja de funcionar ahora mismo. Tus clientes no pierden nada: sus casos y turnos siguen como están.",
-  cortado: "Listo. Ese link dejó de funcionar.",
-};
+// LinkCompartido, el mismo del link para pedir turno. El mensaje de WhatsApp lo
+// manda el negocio: sale en su idioma.
+const textosDelLink = (t) => ({
+  etiqueta: t("landing.editor.link.etiqueta"),
+  explicacion: t("landing.editor.link.explicacion"),
+  armar: t("landing.editor.link.armar"),
+  armado: t("landing.editor.link.armado"),
+  whatsapp: (nombre, link) => t("landing.editor.link.whatsapp", { nombre, link }),
+  dejar: t("landing.editor.link.dejar"),
+  pregunta: t("landing.editor.link.pregunta"),
+  aviso: t("landing.editor.link.aviso"),
+  cortado: t("landing.editor.link.cortado"),
+});
 
 const CAMPO_COLOR =
   "h-12 w-16 cursor-pointer rounded-campo border-2 border-borde-fuerte bg-tarjeta p-1";
@@ -67,7 +70,8 @@ export default function EditorDeLanding() {
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { usuario } = useAuth();
-  useTitulo("Tu landing");
+  const { locale, t } = useIdioma();
+  useTitulo(t("negocio.landing.titulo"));
 
   // null = sin cambios: se ve lo guardado.
   const [borrador, setBorrador] = useState(null);
@@ -83,7 +87,8 @@ export default function EditorDeLanding() {
   const secciones = estadoDeSecciones(
     actual.orden,
     negocio?.modulos_activos ?? [],
-    horariosListos(normalizarHorarios(negocio?.horarios))
+    horariosListos(normalizarHorarios(negocio?.horarios)),
+    t
   );
 
   // React mueve la fila en el DOM y el botón apretado pierde el foco: se lo
@@ -110,7 +115,7 @@ export default function EditorDeLanding() {
     if (!r.ok) return setError(r.error);
     // Si cambió algo mientras la API contestaba, eso no se guardó: no se pisa.
     setBorrador((b) => (b === actual ? null : b));
-    datos.avisarExito("Listo. Tu landing quedó guardada.");
+    datos.avisarExito(t("landing.editor.guardado"));
   };
 
   return (
@@ -120,16 +125,16 @@ export default function EditorDeLanding() {
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />
-        Volver a Mi negocio
+        {t("negocio.volver")}
       </Link>
 
-      <TituloPantalla apoyo="La página que van a ver tus clientes. Elegí el orden, los colores y la letra.">
-        Tu landing
+      <TituloPantalla apoyo={t("landing.editor.apoyo")}>
+        {t("negocio.landing.titulo")}
       </TituloPantalla>
 
       {!puedeConfigurar ? (
         <Tarjeta>
-          <p className="max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.configurar_negocio}</p>
+          <p className="max-w-[65ch] text-tinta-media">{quienPuede("configurar_negocio", t)}</p>
         </Tarjeta>
       ) : (
         // Las columnas por el ancho del bloque (@container de Guardia.js) y no
@@ -137,7 +142,7 @@ export default function EditorDeLanding() {
         // quedan unos 480 px para el editor.
         <div className="grid gap-8 @4xl:grid-cols-[minmax(0,1fr)_24rem] @4xl:items-start">
           <div>
-            <TituloSeccion>El link</TituloSeccion>
+            <TituloSeccion>{t("landing.editor.elLink")}</TituloSeccion>
             <LinkCompartido
               id="link-landing"
               codigo={negocio?.landing_codigo}
@@ -146,13 +151,13 @@ export default function EditorDeLanding() {
               nombre={negocio?.nombre}
               compartir={datos.compartirLanding}
               dejarDeCompartir={datos.dejarDeCompartirLanding}
-              textos={TEXTOS_DEL_LINK}
+              textos={textosDelLink(t)}
             />
 
-            <TituloSeccion>Orden</TituloSeccion>
+            <TituloSeccion>{t("landing.editor.orden")}</TituloSeccion>
             <Tarjeta className="mb-8">
               <p className="mb-4 max-w-[65ch] text-tinta-media">
-                Las secciones son siempre las mismas. Elegí en qué orden aparecen.
+                {t("landing.editor.ordenTexto")}
               </p>
               <ol data-orden="" className="grid gap-3">
                 {secciones.map((s, i) => (
@@ -176,20 +181,20 @@ export default function EditorDeLanding() {
                       <Boton
                         variante="plano"
                         icono="flecha-arriba"
-                        aria-label={`Subir ${s.nombre}${i === 0 ? " · ya va primera" : ""}`}
-                        motivo={i === 0 ? "ya va primera" : null}
+                        aria-label={t(i === 0 ? "landing.editor.subirAriaPrimera" : "landing.editor.subirAria", { nombre: s.nombre })}
+                        motivo={i === 0 ? t("landing.editor.yaPrimera") : null}
                         onClick={(ev) => mover(s.clave, -1, ev)}
                       >
-                        Subir
+                        {t("landing.editor.subir")}
                       </Boton>
                       <Boton
                         variante="plano"
                         icono="flecha-abajo"
-                        aria-label={`Bajar ${s.nombre}${i === secciones.length - 1 ? " · ya va última" : ""}`}
-                        motivo={i === secciones.length - 1 ? "ya va última" : null}
+                        aria-label={t(i === secciones.length - 1 ? "landing.editor.bajarAriaUltima" : "landing.editor.bajarAria", { nombre: s.nombre })}
+                        motivo={i === secciones.length - 1 ? t("landing.editor.yaUltima") : null}
                         onClick={(ev) => mover(s.clave, 1, ev)}
                       >
-                        Bajar
+                        {t("landing.editor.bajar")}
                       </Boton>
                     </div>
                   </li>
@@ -197,14 +202,14 @@ export default function EditorDeLanding() {
               </ol>
             </Tarjeta>
 
-            <TituloSeccion>Colores</TituloSeccion>
+            <TituloSeccion>{t("landing.editor.colores")}</TituloSeccion>
             <Tarjeta className="mb-8">
               <p className="mb-6 max-w-[65ch] text-tinta-media">
-                Cada parte lleva su color y el de su texto. Te marcamos el texto que mejor se
-                lee; si elegís otro, te avisamos cuando cueste leerlo.
+                {t("landing.editor.coloresTexto")}
               </p>
               <div className="grid gap-8">
-                {PARTES.map((p) => {
+                {PARTES.map((parte) => {
+                  const p = traducirParte(parte, t);
                   const { color, texto } = actual.colores[p.clave];
                   const recomendado = textoRecomendado(color);
                   return (
@@ -215,40 +220,40 @@ export default function EditorDeLanding() {
                         <label className="inline-flex min-h-12 items-center gap-2">
                           <input
                             type="color"
-                            aria-label={`Color de ${p.nombre}`}
+                            aria-label={t("landing.editor.colorDe", { nombre: p.nombre })}
                             value={color}
                             onChange={(ev) =>
                               setBorrador(cambiarColor(actual, p.clave, ev.target.value))
                             }
                             className={CAMPO_COLOR}
                           />
-                          Color
+                          {t("landing.editor.color")}
                         </label>
                         <label className="inline-flex min-h-12 items-center gap-2">
                           <input
                             type="color"
-                            aria-label={`Texto de ${p.nombre}`}
+                            aria-label={t("landing.editor.textoDe", { nombre: p.nombre })}
                             value={texto}
                             onChange={(ev) =>
                               setBorrador(cambiarTexto(actual, p.clave, ev.target.value))
                             }
                             className={CAMPO_COLOR}
                           />
-                          Texto
+                          {t("landing.editor.texto")}
                         </label>
                         {texto === recomendado ? (
                           // Sin el verde ni el ícono "listo": son del estado
                           // Completado, y acá no se completa nada.
                           <span className="inline-flex items-center gap-1.5 font-bold text-etiqueta text-tinta-media">
                             <Icono nombre="check" className="size-5" />
-                            Recomendado
+                            {t("landing.editor.recomendado")}
                           </span>
                         ) : (
                           <Boton
                             variante="plano"
                             onClick={() => setBorrador(cambiarTexto(actual, p.clave, recomendado))}
                           >
-                            Usar el recomendado
+                            {t("landing.editor.usarRecomendado")}
                           </Boton>
                         )}
                       </div>
@@ -256,9 +261,10 @@ export default function EditorDeLanding() {
                         <p className="flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                           <span>
-                            Con este texto cuesta leer: el contraste es{" "}
-                            {conComa(contraste(color, texto))} a 1 y lo mínimo es{" "}
-                            {conComa(CONTRASTE_MINIMO)} a 1.
+                            {t("landing.editor.cuestaLeer", {
+                              actual: conComa(contraste(color, texto), locale),
+                              minimo: conComa(CONTRASTE_MINIMO, locale),
+                            })}
                           </span>
                         </p>
                       )}
@@ -269,9 +275,10 @@ export default function EditorDeLanding() {
                         <p className="flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                           <span>
-                            Los links van con este color y sobre las cajas cuesta leerlos: el
-                            contraste es {conComa(contraste(actual.colores.cajas.color, color))} a
-                            1 y lo mínimo es {conComa(CONTRASTE_MINIMO)} a 1.
+                            {t("landing.editor.linksCuestaLeer", {
+                              actual: conComa(contraste(actual.colores.cajas.color, color), locale),
+                              minimo: conComa(CONTRASTE_MINIMO, locale),
+                            })}
                           </span>
                         </p>
                       )}
@@ -281,11 +288,11 @@ export default function EditorDeLanding() {
               </div>
             </Tarjeta>
 
-            <TituloSeccion>Letra</TituloSeccion>
+            <TituloSeccion>{t("landing.editor.letra")}</TituloSeccion>
             <Tarjeta className="mb-8">
               <fieldset className="grid gap-3">
                 <legend className="mb-3 max-w-[65ch] text-tinta-media">
-                  La letra de toda la página. Cada opción está escrita con la suya.
+                  {t("landing.editor.letraTexto")}
                 </legend>
                 {FUENTES.map((f) => (
                   <label
@@ -304,7 +311,7 @@ export default function EditorDeLanding() {
                       className="size-5"
                     />
                     <span className={`text-cuerpo ${FUENTES_LANDING[f.clave]?.className ?? ""}`}>
-                      {f.nombre}
+                      {nombreDeFuente(f, t)}
                     </span>
                   </label>
                 ))}
@@ -314,7 +321,7 @@ export default function EditorDeLanding() {
             {error && (
               <p role="alert" className="mb-4 flex items-start gap-2 font-bold text-rojo">
                 <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                <span>{error}</span>
+                <span>{textoDeError(t, error)}</span>
               </p>
             )}
             <div className="flex flex-wrap gap-3">
@@ -322,13 +329,13 @@ export default function EditorDeLanding() {
                 variante="principal"
                 icono="check"
                 onClick={guardar}
-                motivo={guardando ? "guardando" : hayCambios ? null : "no cambiaste nada"}
+                motivo={guardando ? t("landing.editor.guardando") : hayCambios ? null : t("landing.editor.nadaCambio")}
               >
-                Guardar
+                {t("landing.editor.guardar")}
               </Boton>
               {hayCambios && (
                 <Boton variante="plano" onClick={() => setBorrador(null)}>
-                  Descartar los cambios
+                  {t("landing.editor.descartar")}
                 </Boton>
               )}
               {!esDeFabrica(actual) && (
@@ -337,7 +344,7 @@ export default function EditorDeLanding() {
                   icono="deshacer"
                   onClick={() => setBorrador(normalizarLanding(null))}
                 >
-                  Volver a la de fábrica
+                  {t("landing.editor.deFabrica")}
                 </Boton>
               )}
             </div>

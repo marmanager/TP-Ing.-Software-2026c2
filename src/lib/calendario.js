@@ -8,16 +8,35 @@
 // está lo que esa pantalla no necesitaba, que es mirar para atrás y elegir
 // un mes cualquiera en vez de sólo los que tienen lugar.
 
+import { tCastellano } from "./idioma.js";
+
 // Los nombres de los meses y de los días vivían sueltos adentro de la
 // pantalla de pedir turno. Ahora los usan dos pantallas, así que viven acá.
-export const DIAS_DE_LA_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+//
+// Los nombres salen de Intl con el locale de quien mira, no del diccionario:
+// mesLargo(8, "en-US") es "September". Las listas de abajo son las de
+// castellano, para los que todavía no pasan locale.
+export const mesLargo = (mes, locale = "es-AR") =>
+  new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2024, mes, 1)));
 
-export const MES_LARGO = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-];
+const capitalizar = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
-export const MES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+// "Ene", "Sep" / "Jan", "Sep": las tres primeras letras del nombre largo.
+export const mesCorto = (mes, locale = "es-AR") => capitalizar(mesLargo(mes, locale).slice(0, 3));
+
+// Lunes a domingo: "Lun" ... "Dom" / "Mon" ... "Sun". El 1 de enero de 2024 fue lunes.
+export const diasDeLaSemana = (locale = "es-AR") =>
+  Array.from({ length: 7 }, (_, i) =>
+    capitalizar(
+      new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2024, 0, 1 + i)))
+    ).slice(0, 3)
+  );
+
+export const DIAS_DE_LA_SEMANA = diasDeLaSemana();
+
+export const MES_LARGO = Array.from({ length: 12 }, (_, i) => mesLargo(i));
+
+export const MES_CORTO = Array.from({ length: 12 }, (_, i) => mesCorto(i));
 
 // La clave con la que se agrupa un día.
 //
@@ -195,19 +214,26 @@ export function acomodarEnCarriles(turnos = [], porDefecto = 30) {
 //
 // Cuando la semana cruza el mes o el año hay que decirlo, o "28 al 4 de
 // septiembre" queda al revés y sin sentido.
-export function tituloDeSemana(dias = []) {
+//
+// Las tres formas son frases enteras del diccionario (agenda.semana.*): el
+// orden de las partes cambia de un idioma a otro ("21 al 27 de septiembre",
+// "September 21 to 27").
+export function tituloDeSemana(dias = [], locale = "es-AR", t = tCastellano) {
   if (dias.length === 0) return "";
   const a = dias[0];
   const b = dias[dias.length - 1];
+  const vars = {
+    desde: a.getDate(),
+    hasta: b.getDate(),
+    mesDesde: mesLargo(a.getMonth(), locale),
+    mesHasta: mesLargo(b.getMonth(), locale),
+    anioDesde: a.getFullYear(),
+    anioHasta: b.getFullYear(),
+  };
 
   if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) {
-    return `${a.getDate()} al ${b.getDate()} de ${MES_LARGO[a.getMonth()]}`;
+    return t("agenda.semana.mismoMes", vars);
   }
-  if (a.getFullYear() === b.getFullYear()) {
-    return `${a.getDate()} de ${MES_LARGO[a.getMonth()]} al ${b.getDate()} de ${MES_LARGO[b.getMonth()]}`;
-  }
-  return (
-    `${a.getDate()} de ${MES_LARGO[a.getMonth()]} de ${a.getFullYear()}` +
-    ` al ${b.getDate()} de ${MES_LARGO[b.getMonth()]} de ${b.getFullYear()}`
-  );
+  if (a.getFullYear() === b.getFullYear()) return t("agenda.semana.mismoAnio", vars);
+  return t("agenda.semana.distintoAnio", vars);
 }

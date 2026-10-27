@@ -19,6 +19,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
+import { nombreDelRol } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
 import { estadoDeLaContrasena, motivoDeContrasenaNueva } from "@/lib/validaciones";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
@@ -29,14 +30,18 @@ import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from 
 import Suscripcion from "./Suscripcion";
 import TusNegocios from "./TusNegocios";
 import Tema from "./Tema";
+import SelectorIdioma from "@/componentes/SelectorIdioma";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 
 export default function MiPerfil() {
   const router = useRouter();
+  const { t } = useIdioma();
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { sesion, usuario, cerrarSesion, definirContrasena, guardarPerfil, pedirResetContrasena } =
     useAuth();
-  useTitulo("Mi perfil");
+  useTitulo(t("cuenta.titulo"));
 
   // Editar el perfil, sobre un borrador como la ficha del negocio: "Cancelar"
   // deshace de verdad, y la foto no se guarda hasta tocar "Guardar".
@@ -103,13 +108,13 @@ export default function MiPerfil() {
   const errorTelefono = !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   const motivoPerfil = !borrador.nombre.trim()
-    ? "falta tu nombre"
+    ? t("cuenta.faltaNombre")
     : errorTelefono
-      ? "el teléfono no es válido"
+      ? t("cuenta.telefonoInvalido")
       : achicandoFoto
-        ? "achicando la foto"
+        ? t("cuenta.achicando")
         : guardando
-          ? "guardando"
+          ? t("cuenta.guardando")
           : null;
 
   async function guardar() {
@@ -125,7 +130,7 @@ export default function MiPerfil() {
       foto: borrador.foto,
     });
     cancelarEdicion();
-    datos.avisarExito("Listo, tu perfil quedó guardado.");
+    datos.avisarExito(t("cuenta.exitoPerfil"));
   }
 
   async function elegirFoto(e) {
@@ -134,13 +139,13 @@ export default function MiPerfil() {
     // no dispara este evento la segunda vez y parece que no anduvo.
     e.target.value = "";
 
-    const problema = revisarArchivo(archivo);
+    const problema = revisarArchivo(archivo, t);
     if (problema) return setErrorFoto(problema);
 
     setErrorFoto(null);
     setAchicandoFoto(true);
     try {
-      const chica = await achicar(archivo);
+      const chica = await achicar(archivo, t);
       setBorrador((b) => ({ ...b, foto: chica }));
     } catch (err) {
       setErrorFoto(err.message);
@@ -150,10 +155,10 @@ export default function MiPerfil() {
   }
 
   const motivoContrasena = guardandoContrasena
-    ? "guardando"
+    ? t("cuenta.guardando")
     : contrasenaPor === "anterior" && !anterior
-      ? "falta tu contraseña anterior"
-      : motivoDeContrasenaNueva(contrasena, repetida);
+      ? t("cuenta.faltaAnterior")
+      : motivoDeContrasenaNueva(contrasena, repetida, t);
 
   function cerrarCambioDeContrasena() {
     setContrasenaPor(null);
@@ -172,11 +177,7 @@ export default function MiPerfil() {
     if (!r.ok) return setErrorContrasena(r.error);
     cerrarCambioDeContrasena();
     if (creando) setRecienCreada(true);
-    datos.avisarExito(
-      creando
-        ? "Listo, ya tenés contraseña. Desde ahora también podés entrar con tu mail."
-        : "Listo, tu contraseña quedó cambiada."
-    );
+    datos.avisarExito(creando ? t("cuenta.exitoCreada") : t("cuenta.exitoCambiada"));
   }
 
   // El mismo mail que "Me olvidé la contraseña": un link que se usa una sola
@@ -188,7 +189,7 @@ export default function MiPerfil() {
     setMandandoMail(false);
     setContrasenaPor(null);
     if (!r.ok) return setErrorContrasena(r.error);
-    setMailMandado(usuario?.email ?? "tu mail");
+    setMailMandado(usuario?.email ?? t("cuenta.tuMail"));
   }
 
   async function salir() {
@@ -198,6 +199,10 @@ export default function MiPerfil() {
 
   const foto = editando ? borrador.foto : usuario?.foto;
 
+  // La frase lleva el mail en negrita adentro: se escribe entera, con un
+  // marcador {mail}, y se parte ahí; no se arma pegando pedazos traducidos.
+  const [antesDelMail, despuesDelMail] = t("cuenta.entras").split("{mail}");
+
   // "tiene", "no tiene" o "no se sabe" (lib/validaciones.js). Si no se sabe,
   // no se afirma nada: ni los puntos ni "no tenés una". El botón es "Cambiar
   // contraseña", y su opción "Por mail" sirve tenga o no.
@@ -206,13 +211,13 @@ export default function MiPerfil() {
 
   return (
     <>
-      <h1 className="text-pantalla">Mi perfil</h1>
+      <h1 className="text-pantalla">{t("cuenta.titulo")}</h1>
       <p className="mt-1 mb-6 max-w-[65ch] text-tinta-media">
-        Lo tuyo, aparte de lo del negocio: tus datos, tu foto y tu contraseña.
+        {t("cuenta.apoyo")}
       </p>
 
       <>
-          <TituloSeccion id="cuenta">Tu cuenta</TituloSeccion>
+          <TituloSeccion id="cuenta">{t("cuenta.tuCuenta")}</TituloSeccion>
           <Tarjeta className="mb-12">
             {/* El input vive afuera de los dos modos: si se desmontara al
                 entrar en edición, el archivo elegido no llegaría a ningún lado. */}
@@ -243,7 +248,7 @@ export default function MiPerfil() {
                 {editando && (
                   <button
                     type="button"
-                    aria-label="Cambiar tu foto"
+                    aria-label={t("cuenta.cambiarFoto")}
                     aria-expanded={menuFoto}
                     onClick={() => setMenuFoto((v) => !v)}
                     className="absolute -right-2 -bottom-2 flex size-9 cursor-pointer items-center justify-center rounded-full border-2 border-tarjeta bg-azul text-white hover:bg-azul-apretado"
@@ -255,16 +260,17 @@ export default function MiPerfil() {
 
               <div className="mr-auto min-w-0">
                 {editando ? (
-                  <p className="font-bold text-cuerpo">Tus datos</p>
+                  <p className="font-bold text-cuerpo">{t("cuenta.tusDatos")}</p>
                 ) : (
                   <>
                     <p className="font-titulo font-extrabold text-subtitulo">
-                      {usuario?.nombre || "Sin nombre todavía"}
+                      {usuario?.nombre || t("cuenta.sinNombre")}
                     </p>
                     {usuario?.rol_nombre && (
                       <p className="text-tinta-media">
-                        {usuario.rol_nombre}
-                        {negocio?.nombre && ` en ${negocio.nombre}`}
+                        {negocio?.nombre
+                          ? t("cuenta.rolEn", { rol: nombreDelRol(usuario.rol_nombre, t), negocio: negocio.nombre })
+                          : nombreDelRol(usuario.rol_nombre, t)}
                       </p>
                     )}
                   </>
@@ -273,7 +279,7 @@ export default function MiPerfil() {
 
               {!editando && (
                 <Boton icono="pincel" onClick={abrirEdicion}>
-                  Editar
+                  {t("cuenta.editar")}
                 </Boton>
               )}
             </div>
@@ -284,10 +290,10 @@ export default function MiPerfil() {
               <div className="mt-3 flex flex-wrap gap-2 border-l-2 border-borde pl-3">
                 <Boton
                   icono="cuenta"
-                  motivo={achicandoFoto ? "achicando la foto" : null}
+                  motivo={achicandoFoto ? t("cuenta.achicando") : null}
                   onClick={() => inputFoto.current?.click()}
                 >
-                  Elegir foto
+                  {t("cuenta.elegirFoto")}
                 </Boton>
                 {borrador.foto && (
                   <Boton
@@ -299,7 +305,7 @@ export default function MiPerfil() {
                       setMenuFoto(false);
                     }}
                   >
-                    Eliminar
+                    {t("cuenta.eliminar")}
                   </Boton>
                 )}
               </div>
@@ -316,16 +322,16 @@ export default function MiPerfil() {
               <div className="mt-6 max-w-[560px]">
                 <Campo
                   id="perfil-nombre"
-                  etiqueta="Tu nombre"
-                  ayuda="Como te ve el equipo. Con este nombre queda firmado lo que hacés en el historial."
+                  etiqueta={t("cuenta.nombre")}
+                  ayuda={t("cuenta.nombreAyuda")}
                   autoComplete="name"
                   value={borrador.nombre}
                   onChange={(e) => setBorrador((b) => ({ ...b, nombre: e.target.value }))}
                 />
                 <CampoTelefono
                   id="perfil-telefono"
-                  etiqueta="Tu teléfono"
-                  ayuda="Opcional."
+                  etiqueta={t("cuenta.telefono")}
+                  ayuda={t("cuenta.telefonoAyuda")}
                   paisPorDefecto={paisNegocio}
                   error={errorTelefono}
                   valor={tel.valor}
@@ -333,23 +339,24 @@ export default function MiPerfil() {
                 />
                 {/* El mail se ve pero no se toca: es con lo que entrás. */}
                 <p className="mb-6 text-tinta-media">
-                  Entrás con <span className="font-bold text-tinta">{usuario?.email}</span>. El
-                  mail no se cambia desde acá.
+                  {antesDelMail}
+                  <span className="font-bold text-tinta">{usuario?.email}</span>
+                  {despuesDelMail}
                 </p>
 
                 {errorPerfil && (
                   <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
                     <Icono nombre="alerta" className="size-6" />
-                    <span>{errorPerfil}</span>
+                    <span>{textoDeError(t, errorPerfil)}</span>
                   </p>
                 )}
 
                 <div className="flex flex-wrap gap-3">
                   <Boton variante="principal" icono="check" motivo={motivoPerfil} onClick={guardar}>
-                    Guardar
+                    {t("cuenta.guardar")}
                   </Boton>
                   <Boton variante="plano" onClick={cancelarEdicion}>
-                    Cancelar
+                    {t("cuenta.cancelar")}
                   </Boton>
                 </div>
 
@@ -358,17 +365,16 @@ export default function MiPerfil() {
                     guardado aparte del de arriba, y por eso su botón no es azul:
                     habría dos azules a la vez. */}
                 <div className="mt-8 border-t border-borde pt-6">
-                  <p className="font-bold text-cuerpo">Tu contraseña</p>
+                  <p className="font-bold text-cuerpo">{t("cuenta.contrasena.titulo")}</p>
                   {estadoContrasena === "tiene" && (
                     <p className="mt-1 text-tinta-media">
                       <span aria-hidden="true">••••••••</span>
-                      <span className="sr-only">Guardada</span>
+                      <span className="sr-only">{t("cuenta.contrasena.guardada")}</span>
                     </p>
                   )}
                   {estadoContrasena === "no tiene" && (
                     <p className="mt-1 text-tinta-media">
-                      Todavía no tenés una: entrás con Google. Si la creás, también vas a poder entrar
-                      con tu mail.
+                      {t("cuenta.contrasena.noTiene")}
                     </p>
                   )}
 
@@ -376,8 +382,7 @@ export default function MiPerfil() {
                     <p role="status" className="mt-3 flex items-start gap-2 font-bold text-completo">
                       <Icono nombre="sobre" className="mt-0.5 size-6" />
                       <span>
-                        Te mandamos un mail a {mailMandado}. Tocá «Restablecer contraseña» y elegí la
-                        nueva. El link sirve una sola vez.
+                        {t("cuenta.mailMandado", { mail: mailMandado })}
                       </span>
                     </p>
                   )}
@@ -387,8 +392,8 @@ export default function MiPerfil() {
                       {contrasenaPor === "anterior" && (
                         <CampoContrasena
                           id="contrasena-anterior"
-                          etiqueta="Tu contraseña anterior"
-                          ayuda="La que usás ahora para entrar."
+                          etiqueta={t("cuenta.contrasena.anterior")}
+                          ayuda={t("cuenta.contrasena.anteriorAyuda")}
                           autoComplete="current-password"
                           value={anterior}
                           onChange={(e) => {
@@ -399,11 +404,11 @@ export default function MiPerfil() {
                       )}
                       <CampoContrasena
                         id="contrasena-nueva"
-                        etiqueta="Tu contraseña nueva"
+                        etiqueta={t("cuenta.contrasena.nueva")}
                         ayuda={
                           contrasenaPor === "crear"
-                            ? "Al menos 8 caracteres. Vas a poder entrar con tu mail y esta contraseña, o con Google."
-                            : "Al menos 8 caracteres. Desde que la cambiás, entrás con esta."
+                            ? t("cuenta.contrasena.nuevaAyudaCrear")
+                            : t("cuenta.contrasena.nuevaAyudaCambiar")
                         }
                         autoComplete="new-password"
                         value={contrasena}
@@ -414,9 +419,9 @@ export default function MiPerfil() {
                       />
                       <CampoContrasena
                         id="contrasena-repetida"
-                        etiqueta="Escribila de nuevo"
-                        error={repetida && contrasena !== repetida ? "Las dos no son iguales." : null}
-                        exito={repetida && contrasena === repetida ? "Coinciden." : null}
+                        etiqueta={t("cuenta.contrasena.repetida")}
+                        error={repetida && contrasena !== repetida ? t("cuenta.contrasena.noIguales") : null}
+                        exito={repetida && contrasena === repetida ? t("cuenta.contrasena.coinciden") : null}
                         autoComplete="new-password"
                         value={repetida}
                         onChange={(e) => {
@@ -427,15 +432,15 @@ export default function MiPerfil() {
                       {errorContrasena && (
                         <p className="mb-4 flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="size-6" />
-                          <span>{errorContrasena}</span>
+                          <span>{textoDeError(t, errorContrasena)}</span>
                         </p>
                       )}
                       <div className="flex flex-wrap gap-3">
                         <Boton icono="check" motivo={motivoContrasena} onClick={guardarContrasena}>
-                          {contrasenaPor === "crear" ? "Crear la contraseña" : "Cambiar la contraseña"}
+                          {contrasenaPor === "crear" ? t("cuenta.contrasena.crearLa") : t("cuenta.contrasena.cambiarLa")}
                         </Boton>
                         <Boton variante="plano" onClick={cerrarCambioDeContrasena}>
-                          Mejor no
+                          {t("cuenta.contrasena.mejorNo")}
                         </Boton>
                       </div>
                     </div>
@@ -445,7 +450,7 @@ export default function MiPerfil() {
                           elige cómo cambiarla. */}
                       <Boton
                         icono="llave"
-                        motivo={mandandoMail ? "mandando el mail" : null}
+                        motivo={mandandoMail ? t("cuenta.mandandoMail") : null}
                         aria-expanded={tieneContrasena ? contrasenaPor === "menu" : undefined}
                         onClick={() => {
                           setMailMandado(null);
@@ -454,7 +459,7 @@ export default function MiPerfil() {
                           else setContrasenaPor((p) => (p === "menu" ? null : "menu"));
                         }}
                       >
-                        {tieneContrasena ? "Cambiar contraseña" : "Crear una contraseña"}
+                        {tieneContrasena ? t("cuenta.contrasena.cambiar") : t("cuenta.contrasena.crearUna")}
                       </Boton>
                       {/* Las dos formas, en un menú chico que se abre debajo. */}
                       {contrasenaPor === "menu" && (
@@ -467,9 +472,9 @@ export default function MiPerfil() {
                             >
                               <Icono nombre="sobre" />
                               <span>
-                                <span className="block font-bold">Por mail</span>
+                                <span className="block font-bold">{t("cuenta.contrasena.porMail")}</span>
                                 <span className="block text-apoyo text-tinta-media">
-                                  Te llega un link para elegir la nueva.
+                                  {t("cuenta.contrasena.porMailTexto")}
                                 </span>
                               </span>
                             </button>
@@ -482,9 +487,9 @@ export default function MiPerfil() {
                             >
                               <Icono nombre="llave" />
                               <span>
-                                <span className="block font-bold">Con la contraseña anterior</span>
+                                <span className="block font-bold">{t("cuenta.contrasena.conAnterior")}</span>
                                 <span className="block text-apoyo text-tinta-media">
-                                  La escribís, y después la nueva dos veces.
+                                  {t("cuenta.contrasena.conAnteriorTexto")}
                                 </span>
                               </span>
                             </button>
@@ -494,7 +499,7 @@ export default function MiPerfil() {
                       {errorContrasena && (
                         <p className="mt-3 flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="size-6" />
-                          <span>{errorContrasena}</span>
+                          <span>{textoDeError(t, errorContrasena)}</span>
                         </p>
                       )}
                     </div>
@@ -505,26 +510,26 @@ export default function MiPerfil() {
               <>
                 <dl className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <dt className="text-apoyo text-tinta-suave">Mail</dt>
+                    <dt className="text-apoyo text-tinta-suave">{t("cuenta.ficha.mail")}</dt>
                     <dd className="break-words">{usuario?.email ?? "—"}</dd>
                   </div>
                   <div>
-                    <dt className="text-apoyo text-tinta-suave">Teléfono</dt>
-                    <dd>{telefonoLegible(usuario?.telefono) || "Sin cargar"}</dd>
+                    <dt className="text-apoyo text-tinta-suave">{t("cuenta.ficha.telefono")}</dt>
+                    <dd>{telefonoLegible(usuario?.telefono) || t("cuenta.ficha.sinCargar")}</dd>
                   </div>
                   <div>
-                    <dt className="text-apoyo text-tinta-suave">Contraseña</dt>
+                    <dt className="text-apoyo text-tinta-suave">{t("cuenta.ficha.contrasena")}</dt>
                     {/* Sin botón acá afuera: se cambia desde "Editar". */}
                     <dd>
                       {estadoContrasena === "tiene" ? (
                         <>
                           <span aria-hidden="true">••••••••</span>
-                          <span className="sr-only">Guardada</span>
+                          <span className="sr-only">{t("cuenta.contrasena.guardada")}</span>
                         </>
                       ) : estadoContrasena === "no tiene" ? (
-                        "Todavía no tenés: entrás con Google"
+                        t("cuenta.ficha.noTieneCorto")
                       ) : (
-                        "Se cambia desde Editar"
+                        t("cuenta.ficha.seCambia")
                       )}
                     </dd>
                   </div>
@@ -534,18 +539,24 @@ export default function MiPerfil() {
           </Tarjeta>
       </>
 
-      <TituloSeccion id="tema">Tema</TituloSeccion>
+      <TituloSeccion id="tema">{t("cuenta.tema.seccion")}</TituloSeccion>
       <Tema />
 
-      <TituloSeccion id="suscripcion">Suscripción</TituloSeccion>
+      <TituloSeccion id="idioma">{t("idioma.titulo")}</TituloSeccion>
+      <Tarjeta>
+        <p className="mb-2 text-tinta-media">{t("idioma.apoyo")}</p>
+        <SelectorIdioma />
+      </Tarjeta>
+
+      <TituloSeccion id="suscripcion">{t("cuenta.suscripcion.seccion")}</TituloSeccion>
       <Suscripcion />
 
       {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
-      <TituloSeccion id="negocios">Tus negocios</TituloSeccion>
+      <TituloSeccion id="negocios">{t("cuenta.negocios.seccion")}</TituloSeccion>
       <TusNegocios />
 
       <Boton icono="salir" onClick={salir}>
-        Cerrar sesión
+        {t("cuenta.cerrarSesion")}
       </Boton>
     </>
   );

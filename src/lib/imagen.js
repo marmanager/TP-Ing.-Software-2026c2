@@ -8,6 +8,8 @@
 // no alcanza, y ahí la respuesta es Supabase Storage con su bucket y sus
 // políticas, no subirle el número a MAXIMO.
 
+import { tCastellano } from "./idioma.js";
+
 export const MAXIMO = 256;
 
 // Más de esto ni se lee: un archivo grande leído entero a memoria cuelga el
@@ -37,11 +39,12 @@ export function medidasPara(ancho, alto, maximo = MAXIMO) {
 //
 // Es un borde de confianza: el archivo lo elige una persona pero podría ser
 // cualquier cosa, y lo que salga de acá se guarda en la base. Por eso se
-// mira el tipo y el peso antes de leer un solo byte.
-export function revisarArchivo(archivo) {
-  if (!archivo) return "No se eligió ninguna foto.";
-  if (!archivo.type.startsWith("image/")) return "Ese archivo no es una imagen.";
-  if (archivo.size > PESO_MAXIMO) return "La foto es muy pesada. Máximo 10 MB.";
+// mira el tipo y el peso antes de leer un solo byte. `t` es el de la pantalla
+// (idioma); sin él, los textos salen en castellano.
+export function revisarArchivo(archivo, t = tCastellano) {
+  if (!archivo) return t("ui.imagen.ninguna");
+  if (!archivo.type.startsWith("image/")) return t("ui.imagen.noEsImagen");
+  if (archivo.size > PESO_MAXIMO) return t("ui.imagen.pesada");
   return null;
 }
 
@@ -51,13 +54,13 @@ export function revisarArchivo(archivo) {
 // transparente pasado a JPEG queda con un recuadro negro. Un navegador que
 // no lo soporte devuelve PNG por su cuenta y sigue andando igual, sólo que
 // el texto pesa un poco más.
-export function achicar(archivo) {
+export function achicar(archivo, t = tCastellano) {
   return new Promise((resolve, reject) => {
     const lector = new FileReader();
-    lector.onerror = () => reject(new Error("No se pudo leer el archivo."));
+    lector.onerror = () => reject(new Error(t("ui.imagen.noSeLee")));
     lector.onload = () => {
       const img = new Image();
-      img.onerror = () => reject(new Error("Ese archivo no se puede abrir como imagen."));
+      img.onerror = () => reject(new Error(t("ui.imagen.noSeAbre")));
       img.onload = () => {
         const { ancho, alto } = medidasPara(img.naturalWidth, img.naturalHeight);
         const lienzo = document.createElement("canvas");
