@@ -191,6 +191,7 @@ export default function EditorDeLanding() {
                         variante="plano"
                         icono="flecha-abajo"
                         aria-label={t(i === secciones.length - 1 ? "landing.editor.bajarAriaUltima" : "landing.editor.bajarAria", { nombre: s.nombre })}
+                        data-testid={`landing-seccion-bajar-${s.clave}`}
                         motivo={i === secciones.length - 1 ? t("landing.editor.yaUltima") : null}
                         onClick={(ev) => mover(s.clave, 1, ev)}
                       >
@@ -221,6 +222,7 @@ export default function EditorDeLanding() {
                           <input
                             type="color"
                             aria-label={t("landing.editor.colorDe", { nombre: p.nombre })}
+                            data-testid={`landing-color-${p.clave}`}
                             value={color}
                             onChange={(ev) =>
                               setBorrador(cambiarColor(actual, p.clave, ev.target.value))
@@ -233,6 +235,7 @@ export default function EditorDeLanding() {
                           <input
                             type="color"
                             aria-label={t("landing.editor.textoDe", { nombre: p.nombre })}
+                            data-testid={`landing-texto-${p.clave}`}
                             value={texto}
                             onChange={(ev) =>
                               setBorrador(cambiarTexto(actual, p.clave, ev.target.value))
@@ -297,6 +300,7 @@ export default function EditorDeLanding() {
                 {FUENTES.map((f) => (
                   <label
                     key={f.clave}
+                    data-testid={`landing-fuente-${f.clave}`}
                     className={[
                       "flex min-h-12 cursor-pointer items-center gap-3 rounded-campo border-2 px-4",
                       actual.fuente === f.clave ? "border-azul" : "border-borde",
@@ -329,6 +333,7 @@ export default function EditorDeLanding() {
                 variante="principal"
                 icono="check"
                 onClick={guardar}
+                data-testid="landing-guardar"
                 motivo={guardando ? t("landing.editor.guardando") : hayCambios ? null : t("landing.editor.nadaCambio")}
               >
                 {t("landing.editor.guardar")}
@@ -342,6 +347,7 @@ export default function EditorDeLanding() {
                 <Boton
                   variante="plano"
                   icono="deshacer"
+                  data-testid="landing-de-fabrica"
                   onClick={() => setBorrador(normalizarLanding(null))}
                 >
                   {t("landing.editor.deFabrica")}

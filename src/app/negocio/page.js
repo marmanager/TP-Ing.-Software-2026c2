@@ -492,6 +492,7 @@ export default function MiNegocio() {
             <div className="mt-4">
               <Link
                 href="/negocio/landing"
+                data-testid="negocio-landing-armar"
                 className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
               >
                 <Icono nombre="pincel" />

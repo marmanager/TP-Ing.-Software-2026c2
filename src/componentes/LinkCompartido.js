@@ -68,6 +68,7 @@ export default function LinkCompartido({
           <div className="mt-4">
             <Boton
               icono={icono}
+              data-testid="link-armar"
               motivo={compartiendo ? t("casos.link.armando") : null}
               onClick={async () => {
                 setError(null);
@@ -127,6 +128,7 @@ export default function LinkCompartido({
                 <Boton
                   variante="peligro"
                   icono="tacho"
+                  data-testid="link-dejar-confirmar"
                   onClick={async () => {
                     setCortando(false);
                     const r = await dejarDeCompartir();
@@ -143,7 +145,7 @@ export default function LinkCompartido({
             </div>
           ) : (
             <div className="mt-2">
-              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)}>
+              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)} data-testid="link-dejar">
                 {textos.dejar}
               </Boton>
             </div>
