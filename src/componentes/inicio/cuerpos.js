@@ -7,6 +7,11 @@
 // lleva a la sección completa: nunca se esconde información sin avisar.
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth";
+import { puede } from "@/lib/permisos";
+import { destinoDashboard, periodoDashboard } from "@/lib/dashboard";
+import { formatoNumero } from "@/lib/formatoNumero";
 import { useDatos } from "@/lib/datos";
 import { useIdioma } from "@/lib/useIdioma";
 import { presentacion } from "@/lib/inventario";
@@ -535,6 +540,59 @@ function CuerpoHistorial({ filtro, filas }) {
   );
 }
 
+// ---------- estadísticas ----------
+
+// El Resumen del dashboard (mismas cuentas, mismo permiso), una fila por dato.
+function CuerpoEstadisticas({ filas }) {
+  const { locale, t } = useIdioma();
+  const { negocio, consultarResumenDashboard } = useDatos();
+  const { usuario } = useAuth();
+  const consultar = useRef(consultarResumenDashboard);
+  consultar.current = consultarResumenDashboard;
+  const [periodo] = useState(() => periodoDashboard());
+  const [respuesta, setRespuesta] = useState(null);
+  const activos = negocio?.modulos_activos ?? [];
+  const autorizado = puede(usuario, "ver_todos_los_casos");
+
+  useEffect(() => {
+    if (!autorizado) return;
+    let vigente = true;
+    consultar.current({ desde: periodo.desde, hasta: periodo.hasta })
+      .then((r) => vigente && setRespuesta(r))
+      .catch(() => vigente && setRespuesta({ ok: false }));
+    return () => { vigente = false; };
+  }, [autorizado, negocio?.id, periodo]);
+
+  if (!autorizado) return <SinNada>{t("dashboard.sinPermiso")}</SinNada>;
+  if (!respuesta) return <SinNada>…</SinNada>;
+  if (!respuesta.ok) return <SinNada>{t("dashboard.resumen.noPudimos")}</SinNada>;
+
+  const resumen = respuesta.resumen;
+  const datos = [
+    { clave: "total_cobrado", categoria: "cobros", plata: true },
+    { clave: "clientes_nuevos", categoria: "clientes" },
+    { clave: "casos_abiertos", categoria: "casos" },
+    { clave: "productos_reponer", categoria: "inventario" },
+  ].filter((d) => resumen[d.clave] != null && destinoDashboard(d.categoria, activos));
+
+  const valor = (d) =>
+    d.plata
+      ? formatoNumero(locale, { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(resumen[d.clave])
+      : formatoNumero(locale).format(resumen[d.clave]);
+
+  return (
+    <ul>
+      {datos.slice(0, filas).map((d) => (
+        <Fila key={d.clave} href="/dashboard">
+          <span className="min-w-0 flex-1 truncate font-bold">{t(`dashboard.resumen.${d.clave}.nombre`)}</span>
+          <span className="shrink-0 font-titulo font-extrabold tabular-nums">{valor(d)}</span>
+        </Fila>
+      ))}
+      <YMas cuantos={datos.length - filas} href="/dashboard" clave="datos" />
+    </ul>
+  );
+}
+
 // Qué componente le toca a cada módulo del catálogo.
 export const CUERPOS = {
   pendientes: CuerpoPendientes,
@@ -545,4 +603,5 @@ export const CUERPOS = {
   equipo: CuerpoEquipo,
   clientes: CuerpoClientes,
   historial: CuerpoHistorial,
+  dashboard: CuerpoEstadisticas,
 };

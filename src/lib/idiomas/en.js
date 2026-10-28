@@ -2604,8 +2604,13 @@ export default {
           plata: "The money",
         },
       },
+      dashboard: {
+        nombre: "Statistics",
+        queMuestra: "Collected payments, new customers and open cases for the month.",
+      },
     },
     ymas: {
+      datos: { one: "See {n} more figure", other: "See {n} more figures" },
       casos: { one: "See {n} more case", other: "See {n} more cases" },
       turnos: { one: "See {n} more appointment", other: "See {n} more appointments" },
       personas: { one: "See {n} more person", other: "See {n} more people" },
