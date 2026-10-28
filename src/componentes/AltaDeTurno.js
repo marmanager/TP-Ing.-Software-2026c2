@@ -142,6 +142,7 @@ export default function AltaDeTurno({
           icono="check"
           motivo={motivoApagado}
           className="w-full sm:w-auto"
+          data-testid="turno-guardar"
           onClick={guardar}
         >
           {t("agenda.alta.guardar")}

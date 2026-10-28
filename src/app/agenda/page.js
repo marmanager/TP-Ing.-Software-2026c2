@@ -92,6 +92,7 @@ export default function Agenda() {
             icono="mas"
             motivo={abierto ? tr("agenda.anotando") : null}
             onClick={() => setAbierto(true)}
+            data-testid="agenda-anotar"
           >
             {tr("agenda.anotar")}
           </Boton>
@@ -324,6 +325,7 @@ export default function Agenda() {
                           <Boton
                             icono="calendario"
                             className="w-full sm:w-auto"
+                            data-testid="turno-cambiar-hora"
                             onClick={() => { setCancelando(null); setMoviendo(t.id); }}
                           >
                             {tr("agenda.cambiarHora")}

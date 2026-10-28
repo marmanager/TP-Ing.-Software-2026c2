@@ -71,6 +71,7 @@ export function Interruptor({
   palabras,
   motivo,
   disabled,
+  testid,
 }) {
   const { t } = useIdioma();
   const apagado = Boolean(motivo) || disabled;
@@ -80,6 +81,7 @@ export function Interruptor({
       type="button"
       role="switch"
       aria-checked={prendido}
+      data-testid={testid}
       disabled={apagado}
       onClick={() => onChange(!prendido)}
       className="inline-flex min-h-12 cursor-pointer items-center gap-3 rounded-campo text-left disabled:cursor-not-allowed"

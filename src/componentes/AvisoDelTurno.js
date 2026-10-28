@@ -33,7 +33,7 @@ export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActiv
 
   const enPalabras = avisoEnPalabras({ aviso: avisoDelTurno(turno), ahora }, lang);
   const fichaDelCliente = cliente && (
-    <Link href={`/clientes/${cliente.id}`} className="inline-flex min-h-12 items-center font-bold text-azul">
+    <Link href={`/clientes/${cliente.id}`} data-testid="turno-completar-telefono" className="inline-flex min-h-12 items-center font-bold text-azul">
       {t("agenda.aviso.completarTelefono")}
     </Link>
   );

@@ -113,6 +113,7 @@ export default function Modulos() {
                       icono={prendido ? "cruz" : "mas"}
                       onClick={() => alternar(m.clave)}
                       aria-pressed={prendido}
+                      data-testid={`modulo-alternar-${m.clave}`}
                     >
                       {prendido ? t("negocio.modulos.apagar", { nombre: m.nombre }) : t("negocio.modulos.prender", { nombre: m.nombre })}
                     </Boton>

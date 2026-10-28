@@ -1162,6 +1162,7 @@ export default function VerCaso() {
                   <Boton
                     variante="plano"
                     icono="volver"
+                    data-testid="caso-entrega-volver"
                     motivo={cerrando ? t("casos.comun.guardando") : null}
                     onClick={() => {
                       setErrorEntrega(null);
@@ -1229,6 +1230,7 @@ export default function VerCaso() {
                       <Boton
                         variante="borde"
                         icono="calendario"
+                        data-testid="caso-volver-fecha"
                         onClick={() => {
                           setVolverEn(caso.volver_en ?? "");
                           setErrorVolver(null);
@@ -1262,6 +1264,7 @@ export default function VerCaso() {
                     <Boton
                       variante="borde"
                       icono="listo"
+                      data-testid="caso-volver-fecha-guardar"
                       motivo={guardandoVolver ? t("casos.comun.guardando") : motivoVolver}
                       onClick={async () => {
                         setErrorVolver(null);

@@ -216,6 +216,7 @@ export default function FichaDeCliente() {
               <div className="mt-3">
                 <Boton
                   icono="deshacer"
+                  data-testid="cliente-volver-avisos"
                   motivo={revirtiendo ? "guardando" : null}
                   onClick={async () => {
                     setErrorBaja(null);

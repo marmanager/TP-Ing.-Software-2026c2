@@ -84,7 +84,10 @@ export async function cargarArchivoEnInput({ nombre, tipo, contenido }) {
 
 // Un elemento por su data-testid: no depende del texto, del idioma ni del
 // estilo. Convención: pantalla-elemento, en kebab-case (caso-estado).
-export const tid = (id) => $(`[data-testid="${id}"]`);
+export const tid = (id, dentro) => {
+  const selector = `[data-testid="${id}"]`;
+  return dentro ? dentro.$(selector) : $(selector);
+};
 
 export async function verTexto(texto) {
   await expect($("body")).toHaveText(expect.stringContaining(texto));
