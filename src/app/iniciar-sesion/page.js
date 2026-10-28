@@ -40,7 +40,9 @@ export default function IniciarSesion() {
     set(e.target.value);
   };
 
-  async function entrar() {
+  async function entrar(ev) {
+    ev.preventDefault();
+    if (motivo) return;
     setErrorGeneral(null);
     setEnviando(true);
     const r = await iniciarSesion({ email, contrasena });
@@ -66,6 +68,7 @@ export default function IniciarSesion() {
           </>
         )}
 
+        <form onSubmit={entrar}>
         <Campo
           id="email"
           etiqueta={t("acceso.ingreso.mail")}
@@ -108,11 +111,12 @@ export default function IniciarSesion() {
           variante="principal"
           icono="check"
           motivo={motivo}
-          onClick={entrar}
+          type="submit"
           className="min-h-14 w-full"
         >
           {t("acceso.ingreso.titulo")}
         </Boton>
+        </form>
 
         {!haySupabase && (
           <p className="mt-6 text-etiqueta text-tinta-media">
