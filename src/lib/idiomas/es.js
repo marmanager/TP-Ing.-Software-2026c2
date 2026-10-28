@@ -2610,8 +2610,13 @@ export default {
           plata: "La plata",
         },
       },
+      dashboard: {
+        nombre: "Estadísticas",
+        queMuestra: "Lo cobrado, los clientes nuevos y los casos abiertos del mes.",
+      },
     },
     ymas: {
+      datos: { one: "Ver {n} dato más", other: "Ver {n} datos más" },
       casos: { one: "Ver {n} casos más", other: "Ver {n} casos más" },
       turnos: { one: "Ver {n} turnos más", other: "Ver {n} turnos más" },
       personas: { one: "Ver {n} personas más", other: "Ver {n} personas más" },

@@ -375,7 +375,9 @@ export default function Inicio() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      {/* Acomodando, la cabecera acompaña al scroll: guardar y descartar
+          quedan a mano sin volver a subir. */}
+      <div className={`mb-6 flex flex-wrap items-start justify-between gap-4 ${acomodando ? "sticky top-0 z-30 -mx-4 bg-fondo px-4 py-3 shadow-sm" : ""}`}>
         <div>
           <h1 className="text-pantalla">{t("inicio.titulo")}</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media first-letter:uppercase">
@@ -400,11 +402,11 @@ export default function Inicio() {
 
         {acomodando ? (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Boton variante="plano" onClick={salirDeAcomodar}>
-              {t("inicio.acomodar.descartar")}
-            </Boton>
             <Boton variante="principal" icono="check" onClick={guardar}>
               {t("inicio.acomodar.guardar")}
+            </Boton>
+            <Boton variante="plano" onClick={salirDeAcomodar}>
+              {t("inicio.acomodar.descartar")}
             </Boton>
           </div>
         ) : (
@@ -546,7 +548,7 @@ export default function Inicio() {
             </ul>
           )}
 
-          <div className="mt-8">
+          <div className="mt-8 flex justify-end">
             <Boton
               icono="deshacer"
               onClick={() => {

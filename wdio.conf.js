@@ -12,7 +12,7 @@ export const config = {
     {
       browserName: "chrome",
       "wdio:enforceWebDriverClassic": true,
-      "goog:chromeOptions": { args: ["--lang=es-AR"], prefs: { "intl.accept_languages": "es-AR,es" } },
+      "goog:chromeOptions": { args: ["--headless=new", "--window-size=1920,1080", "--lang=es-AR"], prefs: { "intl.accept_languages": "es-AR,es" } },
     },
   ],
   logLevel: "warn",

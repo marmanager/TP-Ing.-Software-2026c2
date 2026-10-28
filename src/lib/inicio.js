@@ -171,6 +171,18 @@ export const CATALOGO = {
       { clave: "plata", palabra: "La plata" },
     ],
   },
+  // El Resumen del módulo Estadísticas, en filas. Lleva al módulo completo.
+  dashboard: {
+    clave: "dashboard",
+    nombre: "Estadísticas",
+    icono: "grafico",
+    ruta: "/dashboard",
+    modulo: "dashboard",
+    queMuestra: "Lo cobrado, los clientes nuevos y los casos abiertos del mes.",
+    ancho: 3,
+    alto: 2,
+    filtros: null,
+  },
 };
 
 export const LISTA_CATALOGO = Object.values(CATALOGO);
