@@ -16,17 +16,25 @@ import { entrar, noVerTexto, reemplazarTexto, tid, verTexto } from "./ayudas.js"
 function enDias(dias, hora = "10:00") {
   const d = new Date();
   d.setDate(d.getDate() + dias);
+  // El negocio de fábrica atiende de lunes a viernes: si cae en fin de
+  // semana, se pasa al lunes.
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
   const dos = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${hora}`;
 }
 
+// El día es un <input type="date"> (`${selector}-dia`) y la hora son botones
+// (`${selector}-h-HH`, y después `${selector}-m-MM`).
 async function ponerValor(selector, valor) {
+  const [dia, hora] = valor.split("T");
   await browser.execute((sel, v) => {
-    const input = document.querySelector(sel);
-    const poner = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-    poner.call(input, v);
+    const input = document.querySelector(`${sel}-dia`);
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, v);
     input.dispatchEvent(new Event("input", { bubbles: true }));
-  }, selector, valor);
+  }, selector, dia);
+  const [hh, mm] = hora.split(":");
+  await $(`${selector}-h-${hh}`).click();
+  await $(`${selector}-m-${mm}`).click();
 }
 
 async function prenderLaAgendaYElRecordatorio() {

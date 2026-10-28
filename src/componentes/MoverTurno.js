@@ -10,7 +10,8 @@ import { diaLargoEnFrase, horaYMinutos, paraInput } from "@/lib/fechas";
 import { textoDeError } from "@/lib/idioma";
 import { useIdioma } from "@/lib/useIdioma";
 import { avisoAlAnotar } from "@/lib/recordatorios";
-import { Boton, Campo } from "./ui";
+import { Boton } from "./ui";
+import HorarioDeTurno from "./HorarioDeTurno";
 
 export default function MoverTurno({ turno, alTerminar }) {
   const datos = useDatos();
@@ -49,14 +50,14 @@ export default function MoverTurno({ turno, alTerminar }) {
 
   return (
     <div className="w-full rounded-tarjeta bg-superficie p-4">
-      <Campo
+      <HorarioDeTurno
         id={`mover-${turno.id}`}
+        ignorarId={turno.id}
         etiqueta={t("agenda.mover.etiqueta")}
         ayuda={t("agenda.mover.ayuda")}
-        type="datetime-local"
-        value={cuando}
+        valor={cuando}
         error={error}
-        onChange={(e) => setCuando(e.target.value)}
+        onChange={setCuando}
       />
       <div className="flex flex-col gap-2 sm:flex-row">
         <Boton icono="check" className="w-full sm:w-auto" motivo={motivo} onClick={guardar} data-testid="turno-mover-guardar">
