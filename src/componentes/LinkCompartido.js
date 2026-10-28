@@ -42,7 +42,7 @@ export default function LinkCompartido({
   textos,
 }) {
   const { avisarExito } = useDatos();
-  const { t } = useIdioma();
+  const { idioma, t } = useIdioma();
   const [compartiendo, setCompartiendo] = useState(false);
   const [error, setError] = useState(null);
   const [cortando, setCortando] = useState(false);
@@ -51,7 +51,9 @@ export default function LinkCompartido({
   const [origen, setOrigen] = useState("");
   useEffect(() => setOrigen(window.location.origin), []);
 
-  const link = origen && codigo ? origen + ruta + codigo : "";
+  // El link lleva el idioma de Mi perfil: las pantallas públicas no tienen
+  // selector (docs/idioma-en-links-publicos.md).
+  const link = origen && codigo ? `${origen}${ruta}${codigo}?idioma=${idioma}` : "";
 
   return (
     <Tarjeta className="mb-8">

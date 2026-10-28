@@ -539,21 +539,21 @@ export default function MiPerfil() {
           </Tarjeta>
       </>
 
+      {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
+      <TituloSeccion id="negocios">{t("cuenta.negocios.seccion")}</TituloSeccion>
+      <TusNegocios />
+
       <TituloSeccion id="tema">{t("cuenta.tema.seccion")}</TituloSeccion>
       <Tema />
-
-      <TituloSeccion id="idioma">{t("idioma.titulo")}</TituloSeccion>
-      <Tarjeta>
-        <p className="mb-2 text-tinta-media">{t("idioma.apoyo")}</p>
-        <SelectorIdioma />
-      </Tarjeta>
 
       <TituloSeccion id="suscripcion">{t("cuenta.suscripcion.seccion")}</TituloSeccion>
       <Suscripcion />
 
-      {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
-      <TituloSeccion id="negocios">{t("cuenta.negocios.seccion")}</TituloSeccion>
-      <TusNegocios />
+      <TituloSeccion id="idioma">{t("idioma.titulo")}</TituloSeccion>
+      <Tarjeta className="mb-12">
+        <p className="mb-2 text-tinta-media">{t("idioma.apoyo")}</p>
+        <SelectorIdioma />
+      </Tarjeta>
 
       <Boton icono="salir" onClick={salir}>
         {t("cuenta.cerrarSesion")}

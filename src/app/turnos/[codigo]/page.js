@@ -38,14 +38,13 @@ import { textoDeError } from "@/lib/idioma";
 import { useIdioma } from "@/lib/useIdioma";
 import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
-import SelectorIdioma from "@/componentes/SelectorIdioma";
 import CalendarioDeTurnos, { comoHora } from "@/componentes/CalendarioDeTurnos";
 import { Boton, Campo, Cargando } from "@/componentes/ui";
 
 export default function PedirTurno() {
   const { codigo } = useParams();
-  // Es la pantalla del cliente del negocio: sale en el idioma de su navegador
-  // (o el que eligió abajo), no en el del negocio.
+  // Sin selector: el idioma lo trae el link (?idioma=, src/proxy.js), el de
+  // Mi perfil de quien lo armó; sin eso, el del navegador.
   const { idioma, locale, t } = useIdioma();
   const [mirando, setMirando] = useState(true);
   const [agenda, setAgenda] = useState(null);
@@ -365,9 +364,6 @@ function Marco({ negocio, children }) {
       </header>
       <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">
         {children}
-        <div className="mt-4">
-          <SelectorIdioma />
-        </div>
       </main>
     </div>
   );

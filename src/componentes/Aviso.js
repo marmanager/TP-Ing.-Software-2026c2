@@ -11,6 +11,8 @@
 // - En celular van fijos abajo, encima de la barra de secciones (64 px).
 // - En escritorio quedan fijos abajo para conservar la posición al cobrar.
 
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
@@ -49,6 +51,15 @@ function Banda({ tono, icono, texto, alDescartar, deshacer, rol, textoDescartar 
 export default function Aviso() {
   const { t } = useIdioma();
   const { aviso, exito, deshacerExito, descartarAviso, descartarExito, otroNegocio } = useDatos();
+
+  // Al cambiar de pantalla la confirmación ya cumplió: no hace falta tocar "Entendido".
+  const ruta = usePathname();
+  const rutaAnterior = useRef(ruta);
+  useEffect(() => {
+    if (rutaAnterior.current !== ruta) descartarExito();
+    rutaAnterior.current = ruta;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ruta]);
 
   if (!exito && !aviso && !otroNegocio) return null;
 
