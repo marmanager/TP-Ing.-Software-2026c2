@@ -479,6 +479,25 @@ export default function MiNegocio() {
         </div>
       </Tarjeta>
 
+      {/* La copia de seguridad (docs/copia-de-seguridad.md): sólo con su permiso. */}
+      {puede(usuario, "copia_de_seguridad") && (
+        <>
+          <TituloSeccion id="copia-de-seguridad">{t("negocio.copias.titulo")}</TituloSeccion>
+          <Tarjeta className="mb-12">
+            <p className="max-w-[65ch] text-tinta-media">{t("negocio.copias.apoyo")}</p>
+            <div className="mt-4">
+              <Link
+                href="/negocio/copia-de-seguridad"
+                className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+              >
+                <Icono nombre="historial" />
+                {t("negocio.copias.ver")}
+              </Link>
+            </div>
+          </Tarjeta>
+        </>
+      )}
+
       {/* La landing la arma sólo el dueño: el resto del equipo no tiene nada
           que hacer en esa pantalla. */}
       {puedeConfigurar && (
