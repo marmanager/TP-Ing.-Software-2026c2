@@ -36,6 +36,7 @@ export const PERMISOS = [
   { clave: "manejar_roles", grupo: "Equipo", nombre: "Manejar roles", descripcion: "Crear, editar y asignar roles, solo con permisos incluidos en el rol propio." },
   { clave: "configurar_negocio", grupo: "Negocio", nombre: "Configurar el negocio", descripcion: "Datos, horarios, módulos, Inicio, landing y links públicos de la agenda." },
   { clave: "ver_historial", grupo: "Negocio", nombre: "Ver el historial", descripcion: "Ver la pantalla Historial del negocio." },
+  { clave: "copia_de_seguridad", grupo: "Negocio", nombre: "Manejar la copia de seguridad", descripcion: "Hacer copias del negocio, configurar la copia automática y restablecer una copia." },
 ];
 
 const CLAVES = new Set(PERMISOS.map((p) => p.clave));

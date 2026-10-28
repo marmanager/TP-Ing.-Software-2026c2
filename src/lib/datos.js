@@ -1208,6 +1208,34 @@ export function DatosProvider({ children }) {
         return r.ok ? { ok: true } : { ok: false, error: r.error };
       },
 
+      // ---------- copia de seguridad (docs/copia-de-seguridad.md) ----------
+      // Como los roles, van directo: la pantalla necesita el resultado, y
+      // la lista no se guarda en memoria (sólo la ve quien tiene el permiso).
+      // Todas devuelven { ok, copias: { automatica, hora, copias } }. Un
+      // reintento de "hacer" o "restablecer" lleva su propia clave: no hace
+      // otra copia ni pisa la de "antes de restablecer".
+      async cargarCopias() {
+        const r = await traer("/copias", await tokenDeSesion());
+        return r.ok ? { ok: true, copias: r.datos } : { ok: false, error: r.error };
+      },
+
+      async configurarCopias({ automatica, hora }) {
+        const r = await reemplazar("/copias/configuracion", { automatica, hora }, await tokenDeSesion());
+        return r.ok ? { ok: true, copias: r.datos } : { ok: false, error: r.error };
+      },
+
+      async hacerCopia() {
+        const r = await mandar("/copias", {}, await tokenDeSesion(), { idempotencia: nuevaClave() });
+        return r.ok ? { ok: true, copias: r.datos } : { ok: false, error: r.error };
+      },
+
+      // Cambia todo el negocio: quien llama tiene que recargar la pantalla.
+      async restablecerCopia(id) {
+        const r = await mandar(`/copias/${encodeURIComponent(id)}/restablecer`, {}, await tokenDeSesion(),
+          { idempotencia: nuevaClave() });
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
+      },
+
       // Los casos que tenía quedan sin responsable, no se borran: la base los
       // pone en null sola (on delete set null).
       eliminarEmpleado(empleadoId) {
