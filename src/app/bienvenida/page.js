@@ -4,7 +4,7 @@
 //
 // Dos cosas la separan del resto del sistema y las dos son a propósito:
 //
-// 1. La marca no es un logotipo, son los cinco estados. De ahí baja un hilo
+// 1. El hilo de los cinco estados. Baja un hilo
 //    de 2 px por el margen izquierdo y, en cada sección, lo interrumpe un
 //    tramo del color del estado que esa sección está contando. El hilo es el
 //    único elemento de la página atado al scroll, porque es el único cuyo
@@ -94,17 +94,9 @@ const HISTORIAL = [
 
 /* ---------------------------------------------------------------- piezas */
 
-// Las cinco franjas de color, que son la marca.
+// El logo de MarManager (public/logo.png).
 function Marca({ className = "size-10" }) {
-  return (
-    <span
-      className={`flex flex-col overflow-hidden rounded-campo border border-borde ${className}`}
-    >
-      {ORDEN_ESTADOS.map((e) => (
-        <i key={e} className={`flex-1 ${ESTADOS[e].barra}`} />
-      ))}
-    </span>
-  );
+  return <img src="/logo.png" alt="" className={`shrink-0 rounded-campo object-cover ${className}`} />;
 }
 
 // El tramo del hilo que le toca a cada sección. En escritorio vive en el
