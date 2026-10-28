@@ -63,7 +63,7 @@ export default function Ecuaciones() {
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-8">
       <TituloPantalla apoyo={t("ecuaciones.apoyo")}>{nombreDeModulo("ecuaciones", t)}</TituloPantalla>
-      <Boton variante="principal" icono="mas" onClick={() => setPantalla({ tipo: "crear", ecuacion: vacia() })}>{t("ecuaciones.crear")}</Boton>
+      <Boton variante="principal" icono="mas" onClick={() => setPantalla({ tipo: "crear", ecuacion: vacia() })} data-testid="ecuaciones-crear">{t("ecuaciones.crear")}</Boton>
 
       <TituloSeccion className="mt-10">{t("ecuaciones.guardadas")}</TituloSeccion>
       {!ecuaciones.length ? (
@@ -99,7 +99,7 @@ export default function Ecuaciones() {
                       {ecuacion.categoria && <p className="mt-2 text-etiqueta text-tinta-media">{ecuacion.categoria}</p>}
                     </button>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Boton variante="borde" onClick={() => setPantalla({ tipo: "resolver", ecuacion })}>{t("ecuaciones.resolver")}</Boton>
+                      <Boton variante="borde" onClick={() => setPantalla({ tipo: "resolver", ecuacion })} data-testid={`ecuacion-resolver-${ecuacion.nombre}`}>{t("ecuaciones.resolver")}</Boton>
                       <Boton variante="plano" onClick={() => setPantalla({ tipo: "editar", ecuacion })}>{t("ecuaciones.editar")}</Boton>
                       <Boton variante="plano" onClick={() => setPantalla({ tipo: "crear", ecuacion: {
                         ...ecuacion, id: undefined, nombre: t("ecuaciones.copia", { nombre: ecuacion.nombre }),
@@ -212,7 +212,7 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
           <Tarjeta>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <TituloSeccion>{t("ecuaciones.editor.variables")}</TituloSeccion>
-              {!editandoVariable && <Boton variante="borde" icono="mas" onClick={() => editarVariable()}>{t("ecuaciones.editor.agregar")}</Boton>}
+              {!editandoVariable && <Boton variante="borde" icono="mas" onClick={() => editarVariable()} data-testid="ecuacion-variable-agregar">{t("ecuaciones.editor.agregar")}</Boton>}
             </div>
             {errores.variables && <ErrorGeneral>{errores.variables}</ErrorGeneral>}
             {editandoVariable && (
@@ -228,7 +228,7 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
                   <Campo id="variable-valor" etiqueta={variable.tipo === "constante" ? t("ecuaciones.editor.valor") : t("ecuaciones.editor.valorInicial")} ayuda={variable.tipo === "variable" ? t("ecuaciones.editor.opcional") : undefined} type="number" step="any" value={variable.valor} onChange={(e) => setVariable((v) => ({ ...v, valor: e.target.value }))} />
                   <Campo id="variable-unidad" etiqueta={t("ecuaciones.editor.unidad")} ayuda={t("ecuaciones.editor.opcional")} value={variable.unidad} onChange={(e) => setVariable((v) => ({ ...v, unidad: e.target.value }))} />
                 </div>
-                <div className="flex flex-wrap gap-2"><Boton variante="borde" onClick={guardarVariable}>{t("ecuaciones.editor.guardarVariable")}</Boton><Boton variante="plano" onClick={() => setEditandoVariable(null)}>{t("ecuaciones.editor.cancelar")}</Boton></div>
+                <div className="flex flex-wrap gap-2"><Boton variante="borde" onClick={guardarVariable} data-testid="ecuacion-variable-guardar">{t("ecuaciones.editor.guardarVariable")}</Boton><Boton variante="plano" onClick={() => setEditandoVariable(null)}>{t("ecuaciones.editor.cancelar")}</Boton></div>
               </div>
             )}
             {!form.variables.length ? <p className="text-tinta-media">{t("ecuaciones.editor.ninguna")}</p> : (
@@ -245,12 +245,12 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
               <p className="mb-3 text-etiqueta text-tinta-media">{t("ecuaciones.editor.calculadasApoyo")}</p>
               {errores.dependencias && <ErrorGeneral>{errores.dependencias}</ErrorGeneral>}
               <div className="flex flex-col gap-2 sm:flex-row">
-                <select aria-label={t("ecuaciones.editor.elegirAria")} className={CLASE_ENTRADA} value={ecuacionElegida} onChange={(e) => setEcuacionElegida(e.target.value)}>
+                <select aria-label={t("ecuaciones.editor.elegirAria")} data-testid="ecuacion-dependencia-select" className={CLASE_ENTRADA} value={ecuacionElegida} onChange={(e) => setEcuacionElegida(e.target.value)}>
                   <option value="">{t("ecuaciones.editor.elegir")}</option>
                   {ecuaciones.filter((e) => e.id !== inicial?.id && !form.dependencias.some((d) => d.ecuacion_id === e.id))
                     .map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                 </select>
-                <Boton variante="borde" onClick={agregarDependencia} disabled={!ecuacionElegida}>{t("ecuaciones.editor.agregar")}</Boton>
+                <Boton variante="borde" onClick={agregarDependencia} disabled={!ecuacionElegida} data-testid="ecuacion-dependencia-agregar">{t("ecuaciones.editor.agregar")}</Boton>
               </div>
               {!!form.dependencias.length && <ul className="mt-3 space-y-2">
                 {form.dependencias.map((dependencia) => {
@@ -271,7 +271,7 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
                   {heredadas.map((v) => <li key={`${v.ecuacion}-${v.id}`} className="rounded-campo border border-borde bg-superficie p-3">
                     <p className="font-bold">{v.nombre} <span className="font-normal text-tinta-media">· {t("ecuaciones.editor.tipoDe", { tipo: v.tipo === "constante" ? t("ecuaciones.editor.tipoConstanteMin") : t("ecuaciones.editor.tipoVariableMin"), ecuacion: v.ecuacion })}{v.unidad ? ` · ${v.unidad}` : ""}</span></p>
                     {v.descripcion && <p className="text-etiqueta text-tinta-media">{v.descripcion}</p>}
-                    <Boton variante="plano" className="mt-2" onClick={() => insertar(v.nombre)}>{t("ecuaciones.editor.insertar")}</Boton>
+                    <Boton variante="plano" className="mt-2" onClick={() => insertar(v.nombre)} data-testid={`ecuacion-heredada-insertar-${v.ecuacion}-${v.nombre}`}>{t("ecuaciones.editor.insertar")}</Boton>
                   </li>)}
                 </ul>
               </div>}
@@ -281,7 +281,7 @@ function Editor({ inicial, ecuaciones, titulo, alGuardar, alCancelar }) {
 
         {errores.general && <ErrorGeneral>{errores.general}</ErrorGeneral>}
         {duplicada && <div role="alert" className="mt-4 rounded-campo bg-azul-claro p-4 text-azul"><p className="font-bold">{t("ecuaciones.editor.duplicada")}</p><p className="mt-1">{t("ecuaciones.editor.duplicadaApoyo")}</p><div className="mt-3 flex gap-2"><Boton onClick={() => setDuplicada(false)}>{t("ecuaciones.editor.seguir")}</Boton><Boton variante="borde" onClick={() => guardar(true)}>{t("ecuaciones.editor.variante")}</Boton></div></div>}
-        <div className="mt-6 flex flex-wrap gap-2"><Boton type="submit" variante="principal">{t("ecuaciones.editor.guardar")}</Boton><Boton onClick={alCancelar}>{t("ecuaciones.editor.cancelar")}</Boton></div>
+        <div className="mt-6 flex flex-wrap gap-2"><Boton type="submit" variante="principal" data-testid="ecuacion-guardar">{t("ecuaciones.editor.guardar")}</Boton><Boton onClick={alCancelar}>{t("ecuaciones.editor.cancelar")}</Boton></div>
       </form>
     </main>
   );
@@ -332,7 +332,7 @@ function Resolver({ ecuacion, ecuaciones, alCerrar }) {
           <TituloSeccion>{t("ecuaciones.resolverPantalla.intermedios")}</TituloSeccion>
           <ul className="space-y-2">{salida.intermedios.map((intermedio) => <li key={intermedio.id} className="rounded-campo bg-superficie p-3"><strong>{intermedio.nombre}:</strong> {new Intl.NumberFormat(locale, { maximumFractionDigits: 10 }).format(intermedio.resultado)}{intermedio.unidad ? ` ${intermedio.unidad}` : ""}</li>)}</ul>
         </div>}
-        <div className="flex flex-wrap gap-2"><Boton variante="principal" onClick={() => calcular()}>{t("ecuaciones.resolverPantalla.calcular")}</Boton><Boton onClick={alCerrar}>{t("ecuaciones.resolverPantalla.volver")}</Boton></div>
+        <div className="flex flex-wrap gap-2"><Boton variante="principal" onClick={() => calcular()} data-testid="ecuacion-calcular">{t("ecuaciones.resolverPantalla.calcular")}</Boton><Boton onClick={alCerrar}>{t("ecuaciones.resolverPantalla.volver")}</Boton></div>
       </Tarjeta>
     </main>
   );

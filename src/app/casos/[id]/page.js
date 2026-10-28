@@ -285,10 +285,13 @@ export default function VerCaso() {
           La tarjeta NO lleva overflow-hidden: el desplegable del estado sale
           de sus bordes y quedaba cortado al medio. El recorte estaba sólo
           para que la barra de color respetara las esquinas, así que la barra
-          se redondea sola y el problema desaparece de raíz —si no, cualquier
-          menú que se abra acá adentro vuelve a cortarse. */}
-      <div className="rounded-tarjeta border border-borde bg-tarjeta">
-        <div className={`h-1.5 w-full rounded-t-tarjeta ${barra}`} aria-hidden="true" />
+          es el borde de arriba de la tarjeta (más grueso y de color): un
+          borde sigue la curva solo, y cualquier menú que se abra acá adentro
+          ya no se corta. */}
+      <div
+        className="rounded-tarjeta border border-borde bg-tarjeta"
+        style={{ borderTopWidth: 6, borderTopColor: `var(--color-${barra.slice(3)})` }}
+      >
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             {/* El nombre es el título, y el número queda abajo en chiquito
