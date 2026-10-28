@@ -45,7 +45,7 @@ async function ponerValor(selector, valor) {
 async function prenderLaAgenda() {
   await browser.url("/negocio/modulos");
   await tid("modulo-alternar-agenda").click();
-  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-pressed", "true");
+  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-checked", "true");
 }
 
 async function prenderElRecordatorioDeTurnos(horas = "24") {

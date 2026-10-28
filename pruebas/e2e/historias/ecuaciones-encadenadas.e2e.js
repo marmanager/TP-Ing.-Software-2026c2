@@ -18,7 +18,7 @@ describe("ecuaciones encadenadas", () => {
     // El taller sembrado no trae el módulo: se prende como lo haría la dueña.
     await entrar("/negocio/modulos", "taller-sin-casos");
     await tid("modulo-alternar-ecuaciones").click();
-    await expect(tid("modulo-alternar-ecuaciones")).toHaveAttribute("aria-pressed", "true");
+    await expect(tid("modulo-alternar-ecuaciones")).toHaveAttribute("aria-checked", "true");
     await browser.url("/ecuaciones");
 
     await tid("ecuaciones-crear").click();

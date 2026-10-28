@@ -46,7 +46,7 @@ async function entrarComo(identificador, ultimos4) {
 async function prenderLaAgenda() {
   await browser.url("/negocio/modulos");
   await tid("modulo-alternar-agenda").click();
-  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-pressed", "true");
+  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-checked", "true");
 }
 
 // Los de fábrica: de lunes a viernes, de 9 a 18, cortando al mediodía.

@@ -32,7 +32,7 @@ async function ponerValor(selector, valor) {
 async function prenderLaAgendaYElRecordatorio() {
   await browser.url("/negocio/modulos");
   await tid("modulo-alternar-agenda").click();
-  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-pressed", "true");
+  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-checked", "true");
   await browser.url("/negocio/recordatorios/turno");
   await tid("recordatorio-turno-interruptor").click();
   await reemplazarTexto("#turno-plazo", "24");
