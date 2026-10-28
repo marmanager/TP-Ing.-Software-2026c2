@@ -33,11 +33,12 @@ import {
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
-function Opcion({ elegida, onClick, children }) {
+function Opcion({ elegida, onClick, children, testid }) {
   return (
     <button
       type="button"
       aria-pressed={elegida}
+      data-testid={testid}
       onClick={onClick}
       className={[
         "min-h-12 cursor-pointer rounded-full border-2 px-4 text-etiqueta",
@@ -146,11 +147,11 @@ export default function Historial() {
           </span>
         </legend>
         <div className="flex flex-wrap gap-2">
-          <Opcion elegida={tipo === "todo"} onClick={() => setTipo("todo")}>
+          <Opcion elegida={tipo === "todo"} onClick={() => setTipo("todo")} testid="historial-filtro-todo">
             {t("historial.todo")}
           </Opcion>
           {LISTA_TIPOS.map((tp) => (
-            <Opcion key={tp.clave} elegida={tipo === tp.clave} onClick={() => setTipo(tp.clave)}>
+            <Opcion key={tp.clave} elegida={tipo === tp.clave} onClick={() => setTipo(tp.clave)} testid={`historial-filtro-${tp.clave}`}>
               {t(`historial.tipos.${tp.clave}`)}
             </Opcion>
           ))}
@@ -237,6 +238,7 @@ export default function Historial() {
                       <button
                         type="button"
                         aria-label={t("historial.verSoloLoDel", { caso: casoEnFrase(caso, t) })}
+                        data-testid={`historial-solo-caso-${caso.numero}`}
                         onClick={() => setSoloCaso(caso.id)}
                         className="flex min-h-12 w-12 shrink-0 cursor-pointer items-center justify-center self-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
                       >

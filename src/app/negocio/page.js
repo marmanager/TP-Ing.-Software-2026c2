@@ -251,6 +251,7 @@ export default function MiNegocio() {
                 type="button"
                 aria-label={t("negocio.ficha.cambiarFoto")}
                 aria-expanded={menuFoto}
+                data-testid="negocio-foto-cambiar"
                 onClick={() => setMenuFoto((v) => !v)}
                 className="absolute -right-2 -bottom-2 flex size-9 cursor-pointer items-center justify-center rounded-full border-2 border-tarjeta bg-azul text-white hover:bg-azul-apretado"
               >
@@ -277,7 +278,7 @@ export default function MiNegocio() {
           </div>
 
           {puedeConfigurar && !editandoFicha && (
-            <Boton icono="pincel" onClick={abrirEdicion}>
+            <Boton icono="pincel" onClick={abrirEdicion} data-testid="negocio-editar">
               {t("negocio.ficha.editar")}
             </Boton>
           )}
@@ -355,7 +356,7 @@ export default function MiNegocio() {
             />
 
             <div className="flex flex-wrap gap-3">
-              <Boton variante="principal" icono="check" motivo={motivoFicha} onClick={guardarFicha}>
+              <Boton variante="principal" icono="check" motivo={motivoFicha} onClick={guardarFicha} data-testid="negocio-guardar">
                 {t("negocio.ficha.guardar")}
               </Boton>
               <Boton variante="plano" onClick={cancelarEdicion}>
