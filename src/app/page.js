@@ -416,7 +416,7 @@ export default function Inicio() {
                 la pantalla" se hace una vez cada varios meses y va al pie de
                 la grilla; con los dos del mismo tamaño al lado había que leer
                 los dos todas las veces (auditoría, H8). */}
-            <Link href="/casos/nuevo" className="flex-1 sm:flex-none">
+            <Link href="/casos/nuevo" data-testid="inicio-abrir-caso" className="flex-1 sm:flex-none">
               <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
                 <Icono nombre="mas" />
                 {t("inicio.abrirCaso")}

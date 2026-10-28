@@ -57,8 +57,8 @@ export async function empezarElMesGratis() {
   await browser.waitUntil(async () => (await browser.getUrl()).includes("/planes"), {
     timeoutMsg: "El alta no llevó a elegir un plan",
   });
-  await $("button=Empezar mi mes gratis").click();
-  await $("button=Ir a la app").click();
+  await tid("planes-empezar-gratis").click();
+  await tid("ir-a-la-app").click();
 }
 
 // Cambia lo que ya dice un campo como lo haría una persona: lo selecciona

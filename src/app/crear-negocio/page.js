@@ -159,6 +159,7 @@ export default function CrearNegocio() {
                 <button
                   type="button"
                   aria-pressed={sel}
+                  data-testid={`rubro-${r.clave}`}
                   onClick={() => {
                     setErrorGeneral(null);
                     setRubro(r.clave);
@@ -226,6 +227,7 @@ export default function CrearNegocio() {
             icono="check"
             motivo={motivo}
             onClick={crear}
+            data-testid="crear-negocio-crear"
             className="min-h-14 w-full"
           >
             {t("acceso.crearNegocio.boton")}

@@ -583,7 +583,7 @@ export default function MiNegocio() {
               </p>
             ) : puedeConfigurar ? (
               <div className="mt-4">
-                <Boton icono="tienda" onClick={() => setCambiandoRubro(true)}>
+                <Boton icono="tienda" onClick={() => setCambiandoRubro(true)} data-testid="negocio-rubro-cambiar">
                   {t("negocio.rubro.cambiar")}
                 </Boton>
               </div>
@@ -608,6 +608,7 @@ export default function MiNegocio() {
                     <button
                       type="button"
                       aria-pressed={marcado}
+                      data-testid={`rubro-${r.clave}`}
                       onClick={() => setRubroElegido(r.clave)}
                       className={[
                         "h-full w-full cursor-pointer rounded-tarjeta border-2 p-4 text-left",
@@ -665,7 +666,7 @@ export default function MiNegocio() {
                 </p>
 
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Boton icono="check" onClick={confirmarRubro}>
+                  <Boton icono="check" onClick={confirmarRubro} data-testid="negocio-rubro-confirmar">
                     {t("negocio.rubro.cambiar")}
                   </Boton>
                   <Boton variante="plano" onClick={cerrarCambioDeRubro}>

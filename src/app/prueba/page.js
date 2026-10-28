@@ -39,7 +39,7 @@ export default function Prueba() {
             </ul>
           </Tarjeta>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Boton variante="principal" onClick={() => router.push("/")}>{t("planes.irALaApp")}</Boton>
+            <Boton variante="principal" onClick={() => router.push("/")} data-testid="ir-a-la-app">{t("planes.irALaApp")}</Boton>
             <Boton onClick={() => router.push("/planes")}>{t("prueba.elegirAhora")}</Boton>
           </div>
         </>

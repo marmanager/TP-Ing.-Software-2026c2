@@ -112,7 +112,7 @@ export default function Planes() {
           <p className="mt-1 text-tinta-media">
             {t("planes.gratis.texto")}
           </p>
-          <Boton variante="principal" className="mt-4" onClick={probar} disabled={ocupado !== null}>
+          <Boton variante="principal" className="mt-4" onClick={probar} disabled={ocupado !== null} data-testid="planes-empezar-gratis">
             {ocupado === "prueba" ? t("planes.gratis.empezando") : t("planes.gratis.empezar")}
           </Boton>
         </Tarjeta>
@@ -190,7 +190,7 @@ export default function Planes() {
       </div>
 
       {datos?.activa && (
-        <Boton className="mt-8" onClick={() => router.push("/")}>{t("planes.irALaApp")}</Boton>
+        <Boton className="mt-8" onClick={() => router.push("/")} data-testid="ir-a-la-app">{t("planes.irALaApp")}</Boton>
       )}
     </div>
   );
