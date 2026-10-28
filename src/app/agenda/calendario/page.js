@@ -433,7 +433,7 @@ export default function Calendario() {
                   <p className="order-1 font-titulo font-extrabold text-subtitulo tabular-nums sm:order-none sm:w-20">
                     {horaYMinutos(t.empieza_en, locale)}
                   </p>
-                  <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-1">
+                  <div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1 sm:flex-[1_1_16rem]">
                     <p
                       className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado", tr).texto : ""}`}
                     >
