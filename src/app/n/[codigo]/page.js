@@ -32,7 +32,6 @@ import { useIdioma } from "@/lib/useIdioma";
 import { leerLlave } from "@/lib/llave-landing";
 import Icono from "@/componentes/Icono";
 import Lienzo from "@/componentes/landing/Lienzo";
-import SelectorIdioma from "@/componentes/SelectorIdioma";
 import Ingreso from "@/componentes/landing/secciones/Ingreso";
 import SeccionMisCasos from "@/componentes/landing/secciones/SeccionMisCasos";
 import SeccionMisTurnos from "@/componentes/landing/secciones/SeccionMisTurnos";
@@ -289,9 +288,6 @@ function Marco({ negocio, accion, children }) {
       </header>
       <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">
         {children}
-        <div className="mt-4">
-          <SelectorIdioma />
-        </div>
       </main>
     </div>
   );
