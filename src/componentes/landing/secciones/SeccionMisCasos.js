@@ -102,6 +102,7 @@ export default function SeccionMisCasos({ codigo, negocio, alVencer }) {
             <Link
               href={`/seguimiento/${c.seguimiento_codigo}`}
               aria-describedby={`caso-${c.numero}`}
+              data-testid={`landing-caso-seguimiento-${c.numero}`}
               className="mt-2 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
               {t("landing.casos.verComoViene")}

@@ -6,21 +6,6 @@ import { entrar, tid, verTexto } from "./ayudas.js";
 // quedó después de refrescar. La vista previa se lee por el style de
 // [data-lienzo], que es lo que pinta.
 
-// Un <input type="color"> no se escribe: se le pone el valor como lo haría
-// el selector del navegador, y se avisa a React con el evento input.
-async function elegirColor(etiqueta, valor) {
-  await browser.execute(
-    (etiqueta, valor) => {
-      const input = document.querySelector(`[data-testid="${etiqueta}"]`);
-      const poner = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-      poner.call(input, valor);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    },
-    etiqueta,
-    valor
-  );
-}
-
 const estiloDeLaVistaPrevia = () => $("[data-lienzo]").getAttribute("style");
 
 async function primeraSeccion() {
@@ -56,21 +41,21 @@ describe("Historia: El dueño arma la landing de su negocio", () => {
   });
 
   it("SCRUM-198: elige los colores, la vista previa los muestra y quedan guardados", async () => {
-    await elegirColor("landing-color-fondo", "#112233");
-    expect(await estiloDeLaVistaPrevia()).toContain("--color-fondo: #112233");
+    await tid("landing-color-fondo-noche").click();
+    expect(await estiloDeLaVistaPrevia()).toContain("--color-fondo: #1b2a41");
     // El texto del fondo pasa solo al recomendado: sobre azul oscuro, blanco.
     expect(await estiloDeLaVistaPrevia()).toContain("--color-tinta: #ffffff");
     await tid("landing-guardar").click();
     await verTexto("Tu landing quedó guardada");
     await browser.refresh();
     await expect($("[data-lienzo]")).toBeDisplayed();
-    expect(await estiloDeLaVistaPrevia()).toContain("--color-fondo: #112233");
+    expect(await estiloDeLaVistaPrevia()).toContain("--color-fondo: #1b2a41");
   });
 
-  it("SCRUM-198: avisa cuando el texto elegido no se lee", async () => {
-    await elegirColor("landing-color-botones", "#ffd400");
-    await elegirColor("landing-texto-botones", "#ffffff");
-    await verTexto("Con este texto cuesta leer");
+  it("SCRUM-198: avisa cuando los links no se leen sobre las cajas", async () => {
+    await tid("landing-color-cajas-carbon").click();
+    await tid("landing-color-botones-grafito").click();
+    await verTexto("sobre las cajas cuesta leerlos");
   });
 
   it("SCRUM-198: elige la fuente y queda guardada", async () => {
@@ -84,7 +69,7 @@ describe("Historia: El dueño arma la landing de su negocio", () => {
   });
 
   it("SCRUM-199: vuelve a la de fábrica", async () => {
-    await elegirColor("landing-color-fondo", "#112233");
+    await tid("landing-color-fondo-noche").click();
     await tid("landing-guardar").click();
     await verTexto("Tu landing quedó guardada");
     await tid("landing-de-fabrica").click();

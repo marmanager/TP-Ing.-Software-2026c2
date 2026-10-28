@@ -143,6 +143,7 @@ export default function FichaDeCliente() {
             <div className="flex flex-wrap gap-3">
               <Boton
                 icono="check"
+                data-testid="cliente-telefono-guardar"
                 motivo={tel.vacio ? t("ui.validaciones.faltaTelefono") : !tel.armado.ok ? t("clientes.ficha.telefonoNoSirve") : null}
                 onClick={() => {
                   datos.corregirTelefono(cliente.id, tel.telefono);
@@ -176,6 +177,7 @@ export default function FichaDeCliente() {
               <Boton
                 variante="plano"
                 icono="nota"
+                data-testid="cliente-telefono-corregir"
                 onClick={() => {
                   // Uno de antes, sin país, arranca en el país del negocio
                   // con sus dígitos: casi siempre es confirmar y guardar.

@@ -210,7 +210,8 @@ function Parte({ titulo, ayuda, children }) {
   );
 }
 
-function Grupo({ nombre, className, children }) {
+// Grupo, Opcion y Muestra también los usa el editor de la landing.
+export function Grupo({ nombre, className, children }) {
   return (
     <div role="group" aria-label={nombre} className={className}>
       {children}
@@ -219,9 +220,10 @@ function Grupo({ nombre, className, children }) {
 }
 
 // Una opción grande, con su dibujo arriba y el nombre abajo.
-function Opcion({ elegida, onClick, palabra, children }) {
+export function Opcion({ elegida, onClick, palabra, children, ...resto }) {
   return (
     <button
+      {...resto}
       type="button"
       aria-pressed={elegida}
       onClick={onClick}
@@ -238,9 +240,10 @@ function Opcion({ elegida, onClick, palabra, children }) {
 
 // Una muestra de color redonda. Con "letra", dice "Aa" en ese color sobre el
 // fondo de la app; sin, es el color lleno.
-function Muestra({ elegida, onClick, palabra, color, letra }) {
+export function Muestra({ elegida, onClick, palabra, color, letra, ...resto }) {
   return (
     <button
+      {...resto}
       type="button"
       aria-pressed={elegida}
       onClick={onClick}

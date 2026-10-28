@@ -842,6 +842,7 @@ function Marco({ negocio, landing, landingCodigo, children }) {
         {landingCodigo && (
           <Link
             href={`/n/${landingCodigo}`}
+            data-testid="seguimiento-volver-landing"
             className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
           >
             <Icono nombre="volver" />

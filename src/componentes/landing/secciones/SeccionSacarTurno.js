@@ -347,6 +347,7 @@ export default function SeccionSacarTurno({ codigo, negocio, entrado, vencida, a
                 icono="calendario"
                 className="min-h-14 w-full sm:min-h-12 sm:w-auto"
                 motivo={guardando ? t("landing.sacar.anotandote") : falta}
+                data-testid="landing-pedir-turno"
                 onClick={pedir}
               >
                 {t("landing.sacar.pedir")}

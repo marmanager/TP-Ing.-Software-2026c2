@@ -1,5 +1,5 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { entrar, verTexto } from "./ayudas.js";
+import { entrar, tid, verTexto } from "./ayudas.js";
 
 // B-1b · El teléfono tiene que poder llegar a WhatsApp (front).
 //
@@ -25,7 +25,7 @@ async function escribir(selector, valor) {
 describe("Historia: el teléfono tiene que poder llegar a WhatsApp", () => {
   it("AC11, AC12 y AC14: el selector arranca en el país del negocio y la ayuda se ve antes de escribir", async () => {
     await entrar("/clientes");
-    await $("button*=Dar de alta un cliente").click();
+    await tid("clientes-alta").click();
     await expect($("#nuevo-telefono-pais")).toHaveValue("AR");
     await expect($("#nuevo-telefono-pais").parentElement()).toHaveText(expect.stringContaining("+54 9"));
     await expect($("#nuevo-telefono-ayuda")).toHaveText(
@@ -36,7 +36,7 @@ describe("Historia: el teléfono tiene que poder llegar a WhatsApp", () => {
 
   it("AC14 y AC21: el país se cambia con el teclado, y cambian el formato y el ejemplo", async () => {
     await entrar("/clientes");
-    await $("button*=Dar de alta un cliente").click();
+    await tid("clientes-alta").click();
     await expect($("#nuevo-telefono-pais")).toHaveAttribute("aria-label", "País del teléfono");
     await $("#nuevo-nombre").click();
     await browser.keys("Tab");
@@ -48,7 +48,7 @@ describe("Historia: el teléfono tiene que poder llegar a WhatsApp", () => {
 
   it("AC15: pegar el número completo elige el país y deja el resto", async () => {
     await entrar("/clientes");
-    await $("button*=Dar de alta un cliente").click();
+    await tid("clientes-alta").click();
     await $("#nuevo-telefono-pais").selectByAttribute("value", "UY");
     await escribir("#nuevo-telefono", "+54 9 341 777 8888");
     await expect($("#nuevo-telefono-pais")).toHaveValue("AR");
@@ -57,7 +57,7 @@ describe("Historia: el teléfono tiene que poder llegar a WhatsApp", () => {
 
   it("AC16: el error dice qué pasa y da el ejemplo del país", async () => {
     await entrar("/clientes");
-    await $("button*=Dar de alta un cliente").click();
+    await tid("clientes-alta").click();
     await $("#nuevo-telefono").click();
     await escribir("#nuevo-telefono", "0341 777 8888");
     // El error aparece al salir del campo, no mientras se escribe.
@@ -67,10 +67,10 @@ describe("Historia: el teléfono tiene que poder llegar a WhatsApp", () => {
 
   it("AC13 y AC17: se guarda en internacional y se muestra legible", async () => {
     await entrar("/clientes");
-    await $("button*=Dar de alta un cliente").click();
+    await tid("clientes-alta").click();
     await $("#nuevo-nombre").setValue("Pablo Selector");
     await escribir("#nuevo-telefono", "341 777 8888");
-    await $("button*=Guardar el cliente").click();
+    await tid("clientes-guardar").click();
     await verTexto("Pablo Selector ya está en la lista de clientes");
     const tarjeta = $("li*=Pablo Selector");
     await expect(tarjeta.$('a[href^="tel:"]')).toHaveText("+54 9 341 777 8888");
@@ -80,10 +80,10 @@ describe("Historia: el teléfono tiene que poder llegar a WhatsApp", () => {
   it("AC19: la ficha señala el teléfono de antes y lo corrige con el país del negocio", async () => {
     await entrar("/clientes/{c5}");
     await expect($("[data-telefono-incompleto]")).toHaveText(expect.stringContaining("le falta el código de país"));
-    await $("button*=Corregir el teléfono").click();
+    await tid("cliente-telefono-corregir").click();
     await expect($("#telefono-pais")).toHaveValue("AR");
     await expect($("#telefono")).toHaveValue("341 555 4444");
-    await $("button*=Guardar el teléfono").click();
+    await tid("cliente-telefono-guardar").click();
     await verTexto("ahora es +54 9 341 555 4444");
     await expect($("[data-telefono-incompleto]")).not.toExist();
 

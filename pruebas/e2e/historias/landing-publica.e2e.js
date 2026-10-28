@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrar, noVerTexto, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, tid, verTexto } from "./ayudas.js";
 
 // La landing pública de un negocio (docs/landing-por-negocio.md, pasos 3 a
 // 5): lo que ven sus clientes desde el link que el negocio pone en su
@@ -21,7 +21,7 @@ const seccion = (clave) => $(`section[aria-labelledby="seccion-${clave}"]`);
 async function publicarLaLanding() {
   await browser.url("/negocio/landing");
   await expect($("h1=Tu landing")).toBeDisplayed();
-  await $("button=Publicar la landing").click();
+  await tid("link-armar").click();
   const campo = await $("#link-landing");
   await expect(campo).toHaveValue(expect.stringContaining("/n/"));
   return campo.getValue();
@@ -40,20 +40,20 @@ async function abrirLaLanding() {
 async function entrarComo(identificador, ultimos4) {
   await $("#ingreso-identificador").setValue(identificador);
   await $("#ingreso-ultimos4").setValue(ultimos4);
-  await $("button=Ver mis casos").click();
+  await tid("ingreso-entrar").click();
 }
 
 async function prenderLaAgenda() {
   await browser.url("/negocio/modulos");
-  await $("button=Prender Agenda").click();
-  await expect($("button=Apagar Agenda")).toBeDisplayed();
+  await tid("modulo-alternar-agenda").click();
+  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-pressed", "true");
 }
 
 // Los de fábrica: de lunes a viernes, de 9 a 18, cortando al mediodía.
 async function guardarLosHorariosDeFabrica() {
   await browser.url("/negocio/horarios");
-  await $("button=Configurar mis horarios").click();
-  await $("button=Guardar los horarios").click();
+  await tid("horarios-configurar").click();
+  await tid("horarios-guardar").click();
   await verTexto("Listo, tus horarios quedaron guardados.");
 }
 
@@ -98,7 +98,7 @@ describe("Historia: Los clientes usan la landing del negocio", () => {
     await expect(seccion("mis_casos")).toHaveText(expect.stringContaining("Reparación de motor"));
     // El completado no aparece.
     await noVerTexto("Frenos");
-    await expect($("button=Salir")).toBeDisplayed();
+    await expect(tid("landing-salir")).toBeDisplayed();
   });
 
   it("con los 4 números mal no entra y no ve ningún caso", async () => {
@@ -112,8 +112,8 @@ describe("Historia: Los clientes usan la landing del negocio", () => {
   it("desde Mis casos abre un caso, el seguimiento vuelve a la landing y sigue adentro", async () => {
     await abrirLaLanding();
     await entrarComo("AB123CD", "7890");
-    await $("a=Ver cómo viene").click();
-    const volver = await $("a=Volver a Taller Sur");
+    await tid("landing-caso-seguimiento-248").click();
+    const volver = await tid("seguimiento-volver-landing");
     await expect(volver).toBeDisplayed();
     // La llave sigue en la pestaña: volver no pide los datos de nuevo.
     await volver.click();
@@ -136,20 +136,20 @@ describe("Historia: Los clientes usan la landing del negocio", () => {
 
     // El primer horario libre del día que muestra el calendario. Su nombre
     // es "<día> a las <hora>".
-    const horario = await sacarTurno.$('button[aria-label*=" a las "]');
-    const hora = (await horario.getAttribute("aria-label")).split(" a las ")[1];
+    const horario = tid("calendario-horario", sacarTurno);
+    const hora = await horario.getAttribute("data-hora");
     await horario.click();
 
     await $("#turno-motivo").setValue("Ruido en el motor");
     await $("#turno-nombre").setValue("Julián Nuevo");
     await $("#turno-telefono").setValue("341 999 0000");
     await $("#turno-identificador").setValue("AD111AA");
-    await $("button=Pedir el turno").click();
+    await tid("landing-pedir-turno").click();
 
     await expect(sacarTurno).toHaveText(expect.stringContaining("Listo, quedaste anotado"));
     await expect(sacarTurno).toHaveText(expect.stringContaining(`a las ${hora}`));
     // Registrarse lo dejó adentro, sin poner los datos aparte.
-    await expect($("button=Salir")).toBeDisplayed();
+    await expect(tid("landing-salir")).toBeDisplayed();
     await expect(seccion("mis_turnos")).toHaveText(expect.stringContaining("Ruido en el motor"));
     await expect(seccion("mis_turnos")).toHaveText(expect.stringContaining(`a las ${hora}`));
   });

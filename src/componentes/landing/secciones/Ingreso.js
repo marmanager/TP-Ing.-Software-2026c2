@@ -91,6 +91,7 @@ export default function Ingreso({ codigo, negocio, boton, aviso, principal, alEn
         type="submit"
         variante={principal ? "principal" : "borde"}
         icono="llave"
+        data-testid="ingreso-entrar"
         className="min-h-14 w-full sm:min-h-12 sm:w-auto"
         motivo={entrando ? t("landing.ingreso.entrando") : falta}
       >

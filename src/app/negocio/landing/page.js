@@ -23,17 +23,17 @@ import { textoDeError } from "@/lib/idioma";
 import {
   CONTRASTE_MINIMO,
   FUENTES,
+  PALETAS,
   PARTES,
   cambiarColor,
-  cambiarTexto,
   contraste,
   esDeFabrica,
   estadoDeSecciones,
   moverSeccion,
   nombreDeFuente,
+  nombreDeMuestra,
   normalizarLanding,
   seLee,
-  textoRecomendado,
   traducirParte,
 } from "@/lib/landing";
 import { horariosListos, normalizarHorarios } from "@/lib/horarios";
@@ -42,6 +42,7 @@ import LinkCompartido from "@/componentes/LinkCompartido";
 import { FUENTES_LANDING } from "@/componentes/landing/fuentes";
 import VistaPrevia from "@/componentes/landing/VistaPrevia";
 import { Boton, Cargando, Tarjeta, TituloPantalla, TituloSeccion } from "@/componentes/ui";
+import { Grupo, Muestra, Opcion } from "@/app/perfil/Tema";
 
 // 4.478 → "4,4" (en inglés "4.4"): se trunca, no se redondea, para que un
 // contraste que no llega nunca se muestre igual al mínimo.
@@ -62,9 +63,6 @@ const textosDelLink = (t) => ({
   aviso: t("landing.editor.link.aviso"),
   cortado: t("landing.editor.link.cortado"),
 });
-
-const CAMPO_COLOR =
-  "h-12 w-16 cursor-pointer rounded-campo border-2 border-borde-fuerte bg-tarjeta p-1";
 
 export default function EditorDeLanding() {
   const datos = useDatos();
@@ -211,71 +209,28 @@ export default function EditorDeLanding() {
               <div className="grid gap-8">
                 {PARTES.map((parte) => {
                   const p = traducirParte(parte, t);
-                  const { color, texto } = actual.colores[p.clave];
-                  const recomendado = textoRecomendado(color);
+                  const { color } = actual.colores[p.clave];
                   return (
-                    <fieldset key={p.clave} className="grid gap-3">
-                      <legend className="font-bold text-cuerpo">{p.nombre}</legend>
-                      <p className="text-apoyo text-tinta-suave">{p.ayuda}</p>
-                      <div className="flex flex-wrap items-center gap-4">
-                        <label className="inline-flex min-h-12 items-center gap-2">
-                          <input
-                            type="color"
-                            aria-label={t("landing.editor.colorDe", { nombre: p.nombre })}
-                            data-testid={`landing-color-${p.clave}`}
-                            value={color}
-                            onChange={(ev) =>
-                              setBorrador(cambiarColor(actual, p.clave, ev.target.value))
-                            }
-                            className={CAMPO_COLOR}
+                    <div key={p.clave}>
+                      <h3 className="font-bold text-cuerpo">{p.nombre}</h3>
+                      <p className="mb-3 text-apoyo text-tinta-suave">{p.ayuda}</p>
+                      <Grupo nombre={t("landing.editor.colorDe", { nombre: p.nombre })} className="flex flex-wrap gap-3">
+                        {PALETAS[p.clave].map((m) => (
+                          <Muestra
+                            key={m.clave}
+                            data-testid={`landing-color-${p.clave}-${m.clave}`}
+                            elegida={color === m.color}
+                            onClick={() => setBorrador(cambiarColor(actual, p.clave, m.color))}
+                            palabra={nombreDeMuestra(m, t)}
+                            color={m.color}
                           />
-                          {t("landing.editor.color")}
-                        </label>
-                        <label className="inline-flex min-h-12 items-center gap-2">
-                          <input
-                            type="color"
-                            aria-label={t("landing.editor.textoDe", { nombre: p.nombre })}
-                            data-testid={`landing-texto-${p.clave}`}
-                            value={texto}
-                            onChange={(ev) =>
-                              setBorrador(cambiarTexto(actual, p.clave, ev.target.value))
-                            }
-                            className={CAMPO_COLOR}
-                          />
-                          {t("landing.editor.texto")}
-                        </label>
-                        {texto === recomendado ? (
-                          // Sin el verde ni el ícono "listo": son del estado
-                          // Completado, y acá no se completa nada.
-                          <span className="inline-flex items-center gap-1.5 font-bold text-etiqueta text-tinta-media">
-                            <Icono nombre="check" className="size-5" />
-                            {t("landing.editor.recomendado")}
-                          </span>
-                        ) : (
-                          <Boton
-                            variante="plano"
-                            onClick={() => setBorrador(cambiarTexto(actual, p.clave, recomendado))}
-                          >
-                            {t("landing.editor.usarRecomendado")}
-                          </Boton>
-                        )}
-                      </div>
-                      {!seLee(color, texto) && (
-                        <p className="flex items-start gap-2 font-bold text-rojo">
-                          <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                          <span>
-                            {t("landing.editor.cuestaLeer", {
-                              actual: conComa(contraste(color, texto), locale),
-                              minimo: conComa(CONTRASTE_MINIMO, locale),
-                            })}
-                          </span>
-                        </p>
-                      )}
+                        ))}
+                      </Grupo>
                       {/* Los links (text-azul) van con el color de los
                           botones y sobre las cajas: un botón claro deja los
                           links ilegibles aunque su propio texto se lea. */}
                       {p.clave === "botones" && !seLee(actual.colores.cajas.color, color) && (
-                        <p className="flex items-start gap-2 font-bold text-rojo">
+                        <p className="mt-3 flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                           <span>
                             {t("landing.editor.linksCuestaLeer", {
@@ -285,7 +240,7 @@ export default function EditorDeLanding() {
                           </span>
                         </p>
                       )}
-                    </fieldset>
+                    </div>
                   );
                 })}
               </div>
@@ -293,33 +248,25 @@ export default function EditorDeLanding() {
 
             <TituloSeccion>{t("landing.editor.letra")}</TituloSeccion>
             <Tarjeta className="mb-8">
-              <fieldset className="grid gap-3">
-                <legend className="mb-3 max-w-[65ch] text-tinta-media">
-                  {t("landing.editor.letraTexto")}
-                </legend>
+              <p className="mb-4 max-w-[65ch] text-tinta-media">{t("landing.editor.letraTexto")}</p>
+              <Grupo nombre={t("landing.editor.letra")} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {FUENTES.map((f) => (
-                  <label
+                  <Opcion
                     key={f.clave}
                     data-testid={`landing-fuente-${f.clave}`}
-                    className={[
-                      "flex min-h-12 cursor-pointer items-center gap-3 rounded-campo border-2 px-4",
-                      actual.fuente === f.clave ? "border-azul" : "border-borde",
-                    ].join(" ")}
+                    elegida={actual.fuente === f.clave}
+                    onClick={() => setBorrador({ ...actual, fuente: f.clave })}
+                    palabra={nombreDeFuente(f, t)}
                   >
-                    <input
-                      type="radio"
-                      name="fuente"
-                      value={f.clave}
-                      checked={actual.fuente === f.clave}
-                      onChange={() => setBorrador({ ...actual, fuente: f.clave })}
-                      className="size-5"
-                    />
-                    <span className={`text-cuerpo ${FUENTES_LANDING[f.clave]?.className ?? ""}`}>
-                      {nombreDeFuente(f, t)}
+                    <span
+                      aria-hidden="true"
+                      className={`block py-2 text-pantalla ${FUENTES_LANDING[f.clave]?.className ?? ""}`}
+                    >
+                      Aa
                     </span>
-                  </label>
+                  </Opcion>
                 ))}
-              </fieldset>
+              </Grupo>
             </Tarjeta>
 
             {error && (
