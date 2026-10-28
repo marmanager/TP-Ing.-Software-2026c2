@@ -2310,7 +2310,7 @@ export default {
       colores: "Colores",
       coloresTexto: "Elegí un color para cada parte. El texto se pone solo, del tono que mejor se lee.",
       colorDe: "Color de {nombre}",
-      linksCuestaLeer: "Los links van con este color y sobre las cajas cuesta leerlos: el contraste es {actual} a 1 y lo mínimo es {minimo} a 1.",
+      linksCuestaLeer: "Poco contraste detectado. Se recomienda cambiar los colores.",
       letra: "Letra",
       letraTexto: "La letra de toda la página. Cada opción está escrita con la suya.",
       guardar: "Guardar",

@@ -21,12 +21,10 @@ import { puede, quienPuede } from "@/lib/permisos";
 import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
 import {
-  CONTRASTE_MINIMO,
   FUENTES,
   PALETAS,
   PARTES,
   cambiarColor,
-  contraste,
   esDeFabrica,
   estadoDeSecciones,
   moverSeccion,
@@ -43,11 +41,6 @@ import { FUENTES_LANDING } from "@/componentes/landing/fuentes";
 import VistaPrevia from "@/componentes/landing/VistaPrevia";
 import { Boton, Cargando, Tarjeta, TituloPantalla, TituloSeccion } from "@/componentes/ui";
 import { Grupo, Muestra, Opcion } from "@/app/perfil/Tema";
-
-// 4.478 → "4,4" (en inglés "4.4"): se trunca, no se redondea, para que un
-// contraste que no llega nunca se muestre igual al mínimo.
-const conComa = (n, locale) =>
-  (Math.floor(n * 10) / 10).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 // Las palabras del link de la landing. El bloque en sí es el de
 // LinkCompartido, el mismo del link para pedir turno. El mensaje de WhatsApp lo
@@ -68,7 +61,7 @@ export default function EditorDeLanding() {
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { usuario } = useAuth();
-  const { locale, t } = useIdioma();
+  const { t } = useIdioma();
   useTitulo(t("negocio.landing.titulo"));
 
   // null = sin cambios: se ve lo guardado.
@@ -232,12 +225,7 @@ export default function EditorDeLanding() {
                       {p.clave === "botones" && !seLee(actual.colores.cajas.color, color) && (
                         <p className="mt-3 flex items-start gap-2 font-bold text-rojo">
                           <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-                          <span>
-                            {t("landing.editor.linksCuestaLeer", {
-                              actual: conComa(contraste(actual.colores.cajas.color, color), locale),
-                              minimo: conComa(CONTRASTE_MINIMO, locale),
-                            })}
-                          </span>
+                          <span>{t("landing.editor.linksCuestaLeer")}</span>
                         </p>
                       )}
                     </div>
