@@ -25,6 +25,8 @@ import {
   erroresDelRecordatorio,
   porQueNoHayAviso,
   recordatoriosDeLaApi,
+  cambiosDelRecordatorio,
+  ofreceCanal,
 } from "../../src/lib/recordatorios.js";
 
 // Martes 13 de octubre de 2026, 10:00 en Argentina.
@@ -186,8 +188,8 @@ describe("Historia: recordarle el turno al cliente", () => {
 
   test("la configuración de la API se edita con cada plazo en su unidad", () => {
     expect(recordatoriosDeLaApi(DE_LA_API)).toEqual({
-      cierre: { activo: true, plazo: "7", mensaje: "¿Cómo te fue?" },
-      turno: { activo: false, plazo: "24", mensaje: "Te esperamos mañana." },
+      cierre: { activo: true, plazo: "7", mensaje: "¿Cómo te fue?", canal: "whatsapp" },
+      turno: { activo: false, plazo: "24", mensaje: "Te esperamos mañana.", canal: "whatsapp" },
     });
   });
 
@@ -218,5 +220,25 @@ describe("Historia: recordarle el turno al cliente", () => {
     }
     expect(avisoAlAnotar({ programado: true, motivo: null, mensaje: null, aviso: {} })).toBeNull();
     expect(avisoAlAnotar(null)).toBeNull();
+  });
+});
+
+describe("Historia: el canal del recordatorio (WhatsApp o mail)", () => {
+  const DE_LA_API = {
+    activo: true, dias: 7, mensaje: "¿Cómo te fue?",
+    turno: { activo: true, horas: 24, mensaje: "Te esperamos mañana.", canal: "email" },
+  };
+
+  test("el canal llega de la API y cambiarlo manda sólo el canal", () => {
+    const guardado = recordatoriosDeLaApi(DE_LA_API);
+    expect(guardado.turno.canal).toBe("email");
+    const aWhatsApp = { ...guardado.turno, canal: "whatsapp" };
+    expect(cambiosDelRecordatorio("turno", guardado.turno, aWhatsApp)).toEqual({ turno: { canal: "whatsapp" } });
+  });
+
+  test("el posventa no ofrece canal y una API sin canal se lee como WhatsApp", () => {
+    expect(ofreceCanal("cierre")).toBe(false);
+    expect(ofreceCanal("turno")).toBe(true);
+    expect(recordatoriosDeLaApi({ ...DE_LA_API, turno: { activo: true, horas: 24, mensaje: "x" } }).turno.canal).toBe("whatsapp");
   });
 });

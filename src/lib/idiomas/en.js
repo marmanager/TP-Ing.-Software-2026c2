@@ -1763,6 +1763,8 @@ export default {
       porQue: {
         sin_cliente: "The case has no customer, so they won't be told when it's time to come back.",
         telefono_invalido: "The customer's phone number, with country code, is missing, so the notice can't be sent.",
+        email_invalido: "The customer doesn't have a valid email, so the notice can't be sent.",
+        mail_no_configurado: "The Gmail account isn't set up yet, so notices can't be sent by email.",
         desactivado: "The notice about when it's time to come back is turned off: they won't be told.",
         ya_paso: "The day to send the notice has already passed, so it isn't sent.",
         whatsapp_no_configurado: "The business's WhatsApp isn't set up yet, so notices can't be sent.",
@@ -1780,6 +1782,8 @@ export default {
       porQue: {
         sin_cliente: "The case has no customer, so they won't be told about the quote.",
         telefono_invalido: "The customer's phone number, with country code, is missing, so the notice can't be sent.",
+        email_invalido: "The customer doesn't have a valid email, so the notice can't be sent.",
+        mail_no_configurado: "The Gmail account isn't set up yet, so notices can't be sent by email.",
         desactivado: "The unanswered-quote notice is turned off: they won't be told.",
         whatsapp_no_configurado: "The business's WhatsApp isn't set up yet, so notices can't be sent.",
         sin_link: "You haven't shared the quote link with them yet, so they won't be told.",
@@ -1803,6 +1807,8 @@ export default {
       no_se_pudo: "We couldn't schedule the reminder. The appointment was saved.",
       sin_cliente: "The appointment has no customer, so no reminder is sent.",
       telefono_invalido: "The customer needs a phone number with country code to get the reminder.",
+      email_invalido: "The customer needs a valid email to get the reminder.",
+      mail_no_configurado: "The Gmail account isn't set up yet, so reminders can't be sent by email.",
       desactivado: "Appointment reminders are turned off.",
       turno_no_en_pie: "The appointment is cancelled or already attended, so no reminder is sent.",
       baja_de_avisos: "The customer asked not to receive automatic messages, so no reminder is sent.",
@@ -2147,6 +2153,10 @@ export default {
       mensaje: "What the customer gets",
       mensajeAyuda: "It comes with a suggestion for your type of business. Change it however you like.",
       guardar: "Save the reminder",
+      canal: "How it is sent",
+      canalAyuda: "If you pick email, it goes out from the app's Gmail account and the customer needs an email on file.",
+      canalWhatsapp: "WhatsApp",
+      canalEmail: "Email",
     },
     rubro: {
       titulo: "Your type of business",

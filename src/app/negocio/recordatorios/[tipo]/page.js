@@ -26,6 +26,7 @@ import {
   cuandoSaleEnPalabras,
   erroresDelRecordatorio,
   esTipoDeRecordatorio,
+  ofreceCanal,
   recordatoriosDeLaApi,
   textosDelRecordatorio,
 } from "@/lib/recordatorios";
@@ -192,6 +193,25 @@ export default function Recordatorio() {
                 error={errores.plazo}
                 onChange={(e) => cambiar({ plazo: e.target.value })}
               />
+              {ofreceCanal(tipo) && (
+                <Campo
+                  id={`${tipo}-canal`}
+                  etiqueta={t("negocio.recordatorios.canal")}
+                  ayuda={t("negocio.recordatorios.canalAyuda")}
+                >
+                  <select
+                    id={`${tipo}-canal`}
+                    aria-describedby={`${tipo}-canal-ayuda`}
+                    value={borrador.canal}
+                    onChange={(e) => cambiar({ canal: e.target.value })}
+                    data-testid={`recordatorio-${tipo}-canal`}
+                    className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
+                  >
+                    <option value="whatsapp">{t("negocio.recordatorios.canalWhatsapp")}</option>
+                    <option value="email">{t("negocio.recordatorios.canalEmail")}</option>
+                  </select>
+                </Campo>
+              )}
               <Campo
                 id={`${tipo}-mensaje`}
                 etiqueta={t("negocio.recordatorios.mensaje")}

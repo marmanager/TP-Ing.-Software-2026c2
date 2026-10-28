@@ -427,7 +427,7 @@ export function avisoDelTurno(turno) {
 // su recordatorio. La frase es la de la API, ya escrita para la persona.
 // Apagado, sin cliente o sin teléfono no se dice: la agenda lo muestra en el
 // mismo turno, y repetirlo en cada alta sería ruido.
-const SE_AVISA_AL_ANOTAR = new Set(["muy_cerca", "whatsapp_no_configurado", "no_se_pudo"]);
+const SE_AVISA_AL_ANOTAR = new Set(["muy_cerca", "whatsapp_no_configurado", "mail_no_configurado", "no_se_pudo"]);
 
 // El texto lo escribe la API, en castellano. Si es el de fábrica de ese motivo
 // (recordatorios.alAnotar.*) se muestra en el idioma de quien mira; si es otro
@@ -457,6 +457,7 @@ const paraEditar = (c, plazo) => ({
   activo: Boolean(c?.activo),
   plazo: plazo == null ? "" : String(plazo),
   mensaje: c?.mensaje ?? "",
+  canal: c?.canal === "email" ? "email" : "whatsapp",
 });
 
 // Un tipo que la API no manda no se ofrece: una API sin R-2a no tiene
@@ -471,6 +472,9 @@ export function recordatoriosDeLaApi(config) {
   return editables;
 }
 
+// Si la API deja elegir por dónde sale: turno, volver y presupuesto sí; el posventa no.
+export const ofreceCanal = (tipo) => Boolean(definicion(tipo).enLaApi);
+
 // Lo que cambió de uno, con los nombres de la API y en su lugar del PATCH.
 export function cambiosDelRecordatorio(tipo, antes, ahora) {
   const def = definicion(tipo);
@@ -478,6 +482,8 @@ export function cambiosDelRecordatorio(tipo, antes, ahora) {
   if (ahora.activo !== antes.activo) cambios.activo = ahora.activo;
   if (String(ahora.plazo).trim() !== String(antes.plazo).trim()) cambios[def.plazo] = Number(ahora.plazo);
   if (ahora.mensaje.trim() !== antes.mensaje.trim()) cambios.mensaje = ahora.mensaje.trim();
+  // El posventa (arriba de todo en la API) no tiene canal: sale siempre por WhatsApp.
+  if (def.enLaApi && ahora.canal !== antes.canal) cambios.canal = ahora.canal;
   if (!Object.keys(cambios).length) return {};
   return def.enLaApi ? { [def.enLaApi]: cambios } : cambios;
 }
@@ -519,7 +525,7 @@ export function filasDeRecordatorios({ configuracion, rubro, conAgenda }, opcion
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07): si mañana cambia, la pantalla sigue diciendo lo mismo.
-const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes"];
+const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes"];
 
 // El texto de cada motivo, en el idioma de t (sin t, en castellano).
 export function porQueNoVolver(motivo, opciones) {
@@ -636,7 +642,7 @@ export function avisoDeLaProximaVisita({ casos, cliente, volver = null, hoy }, o
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07).
-const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso"];
+const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso"];
 
 export function porQueNoPresupuesto(motivo, opciones) {
   const { t } = lang(opciones);

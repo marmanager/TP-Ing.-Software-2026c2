@@ -1769,6 +1769,8 @@ export default {
       porQue: {
         sin_cliente: "El caso no tiene cliente, así que no se le avisa cuándo le toca volver.",
         telefono_invalido: "Falta el teléfono del cliente, con código de país, para mandarle el aviso.",
+        email_invalido: "El cliente no tiene un mail válido para mandarle el aviso.",
+        mail_no_configurado: "Falta configurar la cuenta de Gmail para mandar avisos por mail.",
         desactivado: "El aviso de cuándo le toca volver está apagado: no se le va a avisar.",
         ya_paso: "El día de mandar el aviso ya pasó, así que no se manda.",
         whatsapp_no_configurado: "Falta configurar el WhatsApp del negocio para mandar avisos.",
@@ -1786,6 +1788,8 @@ export default {
       porQue: {
         sin_cliente: "El caso no tiene cliente, así que no se le avisa del presupuesto.",
         telefono_invalido: "Falta el teléfono del cliente, con código de país, para mandarle el aviso.",
+        email_invalido: "El cliente no tiene un mail válido para mandarle el aviso.",
+        mail_no_configurado: "Falta configurar la cuenta de Gmail para mandar avisos por mail.",
         desactivado: "El aviso del presupuesto sin respuesta está apagado: no se le va a avisar.",
         whatsapp_no_configurado: "Falta configurar el WhatsApp del negocio para mandar avisos.",
         sin_link: "Todavía no le compartiste el link del presupuesto, así que no se le avisa.",
@@ -1809,6 +1813,8 @@ export default {
       no_se_pudo: "No pudimos programar el recordatorio. El turno quedó guardado.",
       sin_cliente: "El turno no tiene cliente, así que no se manda recordatorio.",
       telefono_invalido: "El cliente necesita un teléfono con código de país para recibir el recordatorio.",
+      email_invalido: "El cliente necesita un mail válido para recibir el recordatorio.",
+      mail_no_configurado: "Falta configurar la cuenta de Gmail para mandar recordatorios por mail.",
       desactivado: "El recordatorio de turnos está apagado.",
       turno_no_en_pie: "El turno está cancelado o ya fue atendido, así que no se manda recordatorio.",
       baja_de_avisos: "El cliente pidió no recibir mensajes automáticos, así que no se manda recordatorio.",
@@ -2152,6 +2158,10 @@ export default {
       listoApagado: "Listo. «{nombre}» quedó apagado.",
       mensaje: "Lo que le llega al cliente",
       mensajeAyuda: "Viene con una sugerencia según tu rubro. Cambiala como quieras.",
+      canal: "Por dónde se manda",
+      canalAyuda: "Si elegís mail, sale desde la cuenta de Gmail de la app y el cliente necesita tener un mail cargado.",
+      canalWhatsapp: "WhatsApp",
+      canalEmail: "Mail",
       guardar: "Guardar el recordatorio",
     },
     rubro: {
