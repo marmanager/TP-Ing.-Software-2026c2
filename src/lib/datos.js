@@ -196,13 +196,25 @@ export async function agendaDeLanding(codigo) {
   return { sirve: false };
 }
 
-// Entrar con el identificador (la patente, en un taller) y los últimos 4 del
-// teléfono. Si coinciden, la llave queda guardada en este navegador; si no,
-// el código dice por qué (datos_incorrectos, muchos_intentos...).
-export async function entrarALanding(codigo, { identificador, ultimos4 }) {
+// Pedir el código de ingreso: la API lo manda por mensaje (con el teléfono
+// entero alcanza) o por mail (con el mail y los últimos 4 del teléfono). Devuelve
+// { ok: true, enviado_a } con el destino tapado para mostrarlo, o el motivo.
+export async function pedirCodigoDeLanding(codigo, { canal, identificador, telefono, mail, ultimos4 }) {
+  const cuerpo =
+    canal === "mail"
+      ? { canal, identificador: String(identificador ?? "").trim(), mail: String(mail ?? "").trim(), ultimos4: String(ultimos4 ?? "").trim() }
+      : { canal: "mensaje", identificador: String(identificador ?? "").trim(), telefono: String(telefono ?? "").trim() };
+  const r = await mandar(enLanding(codigo, "/codigo"), cuerpo, null, SIN_AVISO);
+  return r.ok ? { ok: true, enviado_a: r.datos.enviado_a } : falla(r);
+}
+
+// Entrar con el identificador (la patente, en un taller) y el código que le
+// llegó. Si coinciden, la llave queda guardada en este navegador; si no, el
+// código dice por qué (codigo_incorrecto, muchos_intentos...).
+export async function entrarALanding(codigo, { identificador, codigoRecibido }) {
   const r = await mandar(
     enLanding(codigo, "/ingresar"),
-    { identificador: String(identificador ?? "").trim(), ultimos4: String(ultimos4 ?? "").trim() },
+    { identificador: String(identificador ?? "").trim(), codigo: String(codigoRecibido ?? "").trim() },
     null,
     SIN_AVISO
   );

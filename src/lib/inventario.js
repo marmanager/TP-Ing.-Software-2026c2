@@ -140,6 +140,7 @@ export function motivoDelProducto(form, { desdeUno = false } = {}, t = tCastella
   if (!String(form.nombre ?? "").trim()) return t("ui.validaciones.faltaNombre");
   if (form.unidad === "caja" && !enteroDesde(form.porCaja, 1)) return t("inventario.motivo.faltaPorCaja");
   if (desdeUno && !enteroDesde(form.cantidad, 1)) return t("inventario.motivo.cantidadDesdeUno");
+  if (Number(form.cantidad) < 0) return t("inventario.motivo.cantidadNegativa");
   return null;
 }
 

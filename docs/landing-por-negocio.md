@@ -169,6 +169,15 @@ fallido. Si no, alcanzaría con registrarse una vez por combinación y mirar
   identificador ya existe.
 - **Un cliente sin teléfono cargado no puede entrar.** La página le dice que se
   lo pida al negocio.
+- **Código de un solo uso (075).** Además de lo anterior, el cliente recibe un
+  código de 6 números que vale 10 minutos: **por mensaje** (WhatsApp) escribiendo
+  su teléfono entero —llega a ese número, así que no hacen falta los últimos
+  4—, o **por mail** escribiendo su mail (el negocio no guarda mails) y los
+  últimos 4. La API genera y manda el código; la base guarda sólo su huella
+  (`landing_codigo`), tolera 5 errores por código y 3 códigos cada 15 minutos, y
+  los errores cuentan para el mismo bloqueo. `pedir_codigo_landing` e
+  `ingresar_landing_con_codigo` sólo las llama la API con la clave de servicio;
+  `ingresar_landing` ya no la puede llamar el navegador.
 
 ## La base
 
