@@ -70,6 +70,8 @@ export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar,
         aria-haspopup="true"
         aria-expanded={abierto}
         aria-label={t("casos.selector.aria", { estado: palabra })}
+        data-testid="caso-estado"
+        data-estado={estado}
         className={`inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full px-4 font-bold text-etiqueta ${actual.fondo} ${actual.texto} hover:brightness-95`}
       >
         <Icono nombre={actual.icono} className="size-5" />
@@ -103,6 +105,7 @@ export default function SelectorEstado({ estado, negocio, rubro, sePuedeCambiar,
                       alElegir(otro, AL_PASAR_A[otro]);
                     }}
                     aria-label={t("casos.selector.marcar", { estado: suPalabra })}
+                    data-testid={`caso-estado-opcion-${otro}`}
                     className="flex w-full min-h-12 cursor-pointer flex-col items-start gap-1 px-4 py-3 text-left hover:bg-superficie"
                   >
                     <span
