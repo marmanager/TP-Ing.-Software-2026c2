@@ -32,7 +32,9 @@ selector. La dirección no cambia: `/agenda` es `/agenda` en los dos idiomas.
 - **La cookie y no la cuenta.** Como el tema (src/lib/tema.js), es de este
   aparato. Guardarla en el perfil para que siga a la persona entre aparatos
   queda para cuando alguien lo pida.
-- **Sin `proxy.js`.** El layout raíz lee `cookies()` y `headers()` directo.
+- **El layout raíz lee `cookies()` y `headers()` directo.** Hay un `proxy.js`
+  mínimo, sólo para `?idioma=` en los links públicos (ver
+  docs/idioma-en-links-publicos.md).
 
 ## Cómo se elige
 
@@ -97,8 +99,9 @@ Argentina aunque quien mira lea en inglés.
 
 - En **Mi perfil**, junto a Tema: Castellano / English.
 - Uno chico en las pantallas sin sesión: iniciar sesión, crear cuenta,
-  `/n/[codigo]`, `/seguimiento/[codigo]`, `/turnos/[codigo]`, y también en el
-  encabezado de `/bienvenida`.
+  `/seguimiento/[codigo]`, y también en el encabezado de `/bienvenida`.
+  `/n/[codigo]` y `/turnos/[codigo]` ya no lo tienen: el idioma viaja en el
+  link (docs/idioma-en-links-publicos.md).
 - Cada opción lleva su bandera (ES = Argentina, EN = Estados Unidos; SVG
   propios, sin librería) y el código del idioma.
 - El título de la pestaña lo pone cada pantalla con `useTitulo`.
