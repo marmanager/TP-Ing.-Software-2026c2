@@ -440,6 +440,7 @@ export default function VerCaso() {
                   <Boton
                     variante="plano"
                     icono="persona-mas"
+                    data-testid="caso-asignar"
                     onClick={() => setEligiendo((v) => !v)}
                   >
                     {caso.responsable_id ? t("casos.detalle.cambiarQuien") : t("casos.detalle.asignarAlguien")}
@@ -525,6 +526,7 @@ export default function VerCaso() {
                         <Boton
                           variante={e.id === caso.responsable_id ? "borde" : "neutro"}
                           icono="persona"
+                          data-testid={`caso-asignar-opcion-${e.nombre}`}
                           onClick={() => {
                             datos.asignarResponsable(caso.id, e.id);
                             datos.avisarExito(t("casos.detalle.loAtiende", { caso: casoEnFrase(caso, t), nombre: e.nombre }));
@@ -856,6 +858,7 @@ export default function VerCaso() {
                   <Boton
                     variante={caso.estado === "revision_final" ? "borde" : "neutro"}
                     icono="listo"
+                    data-testid="caso-entregar"
                     onClick={() => {
                       // Viene precargado con lo que falta cobrar, que es lo
                       // que casi siempre se cobra: lo aprobado, menos la seña
@@ -962,6 +965,7 @@ export default function VerCaso() {
                       <Boton
                         variante="plano"
                         icono="nota"
+                        data-testid="caso-cobro-otra-cosa"
                         onClick={() => {
                           if (cuenta.falta === 0) setCobro("");
                           setCambiandoCobro(true);
@@ -1061,6 +1065,7 @@ export default function VerCaso() {
                   <Boton
                     icono="flecha"
                     motivo={!cobroValido(cobro) ? t("casos.detalle.revisaElMonto") : null}
+                    data-testid="caso-entrega-siguiente"
                     onClick={() => {
                       setErrorEntrega(null);
                       setPasoEntrega(2);
@@ -1114,6 +1119,7 @@ export default function VerCaso() {
                 <div className="flex flex-wrap gap-3">
                   <Boton
                     icono="listo"
+                    data-testid="caso-entrega-confirmar"
                     motivo={
                       cerrando || cambiandoEstado ? t("casos.comun.guardando")
                         : !cobroValido(cobro) ? t("casos.detalle.revisaElMonto")
@@ -1290,6 +1296,7 @@ export default function VerCaso() {
                 <Boton
                   variante="neutro"
                   icono="deshacer"
+                  data-testid="caso-reabrir"
                   onClick={() =>
                     datos.cambiarEstado(caso.id, "en_proceso")
                   }

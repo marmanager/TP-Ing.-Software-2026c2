@@ -34,9 +34,9 @@ describe("Historia: Cambiar el estado desde el detalle del caso", () => {
     await tid("caso-estado").click();
     await expect(tid("caso-estado-opcion-completado")).not.toExist();
 
-    await $("button=Entregar y cerrar").click();
+    await tid("caso-entregar").click();
     await verTexto("Vas a anotar que cobraste");
-    await $("button=Cobré otra cosa").click();
+    await tid("caso-cobro-otra-cosa").click();
     await expect($("#cobro")).toBeDisplayed();
     await verTexto("¿Cuánto cobraste?");
     await noVerTexto("Pasar el caso a");

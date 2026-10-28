@@ -1,5 +1,5 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { entrar, reemplazarTexto, verTexto } from "./ayudas.js";
+import { entrar, reemplazarTexto, tid, verTexto } from "./ayudas.js";
 
 describe("Historia: Marcar consulta completada", () => {
   beforeEach(async () => {
@@ -8,14 +8,14 @@ describe("Historia: Marcar consulta completada", () => {
   });
 
   async function entregar(monto = "120000") {
-    await $("button=Entregar y cerrar").click();
+    await tid("caso-entregar").click();
     // El monto arranca como confirmación de lo aprobado (b86a1cb); escribirlo
     // a mano pide un toque más.
-    await $("button=Cobré otra cosa").click();
+    await tid("caso-cobro-otra-cosa").click();
     await reemplazarTexto("#cobro", monto);
     // La entrega va en dos pasos: el cobro y lo que pasa después.
-    await $("button=Siguiente").click();
-    await $("button=Sí, entregar y cerrar").click();
+    await tid("caso-entrega-siguiente").click();
+    await tid("caso-entrega-confirmar").click();
   }
 
   it("AC1: permite entregar y cerrar una consulta abierta", async () => {
@@ -37,9 +37,9 @@ describe("Historia: Marcar consulta completada", () => {
 
   it("AC3: no duplica la acción y permite corregir un cierre accidental", async () => {
     await entregar();
-    await expect($("button=Entregar y cerrar")).not.toExist();
+    await expect(tid("caso-entregar")).not.toExist();
     await expect(await $$("p=Entregaron el trabajo")).toBeElementsArrayOfSize(1);
-    await $("button=Volver a abrirlo").click();
+    await tid("caso-reabrir").click();
     await expect($("p=Volvieron a abrir el caso")).toBeDisplayed();
   });
 });
