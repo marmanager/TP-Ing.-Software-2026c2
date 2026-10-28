@@ -177,7 +177,7 @@ export default function Landing() {
           // Cerrar la pestaña también es salir (la llave vive en
           // sessionStorage); el botón es para un celular prestado.
           entrado && (
-            <Boton variante="plano" icono="salir" onClick={salir}>
+            <Boton variante="plano" icono="salir" onClick={salir} data-testid="landing-salir">
               {t("landing.publica.salir")}
             </Boton>
           )

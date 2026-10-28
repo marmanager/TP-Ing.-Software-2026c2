@@ -67,7 +67,7 @@ export default function Clientes() {
           </p>
         </div>
         {puedeCargar && (
-          <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)}>
+          <Boton icono="persona-mas" onClick={() => setAbierto((v) => !v)} data-testid="clientes-alta">
             {t(abierto ? "clientes.cerrarAlta" : "clientes.darDeAlta")}
           </Boton>
         )}
@@ -93,7 +93,7 @@ export default function Clientes() {
             onChange={tel.setValor}
             onBlur={() => setTocado(true)}
           />
-          <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar}>
+          <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar} data-testid="clientes-guardar">
             {t("clientes.guardar")}
           </Boton>
         </Tarjeta>

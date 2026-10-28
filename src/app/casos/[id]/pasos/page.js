@@ -700,6 +700,7 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
       <button
         type="button"
         onClick={mandar}
+        data-testid="pasos-mandar"
         className="mt-6 flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado"
       >
         <Icono nombre="chat" />
@@ -785,7 +786,7 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
                 </p>
               )}
               <div className="mt-4 flex flex-wrap gap-3">
-                <Boton variante="peligro" icono="tacho" onClick={cortar}>
+                <Boton variante="peligro" icono="tacho" onClick={cortar} data-testid="pasos-dejar-confirmar">
                   {t("casos.pasos.siDejar")}
                 </Boton>
                 <Boton variante="plano" onClick={() => setCortando(false)}>
@@ -795,7 +796,7 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
             </div>
           ) : (
             <div className="mt-2">
-              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)}>
+              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)} data-testid="pasos-dejar">
                 {t("casos.pasos.dejarDeCompartir")}
               </Boton>
             </div>

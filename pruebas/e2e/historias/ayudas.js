@@ -57,8 +57,8 @@ export async function empezarElMesGratis() {
   await browser.waitUntil(async () => (await browser.getUrl()).includes("/planes"), {
     timeoutMsg: "El alta no llevó a elegir un plan",
   });
-  await $("button=Empezar mi mes gratis").click();
-  await $("button=Ir a la app").click();
+  await tid("planes-empezar-gratis").click();
+  await tid("ir-a-la-app").click();
 }
 
 // Cambia lo que ya dice un campo como lo haría una persona: lo selecciona
@@ -81,6 +81,13 @@ export async function cargarArchivoEnInput({ nombre, tipo, contenido }) {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }, { nombre, tipo, contenido });
 }
+
+// Un elemento por su data-testid: no depende del texto, del idioma ni del
+// estilo. Convención: pantalla-elemento, en kebab-case (caso-estado).
+export const tid = (id, dentro) => {
+  const selector = `[data-testid="${id}"]`;
+  return dentro ? dentro.$(selector) : $(selector);
+};
 
 export async function verTexto(texto) {
   await expect($("body")).toHaveText(expect.stringContaining(texto));

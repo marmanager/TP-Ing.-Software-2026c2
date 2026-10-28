@@ -1,6 +1,6 @@
 import { $, browser, expect } from "@wdio/globals";
 import { sembrar } from "../siembra.js";
-import { iniciarCon, noVerTexto, verTexto } from "./ayudas.js";
+import { iniciarCon, noVerTexto, tid, verTexto } from "./ayudas.js";
 
 // Sumar gente al equipo con un link (docs/equipo-por-link.md).
 //
@@ -32,12 +32,12 @@ describe("Historia: Sumar gente al equipo con un link", () => {
 
   it("AC: la dueña crea el link, otra cuenta pide entrar, la dueña la acepta y la cuenta entra", async () => {
     await iniciarCon(duenia, "/equipo");
-    await $("button=Crear el link del equipo").click();
+    await tid("equipo-link-crear").click();
     const link = await $("[data-link-del-equipo]").getText();
     expect(link).toContain("/unirme/");
 
     await iniciarCon(otra, new URL(link).pathname);
-    await $("button*=Pedir entrar").click();
+    await tid("unirme-pedir").click();
     await verTexto("vas a poder entrar cuando te acepten");
     // Sin negocio, /negocios la manda a crear uno, y ahí también se ve el aviso.
     await iniciarCon(otra, "/negocios");
@@ -47,7 +47,7 @@ describe("Historia: Sumar gente al equipo con un link", () => {
     await verTexto("Quieren entrar (1)");
     // Las opciones son los roles del negocio (057), con su id de valor.
     await $("select[id^='rol-pedido-']").selectByVisibleText("Encargado");
-    await $("button=Aceptar").click();
+    await tid("equipo-pedido-aceptar").click();
     await verTexto(": Encargado.");
 
     // Ya con acceso, /negocios la manda directo al Inicio de Taller Sur (la 051
@@ -65,8 +65,8 @@ describe("Historia: Sumar gente al equipo con un link", () => {
   it("AC: cambiar el link deja sin efecto el anterior", async () => {
     await iniciarCon(duenia, "/equipo");
     const viejo = await $("[data-link-del-equipo]").getText();
-    await $("button=Cambiar el link").click();
-    await $("button=Sí, cambiarlo").click();
+    await tid("equipo-link-cambiar").click();
+    await tid("equipo-link-cambiar-confirmar").click();
     await verTexto("El link anterior ya no sirve");
     const tercera = await sembrar("sin-negocio");
     await iniciarCon(tercera, new URL(viejo).pathname);

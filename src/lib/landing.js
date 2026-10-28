@@ -10,6 +10,7 @@
 
 import { LISTA_MODULOS, estaPrendido, traducirModulo } from "./modulos.js";
 import { tCastellano } from "./idioma.js";
+import { ACENTOS } from "./tema.js";
 
 // El modelo fijo: el negocio no crea ni borra secciones, sólo las ordena.
 // "modulo" es el módulo sin el cual la sección no tiene sentido: sin Agenda
@@ -66,6 +67,39 @@ export const PARTES = [
   { clave: "botones", nombre: "Botones", ayuda: "Lo que se toca: botones y links." },
   { clave: "acento", nombre: "Acento", ayuda: "Las marcas que llaman la atención, como el estado de un caso." },
 ];
+
+// Los colores que se pueden elegir en cada parte, como en el Tema de Mi perfil:
+// muestras fijas, sin selector libre. El texto de cada una sale solo
+// (textoRecomendado), así que cualquiera se lee. Los botones y el acento usan
+// los mismos colores sólidos que el Tema. La de fábrica está en cada lista.
+// El nombre se traduce por la clave (landing.paleta.<clave>).
+const MUESTRAS_FONDO = [
+  { clave: "crema", palabra: "Crema", color: "#fbf8f4" },
+  { clave: "blanco", palabra: "Blanco", color: "#ffffff" },
+  { clave: "gris", palabra: "Gris claro", color: "#eef1f4" },
+  { clave: "celeste", palabra: "Celeste", color: "#e8eff7" },
+  { clave: "menta", palabra: "Menta", color: "#e3f2e8" },
+  { clave: "rubor", palabra: "Rubor", color: "#f9e6ef" },
+  { clave: "noche", palabra: "Azul noche", color: "#1b2a41" },
+  { clave: "carbon", palabra: "Carbón", color: "#171412" },
+];
+const MUESTRAS_CAJAS = [
+  { clave: "blanco", palabra: "Blanco", color: "#ffffff" },
+  { clave: "marfil", palabra: "Marfil", color: "#fffaf3" },
+  { clave: "bruma", palabra: "Bruma", color: "#f1f6fb" },
+  { clave: "menta", palabra: "Menta", color: "#eef7f1" },
+  { clave: "carbon", palabra: "Carbón", color: "#1e1a17" },
+];
+const MUESTRAS_ACENTOS = ACENTOS.map(({ clave, palabra, solido }) => ({ clave, palabra, color: solido }));
+
+export const PALETAS = {
+  fondo: MUESTRAS_FONDO,
+  cajas: MUESTRAS_CAJAS,
+  botones: MUESTRAS_ACENTOS,
+  acento: MUESTRAS_ACENTOS,
+};
+
+export const nombreDeMuestra = (m, t = tCastellano) => t(`landing.paleta.${m.clave}`, {}, m.palabra);
 
 // "fabrica" es la de la app: Figtree en los títulos y Source Sans 3 en el
 // texto. Las otras van en toda la página (src/componentes/landing/fuentes.js).

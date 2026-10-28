@@ -170,6 +170,7 @@ export default function Recordatorio() {
           <Interruptor
             prendido={borrador.activo}
             onChange={(activo) => cambiar({ activo })}
+            testid={`recordatorio-${tipo}-interruptor`}
             ayuda={textos.ayudaInterruptor}
           >
             {textos.interruptor}
@@ -216,7 +217,7 @@ export default function Recordatorio() {
       {error && <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>}
 
       {puedeConfigurar && (
-        <BotonPrincipalFijo icono="check" motivo={motivo} onClick={guardar}>
+        <BotonPrincipalFijo icono="check" motivo={motivo} onClick={guardar} data-testid="recordatorio-guardar">
           {t("negocio.recordatorios.guardar")}
         </BotonPrincipalFijo>
       )}

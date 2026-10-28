@@ -1,5 +1,5 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { entrar, noVerTexto, reemplazarTexto, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, reemplazarTexto, tid, verTexto } from "./ayudas.js";
 
 // R-8b · Mostrar la baja de avisos y poder revertirla (módulo Recordatorios).
 //
@@ -31,22 +31,22 @@ async function ponerValor(selector, valor) {
 
 async function prenderLaAgendaYElRecordatorio() {
   await browser.url("/negocio/modulos");
-  await $("button=Prender Agenda").click();
-  await expect($("button=Apagar Agenda")).toBeDisplayed();
+  await tid("modulo-alternar-agenda").click();
+  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-pressed", "true");
   await browser.url("/negocio/recordatorios/turno");
-  await $('button[role="switch"]*=Recordatorio del turno').click();
+  await tid("recordatorio-turno-interruptor").click();
   await reemplazarTexto("#turno-plazo", "24");
-  await $("button*=Guardar el recordatorio").click();
+  await tid("recordatorio-guardar").click();
   await verTexto("«Antes del turno» quedó prendido");
 }
 
 async function anotarTurno({ cliente, motivo, cuando }) {
   await browser.url("/agenda");
-  await $("button=Anotar un turno").click();
+  await tid("agenda-anotar").click();
   await $("#turno-cliente").setValue(cliente);
   await $("#turno-motivo").setValue(motivo);
   await ponerValor("#turno-cuando", cuando);
-  await $("button=Guardar el turno").click();
+  await tid("turno-guardar").click();
   await verTexto(`El turno de ${motivo} quedó anotado`);
 }
 
@@ -86,7 +86,7 @@ describe("Historia: el cliente pidió no recibir avisos", () => {
     await expect(fila.$('[data-aviso="baja_de_avisos"]')).toHaveText(
       "Pidió no recibir mensajes automáticos, así que no le llega el recordatorio de su turno."
     );
-    await expect(fila.$("a=Completar el teléfono")).not.toExist();
+    await expect(tid("turno-completar-telefono", fila)).not.toExist();
     await expect(fila.$('[data-aviso="baja_de_avisos"].text-rojo')).not.toExist();
   });
 
@@ -98,7 +98,7 @@ describe("Historia: el cliente pidió no recibir avisos", () => {
 
     await browser.url(`/clientes/${ids.c4}`);
     await verTexto("Usalo sólo si el cliente te pidió volver a recibirlos.");
-    await $("button*=Volver a mandarle avisos").click();
+    await tid("cliente-volver-avisos").click();
     await verTexto("Listo. Rubén Sin Avisos va a volver a recibir avisos.");
     await expect($("[data-baja-de-avisos]")).not.toExist();
 
@@ -115,9 +115,9 @@ describe("Historia: el cliente pidió no recibir avisos", () => {
 
     // Y al moverlo, la API ya no contesta baja_de_avisos: se programa (o,
     // sin WhatsApp configurado en la API, dice eso).
-    await fila.$("button=Cambiar la hora").click();
+    await tid("turno-cambiar-hora", fila).click();
     await ponerValor(`#mover-${await fila.getAttribute("data-turno")}`, enDias(4, "16:30"));
-    await fila.$("button*=Guardar la hora nueva").click();
+    await tid("turno-mover-guardar", fila).click();
     await verTexto("El turno de cambiar la batería pasó a");
 
     fila = await filaDe("cambiar la batería");

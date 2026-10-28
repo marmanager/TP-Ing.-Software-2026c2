@@ -168,6 +168,7 @@ export default function EditarRol() {
                   <Interruptor
                     prendido={rol?.es_duenio || permisos.includes(p.clave) || Boolean(incluidoPor)}
                     onChange={(v) => alternar(p.clave, v)}
+                    testid={`rol-permiso-${p.clave}`}
                     ayuda={p.descripcion}
                     palabras={[t("negocio.roles.desactivado"), t("negocio.roles.activado")]}
                     disabled={soloLectura}
@@ -201,6 +202,7 @@ export default function EditarRol() {
           )}
           <BotonPrincipalFijo
             onClick={guardar}
+            data-testid="rol-guardar"
             disabled={guardando}
             motivo={!nombre.trim() ? t("ui.validaciones.faltaNombre") : null}
           >

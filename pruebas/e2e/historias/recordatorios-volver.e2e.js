@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrar, noVerTexto, reemplazarTexto, ruta, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, reemplazarTexto, ruta, tid, verTexto } from "./ayudas.js";
 import { fechaSugerida } from "../../../src/lib/recordatorios.js";
 import { diaDeArgentina, diaEnPalabras } from "../../../src/lib/fechas.js";
 
@@ -26,8 +26,8 @@ async function ponerFecha(selector, dia) {
 // La entrega va en dos pasos: el cobro, y después cuándo vuelve y el
 // seguimiento. Deja abierto el segundo.
 async function abrirEntrega() {
-  await $("button=Entregar y cerrar").click();
-  await $("button=Siguiente").click();
+  await tid("caso-entregar").click();
+  await tid("caso-entrega-siguiente").click();
   await expect($("#volver-en")).toBeDisplayed();
 }
 
@@ -51,20 +51,20 @@ describe("Historia: anotar cuándo le toca volver", () => {
   it("volver al cobro no borra la fecha elegida, y nada se guarda hasta el final", async () => {
     await abrirEntrega();
     await ponerFecha("#volver-en", "2030-05-20");
-    await $("button=Volver al cobro").click();
-    await expect($("button=Siguiente")).toBeDisplayed();
-    await $("button=Siguiente").click();
+    await tid("caso-entrega-volver").click();
+    await expect(tid("caso-entrega-siguiente")).toBeDisplayed();
+    await tid("caso-entrega-siguiente").click();
     await expect($("#volver-en")).toHaveValue("2030-05-20");
     await noVerTexto("El caso está cerrado");
   });
 
   it("si la API rechaza el cobro, el error se muestra en el paso del cobro", async () => {
-    await $("button=Entregar y cerrar").click();
-    await $("button=Cobré otra cosa").click();
+    await tid("caso-entregar").click();
+    await tid("caso-cobro-otra-cosa").click();
     // Más de lo aprobado ($120.000): la API no lo deja anotar.
     await reemplazarTexto("#cobro", "125000");
-    await $("button=Siguiente").click();
-    await $("button=Sí, entregar y cerrar").click();
+    await tid("caso-entrega-siguiente").click();
+    await tid("caso-entrega-confirmar").click();
 
     await expect($("#cobro")).toBeDisplayed();
     await expect($("p[role=alert]")).toHaveText(expect.stringContaining("supera lo que falta cobrar"));
@@ -74,17 +74,18 @@ describe("Historia: anotar cuándo le toca volver", () => {
   it("AC5: con una fecha que ya pasó, el botón queda apagado y dice por qué", async () => {
     await abrirEntrega();
     await ponerFecha("#volver-en", "2020-01-01");
-    const boton = $("button*=la fecha ya pasó");
+    const boton = tid("caso-entrega-confirmar");
     await expect(boton).toBeDisplayed();
     await expect(boton).toBeDisabled();
+    await expect(boton).toHaveText(expect.stringContaining("la fecha ya pasó"));
     await verTexto("Esa fecha ya pasó.");
   });
 
   it("AC3 y AC9: sin fecha el caso se entrega igual, y la ficha no muestra una sección vacía", async () => {
     await abrirEntrega();
-    await $("button=No tiene que volver").click();
+    await tid("cuando-vuelve-no").click();
     await expect($("#volver-en")).toHaveValue("");
-    await $("button=Sí, entregar y cerrar").click();
+    await tid("caso-entrega-confirmar").click();
 
     await verTexto("El caso está cerrado");
     await verTexto("No anotaste cuándo le toca volver.");
@@ -95,16 +96,16 @@ describe("Historia: anotar cuándo le toca volver", () => {
   it("AC6, AC7 y AC8: se entrega con fecha, sigue al recargar, se ve en la ficha y se corrige", async () => {
     await abrirEntrega();
     await ponerFecha("#volver-en", "2030-05-20");
-    await $("button=Sí, entregar y cerrar").click();
+    await tid("caso-entrega-confirmar").click();
     await verTexto("El caso está cerrado");
 
     await browser.refresh();
     await verTexto(`Le toca volver el ${diaEnPalabras("2030-05-20")}`);
 
     // Corregirla desde el caso ya entregado.
-    await $("button=Cambiar la fecha").click();
+    await tid("caso-volver-fecha").click();
     await ponerFecha("#volver-en-cerrado", "2030-06-03");
-    await $("button=Guardar la fecha").click();
+    await tid("caso-volver-fecha-guardar").click();
     await verTexto(`Le toca volver el ${diaEnPalabras("2030-06-03")}`);
 
     await irALaFicha();

@@ -90,6 +90,8 @@ export default function CalendarioDeTurnos({ dias, elegido, onElegir, nivel = 2 
                     <button
                       type="button"
                       aria-pressed={Boolean(puesto)}
+                      data-testid="calendario-horario"
+                      data-hora={comoHora(h)}
                       aria-label={t("turnos.calendario.diaALas", { dia: diaPasado(delDia.fecha, locale, t), hora: comoHora(h) })}
                       onClick={() => onElegir(h.toISOString())}
                       className={[

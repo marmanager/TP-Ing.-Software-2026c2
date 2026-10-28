@@ -158,7 +158,7 @@ export default function Horarios() {
                 {t("negocio.horarios.sinConfigTexto")}
               </p>
               <div className="mt-4">
-                <Boton icono="calendario" onClick={() => setBorrador(HORARIOS_DE_FABRICA)}>
+                <Boton icono="calendario" onClick={() => setBorrador(HORARIOS_DE_FABRICA)} data-testid="horarios-configurar">
                   {t("negocio.horarios.configurarMis")}
                 </Boton>
               </div>
@@ -362,6 +362,7 @@ export default function Horarios() {
                   <Boton
                     variante="principal"
                     icono="check"
+                    data-testid="horarios-guardar"
                     motivo={problemas.length > 0 ? problemas[0] : null}
                     onClick={() => {
                       datos.guardarHorarios(borrador);

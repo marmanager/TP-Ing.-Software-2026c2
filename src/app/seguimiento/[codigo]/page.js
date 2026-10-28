@@ -496,6 +496,7 @@ export default function Seguimiento() {
                             icono="listo"
                             motivo={guardando ? "guardando" : null}
                             className="min-h-14 w-full sm:min-h-12 sm:w-auto"
+                            data-testid="seguimiento-aprobar-confirmar"
                             onClick={() => contestar(paso, "aprobado")}
                           >
                             {t("seguimiento.siApruebo")}
@@ -527,6 +528,7 @@ export default function Seguimiento() {
                             variante="neutro"
                             motivo={guardando ? "guardando" : null}
                             className="min-h-14 w-full sm:min-h-12 sm:w-auto"
+                            data-testid="seguimiento-rechazar-confirmar"
                             onClick={() => contestar(paso, "rechazado")}
                           >
                             {t("seguimiento.siNoLoHago")}
@@ -543,6 +545,7 @@ export default function Seguimiento() {
                         <Boton
                           variante="principal"
                           className="min-h-13 flex-1"
+                          data-testid="seguimiento-aprobar"
                           onClick={() => {
                             setProblema(null);
                             setContestado(null);
@@ -554,6 +557,7 @@ export default function Seguimiento() {
                         <Boton
                           variante="neutro"
                           className="min-h-13 flex-1"
+                          data-testid="seguimiento-rechazar"
                           onClick={() => {
                             setProblema(null);
                             setContestado(null);
@@ -838,6 +842,7 @@ function Marco({ negocio, landing, landingCodigo, children }) {
         {landingCodigo && (
           <Link
             href={`/n/${landingCodigo}`}
+            data-testid="seguimiento-volver-landing"
             className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
           >
             <Icono nombre="volver" />

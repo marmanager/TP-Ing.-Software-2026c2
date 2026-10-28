@@ -63,7 +63,7 @@ export default function CuandoVuelve({ id = "volver-en", valor, alCambiar, hoy, 
               <span>{aviso}</span>
             </p>
           )}
-          <Boton variante="plano" icono="cruz" disabled={disabled} onClick={() => alCambiar("")}>
+          <Boton variante="plano" icono="cruz" disabled={disabled} onClick={() => alCambiar("")} data-testid="cuando-vuelve-no">
             {t("agenda.cuandoVuelve.noVuelve")}
           </Boton>
         </div>

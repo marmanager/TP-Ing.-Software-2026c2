@@ -59,7 +59,7 @@ export default function MoverTurno({ turno, alTerminar }) {
         onChange={(e) => setCuando(e.target.value)}
       />
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Boton icono="check" className="w-full sm:w-auto" motivo={motivo} onClick={guardar}>
+        <Boton icono="check" className="w-full sm:w-auto" motivo={motivo} onClick={guardar} data-testid="turno-mover-guardar">
           {t("agenda.mover.guardar")}
         </Boton>
         <Boton variante="plano" className="w-full sm:w-auto" onClick={alTerminar}>

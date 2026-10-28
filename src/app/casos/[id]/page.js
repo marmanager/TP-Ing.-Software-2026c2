@@ -285,10 +285,13 @@ export default function VerCaso() {
           La tarjeta NO lleva overflow-hidden: el desplegable del estado sale
           de sus bordes y quedaba cortado al medio. El recorte estaba sólo
           para que la barra de color respetara las esquinas, así que la barra
-          se redondea sola y el problema desaparece de raíz —si no, cualquier
-          menú que se abra acá adentro vuelve a cortarse. */}
-      <div className="rounded-tarjeta border border-borde bg-tarjeta">
-        <div className={`h-1.5 w-full rounded-t-tarjeta ${barra}`} aria-hidden="true" />
+          es el borde de arriba de la tarjeta (más grueso y de color): un
+          borde sigue la curva solo, y cualquier menú que se abra acá adentro
+          ya no se corta. */}
+      <div
+        className="rounded-tarjeta border border-borde bg-tarjeta"
+        style={{ borderTopWidth: 6, borderTopColor: `var(--color-${barra.slice(3)})` }}
+      >
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             {/* El nombre es el título, y el número queda abajo en chiquito
@@ -440,6 +443,7 @@ export default function VerCaso() {
                   <Boton
                     variante="plano"
                     icono="persona-mas"
+                    data-testid="caso-asignar"
                     onClick={() => setEligiendo((v) => !v)}
                   >
                     {caso.responsable_id ? t("casos.detalle.cambiarQuien") : t("casos.detalle.asignarAlguien")}
@@ -525,6 +529,7 @@ export default function VerCaso() {
                         <Boton
                           variante={e.id === caso.responsable_id ? "borde" : "neutro"}
                           icono="persona"
+                          data-testid={`caso-asignar-opcion-${e.nombre}`}
                           onClick={() => {
                             datos.asignarResponsable(caso.id, e.id);
                             datos.avisarExito(t("casos.detalle.loAtiende", { caso: casoEnFrase(caso, t), nombre: e.nombre }));
@@ -856,6 +861,7 @@ export default function VerCaso() {
                   <Boton
                     variante={caso.estado === "revision_final" ? "borde" : "neutro"}
                     icono="listo"
+                    data-testid="caso-entregar"
                     onClick={() => {
                       // Viene precargado con lo que falta cobrar, que es lo
                       // que casi siempre se cobra: lo aprobado, menos la seña
@@ -962,6 +968,7 @@ export default function VerCaso() {
                       <Boton
                         variante="plano"
                         icono="nota"
+                        data-testid="caso-cobro-otra-cosa"
                         onClick={() => {
                           if (cuenta.falta === 0) setCobro("");
                           setCambiandoCobro(true);
@@ -1061,6 +1068,7 @@ export default function VerCaso() {
                   <Boton
                     icono="flecha"
                     motivo={!cobroValido(cobro) ? t("casos.detalle.revisaElMonto") : null}
+                    data-testid="caso-entrega-siguiente"
                     onClick={() => {
                       setErrorEntrega(null);
                       setPasoEntrega(2);
@@ -1114,6 +1122,7 @@ export default function VerCaso() {
                 <div className="flex flex-wrap gap-3">
                   <Boton
                     icono="listo"
+                    data-testid="caso-entrega-confirmar"
                     motivo={
                       cerrando || cambiandoEstado ? t("casos.comun.guardando")
                         : !cobroValido(cobro) ? t("casos.detalle.revisaElMonto")
@@ -1156,6 +1165,7 @@ export default function VerCaso() {
                   <Boton
                     variante="plano"
                     icono="volver"
+                    data-testid="caso-entrega-volver"
                     motivo={cerrando ? t("casos.comun.guardando") : null}
                     onClick={() => {
                       setErrorEntrega(null);
@@ -1223,6 +1233,7 @@ export default function VerCaso() {
                       <Boton
                         variante="borde"
                         icono="calendario"
+                        data-testid="caso-volver-fecha"
                         onClick={() => {
                           setVolverEn(caso.volver_en ?? "");
                           setErrorVolver(null);
@@ -1256,6 +1267,7 @@ export default function VerCaso() {
                     <Boton
                       variante="borde"
                       icono="listo"
+                      data-testid="caso-volver-fecha-guardar"
                       motivo={guardandoVolver ? t("casos.comun.guardando") : motivoVolver}
                       onClick={async () => {
                         setErrorVolver(null);
@@ -1290,6 +1302,7 @@ export default function VerCaso() {
                 <Boton
                   variante="neutro"
                   icono="deshacer"
+                  data-testid="caso-reabrir"
                   onClick={() =>
                     datos.cambiarEstado(caso.id, "en_proceso")
                   }

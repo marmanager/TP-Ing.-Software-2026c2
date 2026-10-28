@@ -185,6 +185,7 @@ export default function Unirme() {
           icono="check"
           motivo={entrando ? t("acceso.unirme.enviando") : null}
           onClick={pedir}
+          data-testid="unirme-pedir"
           className="min-h-14 w-full"
         >
           {t("acceso.unirme.pedir", { negocio: invitacion.negocio })}

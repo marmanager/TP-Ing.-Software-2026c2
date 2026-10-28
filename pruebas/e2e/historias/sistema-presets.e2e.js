@@ -1,19 +1,18 @@
 import { $, browser, expect } from "@wdio/globals";
-import { empezarElMesGratis, entrar, noVerTexto, verTexto } from "./ayudas.js";
+import { empezarElMesGratis, entrar, noVerTexto, tid, verTexto } from "./ayudas.js";
 
-const botonRubro = (nombre) =>
-  $(`//button[.//span[normalize-space()="${nombre}"]]`);
+const botonRubro = (clave) => tid(`rubro-${clave}`);
 
 describe("Historia parcial: Sistema de presets", () => {
   it("AC1-AC3: permite elegir entre varios rubros y anticipa sus módulos", async () => {
     await entrar("/crear-negocio", "sin-negocio");
 
-    await expect(botonRubro("Taller mecánico")).toBeDisplayed();
-    await expect(botonRubro("Medicina")).toBeDisplayed();
-    await expect(botonRubro("Service técnico")).toBeDisplayed();
+    await expect(botonRubro("taller")).toBeDisplayed();
+    await expect(botonRubro("medicina")).toBeDisplayed();
+    await expect(botonRubro("service")).toBeDisplayed();
 
-    await botonRubro("Medicina").click();
-    await expect(botonRubro("Medicina")).toHaveAttribute("aria-pressed", "true");
+    await botonRubro("medicina").click();
+    await expect(botonRubro("medicina")).toHaveAttribute("aria-pressed", "true");
     await verTexto("Con «Medicina» vas a arrancar con:");
     await verTexto("Agenda");
     // El módulo de la clave "presupuesto" se llama "Pendientes de aprobación" (SCRUM-121):
@@ -24,8 +23,8 @@ describe("Historia parcial: Sistema de presets", () => {
   it("AC4 y AC6: aplica el preset elegido y lo conserva al recargar", async () => {
     await entrar("/crear-negocio", "sin-negocio");
     await $("#nombre").setValue("Consultorio Norte");
-    await botonRubro("Medicina").click();
-    await $("button=Crear el negocio").click();
+    await botonRubro("medicina").click();
+    await tid("crear-negocio-crear").click();
     await empezarElMesGratis();
 
     await browser.waitUntil(async () => (await browser.getUrl()).endsWith("/"), {
@@ -44,9 +43,9 @@ describe("Historia parcial: Sistema de presets", () => {
   it("AC7: permite cambiar el rubro antes de abrir el primer caso", async () => {
     await entrar("/negocio", "taller-sin-casos");
 
-    await $("button=Cambiar el rubro").click();
-    await botonRubro("Service técnico").click();
-    await $("button=Cambiar el rubro").click();
+    await tid("negocio-rubro-cambiar").click();
+    await botonRubro("service").click();
+    await tid("negocio-rubro-confirmar").click();
     await verTexto("Tu negocio es Service técnico");
     await verTexto("En reparación");
 

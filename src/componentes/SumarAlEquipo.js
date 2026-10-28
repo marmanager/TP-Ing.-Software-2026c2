@@ -151,7 +151,7 @@ export default function SumarAlEquipo() {
             <p className="mb-4 max-w-[65ch] text-tinta-media">
               {t("equipo.sumar.sinLink")}
             </p>
-            <Boton icono="mas" motivo={ocupado ? t("equipo.sumar.creando") : null} onClick={cambiarLink}>
+            <Boton icono="mas" motivo={ocupado ? t("equipo.sumar.creando") : null} onClick={cambiarLink} data-testid="equipo-link-crear">
               {t("equipo.sumar.crear")}
             </Boton>
           </>
@@ -168,7 +168,7 @@ export default function SumarAlEquipo() {
                   {t("equipo.sumar.cambiarAviso")}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
-                  <Boton variante="peligro" motivo={ocupado ? t("equipo.sumar.cambiando") : null} onClick={cambiarLink}>
+                  <Boton variante="peligro" motivo={ocupado ? t("equipo.sumar.cambiando") : null} onClick={cambiarLink} data-testid="equipo-link-cambiar-confirmar">
                     {t("equipo.sumar.siCambiar")}
                   </Boton>
                   <Boton variante="plano" disabled={ocupado} onClick={() => setConfirmandoCambio(false)}>
@@ -190,7 +190,7 @@ export default function SumarAlEquipo() {
                 <Boton icono="copiar" onClick={copiar}>
                   {t("equipo.sumar.copiar")}
                 </Boton>
-                <Boton variante="plano" onClick={() => setConfirmandoCambio(true)}>
+                <Boton variante="plano" onClick={() => setConfirmandoCambio(true)} data-testid="equipo-link-cambiar">
                   {t("equipo.sumar.cambiar")}
                 </Boton>
               </div>
@@ -252,7 +252,7 @@ export default function SumarAlEquipo() {
                         ))}
                       </select>
                     </div>
-                    <Boton icono="check" motivo={ocupado ? t("equipo.sumar.esperando") : !elegidoPara(p) ? t("equipo.sumar.elegirUnRol") : null} onClick={() => aceptar(p)}>
+                    <Boton icono="check" motivo={ocupado ? t("equipo.sumar.esperando") : !elegidoPara(p) ? t("equipo.sumar.elegirUnRol") : null} onClick={() => aceptar(p)} data-testid="equipo-pedido-aceptar">
                       {t("equipo.sumar.aceptar")}
                     </Boton>
                     <Boton variante="peligro" disabled={ocupado} onClick={() => rechazar(p)}>

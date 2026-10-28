@@ -48,6 +48,7 @@ export default function Roles() {
       {puedeManejar ? (
         <Link
           href="/negocio/roles/nuevo"
+          data-testid="roles-crear"
           className="mb-8 inline-flex min-h-12 items-center gap-2 rounded-campo bg-azul px-6 font-bold text-white"
         >
           <Icono nombre="mas" />
