@@ -12,7 +12,10 @@ import { useIdioma } from "@/lib/useIdioma";
 
 function Seccion({ titulo, children }) {
   return (
-    <section className="rounded-tarjeta border border-borde bg-tarjeta p-4">
+    // Sin la clase rounded-tarjeta a propósito: el degradé y el reborde del
+    // tema (src/lib/tema.js) buscan esa clase, y la vista previa muestra las
+    // cajas del negocio, no las de quien edita. Mismo radio, por la variable.
+    <section className="rounded-[var(--radius-tarjeta)] border border-borde bg-tarjeta p-4">
       <h3 className="text-subtitulo font-extrabold">{titulo}</h3>
       <div className="mt-2 grid justify-items-start gap-2 text-tinta-media">{children}</div>
     </section>

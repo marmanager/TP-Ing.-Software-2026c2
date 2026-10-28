@@ -2271,7 +2271,7 @@ export default {
       colores: "Colors",
       coloresTexto: "Pick a color for each part. The text sets itself to the shade that reads best.",
       colorDe: "Color of {nombre}",
-      linksCuestaLeer: "Links use this color and sit on the boxes, which makes them hard to read: the contrast is {actual} to 1 and the minimum is {minimo} to 1.",
+      linksCuestaLeer: "Low contrast detected. We recommend changing the colors.",
       letra: "Font",
       letraTexto: "The font for the whole page. Each option is written in its own.",
       guardar: "Save",

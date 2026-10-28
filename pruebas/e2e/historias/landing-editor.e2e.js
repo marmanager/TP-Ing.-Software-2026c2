@@ -55,7 +55,7 @@ describe("Historia: El dueño arma la landing de su negocio", () => {
   it("SCRUM-198: avisa cuando los links no se leen sobre las cajas", async () => {
     await tid("landing-color-cajas-carbon").click();
     await tid("landing-color-botones-grafito").click();
-    await verTexto("sobre las cajas cuesta leerlos");
+    await verTexto("Poco contraste detectado");
   });
 
   it("SCRUM-198: elige la fuente y queda guardada", async () => {

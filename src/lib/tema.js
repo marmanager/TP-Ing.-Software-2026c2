@@ -241,7 +241,9 @@ function armarCss() {
   // Cajas y rebordes: sólo las tarjetas (redondeo de tarjeta y fondo de
   // tarjeta), no los botones. El borde es un fondo recortado al border-box
   // detrás del interior: así un borde también puede ser degradé.
-  const tarjeta = ".rounded-tarjeta.bg-tarjeta:not(button)";
+  // Dentro de la landing ([data-lienzo]) las cajas son las que eligió el
+  // negocio, no las del tema de quien mira.
+  const tarjeta = ".rounded-tarjeta.bg-tarjeta:not(button):not([data-lienzo] *)";
   r.push(`:root[data-cajas] ${tarjeta}{background:var(--caja);border-color:transparent}`);
   r.push(`:root[data-cajas="reborde"] ${tarjeta}{border-width:2px}`);
   return r.join("\n");
