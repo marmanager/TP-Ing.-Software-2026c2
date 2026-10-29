@@ -232,6 +232,7 @@ activo, `usuario.negocio_id` pasa a su predeterminado o a null.
   desde la que empezó la visita) y lista las sedes donde se es miembro más, si
   el rol de origen tiene `ver_sedes_vinculadas` o es Dueño, las demás sedes de
   esa red. Sin el permiso, las otras sedes no aparecen en ningún lado.
+- En vista maestra (076) no se entra de visita; ver docs/vista-maestra.md.
 - `entrar_de_visita(p_sede)`: misma red, sin ficha en `p_sede`, y el rol en la
   sede activa tiene `ver_sedes_vinculadas`. Pone `usuario.negocio_id = p_sede`
   y `usuario.visitando_desde = <sede activa>`.

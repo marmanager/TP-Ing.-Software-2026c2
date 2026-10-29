@@ -18,6 +18,7 @@
 // decide si se ofrece el botón y el pago desde el link del cliente.
 
 import { API } from "./api.js";
+import { tCastellano } from "./idioma.js";
 
 export function apiPagosApuntaAlFrontend(api) {
   if (!api) return false;
@@ -40,13 +41,20 @@ export function vueltaDeMercadoPago(desde) {
   return null;
 }
 
-// Si se puede pedir un pago en línea, y si no, por qué.
+// Si se puede pedir un pago en línea, y si no, por qué. "motivo" es el texto
+// en castellano; "motivoClave" es la clave del diccionario para mostrarlo en
+// el idioma de quien mira (negocio.pagos.*): motivoDePagos() elige.
 export function pagosEnLinea({ api = API } = {}) {
   if (apiPagosApuntaAlFrontend(api)) return {
     disponible: false,
     motivo: "la dirección de pagos apunta a la app; corregí NEXT_PUBLIC_API_URL en Vercel",
+    motivoClave: "negocio.pagos.apuntaALaApp",
   };
   if (api) return { disponible: true, motivo: null };
-  return { disponible: false, motivo: "todavía no está conectado el sistema de pagos" };
+  return { disponible: false, motivo: "todavía no está conectado el sistema de pagos", motivoClave: "negocio.pagos.noConectado" };
 }
+
+// El motivo de arriba en el idioma de t; null si se puede pagar en línea.
+export const motivoDePagos = (pagos, t = tCastellano) =>
+  !pagos || pagos.disponible ? null : pagos.motivoClave ? t(pagos.motivoClave, { variable: "NEXT_PUBLIC_API_URL" }, pagos.motivo) : pagos.motivo ?? null;
 

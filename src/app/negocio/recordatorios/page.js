@@ -19,7 +19,9 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { estaPrendido } from "@/lib/modulos";
 import { filasDeRecordatorios } from "@/lib/recordatorios";
 import Icono from "@/componentes/Icono";
@@ -29,7 +31,8 @@ export default function Recordatorios() {
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { usuario } = useAuth();
-  useTitulo("Recordatorios por WhatsApp");
+  const { idioma, locale, t } = useIdioma();
+  useTitulo(t("negocio.recordatorios.titulo"));
 
   const [configuracion, setConfiguracion] = useState(null);
   const [error, setError] = useState(null);
@@ -59,7 +62,7 @@ export default function Recordatorios() {
   const volver = (
     <Link href="/negocio" className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
       <Icono nombre="volver" />
-      Volver a Mi negocio
+      {t("negocio.volver")}
     </Link>
   );
 
@@ -67,24 +70,24 @@ export default function Recordatorios() {
     return (
       <>
         {volver}
-        <TituloPantalla>Recordatorios por WhatsApp</TituloPantalla>
-        <ErrorGeneral>{error}</ErrorGeneral>
-        <Boton className="mt-4" onClick={() => setIntento((n) => n + 1)}>Volver a cargar</Boton>
+        <TituloPantalla>{t("negocio.recordatorios.titulo")}</TituloPantalla>
+        <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
+        <Boton className="mt-4" onClick={() => setIntento((n) => n + 1)}>{t("negocio.recordatorios.recargar")}</Boton>
       </>
     );
   }
 
-  const filas = filasDeRecordatorios({ configuracion, rubro: negocio?.rubro, conAgenda });
+  const filas = filasDeRecordatorios({ configuracion, rubro: negocio?.rubro, conAgenda }, { t, locale, idioma });
 
   return (
     <>
       {volver}
-      <TituloPantalla apoyo="Mensajes que le llegan solos al cliente por WhatsApp. Prendé los que quieras usar.">
-        Recordatorios por WhatsApp
+      <TituloPantalla apoyo={t("negocio.recordatorios.apoyo")}>
+        {t("negocio.recordatorios.titulo")}
       </TituloPantalla>
 
       {!puedeConfigurar && (
-        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.entregar_y_reabrir}</p>
+        <p className="mb-6 max-w-[65ch] text-tinta-media">{quienPuede("entregar_y_reabrir", t)}</p>
       )}
 
       <ul className="flex flex-col gap-4">
@@ -99,6 +102,7 @@ export default function Recordatorios() {
 }
 
 function FilaRecordatorio({ fila, puedeConfigurar }) {
+  const { t } = useIdioma();
   return (
     <Tarjeta>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -113,12 +117,12 @@ function FilaRecordatorio({ fila, puedeConfigurar }) {
           ].join(" ")}
         >
           <Icono nombre={fila.prendido ? "listo" : "cruz"} className="size-5" />
-          {fila.prendido ? "Prendido" : "Apagado"}
+          {fila.prendido ? t("ui.prendido") : t("ui.apagado")}
         </span>
       </div>
 
       <p className="mt-3 max-w-[65ch] text-tinta-media">
-        {fila.prendido ? fila.cuando : "Apagado: no le llega a ningún cliente."}
+        {fila.prendido ? fila.cuando : t("negocio.recordatorios.apagadoSinCliente")}
       </p>
 
       <div className="mt-4">
@@ -128,7 +132,7 @@ function FilaRecordatorio({ fila, puedeConfigurar }) {
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-azul hover:bg-azul-claro"
         >
           <Icono nombre={puedeConfigurar ? "pincel" : "ojo"} className="size-6" />
-          {puedeConfigurar ? "Configurar" : "Ver cómo está"}
+          {puedeConfigurar ? t("negocio.recordatorios.configurar") : t("negocio.recordatorios.verComo")}
         </Link>
       </div>
     </Tarjeta>

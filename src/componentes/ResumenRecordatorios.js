@@ -11,11 +11,14 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { estaPrendido } from "@/lib/modulos";
 import { filasDeRecordatorios } from "@/lib/recordatorios";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import Icono from "./Icono";
 import { Tarjeta } from "./ui";
 
 export default function ResumenRecordatorios({ puedeConfigurar }) {
   const datos = useDatos();
+  const { idioma, locale, t } = useIdioma();
   const { negocio } = datos;
   const [config, setConfig] = useState(null);
   const [error, setError] = useState(null);
@@ -36,24 +39,24 @@ export default function ResumenRecordatorios({ puedeConfigurar }) {
   }, [negocioId]);
 
   const conAgenda = estaPrendido("agenda", negocio?.modulos_activos ?? []);
-  const filas = config ? filasDeRecordatorios({ configuracion: config, rubro: negocio?.rubro, conAgenda }) : null;
+  const filas = config ? filasDeRecordatorios({ configuracion: config, rubro: negocio?.rubro, conAgenda }, { t, locale, idioma }) : null;
 
   return (
     <Tarjeta className="mb-12">
       <p className="max-w-[65ch] text-tinta-media">
-        Mensajes que le llegan solos al cliente por WhatsApp.
+        {t("negocio.recordatorios.resumen")}
       </p>
       {filas ? (
         <ul className="mt-3 flex flex-col gap-1">
           {filas.map((f) => (
             <li key={f.tipo}>
               <span className="font-bold text-tinta">{f.nombre}:</span>{" "}
-              {f.prendido ? "prendido." : "apagado."}
+              {f.prendido ? t("negocio.recordatorios.prendidoPunto") : t("negocio.recordatorios.apagadoPunto")}
             </li>
           ))}
         </ul>
       ) : (
-        error && <p className="mt-3 text-tinta-media">{error}</p>
+        error && <p className="mt-3 text-tinta-media">{textoDeError(t, error)}</p>
       )}
       <div className="mt-4">
         <Link
@@ -61,7 +64,7 @@ export default function ResumenRecordatorios({ puedeConfigurar }) {
           className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
         >
           <Icono nombre="whatsapp" />
-          {puedeConfigurar ? "Ver y cambiar los recordatorios" : "Ver los recordatorios"}
+          {puedeConfigurar ? t("negocio.recordatorios.verCambiar") : t("negocio.recordatorios.ver")}
         </Link>
       </div>
     </Tarjeta>

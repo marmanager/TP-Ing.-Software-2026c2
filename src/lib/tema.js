@@ -11,6 +11,11 @@
 //
 // Los colores son muestras fijas y no un selector libre: cada una tiene su
 // versión para fondo claro y para fondo oscuro, con contraste medido.
+//
+// `palabra` es el nombre en castellano y queda como dato. Lo que se ve en
+// pantalla se traduce por la `clave` de cada opción (cuenta.tema.<grupo>.
+// <clave>, ver Tema.js); las letras de marca —Inter, Merriweather, JetBrains
+// Mono— no se traducen y se muestran con su `palabra`.
 
 export const TEMAS = [
   { clave: "claro", palabra: "Claro", fondo: "#fbf8f4", tarjeta: "#ffffff", tinta: "#241f1b" },
@@ -236,7 +241,9 @@ function armarCss() {
   // Cajas y rebordes: sólo las tarjetas (redondeo de tarjeta y fondo de
   // tarjeta), no los botones. El borde es un fondo recortado al border-box
   // detrás del interior: así un borde también puede ser degradé.
-  const tarjeta = ".rounded-tarjeta.bg-tarjeta:not(button)";
+  // Dentro de la landing ([data-lienzo]) las cajas son las que eligió el
+  // negocio, no las del tema de quien mira.
+  const tarjeta = ".rounded-tarjeta.bg-tarjeta:not(button):not([data-lienzo] *)";
   r.push(`:root[data-cajas] ${tarjeta}{background:var(--caja);border-color:transparent}`);
   r.push(`:root[data-cajas="reborde"] ${tarjeta}{border-width:2px}`);
   return r.join("\n");

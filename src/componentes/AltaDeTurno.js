@@ -13,10 +13,12 @@
 import { useState } from "react";
 import { useDatos } from "@/lib/datos";
 import { ejemplosDe } from "@/lib/presets";
-import { paraInput } from "@/lib/fechas";
-import { paisInicial } from "@/lib/telefono";
-import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
-import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
+import { paisInicial, telefonoLegible } from "@/lib/telefono";
+import { useIdioma } from "@/lib/useIdioma";
+import { avisoAlAnotar } from "@/lib/recordatorios";
+import { Boton, Campo, Tarjeta, TituloSeccion, claseDeEntrada } from "@/componentes/ui";
+import HorarioDeTurno from "@/componentes/HorarioDeTurno";
+import CampoTelefono,{ useTelefono } from "@/componentes/CampoTelefono";
 
 const VACIO = { nombreCliente: "", motivo: "", empiezaEn: "" };
 
@@ -27,6 +29,7 @@ export default function AltaDeTurno({
   className = "",
 }) {
   const datos = useDatos();
+  const { idioma, locale, t } = useIdioma();
   const { clientes, negocio } = datos;
   const [form, setForm] = useState({ ...VACIO, empiezaEn: cuandoSugerido });
   // El teléfono, con el selector de país (B-1b). Sólo cuenta si es alguien
@@ -36,25 +39,41 @@ export default function AltaDeTurno({
 
   // Si el nombre coincide con alguien ya cargado, se le suma el turno a esa
   // ficha; si no, se da de alta el cliente junto con el turno.
-  const yaEsCliente = clientes.find(
-    (c) => c.nombre.toLowerCase() === form.nombreCliente.trim().toLowerCase()
-  );
+  //
+  // Si hay dos con el mismo nombre no se adivina: se muestran con su teléfono
+  // para elegir, y el turno va a la ficha tocada ("elegidoId").
+  const escrito = form.nombreCliente.trim().toLowerCase();
+  const [elegidoId, setElegidoId] = useState(null);
+  const iguales = escrito ? clientes.filter((c) => c.nombre.toLowerCase() === escrito) : [];
+  const elegido = iguales.find((c) => c.id === elegidoId);
+  const yaEsCliente = elegido ?? (iguales.length === 1 ? iguales[0] : undefined);
+  const hayQueElegir = iguales.length > 1 && !elegido;
+  // La lista de clientes: la abre la flecha (todos) o escribir (los que
+  // contienen lo escrito, que se van descartando letra a letra).
+  const [lista, setLista] = useState(null); // null | "todos" | "filtrar"
+  const ofrecer = !lista
+    ? []
+    : lista === "todos" || !escrito
+      ? clientes
+      : clientes.filter((c) => c.nombre.toLowerCase().includes(escrito));
 
   // Mientras se guarda, el botón no se puede volver a tocar: un segundo toque
   // anotaría otro turno.
   const [guardando, setGuardando] = useState(false);
 
-  const pideTelefono = !!form.nombreCliente.trim() && !yaEsCliente;
+  const pideTelefono = !!form.nombreCliente.trim() && !yaEsCliente && !hayQueElegir;
   const errorTelefono = pideTelefono && !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   const motivoApagado = guardando
-    ? "se está guardando"
+    ? t("agenda.alta.guardando")
     : errorTelefono
-    ? "el teléfono no sirve todavía"
+    ? t("agenda.alta.telefonoNoSirve")
+    : hayQueElegir
+    ? t("agenda.alta.faltaElegirCliente")
     : !form.motivo.trim()
-    ? "falta el motivo"
+    ? t("agenda.alta.faltaMotivo")
     : !form.empiezaEn
-      ? "falta el día y la hora"
+      ? t("agenda.alta.faltaCuando")
       : null;
 
   async function guardar() {
@@ -69,7 +88,7 @@ export default function AltaDeTurno({
     // dio datos.js y el formulario queda con lo escrito, para cambiar la hora.
     if (!r) return;
     datos.avisarExito(
-      [`Listo. El turno de ${form.motivo.trim()} quedó anotado.`, r.avisoDelRecordatorio].filter(Boolean).join(" ")
+      [t("agenda.alta.listo", { motivo: form.motivo.trim() }), avisoAlAnotar(r.recordatorio, { t, locale, idioma })].filter(Boolean).join(" ")
     );
     setForm({ ...VACIO, empiezaEn: cuandoSugerido });
     tel.cargar("");
@@ -78,31 +97,82 @@ export default function AltaDeTurno({
 
   return (
     <Tarjeta className={`max-w-[560px] ${className}`}>
-      <TituloSeccion>Nuevo turno</TituloSeccion>
+      <TituloSeccion>{t("agenda.alta.titulo")}</TituloSeccion>
 
       <Campo
         id="turno-cliente"
-        etiqueta="Para quién"
-        ayuda="Si todavía no está cargado, escribí su nombre igual: lo damos de alta con el turno."
-        exito={yaEsCliente ? `Ya es cliente. Le sumamos este turno a ${yaEsCliente.nombre}.` : null}
-        value={form.nombreCliente}
-        onChange={(e) => setForm({ ...form, nombreCliente: e.target.value })}
-        list="clientes-de-la-agenda"
-        autoComplete="off"
-      />
-      <datalist id="clientes-de-la-agenda">
-        {clientes.map((c) => (
-          <option key={c.id} value={c.nombre} />
-        ))}
-      </datalist>
+        etiqueta={t("agenda.alta.paraQuien")}
+        ayuda={t("agenda.alta.paraQuienAyuda")}
+        exito={yaEsCliente ? t("agenda.alta.yaEsCliente", { nombre: yaEsCliente.nombre }) : null}
+      >
+        <div
+          className="relative mt-2"
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) setLista(null);
+          }}
+          onKeyDown={(e) => e.key === "Escape" && setLista(null)}
+        >
+          <input
+            id="turno-cliente"
+            className={`${claseDeEntrada({ exito: !!yaEsCliente })} ${clientes.length > 0 ? "pr-14" : ""}`}
+            value={form.nombreCliente}
+            onChange={(e) => {
+              setElegidoId(null);
+              setLista("filtrar");
+              setForm({ ...form, nombreCliente: e.target.value });
+            }}
+            autoComplete="off"
+          />
+          {clientes.length > 0 && (
+            <button
+              type="button"
+              aria-label={t("agenda.alta.verClientes")}
+              aria-expanded={ofrecer.length > 0}
+              className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center text-tinta-media"
+              onClick={() => setLista(lista ? null : "todos")}
+            >
+              <span aria-hidden="true">▾</span>
+            </button>
+          )}
+          {ofrecer.length > 0 && (
+            // El mousedown no le saca el foco al campo: si no, el blur cierra
+            // la lista antes de que el click llegue.
+            <ul
+              role="listbox"
+              onMouseDown={(e) => e.preventDefault()}
+              className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-auto rounded-campo border border-borde bg-tarjeta shadow-lg"
+            >
+              {ofrecer.map((c) => (
+                <li key={c.id} role="option" aria-selected={c.id === elegidoId} className="border-b border-borde last:border-b-0">
+                  <button
+                    type="button"
+                    data-testid="turno-cliente-opcion"
+                    className="block min-h-12 w-full cursor-pointer px-4 py-2 text-left hover:bg-superficie"
+                    onClick={() => {
+                      setElegidoId(c.id);
+                      setLista(null);
+                      setForm({ ...form, nombreCliente: c.nombre });
+                    }}
+                  >
+                    <span className="block font-bold text-tinta">{c.nombre}</span>
+                    <span className="block text-etiqueta text-tinta-media">
+                      {telefonoLegible(c.telefono) || t("inicio.clientes.sinTelefono")}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Campo>
 
       {/* El teléfono sólo si es alguien nuevo: al que ya está cargado no
           hay que volver a pedírselo. */}
       {pideTelefono && (
         <CampoTelefono
           id="turno-telefono"
-          etiqueta="Su teléfono"
-          ayuda="Opcional. Sirve para avisarle si hay que mover el turno."
+          etiqueta={t("agenda.alta.telefono")}
+          ayuda={t("agenda.alta.telefonoAyuda")}
           paisPorDefecto={paisNegocio}
           error={errorTelefono}
           valor={tel.valor}
@@ -112,19 +182,16 @@ export default function AltaDeTurno({
 
       <Campo
         id="turno-motivo"
-        etiqueta="Para qué viene"
-        ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).turno}.`}
+        etiqueta={t("agenda.alta.paraQue")}
+        ayuda={t("agenda.alta.paraQueAyuda", { ejemplo: ejemplosDe(negocio?.rubro, idioma).turno })}
         value={form.motivo}
         onChange={(e) => setForm({ ...form, motivo: e.target.value })}
       />
-      <Campo
-        id="turno-cuando"
-        etiqueta="Qué día y a qué hora"
-        ayuda="Se puede cambiar después."
-        type="datetime-local"
-        min={paraInput()}
-        value={form.empiezaEn}
-        onChange={(e) => setForm({ ...form, empiezaEn: e.target.value })}
+      <HorarioDeTurno
+        etiqueta={t("agenda.alta.cuando")}
+        ayuda={t("agenda.alta.cuandoAyuda")}
+        valor={form.empiezaEn}
+        onChange={(empiezaEn) => setForm({ ...form, empiezaEn })}
       />
       {/* Guardar y cancelar juntos, al pie del formulario y no arriba.
           Antes, salir del alta era el mismo botón de "Anotar un turno", en el
@@ -139,9 +206,10 @@ export default function AltaDeTurno({
           icono="check"
           motivo={motivoApagado}
           className="w-full sm:w-auto"
+          data-testid="turno-guardar"
           onClick={guardar}
         >
-          Guardar el turno
+          {t("agenda.alta.guardar")}
         </Boton>
         {alCancelar && (
           <Boton
@@ -153,7 +221,7 @@ export default function AltaDeTurno({
               alCancelar();
             }}
           >
-            Cancelar
+            {t("agenda.alta.cancelar")}
           </Boton>
         )}
       </div>

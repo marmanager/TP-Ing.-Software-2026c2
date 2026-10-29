@@ -6,21 +6,26 @@
 
 import { useState } from "react";
 import { useDatos } from "@/lib/datos";
-import { diaLargo, horaYMinutos, paraInput } from "@/lib/fechas";
-import { Boton, Campo } from "./ui";
+import { diaLargoEnFrase, horaYMinutos, paraInput } from "@/lib/fechas";
+import { textoDeError } from "@/lib/idioma";
+import { useIdioma } from "@/lib/useIdioma";
+import { avisoAlAnotar } from "@/lib/recordatorios";
+import { Boton } from "./ui";
+import HorarioDeTurno from "./HorarioDeTurno";
 
 export default function MoverTurno({ turno, alTerminar }) {
   const datos = useDatos();
+  const { idioma, locale, t } = useIdioma();
   const [cuando, setCuando] = useState(paraInput(new Date(turno.empieza_en)));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
 
   const motivo = guardando
-    ? "se está guardando"
+    ? t("agenda.mover.guardando")
     : !cuando
-      ? "falta el día y la hora"
+      ? t("agenda.mover.faltaCuando")
       : cuando === paraInput(new Date(turno.empieza_en))
-        ? "es la misma hora"
+        ? t("agenda.mover.mismaHora")
         : null;
 
   async function guardar() {
@@ -28,12 +33,16 @@ export default function MoverTurno({ turno, alTerminar }) {
     setError(null);
     const r = await datos.moverTurno(turno.id, cuando);
     setGuardando(false);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) return setError(textoDeError(t, r.error));
     const nuevo = r.turno.empieza_en;
     datos.avisarExito(
       [
-        `Listo. El turno de ${turno.motivo} pasó a ${diaLargo(nuevo).toLowerCase()} a las ${horaYMinutos(nuevo)}.`,
-        r.avisoDelRecordatorio,
+        t("agenda.mover.listo", {
+          motivo: turno.motivo,
+          dia: diaLargoEnFrase(nuevo, locale, t),
+          hora: horaYMinutos(nuevo, locale),
+        }),
+        avisoAlAnotar(r.recordatorio, { t, locale, idioma }),
       ].filter(Boolean).join(" ")
     );
     alTerminar();
@@ -41,21 +50,21 @@ export default function MoverTurno({ turno, alTerminar }) {
 
   return (
     <div className="w-full rounded-tarjeta bg-superficie p-4">
-      <Campo
+      <HorarioDeTurno
         id={`mover-${turno.id}`}
-        etiqueta="¿Para cuándo lo pasás?"
-        ayuda="Si tenía recordatorio, se corre solo con el turno."
-        type="datetime-local"
-        value={cuando}
+        ignorarId={turno.id}
+        etiqueta={t("agenda.mover.etiqueta")}
+        ayuda={t("agenda.mover.ayuda")}
+        valor={cuando}
         error={error}
-        onChange={(e) => setCuando(e.target.value)}
+        onChange={setCuando}
       />
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Boton icono="check" className="w-full sm:w-auto" motivo={motivo} onClick={guardar}>
-          Guardar la hora nueva
+        <Boton icono="check" className="w-full sm:w-auto" motivo={motivo} onClick={guardar} data-testid="turno-mover-guardar">
+          {t("agenda.mover.guardar")}
         </Boton>
         <Boton variante="plano" className="w-full sm:w-auto" onClick={alTerminar}>
-          Dejarlo como está
+          {t("agenda.mover.dejar")}
         </Boton>
       </div>
     </div>

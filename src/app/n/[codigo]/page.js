@@ -27,6 +27,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { buscarLanding, salirDeLanding } from "@/lib/datos";
 import { estadoDeSecciones } from "@/lib/landing";
+import { textoDeError } from "@/lib/idioma";
+import { useIdioma } from "@/lib/useIdioma";
 import { leerLlave } from "@/lib/llave-landing";
 import Icono from "@/componentes/Icono";
 import Lienzo from "@/componentes/landing/Lienzo";
@@ -46,14 +48,13 @@ const COMPONENTES = {
 };
 
 // Las que muestran lo del cliente: sin entrar, en su lugar va el Ingreso (o
-// el camino hasta él). Con qué botón se entra y qué se ve al entrar.
-const PRIVADAS = {
-  mis_casos: { boton: "Ver mis casos", que: "tus casos" },
-  mis_turnos: { boton: "Ver mis turnos", que: "tus turnos" },
-};
+// el camino hasta él). Con qué botón se entra y qué se ve al entrar salen del
+// diccionario (landing.publica.<sección>.boton y .paraVer).
+const PRIVADAS = ["mis_casos", "mis_turnos"];
 
 export default function Landing() {
   const { codigo } = useParams();
+  const { t } = useIdioma();
   const [mirando, setMirando] = useState(true);
   const [pagina, setPagina] = useState(null);
   const [entrado, setEntrado] = useState(false);
@@ -84,8 +85,8 @@ export default function Landing() {
     setAviso(null);
     setEntrado(true);
   }, []);
-  const alVencer = useCallback((mensaje) => {
-    setAviso(mensaje);
+  const alVencer = useCallback((error) => {
+    setAviso(error);
     setEntrado(false);
     setFoco((n) => n + 1);
   }, []);
@@ -100,8 +101,8 @@ export default function Landing() {
   }, [alEntrar]);
 
   useEffect(() => {
-    document.title = pagina?.negocio?.nombre ?? "La página del negocio";
-  }, [pagina]);
+    document.title = pagina?.negocio?.nombre ?? t("landing.publica.paginaDelNegocio");
+  }, [pagina, t]);
 
   useEffect(() => {
     let vivo = true;
@@ -139,7 +140,9 @@ export default function Landing() {
   if (!pagina?.sirve && pagina?.problema) {
     return (
       <Marco>
-        <Tarjetita titulo="No pudimos abrir la página del negocio">{pagina.problema}</Tarjetita>
+        <Tarjetita titulo={t("landing.publica.noPudimos")}>
+          {pagina.error ? textoDeError(t, pagina.error) : pagina.problema}
+        </Tarjetita>
       </Marco>
     );
   }
@@ -149,19 +152,18 @@ export default function Landing() {
   if (!pagina?.sirve) {
     return (
       <Marco>
-        <Tarjetita titulo="Este link ya no sirve">
-          Puede ser que esté cortado, que se haya copiado de más o que el negocio
-          lo haya dado de baja. Pedile uno nuevo a quien te lo mandó.
+        <Tarjetita titulo={t("landing.publica.linkNoSirve")}>
+          {t("landing.publica.linkNoSirveTexto")}
         </Tarjetita>
       </Marco>
     );
   }
 
   const { negocio, landing, modulos_activos, horarios } = pagina;
-  const secciones = estadoDeSecciones(landing.orden, modulos_activos, Boolean(horarios)).filter(
+  const secciones = estadoDeSecciones(landing.orden, modulos_activos, Boolean(horarios), t).filter(
     (s) => s.visible
   );
-  const conIngreso = secciones.find((s) => PRIVADAS[s.clave]);
+  const conIngreso = secciones.find((s) => PRIVADAS.includes(s.clave));
   // Un solo botón principal por pantalla: si se puede sacar turno, es "Pedir
   // el turno", que es a lo que viene la mayoría; el de entrar va con borde.
   const conTurno = secciones.some((s) => s.clave === "sacar_turno");
@@ -174,8 +176,8 @@ export default function Landing() {
           // Cerrar la pestaña también es salir (la llave vive en
           // sessionStorage); el botón es para un celular prestado.
           entrado && (
-            <Boton variante="plano" icono="salir" onClick={salir}>
-              Salir
+            <Boton variante="plano" icono="salir" onClick={salir} data-testid="landing-salir">
+              {t("landing.publica.salir")}
             </Boton>
           )
         }
@@ -202,12 +204,12 @@ export default function Landing() {
                 >
                   {nombre}
                 </h2>
-                {PRIVADAS[clave] && !entrado ? (
+                {PRIVADAS.includes(clave) && !entrado ? (
                   delIngreso ? (
                     <Ingreso
                       codigo={codigo}
                       negocio={negocio}
-                      boton={PRIVADAS[clave].boton}
+                      boton={t(`landing.publica.${clave}.boton`)}
                       aviso={aviso}
                       principal={!conTurno}
                       alEntrar={entrarConDatos}
@@ -217,12 +219,11 @@ export default function Landing() {
                     // la primera de las dos.
                     <>
                       <p className="mt-2 max-w-[65ch] text-tinta-media">
-                        Para ver {PRIVADAS[clave].que}, entrá con tus datos en «{conIngreso.nombre}», más
-                        arriba.
+                        {t(`landing.publica.${clave}.paraVer`, { seccion: conIngreso.nombre })}
                       </p>
                       <a href="#ingreso" className="mt-2 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
                         <Icono nombre="llave" className="size-5" />
-                        Ir a poner mis datos
+                        {t("landing.publica.irAPonerDatos")}
                       </a>
                     </>
                   )
@@ -265,6 +266,7 @@ function Tarjetita({ titulo, children }) {
 // cargó y su nombre como título: es su página. Mientras carga, o si el link
 // no sirve, todavía no se sabe de quién es y va sin nombre.
 function Marco({ negocio, accion, children }) {
+  const { t } = useIdioma();
   return (
     <div className="min-h-screen bg-fondo">
       <header className="border-b border-borde bg-tarjeta">
@@ -279,12 +281,14 @@ function Marco({ negocio, accion, children }) {
           {/* Se parte en renglones y no se corta: es el nombre del negocio, y
               en un celular "Taller Mecánico Hermanos…" no dice de quién es. */}
           <h1 className="min-w-0 flex-1 break-words font-titulo font-extrabold text-subtitulo leading-tight">
-            {negocio?.nombre ?? "La página del negocio"}
+            {negocio?.nombre ?? t("landing.publica.paginaDelNegocio")}
           </h1>
           {accion}
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[640px] px-4 py-6 sm:py-8">
+        {children}
+      </main>
     </div>
   );
 }

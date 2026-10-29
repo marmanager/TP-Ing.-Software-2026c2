@@ -22,7 +22,9 @@ import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
+import { puede, quienPuede } from "@/lib/permisos";
 import { montoValido } from "@/lib/validaciones";
 import { estaAbierto, pesos, totalesDeCaso } from "@/lib/estados";
 import { cuantoHace } from "@/lib/fechas";
@@ -41,15 +43,17 @@ import {
   Vacio,
 } from "@/componentes/ui";
 
+// El texto de cada uno sale del diccionario (casos.pasos.dicho.<estado>).
 const DICHO = {
-  aprobado: { icono: "listo", texto: "Lo aprobó el cliente", color: "text-completo" },
-  rechazado: { icono: "cruz", texto: "El cliente no lo hace", color: "text-tinta-suave" },
-  esperando: { icono: "reloj", texto: "Esperando respuesta", color: "text-espera" },
+  aprobado: { icono: "listo", color: "text-completo" },
+  rechazado: { icono: "cruz", color: "text-tinta-suave" },
+  esperando: { icono: "reloj", color: "text-espera" },
 };
 
 export default function AprobarPasos() {
   const { id } = useParams();
   const datos = useDatos();
+  const { t, idioma, locale } = useIdioma();
   const { cargando, casos, clientes, pasos, negocio, responderPaso } = datos;
   const { usuario } = useAuth();
   const [mostrandoMensaje, setMostrandoMensaje] = useState(false);
@@ -87,13 +91,13 @@ export default function AprobarPasos() {
   const puedeAvanzar = puede(usuario, "avanzar_casos");
 
   const caso = casos.find((c) => c.id === id);
-  useTitulo(caso ? `Pasos · ${tituloDelCaso(caso)}` : "Pasos");
+  useTitulo(caso ? t("casos.pasos.tituloDe", { caso: tituloDelCaso(caso, t) }) : t("casos.pasos.titulo"));
 
   if (cargando) return <Cargando />;
   if (!caso) {
     return (
-      <Vacio icono="buscar" titulo="No encontramos ese caso">
-        <Link href="/casos" className="font-bold text-azul">Volver a los casos</Link>.
+      <Vacio icono="buscar" titulo={t("casos.detalle.noEncontrado")}>
+        <Link href="/casos" className="font-bold text-azul">{t("casos.volver")}</Link>.
       </Vacio>
     );
   }
@@ -110,38 +114,39 @@ export default function AprobarPasos() {
   const sePuedeResponder = puedeResponder && abierto;
   const sePuedeAvanzar = puedeAvanzar && abierto;
 
+  // Lo manda el negocio: sale en su idioma y con los números a su manera.
   const mensaje = [
-    `Hola ${cliente?.nombre ?? ""}, te paso el detalle del caso ${caso.numero} (${caso.servicio}).`,
+    t("casos.pasos.mensaje.hola", { nombre: cliente?.nombre ?? "", numero: caso.numero, servicio: caso.servicio }),
     "",
     ...mios.map(
       (p) =>
-        `${p.estado === "aprobado" ? "✓" : p.estado === "rechazado" ? "✗" : "•"} ${p.nombre} — ${pesos(p.monto)}${p.descripcion ? `\n   ${p.descripcion}` : ""}`
+        `${p.estado === "aprobado" ? "✓" : p.estado === "rechazado" ? "✗" : "•"} ${p.nombre} — ${pesos(p.monto, locale)}${p.descripcion ? `\n   ${p.descripcion}` : ""}`
     ),
     "",
-    `Aprobado hasta ahora: ${pesos(aprobado)}`,
-    `Esperando tu respuesta: ${pesos(esperando)}`,
-    `Todo el caso: ${pesos(todo)}`,
+    t("casos.pasos.mensaje.aprobadoHasta", { monto: pesos(aprobado, locale) }),
+    t("casos.pasos.mensaje.esperandoTu", { monto: pesos(esperando, locale) }),
+    t("casos.pasos.mensaje.todoElCaso", { monto: pesos(todo, locale) }),
     "",
-    "Se puede aprobar de a uno. Lo que no apruebes queda anotado para más adelante.",
+    t("casos.pasos.mensaje.deAUno"),
     // Si el caso está compartido, el mensaje lleva el link: ahí mismo puede
     // contestar, en vez de tener que escribir la respuesta a mano y que
     // alguien del mostrador la cargue después (SCRUM-68).
     ...(caso.seguimiento_codigo && origen
-      ? ["", `Podés contestar acá: ${linkDeSeguimiento(origen, caso.seguimiento_codigo)}`]
+      ? ["", t("casos.pasos.mensaje.podesContestar", { link: linkDeSeguimiento(origen, caso.seguimiento_codigo) })]
       : []),
   ].join("\n");
 
   const errorMonto =
     tocado && monto.trim() && !montoValido(monto)
-      ? "Escribí el monto con números, sin puntos."
+      ? t("casos.pasos.errorMonto")
       : null;
 
   const motivoPaso = !nombre.trim()
-    ? "falta qué hay que hacer"
+    ? t("casos.pasos.faltaQueHacer")
     : !monto.trim()
-      ? "falta cuánto sale"
+      ? t("casos.pasos.faltaCuanto")
       : !montoValido(monto)
-        ? "el monto va sin puntos"
+        ? t("casos.pasos.montoSinPuntos")
         : null;
 
   async function sumarPaso() {
@@ -153,7 +158,7 @@ export default function AprobarPasos() {
       monto,
     });
     if (!paso) return;
-    datos.avisarExito(`Listo. "${que}" ya está en el presupuesto, esperando respuesta.`);
+    datos.avisarExito(t("casos.pasos.pasoSumado", { nombre: que }));
     setNombre("");
     setDescripcion("");
     setMonto("");
@@ -181,44 +186,42 @@ export default function AprobarPasos() {
         className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
       >
         <Icono nombre="volver" />
-        Volver al caso
+        {t("casos.pasos.volverAlCaso")}
       </Link>
 
-      <h1 className="text-ident">{tituloDelCaso(caso)}</h1>
-      {subtituloDelCaso(caso) && (
-        <p className="text-apoyo text-tinta-suave">{subtituloDelCaso(caso)}</p>
+      <h1 className="text-ident">{tituloDelCaso(caso, t)}</h1>
+      {subtituloDelCaso(caso, t) && (
+        <p className="text-apoyo text-tinta-suave">{subtituloDelCaso(caso, t)}</p>
       )}
-      <p className="mt-1 text-tinta-media">{lineaDelCaso(caso, cliente?.nombre)}</p>
+      <p className="mt-1 text-tinta-media">{lineaDelCaso(caso, cliente?.nombre, t)}</p>
       <div className="mt-3">
         <ChipEstado estado={caso.estado} />
       </div>
       {cuantosEsperan > 0 && abierto && (
         <p className="mt-3 text-cuerpo">
-          Falta que {cliente?.nombre ?? "el cliente"} apruebe {cuantosEsperan}{" "}
-          {cuantosEsperan === 1 ? "paso" : "pasos"}.
+          {t("casos.pasos.faltaQueApruebe", { nombre: cliente?.nombre ?? t("casos.comun.elCliente"), n: cuantosEsperan })}
         </p>
       )}
 
       {/* Primero qué se encontró, después qué hay que hacer con eso: es el
           orden en que pasa, y el que hace que los pasos se escriban mirando
           el diagnóstico y no de memoria. */}
-      <TituloSeccion className="mt-10">El diagnóstico</TituloSeccion>
+      <TituloSeccion className="mt-10">{t("casos.pasos.diagnostico")}</TituloSeccion>
       <Tarjeta className="mb-6">
         {!abierto && (puedeArmar || puedeResponder) && (
           <p className="mb-4 max-w-[65ch] text-tinta-media">
-            El caso está cerrado, así que esto queda como quedó. Si hay algo que
-            corregir, volvé a abrirlo desde el caso y cerralo de nuevo después.
+            {t("casos.pasos.cerradoDiag")}
           </p>
         )}
-        <p className="font-bold text-cuerpo">Qué encontramos</p>
+        <p className="font-bold text-cuerpo">{t("casos.pasos.queEncontramos")}</p>
 
         {editandoDiag && sePuedeAvanzar ? (
           <div className="mt-2">
             <label htmlFor="diagnostico" className="sr-only">
-              Qué encontramos
+              {t("casos.pasos.queEncontramos")}
             </label>
             <p className="mt-1 mb-2 text-etiqueta text-tinta-media">
-              Con tus palabras, como se lo explicarías al cliente.
+              {t("casos.pasos.conTusPalabras")}
             </p>
             {/* Lo que ya estaba viene cargado en el campo, no en blanco: así
                 ampliar es escribir abajo y no se pisa nada sin querer. El
@@ -227,8 +230,7 @@ export default function AprobarPasos() {
               <p className="mb-2 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
                 <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
                 <span>
-                  Estás cambiando lo que ya estaba escrito. Lo de antes está
-                  abajo: agregale lo nuevo en vez de borrarlo.
+                  {t("casos.pasos.cambiandoDiag")}
                 </span>
               </p>
             )}
@@ -237,30 +239,30 @@ export default function AprobarPasos() {
               rows={4}
               value={diagnostico}
               onChange={(e) => setDiagnostico(e.target.value)}
-              placeholder={ejemplosDe(negocio?.rubro).diagnostico}
+              placeholder={ejemplosDe(negocio?.rubro, idioma).diagnostico}
               className="block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta p-4 text-cuerpo placeholder:text-tinta-suave"
             />
             <div className="mt-3 flex flex-wrap gap-3">
               <Boton
                 icono="check"
-                motivo={!diagnostico.trim() ? "falta escribir qué encontraron" : null}
+                motivo={!diagnostico.trim() ? t("casos.pasos.faltaDiag") : null}
                 onClick={() => {
                   datos.cargarDiagnostico(caso.id, diagnostico.trim());
-                  datos.avisarExito(`Listo. El diagnóstico del ${casoEnFrase(caso)} quedó anotado.`);
+                  datos.avisarExito(t("casos.pasos.diagGuardado", { caso: casoEnFrase(caso, t) }));
                   setEditandoDiag(false);
                 }}
               >
-                Guardar el diagnóstico
+                {t("casos.pasos.guardarDiag")}
               </Boton>
               <Boton variante="plano" onClick={() => setEditandoDiag(false)}>
-                Dejarlo
+                {t("casos.comun.dejarlo")}
               </Boton>
             </div>
           </div>
         ) : (
           <div className="mt-1">
             <p className="max-w-[65ch] text-tinta-media">
-              {caso.diagnostico || "Todavía nadie escribió qué se encontró al revisar."}
+              {caso.diagnostico || t("casos.pasos.nadieEscribio")}
             </p>
             {/* Una sola acción acá, y con forma de botón: dos enlaces azules
                 uno abajo del otro no se distinguían entre sí. Lo que había al
@@ -276,7 +278,7 @@ export default function AprobarPasos() {
                     setEditandoDiag(true);
                   }}
                 >
-                  {caso.diagnostico ? "Corregir el diagnóstico" : "Cargar el diagnóstico"}
+                  {caso.diagnostico ? t("casos.pasos.corregirDiag") : t("casos.pasos.cargarDiag")}
                 </Boton>
               </div>
             )}
@@ -286,7 +288,7 @@ export default function AprobarPasos() {
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
         <TituloSeccion className="mb-0">
-          {abierto ? "Pasos a aprobar" : "Los pasos del caso"}
+          {abierto ? t("casos.pasos.pasosAAprobar") : t("casos.pasos.losPasos")}
         </TituloSeccion>
         {sePuedeArmar && (
           <div className="flex flex-wrap gap-2">
@@ -296,10 +298,10 @@ export default function AprobarPasos() {
                 pie del formulario, al lado de "Sumar el paso" (SCRUM-126). */}
             <Boton
               icono="mas"
-              motivo={armando ? "ya estás sumando pasos" : null}
+              motivo={armando ? t("casos.pasos.yaEstasSumando") : null}
               onClick={() => setArmando(true)}
             >
-              Sumar un paso
+              {t("casos.pasos.sumarUno")}
             </Boton>
             {mios.some((p) => p.estado === "esperando") && (
               <Boton
@@ -310,7 +312,7 @@ export default function AprobarPasos() {
                   setSacando(null);
                 }}
               >
-                {corrigiendo ? "Listo, terminé" : "Corregir el presupuesto"}
+                {corrigiendo ? t("casos.pasos.listoTermine") : t("casos.pasos.corregirPresupuesto")}
               </Boton>
             )}
           </div>
@@ -318,38 +320,35 @@ export default function AprobarPasos() {
       </div>
       <p className="mt-2 mb-4 text-tinta-media">
         {corrigiendo
-          ? "Sacá los pasos que sobren. Sólo se pueden sacar los que el cliente todavía no contestó."
+          ? t("casos.pasos.sacaLosQueSobren")
           : !abierto
-          ? "El caso ya se entregó y se cerró. Los pasos quedan como quedaron."
+          ? t("casos.pasos.yaSeEntrego")
           : puedeResponder
-            ? "Se puede aprobar de a uno. Lo que no se apruebe queda anotado para más adelante."
-            : `Esto es lo que hay que hacer en el caso. ${QUIEN_PUEDE.aprobar_por_el_cliente}`}
+            ? t("casos.pasos.seApruebaDeAUno")
+            : t("casos.pasos.esLoQueHayQueHacer", { quienPuede: quienPuede("aprobar_por_el_cliente", t) })}
       </p>
 
       {!abierto && (puedeArmar || puedeResponder) && (
         <Tarjeta className="mb-6">
-          <p className="font-bold text-cuerpo">Este caso está cerrado</p>
+          <p className="font-bold text-cuerpo">{t("casos.pasos.casoCerrado")}</p>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
-            Por eso no se suman ni se aprueban pasos: cambiarían un presupuesto que
-            el cliente ya cerró. Si falta algo, volvé a abrir el caso, corregilo y
-            cerralo de nuevo.
+            {t("casos.pasos.casoCerradoTexto")}
           </p>
           <Link
             href={`/casos/${caso.id}`}
             className="mt-3 inline-flex min-h-12 items-center gap-2 font-bold text-azul"
           >
             <Icono nombre="deshacer" />
-            Ir al caso para volver a abrirlo
+            {t("casos.pasos.irAlCaso")}
           </Link>
         </Tarjeta>
       )}
 
       {armando && sePuedeArmar && (
         <Tarjeta className="mb-6">
-          <TituloSeccion>Sumar pasos</TituloSeccion>
+          <TituloSeccion>{t("casos.pasos.sumarPasos")}</TituloSeccion>
           <p className="-mt-2 mb-4 text-apoyo text-tinta-suave">
-            Cargá uno por cada cosa que haya que hacer. El formulario queda abierto
-            para el siguiente.
+            {t("casos.pasos.sumarPasosApoyo")}
           </p>
 
           {/* Lo que se encontró, acá al lado mientras se escribe. De un
@@ -363,31 +362,31 @@ export default function AprobarPasos() {
             <div className="mb-6 rounded-campo border-l-4 border-borde-fuerte bg-superficie p-4">
               <p className="flex items-center gap-2 font-bold text-etiqueta text-tinta-media">
                 <Icono nombre="diagnostico" className="size-5" />
-                Lo que encontraste
+                {t("casos.pasos.loQueEncontraste")}
               </p>
               <p className="mt-1 max-w-[65ch] text-tinta-media">{caso.diagnostico}</p>
             </div>
           )}
           <Campo
             id="paso-nombre"
-            etiqueta="Qué hay que hacer"
-            ayuda={`Con las palabras del cliente. Ejemplo: ${ejemplosDe(negocio?.rubro).paso}.`}
+            etiqueta={t("casos.pasos.queHayQueHacer")}
+            ayuda={t("casos.pasos.queHayQueHacerAyuda", { ejemplo: ejemplosDe(negocio?.rubro, idioma).paso })}
             autoComplete="off"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
           />
           <Campo
             id="paso-descripcion"
-            etiqueta="Por qué conviene"
-            ayuda="Opcional. Lo que le explicarías al cliente si preguntara."
+            etiqueta={t("casos.pasos.porQueConviene")}
+            ayuda={t("casos.pasos.porQueConvieneAyuda")}
             autoComplete="off"
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
           />
           <Campo
             id="paso-monto"
-            etiqueta="Cuánto sale"
-            ayuda="Sólo números, sin puntos."
+            etiqueta={t("casos.pasos.cuantoSale")}
+            ayuda={t("casos.pasos.cuantoSaleAyuda")}
             error={errorMonto}
             ejemplo="120000"
             inputMode="numeric"
@@ -403,20 +402,20 @@ export default function AprobarPasos() {
               borra: sólo tira lo que se estaba escribiendo. */}
           <div className="flex flex-wrap gap-3">
             <Boton variante="principal" icono="check" motivo={motivoPaso} onClick={sumarPaso}>
-              Sumar el paso
+              {t("casos.pasos.sumarElPaso")}
             </Boton>
             <Boton variante="plano" onClick={cancelarPasos}>
-              Cancelar
+              {t("casos.comun.cancelar")}
             </Boton>
           </div>
         </Tarjeta>
       )}
 
       {mios.length === 0 ? (
-        <Vacio icono="nota" titulo="Todavía no hay pasos">
+        <Vacio icono="nota" titulo={t("casos.pasos.todaviaNoHay")}>
           {sePuedeArmar
-            ? "Armá el presupuesto sumando un paso por cada cosa que haya que hacer. El cliente los aprueba de a uno."
-            : "Cuando se arme el presupuesto, los pasos aparecen acá."}
+            ? t("casos.pasos.armaElPresupuesto")
+            : t("casos.pasos.cuandoSeArme")}
         </Vacio>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -428,7 +427,7 @@ export default function AprobarPasos() {
                   <div className="flex items-start justify-between gap-4">
                     <h3 className="font-cuerpo font-bold text-cuerpo">{paso.nombre}</h3>
                     <span className="font-titulo font-extrabold text-subtitulo tabular-nums">
-                      {pesos(paso.monto)}
+                      {pesos(paso.monto, locale)}
                     </span>
                   </div>
                   {paso.descripcion && (
@@ -437,23 +436,22 @@ export default function AprobarPasos() {
 
                   <p className={`mt-3 flex items-center gap-2 font-bold text-etiqueta ${dicho.color}`}>
                     <Icono nombre={dicho.icono} className="size-5" />
-                    {dicho.texto}
+                    {t(`casos.pasos.dicho.${paso.estado}`)}
                   </p>
 
                   {paso.estado === "aprobado" ? (
                     <p className="mt-1 text-apoyo text-tinta-suave">
-                      Es un acuerdo con el cliente: ya no se cambia ni se saca.
+                      {t("casos.pasos.esUnAcuerdo")}
                     </p>
                   ) : paso.estado === "esperando" ? (
                     <>
                       {!sePuedeResponder ? null : aprobando === paso.id ? (
                         <div className="mt-3 rounded-tarjeta bg-superficie p-4">
                           <p className="font-bold text-cuerpo">
-                            ¿El cliente aprueba «{paso.nombre}» por {pesos(paso.monto)}?
+                            {t("casos.pasos.apruebaPregunta", { nombre: paso.nombre, monto: pesos(paso.monto, locale) })}
                           </p>
                           <p className="mt-1 text-tinta-media">
-                            Después no se puede volver atrás, ni cambiar el monto, ni
-                            sacarlo del presupuesto.
+                            {t("casos.pasos.noSePuedeVolver")}
                           </p>
                           {/* Esto se carga desde el mostrador, en nombre del
                               cliente: el que aprueba no es el que está
@@ -463,10 +461,11 @@ export default function AprobarPasos() {
                           <p className="mt-3 flex items-start gap-2 rounded-campo bg-espera-fondo p-3 text-espera">
                             <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
                             <span>
-                              <span className="font-bold">Estás contestando por el cliente.</span>{" "}
-                              Asegurate de que {cliente?.nombre?.split(" ")[0] ?? "el cliente"} te
-                              haya dicho que sí: va a quedar registrado como que lo aprobó,
-                              y es un acuerdo por {pesos(paso.monto)}.
+                              <span className="font-bold">{t("casos.pasos.contestandoPor")}</span>{" "}
+                              {t("casos.pasos.contestandoPorTexto", {
+                                nombre: cliente?.nombre?.split(" ")[0] ?? t("casos.comun.elCliente"),
+                                monto: pesos(paso.monto, locale),
+                              })}
                             </span>
                           </p>
                           <div className="mt-4 flex flex-wrap gap-3">
@@ -476,15 +475,15 @@ export default function AprobarPasos() {
                               onClick={() => {
                                 responderPaso(paso.id, "aprobado");
                                 datos.avisarExito(
-                                  `Listo. «${paso.nombre}» quedó aprobado por ${pesos(paso.monto)}.`
+                                  t("casos.pasos.pasoAprobado", { nombre: paso.nombre, monto: pesos(paso.monto, locale) })
                                 );
                                 setAprobando(null);
                               }}
                             >
-                              Sí, lo aprueba
+                              {t("casos.pasos.siLoAprueba")}
                             </Boton>
                             <Boton variante="plano" onClick={() => setAprobando(null)}>
-                              Todavía no
+                              {t("casos.pasos.todaviaNo")}
                             </Boton>
                           </div>
                         </div>
@@ -499,7 +498,7 @@ export default function AprobarPasos() {
                               setAprobando(paso.id);
                             }}
                           >
-                            Lo aprueba
+                            {t("casos.pasos.loAprueba")}
                           </Boton>
                           {/* Neutro y no rojo: rechazar se puede deshacer. El
                               rojo queda para sacar un paso, que borra. */}
@@ -508,7 +507,7 @@ export default function AprobarPasos() {
                             className="min-h-13 flex-1"
                             onClick={() => responderPaso(paso.id, "rechazado")}
                           >
-                            No lo hace
+                            {t("casos.pasos.noLoHace")}
                           </Boton>
                         </div>
                       )}
@@ -518,11 +517,10 @@ export default function AprobarPasos() {
                       {aprobando === paso.id || !corrigiendo || !sePuedeArmar ? null : sacando === paso.id ? (
                         <div className="mt-3 rounded-tarjeta bg-superficie p-4">
                           <p className="font-bold text-cuerpo">
-                            ¿Sacar «{paso.nombre}» del presupuesto?
+                            {t("casos.pasos.sacarPregunta", { nombre: paso.nombre })}
                           </p>
                           <p className="mt-1 text-tinta-media">
-                            El total baja {pesos(paso.monto)}. El caso y los demás pasos
-                            quedan como están.
+                            {t("casos.pasos.sacarTexto", { monto: pesos(paso.monto, locale) })}
                           </p>
                           <div className="mt-4 flex flex-wrap gap-3">
                             <Boton
@@ -530,14 +528,14 @@ export default function AprobarPasos() {
                               icono="tacho"
                               onClick={() => {
                                 datos.eliminarPaso(paso.id);
-                                datos.avisarExito(`Listo. "${paso.nombre}" salió del presupuesto.`);
+                                datos.avisarExito(t("casos.pasos.pasoSacado", { nombre: paso.nombre }));
                                 setSacando(null);
                               }}
                             >
-                              Sacarlo
+                              {t("casos.pasos.sacarlo")}
                             </Boton>
                             <Boton variante="plano" onClick={() => setSacando(null)}>
-                              Dejarlo
+                              {t("casos.comun.dejarlo")}
                             </Boton>
                           </div>
                         </div>
@@ -548,7 +546,7 @@ export default function AprobarPasos() {
                             icono="tacho"
                             onClick={() => setSacando(paso.id)}
                           >
-                            Sacar del presupuesto
+                            {t("casos.pasos.sacarDelPresupuesto")}
                           </Boton>
                         </div>
                       )}
@@ -562,7 +560,7 @@ export default function AprobarPasos() {
                         icono="deshacer"
                         onClick={() => responderPaso(paso.id, "esperando")}
                       >
-                        Volver a esperar respuesta
+                        {t("casos.pasos.volverAEsperar")}
                       </Boton>
                     </div>
                   )}
@@ -584,12 +582,12 @@ export default function AprobarPasos() {
           className="sticky bottom-[calc(var(--alto-barra,4rem)+0.5rem)] z-10 mt-4 flex justify-between gap-4 rounded-tarjeta border border-borde bg-tarjeta px-4 py-3 shadow-lg md:hidden"
         >
           <p>
-            <span className="block text-apoyo text-tinta-media">Aprobado</span>
-            <span className="font-bold tabular-nums">{pesos(aprobado)}</span>
+            <span className="block text-apoyo text-tinta-media">{t("casos.pasos.aprobado")}</span>
+            <span className="font-bold tabular-nums">{pesos(aprobado, locale)}</span>
           </p>
           <p className="text-right text-espera">
-            <span className="block text-apoyo">Esperando respuesta</span>
-            <span className="font-bold tabular-nums">{pesos(esperando)}</span>
+            <span className="block text-apoyo">{t("casos.pasos.esperandoRespuesta")}</span>
+            <span className="font-bold tabular-nums">{pesos(esperando, locale)}</span>
           </p>
         </div>
       )}
@@ -599,17 +597,17 @@ export default function AprobarPasos() {
         <div className="mt-6 rounded-tarjeta border border-borde bg-superficie p-4 sm:p-6">
           <dl className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-4">
-              <dt>Aprobado hasta ahora</dt>
-              <dd className="font-bold tabular-nums">{pesos(aprobado)}</dd>
+              <dt>{t("casos.pasos.aprobadoHastaAhora")}</dt>
+              <dd className="font-bold tabular-nums">{pesos(aprobado, locale)}</dd>
             </div>
             <div className="flex items-baseline justify-between gap-4 text-espera">
-              <dt>Esperando respuesta</dt>
-              <dd className="font-bold tabular-nums">{pesos(esperando)}</dd>
+              <dt>{t("casos.pasos.esperandoRespuesta")}</dt>
+              <dd className="font-bold tabular-nums">{pesos(esperando, locale)}</dd>
             </div>
             <div className="mt-2 flex items-baseline justify-between gap-4 border-t border-borde pt-3">
-              <dt className="font-bold">Todo el caso</dt>
+              <dt className="font-bold">{t("casos.pasos.todoElCaso")}</dt>
               <dd className="font-titulo font-extrabold text-subtitulo tabular-nums">
-                {pesos(todo)}
+                {pesos(todo, locale)}
               </dd>
             </div>
           </dl>
@@ -649,6 +647,7 @@ export default function AprobarPasos() {
 // ni configuración: nadie va a usar esto si primero hay que preparar algo,
 // con el cliente esperando del otro lado del teléfono.
 function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbrir }) {
+  const { t } = useIdioma();
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState(null);
   const [cortando, setCortando] = useState(false);
@@ -663,13 +662,13 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
     setGenerando(true);
     const r = await datos.compartirCaso(caso.id);
     setGenerando(false);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) return setError(textoDeError(t, r.error));
 
     alAbrir(true);
     datos.avisarExito(
       r.quedaEsperando
-        ? "Listo. El link ya anda, y el caso quedó esperando la respuesta del cliente."
-        : "Listo. El link ya anda: copialo o mandalo por WhatsApp."
+        ? t("casos.pasos.linkListoEsperando")
+        : t("casos.pasos.linkListo")
     );
   }
 
@@ -677,22 +676,22 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
     setError(null);
     setCortando(false);
     const r = await datos.dejarDeCompartirCaso(caso.id);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) return setError(textoDeError(t, r.error));
     alAbrir(false);
-    datos.avisarExito("Listo. Ese link dejó de funcionar.");
+    datos.avisarExito(t("casos.pasos.linkCortado"));
   }
 
   async function copiar() {
     try {
       await navigator.clipboard.writeText(mensaje);
-      datos.avisarExito("Listo. Copiamos el mensaje: pegalo en la conversación con el cliente.");
+      datos.avisarExito(t("casos.pasos.mensajeCopiado"));
     } catch {
       // Sin permiso para el portapapeles queda marcado, que es lo que hace
       // falta para copiarlo a mano. Seleccionar varias líneas en un celular
       // era la parte más difícil de toda la tarea (auditoría, H7).
       const pre = document.getElementById("mensaje-cliente");
       if (pre) window.getSelection()?.selectAllChildren(pre);
-      datos.avisarExito("No pudimos copiarlo solos. Quedó marcado: copialo con el menú del teléfono.");
+      datos.avisarExito(t("casos.comun.noPudimosCopiar"));
     }
   }
 
@@ -701,16 +700,17 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
       <button
         type="button"
         onClick={mandar}
+        data-testid="pasos-mandar"
         className="mt-6 flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado"
       >
         <Icono nombre="chat" />
         {generando
-          ? "Armando el link…"
+          ? t("casos.pasos.armandoLink")
           : codigo
             ? abierto
-              ? "Cerrar"
-              : "Mandarle los pasos al cliente"
-            : "Mandarle los pasos al cliente"}
+              ? t("casos.comun.cerrar")
+              : t("casos.pasos.mandarPasos")
+            : t("casos.pasos.mandarPasos")}
       </button>
 
       {error && (
@@ -723,8 +723,8 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
         <div className="mt-3 rounded-tarjeta border border-borde bg-tarjeta p-4">
           <Campo
             id="link-seguimiento"
-            etiqueta="El link del cliente"
-            ayuda="Es el mismo siempre. Ve el estado del caso y puede aprobar o rechazar los pasos desde ahí."
+            etiqueta={t("casos.pasos.linkDelCliente")}
+            ayuda={t("casos.pasos.linkApoyo")}
             value={link}
             readOnly
             onFocus={(ev) => ev.target.select()}
@@ -732,7 +732,7 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
 
           <div className="-mt-2 flex flex-wrap gap-3">
             <Boton icono="copiar" onClick={copiar}>
-              Copiar el mensaje
+              {t("casos.pasos.copiarMensaje")}
             </Boton>
             {/* wa.me es un link común: abre WhatsApp con el mensaje ya
                 escrito, sin integración y sin servidor. Sin número, porque el
@@ -744,7 +744,7 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
               className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
             >
               <Icono nombre="chat" />
-              Mandarlo por WhatsApp
+              {t("casos.comun.mandarWhatsapp")}
             </a>
           </div>
 
@@ -755,12 +755,12 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
             />
             <span>
               {caso.seguimiento_visto_en
-                ? `Lo abrió por última vez ${cuantoHace(caso.seguimiento_visto_en)}.`
-                : "Todavía no lo abrió."}
+                ? t("casos.pasos.loAbrioUltima", { cuando: cuantoHace(caso.seguimiento_visto_en, t) })
+                : t("casos.pasos.todaviaNoLoAbrio")}
             </span>
           </p>
 
-          <p className="mt-4 font-bold">Esto es lo que le va a llegar</p>
+          <p className="mt-4 font-bold">{t("casos.comun.esteEsElMensaje")}</p>
           <pre
             id="mensaje-cliente"
             className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-campo bg-superficie p-4 font-cuerpo text-etiqueta text-tinta-media"
@@ -770,11 +770,11 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
 
           {cortando ? (
             <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-              <p className="font-bold text-cuerpo">¿Dejar de compartirlo?</p>
+              <p className="font-bold text-cuerpo">{t("casos.pasos.dejarDeCompartirPregunta")}</p>
               <p className="mt-1 max-w-[65ch] text-tinta-media">
-                El link que ya mandaste deja de funcionar ahora mismo, y{" "}
-                {cliente?.nombre?.split(" ")[0] ?? "el cliente"} va a ver que no sirve.
-                Podés armar uno nuevo cuando quieras.
+                {t("casos.pasos.dejarDeCompartirTexto", {
+                  nombre: cliente?.nombre?.split(" ")[0] ?? t("casos.comun.elCliente"),
+                })}
               </p>
               {/* Desde la landing el cliente ve sus casos abiertos, y la
                   base le arma un link nuevo al que no tenga: cortar este no
@@ -782,22 +782,22 @@ function MandarleElLink({ caso, cliente, datos, mensaje, origen, abierto, alAbri
                   Un caso terminado no está en la landing: ahí no se dice. */}
               {datos.negocio?.landing_codigo && estaAbierto(caso) && (
                 <p className="mt-2 max-w-[65ch] text-tinta-media">
-                  Si tu cliente entra por tu landing, va a seguir viendo este caso.
+                  {t("casos.pasos.landing")}
                 </p>
               )}
               <div className="mt-4 flex flex-wrap gap-3">
-                <Boton variante="peligro" icono="tacho" onClick={cortar}>
-                  Sí, dejar de compartirlo
+                <Boton variante="peligro" icono="tacho" onClick={cortar} data-testid="pasos-dejar-confirmar">
+                  {t("casos.pasos.siDejar")}
                 </Boton>
                 <Boton variante="plano" onClick={() => setCortando(false)}>
-                  Seguir compartiéndolo
+                  {t("casos.pasos.seguirCompartiendo")}
                 </Boton>
               </div>
             </div>
           ) : (
             <div className="mt-2">
-              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)}>
-                Dejar de compartirlo
+              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)} data-testid="pasos-dejar">
+                {t("casos.pasos.dejarDeCompartir")}
               </Boton>
             </div>
           )}

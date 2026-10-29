@@ -13,14 +13,23 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
-import { RUBROS, preset, ejemplosDe, comoSeIdentifica } from "@/lib/presets";
-import { LISTA_MODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
-import { DIAS, normalizarHorarios } from "@/lib/horarios";
+import { puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import {
+  RUBROS,
+  preset,
+  ejemplosDe,
+  comoSeIdentifica,
+  mayuscula,
+  vocabulario,
+} from "@/lib/presets";
+import { LISTA_MODULOS, estaPrendido, hijosActivos, traducirModulo } from "@/lib/modulos";
+import { DIAS, cortoDelDia, normalizarHorarios } from "@/lib/horarios";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
+import Frase from "@/componentes/Frase";
 import ConexionMercadoPago from "@/componentes/ConexionMercadoPago";
 import SedesVinculadas from "@/componentes/SedesVinculadas";
 import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
@@ -33,7 +42,8 @@ export default function MiNegocio() {
   const datos = useDatos();
   const { cargando, negocio, casos, clientes, insumos, turnos } = datos;
   const { usuario } = useAuth();
-  useTitulo("Mi negocio");
+  const { idioma, locale, t } = useIdioma();
+  useTitulo(t("negocio.titulo"));
 
   // Cambiar el rubro va en dos pasos: elegir y confirmar.
   const [cambiandoRubro, setCambiandoRubro] = useState(false);
@@ -88,20 +98,20 @@ export default function MiNegocio() {
   const errorTelefono = !tel.vacio && !tel.armado.ok ? tel.armado.mensaje : null;
 
   const motivoFicha = !borrador.nombre.trim()
-    ? "falta el nombre"
+    ? t("ui.validaciones.faltaNombre")
     : borrador.descripcion.length > LARGO_DESCRIPCION
-      ? "la descripción es muy larga"
+      ? t("negocio.ficha.descripcionMuyLarga")
       : errorTelefono
-        ? "el teléfono no es válido"
+        ? t("negocio.ficha.telefonoInvalido")
         : achicandoFoto
-          ? "achicando la foto"
+          ? t("negocio.ficha.achicando")
           : null;
 
   function guardarFicha() {
     datos.guardarNegocio({ ...borrador, telefono: tel.vacio ? "" : tel.telefono });
     setEditandoFicha(false);
     setMenuFoto(false);
-    datos.avisarExito("Listo, los datos de tu negocio quedaron guardados.");
+    datos.avisarExito(t("negocio.ficha.guardado"));
   }
 
   async function elegirFoto(e) {
@@ -110,7 +120,7 @@ export default function MiNegocio() {
     // no dispara este evento la segunda vez y parece que no anduvo.
     e.target.value = "";
 
-    const problema = revisarArchivo(archivo);
+    const problema = revisarArchivo(archivo, t);
     if (problema) return setErrorFoto(problema);
 
     setErrorFoto(null);
@@ -127,48 +137,56 @@ export default function MiNegocio() {
 
   if (cargando) return <Cargando />;
 
-  const actual = preset(negocio?.rubro);
+  const actual = preset(negocio?.rubro, idioma);
   const modulosActivos = negocio?.modulos_activos ?? [];
   // Configurar el negocio es del dueño, y la base también lo rechaza.
   const puedeConfigurar = puede(usuario, "configurar_negocio");
-  const prendidos = LISTA_MODULOS.filter((m) => estaPrendido(m.clave, modulosActivos));
-  const nuevo = rubroElegido ? preset(rubroElegido) : null;
+  const prendidos = LISTA_MODULOS.filter((m) => estaPrendido(m.clave, modulosActivos)).map((m) => traducirModulo(m, t));
+  const nuevo = rubroElegido ? preset(rubroElegido, idioma) : null;
   const horarios = normalizarHorarios(negocio?.horarios);
+  // "Insumos" se escribía a mano: en un taller esa palabra es "productos".
+  // Sale del preset del rubro, como en el resto de las pantallas.
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
 
   // Cómo nacen los nombres de los casos (SCRUM-119). Un negocio de antes de
   // esta opción no la tiene guardada: es "por número", como siempre fue.
-  const comoIdent = comoSeIdentifica(negocio?.rubro);
+  const comoIdent = comoSeIdentifica(negocio?.rubro, idioma);
   const nombrarCasos = negocio?.nombrar_casos ?? "numero";
   const opcionesDeNombre = [
-    ["numero", "Por número"],
-    ["cliente", "Por el nombre del cliente"],
-    ["identificador", `Por ${comoIdent.enFrase}`],
-    ["servicio", "Por lo que pidió"],
+    ["numero", t("negocio.nombres.numero")],
+    ["cliente", t("negocio.nombres.cliente")],
+    ["identificador", t("negocio.nombres.identificador", { identificador: comoIdent.enFrase })],
+    ["servicio", t("negocio.nombres.servicio")],
   ];
   // El número de ejemplo es el que de verdad le toca al próximo caso.
   const proximoNumero = Math.max(0, ...casos.map((c) => c.numero)) + 1;
   const resaltado = (texto) => <span className="font-bold text-tinta">{texto}</span>;
   const ejemploDeNombre = {
-    numero: <>Un caso nuevo se va a llamar {resaltado(`Caso ${proximoNumero}`)}.</>,
-    cliente: <>Un caso nuevo se va a llamar como su cliente.</>,
+    numero: (
+      <Frase
+        texto={t("negocio.nombres.ejNumero")}
+        partes={{ nombre: resaltado(t("casos.nombre.caso", { numero: proximoNumero })) }}
+      />
+    ),
+    cliente: t("negocio.nombres.ejCliente"),
     identificador: (
-      <>
-        Un caso nuevo se va a llamar como {comoIdent.enFrase}, por ejemplo{" "}
-        {resaltado(comoIdent.ejemplo)}.
-      </>
+      <Frase
+        texto={t("negocio.nombres.ejIdentificador", { identificador: comoIdent.enFrase })}
+        partes={{ ejemplo: resaltado(comoIdent.ejemplo) }}
+      />
     ),
     servicio: (
-      <>
-        Un caso nuevo se va a llamar como lo que pidió, por ejemplo{" "}
-        {resaltado(ejemplosDe(negocio?.rubro).servicio)}.
-      </>
+      <Frase
+        texto={t("negocio.nombres.ejServicio")}
+        partes={{ ejemplo: resaltado(ejemplosDe(negocio?.rubro, idioma).servicio) }}
+      />
     ),
   }[nombrarCasos];
 
   function elegirNombrarCasos(modo) {
     if (!puedeConfigurar || modo === nombrarCasos) return;
     datos.cambiarNombrarCasos(modo);
-    datos.avisarExito("Listo. Los casos que abras desde ahora van a nacer con ese nombre.");
+    datos.avisarExito(t("negocio.nombres.listo"));
   }
 
   function cerrarCambioDeRubro() {
@@ -185,15 +203,15 @@ export default function MiNegocio() {
 
   function confirmarRubro() {
     if (!datos.cambiarRubro(rubroElegido)) return;
-    datos.avisarExito(`Listo. Tu negocio ahora es ${nuevo.nombre.toLowerCase()}.`);
+    datos.avisarExito(t("negocio.rubro.listo", { rubro: nuevo.nombre.toLowerCase() }));
     cerrarCambioDeRubro();
   }
 
   return (
     <>
-      <h1 className="text-pantalla">Mi negocio</h1>
+      <h1 className="text-pantalla">{t("negocio.titulo")}</h1>
       <p className="mt-1 mb-6 max-w-[65ch] text-tinta-media">
-        Cómo se llaman las cosas en tu oficio, y qué tenés cargado hasta ahora.
+        {t("negocio.apoyo")}
       </p>
 
       <Tarjeta className="mb-12">
@@ -231,8 +249,9 @@ export default function MiNegocio() {
             {editandoFicha && (
               <button
                 type="button"
-                aria-label="Cambiar la foto del negocio"
+                aria-label={t("negocio.ficha.cambiarFoto")}
                 aria-expanded={menuFoto}
+                data-testid="negocio-foto-cambiar"
                 onClick={() => setMenuFoto((v) => !v)}
                 className="absolute -right-2 -bottom-2 flex size-9 cursor-pointer items-center justify-center rounded-full border-2 border-tarjeta bg-azul text-white hover:bg-azul-apretado"
               >
@@ -243,7 +262,7 @@ export default function MiNegocio() {
 
           <div className="mr-auto">
             {editandoFicha ? (
-              <p className="font-bold text-cuerpo">Los datos de tu negocio</p>
+              <p className="font-bold text-cuerpo">{t("negocio.ficha.datos")}</p>
             ) : (
               <>
                 <p className="font-titulo font-extrabold text-subtitulo">{negocio?.nombre}</p>
@@ -252,15 +271,15 @@ export default function MiNegocio() {
                   <p className="mt-1 max-w-[65ch] text-tinta-media">{negocio.descripcion}</p>
                 )}
                 {negocio?.telefono && (
-                  <p className="mt-1 text-tinta-media">Teléfono {telefonoLegible(negocio.telefono)}</p>
+                  <p className="mt-1 text-tinta-media">{t("negocio.ficha.telefono", { telefono: telefonoLegible(negocio.telefono) })}</p>
                 )}
               </>
             )}
           </div>
 
           {puedeConfigurar && !editandoFicha && (
-            <Boton icono="pincel" onClick={abrirEdicion}>
-              Editar
+            <Boton icono="pincel" onClick={abrirEdicion} data-testid="negocio-editar">
+              {t("negocio.ficha.editar")}
             </Boton>
           )}
         </div>
@@ -272,10 +291,10 @@ export default function MiNegocio() {
           <div className="mt-3 flex flex-wrap gap-2 border-l-2 border-borde pl-3">
             <Boton
               icono="tienda"
-              motivo={achicandoFoto ? "achicando la foto" : null}
+              motivo={achicandoFoto ? t("negocio.ficha.achicando") : null}
               onClick={() => inputFoto.current?.click()}
             >
-              Elegir foto
+              {t("negocio.ficha.elegirFoto")}
             </Boton>
             {borrador.foto && (
               <Boton
@@ -287,7 +306,7 @@ export default function MiNegocio() {
                   setMenuFoto(false);
                 }}
               >
-                Eliminar
+                {t("negocio.ficha.eliminarFoto")}
               </Boton>
             )}
           </div>
@@ -304,18 +323,18 @@ export default function MiNegocio() {
           <div className="mt-6 max-w-[560px]">
             <Campo
               id="negocio-nombre"
-              etiqueta="¿Cómo se llama tu negocio?"
-              ayuda="Como lo ven vos y tu equipo, arriba de la navegación."
+              etiqueta={t("negocio.ficha.nombre")}
+              ayuda={t("negocio.ficha.nombreAyuda")}
               value={borrador.nombre}
               onChange={(e) => setBorrador((b) => ({ ...b, nombre: e.target.value }))}
             />
             <Campo
               id="negocio-descripcion"
-              etiqueta="Una línea sobre el negocio"
-              ayuda={`Opcional. Lo que el rubro no dice. Ejemplo: ${ejemplosDe(negocio?.rubro).descripcion}.`}
+              etiqueta={t("negocio.ficha.descripcion")}
+              ayuda={t("negocio.ficha.descripcionAyuda", { ejemplo: ejemplosDe(negocio?.rubro, idioma).descripcion })}
               error={
                 borrador.descripcion.length > LARGO_DESCRIPCION
-                  ? `Son ${borrador.descripcion.length} caracteres y entran ${LARGO_DESCRIPCION}.`
+                  ? t("negocio.ficha.descripcionLarga", { n: borrador.descripcion.length, max: LARGO_DESCRIPCION })
                   : null
               }
               value={borrador.descripcion}
@@ -328,8 +347,8 @@ export default function MiNegocio() {
                 (SCRUM-68). */}
             <CampoTelefono
               id="negocio-telefono"
-              etiqueta="Teléfono del negocio"
-              ayuda="Opcional. Lo va a ver el cliente en el link de seguimiento, para poder preguntarte antes de aprobar algo."
+              etiqueta={t("negocio.ficha.telefonoEtiqueta")}
+              ayuda={t("negocio.ficha.telefonoAyuda")}
               paisPorDefecto={paisNegocio}
               error={errorTelefono}
               valor={tel.valor}
@@ -337,24 +356,28 @@ export default function MiNegocio() {
             />
 
             <div className="flex flex-wrap gap-3">
-              <Boton variante="principal" icono="check" motivo={motivoFicha} onClick={guardarFicha}>
-                Guardar
+              <Boton variante="principal" icono="check" motivo={motivoFicha} onClick={guardarFicha} data-testid="negocio-guardar">
+                {t("negocio.ficha.guardar")}
               </Boton>
               <Boton variante="plano" onClick={cancelarEdicion}>
-                Cancelar
+                {t("casos.comun.cancelar")}
               </Boton>
             </div>
           </div>
         )}
 
-        <dl className="mt-6 grid gap-4 @lg:grid-cols-4">
+        {/* Cuatro cifras cortas: en celular van de a dos, y desde que la
+            tarjeta es ancha (@lg) en una sola fila de cuatro. Apiladas una
+            por línea ocupaban media pantalla para decir muy poco. La línea de
+            arriba las separa de la ficha, para que no parezcan parte de ella. */}
+        <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-borde pt-5 @lg:grid-cols-4">
           {[
-            ["Casos", casos.length],
-            ["Clientes", clientes.length],
-            ["Insumos", insumos.length],
-            ["Turnos", turnos.length],
+            [t("negocio.ficha.casos"), casos.length],
+            [t("negocio.ficha.clientes"), clientes.length],
+            [mayuscula(articulo.palabra(2)), insumos.length],
+            [t("negocio.ficha.turnos"), turnos.length],
           ].map(([que, cuanto]) => (
-            <div key={que}>
+            <div key={que} className="min-w-0">
               <dt className="text-apoyo text-tinta-suave">{que}</dt>
               <dd className="font-titulo font-extrabold text-subtitulo tabular-nums">{cuanto}</dd>
             </div>
@@ -362,31 +385,28 @@ export default function MiNegocio() {
         </dl>
       </Tarjeta>
 
-      <TituloSeccion id="integraciones">Integraciones</TituloSeccion>
+      <TituloSeccion id="integraciones">{t("negocio.integraciones")}</TituloSeccion>
       {puede(usuario, "conectar_mercadopago") && <ConexionMercadoPago />}
       <VincularGoogleCalendar comoIntegracion />
 
       {/* La red de sedes (docs/red-de-sedes.md): con el submódulo prendido. */}
       {hijosActivos("inventario", modulosActivos).some((h) => h.clave === "sedes") && (
         <>
-          <TituloSeccion id="sedes">Sedes vinculadas</TituloSeccion>
+          <TituloSeccion id="sedes">{t("negocio.sedes")}</TituloSeccion>
           <SedesVinculadas />
         </>
       )}
 
-      <TituloSeccion id="estados">Cómo se llaman los estados en tu rubro</TituloSeccion>
+      <TituloSeccion id="estados">{t("negocio.estados")}</TituloSeccion>
       <ConfiguracionEstados puedeConfigurar={puedeConfigurar} />
 
       {/* Con qué nombre nace cada caso nuevo (SCRUM-119). Se guarda al
           tocar: sólo cambia los casos que se abran después, así que no hay
           nada que confirmar ni nada que se pierda. */}
-      <TituloSeccion id="nombres">Cómo se nombran los casos</TituloSeccion>
+      <TituloSeccion id="nombres">{t("negocio.nombres.titulo")}</TituloSeccion>
       <Tarjeta className="mb-12">
         <p className="max-w-[65ch] text-tinta-media">
-          Con qué nombre nace cada caso nuevo. Los que ya abriste no cambian: esos
-          se editan de a uno desde el caso. El número queda siempre, en chiquito
-          debajo del nombre, y el cliente no ve el nombre: en su link sigue viendo
-          el número.
+          {t("negocio.nombres.apoyo")}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {opcionesDeNombre.map(([clave, palabra]) => (
@@ -410,23 +430,28 @@ export default function MiNegocio() {
         </div>
         {ejemploDeNombre && <p className="mt-4 text-tinta-media">{ejemploDeNombre}</p>}
         {!puedeConfigurar && (
-          <p className="mt-2 text-apoyo text-tinta-suave">{QUIEN_PUEDE.configurar_negocio}</p>
+          <p className="mt-2 text-apoyo text-tinta-suave">{quienPuede("configurar_negocio", t)}</p>
         )}
       </Tarjeta>
 
-      <TituloSeccion id="modulos">Módulos</TituloSeccion>
+      <TituloSeccion id="modulos">{t("negocio.modulosResumen.titulo")}</TituloSeccion>
       <Tarjeta className="mb-12">
         <p className="text-tinta-media">
-          Tenés{" "}
-          <span className="font-bold text-tinta">
-            {prendidos.length} de {LISTA_MODULOS.length}
-          </span>{" "}
-          módulos prendidos.
+          <Frase
+            texto={t("negocio.modulosResumen.tenes")}
+            partes={{
+              cuantos: (
+                <span className="font-bold text-tinta">
+                  {prendidos.length} {t("negocio.modulosResumen.de")} {LISTA_MODULOS.length}
+                </span>
+              ),
+            }}
+          />
         </p>
         <p className="mt-1 max-w-[65ch] text-apoyo text-tinta-suave">
           {prendidos.length
             ? prendidos.map((m) => m.nombre).join(" · ")
-            : "Ninguno. Estás usando sólo Inicio, Casos, Clientes y Mi negocio."}
+            : t("negocio.modulosResumen.ninguno")}
         </p>
         <div className="mt-4">
           <Link
@@ -434,44 +459,63 @@ export default function MiNegocio() {
             className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
           >
             <Icono nombre="cajas" />
-            {puedeConfigurar ? "Ver y cambiar los módulos" : "Ver los módulos"}
+            {puedeConfigurar ? t("negocio.modulosResumen.verCambiar") : t("negocio.modulosResumen.ver")}
           </Link>
         </div>
       </Tarjeta>
 
       {/* La lista de roles la puede mirar cualquier miembro; sólo se edita con
           manejar_roles (docs/roles.md). */}
-      <TituloSeccion id="roles">Roles</TituloSeccion>
+      <TituloSeccion id="roles">{t("negocio.roles.titulo")}</TituloSeccion>
       <Tarjeta className="mb-12">
-        <p className="max-w-[65ch] text-tinta-media">Qué puede hacer cada persona del equipo.</p>
+        <p className="max-w-[65ch] text-tinta-media">{t("negocio.roles.apoyo")}</p>
         <div className="mt-4">
           <Link
             href="/negocio/roles"
             className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
           >
             <Icono nombre="llave" />
-            {puede(usuario, "manejar_roles") ? "Ver y manejar los roles" : "Ver los roles"}
+            {puede(usuario, "manejar_roles") ? t("negocio.roles.verManejar") : t("negocio.roles.ver")}
           </Link>
         </div>
       </Tarjeta>
+
+      {/* La copia de seguridad (docs/copia-de-seguridad.md): sólo con su permiso. */}
+      {puede(usuario, "copia_de_seguridad") && (
+        <>
+          <TituloSeccion id="copia-de-seguridad">{t("negocio.copias.titulo")}</TituloSeccion>
+          <Tarjeta className="mb-12">
+            <p className="max-w-[65ch] text-tinta-media">{t("negocio.copias.apoyo")}</p>
+            <div className="mt-4">
+              <Link
+                href="/negocio/copia-de-seguridad"
+                className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+              >
+                <Icono nombre="historial" />
+                {t("negocio.copias.ver")}
+              </Link>
+            </div>
+          </Tarjeta>
+        </>
+      )}
 
       {/* La landing la arma sólo el dueño: el resto del equipo no tiene nada
           que hacer en esa pantalla. */}
       {puedeConfigurar && (
         <>
-          <TituloSeccion id="landing">Tu landing</TituloSeccion>
+          <TituloSeccion id="landing">{t("negocio.landing.titulo")}</TituloSeccion>
           <Tarjeta className="mb-12">
             <p className="max-w-[65ch] text-tinta-media">
-              Elegí cómo se ve la página que van a ver tus clientes: el orden de las secciones,
-              los colores y la letra.
+              {t("negocio.landing.apoyo")}
             </p>
             <div className="mt-4">
               <Link
                 href="/negocio/landing"
+                data-testid="negocio-landing-armar"
                 className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
               >
                 <Icono nombre="pincel" />
-                Armar tu landing
+                {t("negocio.landing.armar")}
               </Link>
             </div>
           </Tarjeta>
@@ -483,31 +527,40 @@ export default function MiNegocio() {
           se usa. */}
       {estaPrendido("agenda", modulosActivos) && (
         <>
-          <TituloSeccion id="horarios">Cuándo atendés</TituloSeccion>
+          <TituloSeccion id="horarios">{t("negocio.horarios.titulo")}</TituloSeccion>
           <Tarjeta className="mb-12">
             {horarios ? (
               <>
                 <p className="text-tinta-media">
-                  Atendés{" "}
-                  <span className="font-bold text-tinta">
-                    {DIAS.filter((d) => horarios.dias.includes(d.clave))
-                      .map((d) => d.corto)
-                      .join(" · ") || "ningún día"}
-                  </span>
-                  , de {horarios.desde} a {horarios.hasta}
-                  {horarios.corte
-                    ? `, cortando de ${horarios.corte.desde} a ${horarios.corte.hasta}`
-                    : ""}
-                  .
+                  <Frase
+                    texto={
+                      horarios.corte
+                        ? t("negocio.horarios.atiendesConCorte", {
+                            desde: horarios.desde,
+                            hasta: horarios.hasta,
+                            corteDesde: horarios.corte.desde,
+                            corteHasta: horarios.corte.hasta,
+                          })
+                        : t("negocio.horarios.atiendes", { desde: horarios.desde, hasta: horarios.hasta })
+                    }
+                    partes={{
+                      dias: (
+                        <span className="font-bold text-tinta">
+                          {DIAS.filter((d) => horarios.dias.includes(d.clave))
+                            .map((d) => cortoDelDia(d.diaJs, locale))
+                            .join(" · ") || t("negocio.horarios.ningunDia")}
+                        </span>
+                      ),
+                    }}
+                  />
                 </p>
                 <p className="mt-1 max-w-[65ch] text-apoyo text-tinta-suave">
-                  Turnos de {horarios.minutos} minutos.
+                  {t("negocio.horarios.turnosDe", { minutos: horarios.minutos })}
                 </p>
               </>
             ) : (
               <p className="max-w-[65ch] text-tinta-media">
-                Todavía no configuraste tus horarios. Hasta que lo hagas, tus
-                clientes no pueden pedir turno solos.
+                {t("negocio.horarios.sinConfigurar")}
               </p>
             )}
             <div className="mt-4">
@@ -518,9 +571,9 @@ export default function MiNegocio() {
                 <Icono nombre="calendario" />
                 {puedeConfigurar
                   ? horarios
-                    ? "Ver y cambiar los horarios"
-                    : "Configurar los horarios"
-                  : "Ver los horarios"}
+                    ? t("negocio.horarios.verCambiar")
+                    : t("negocio.horarios.configurar")
+                  : t("negocio.horarios.ver")}
               </Link>
             </div>
           </Tarjeta>
@@ -530,51 +583,51 @@ export default function MiNegocio() {
       {/* Los mensajes que le llegan solos al cliente (R-4b): el de después
           de entregar y, con la agenda prendida, el de antes del turno. Se
           editan en su pantalla, como los horarios. */}
-      <TituloSeccion id="recordatorios">Recordatorios por WhatsApp</TituloSeccion>
+      <TituloSeccion id="recordatorios">{t("negocio.recordatorios.titulo")}</TituloSeccion>
       <ResumenRecordatorios puedeConfigurar={puede(usuario, "entregar_y_reabrir")} />
 
-      <TituloSeccion id="rubro">El rubro de tu negocio</TituloSeccion>
+      <TituloSeccion id="rubro">{t("negocio.rubro.titulo")}</TituloSeccion>
       <Tarjeta className="mb-12">
         {!cambiandoRubro ? (
           <>
             <p className="max-w-[65ch] text-tinta-media">
-              Tu negocio es <span className="font-bold text-tinta">{actual.nombre}</span>. El
-              rubro cambia cómo se llaman los estados y qué motivos te ofrecemos al abrir un
-              caso.
+              <Frase
+                texto={t("negocio.rubro.esTuNegocio")}
+                partes={{ rubro: <span className="font-bold text-tinta">{actual.nombre}</span> }}
+              />
             </p>
             {rubroFijo ? (
               <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
-                Queda fijo desde que abriste el primer caso: los casos que ya tenés
-                están cargados con las palabras de{" "}
-                {actual.nombre.toLowerCase()}, con {actual.identificador.enFrase} y
-                todo, y cambiarle el nombre al rubro no los convierte en otra cosa.
+                {t("negocio.rubro.fijo", { rubro: actual.nombre.toLowerCase(), identificador: actual.identificador.enFrase })}
               </p>
             ) : puedeConfigurar ? (
               <div className="mt-4">
-                <Boton icono="tienda" onClick={() => setCambiandoRubro(true)}>
-                  Cambiar el rubro
+                <Boton icono="tienda" onClick={() => setCambiandoRubro(true)} data-testid="negocio-rubro-cambiar">
+                  {t("negocio.rubro.cambiar")}
                 </Boton>
               </div>
             ) : (
               <p className="mt-2 text-apoyo text-tinta-suave">
-                {QUIEN_PUEDE.configurar_negocio}
+                {quienPuede("configurar_negocio", t)}
               </p>
             )}
           </>
         ) : (
           <>
             <p className="mb-4 max-w-[65ch] text-tinta-media">
-              Elegí el rubro nuevo. Te vamos a mostrar qué cambia antes de aplicarlo.
+              {t("negocio.rubro.elegir")}
             </p>
 
             <ul className="grid gap-3 @2xl:grid-cols-3">
-              {RUBROS.map((r) => {
+              {RUBROS.map((rubroEs) => {
+                const r = preset(rubroEs.clave, idioma);
                 const marcado = r.clave === (rubroElegido ?? negocio?.rubro);
                 return (
                   <li key={r.clave}>
                     <button
                       type="button"
                       aria-pressed={marcado}
+                      data-testid={`rubro-${r.clave}`}
                       onClick={() => setRubroElegido(r.clave)}
                       className={[
                         "h-full w-full cursor-pointer rounded-tarjeta border-2 p-4 text-left",
@@ -599,39 +652,44 @@ export default function MiNegocio() {
             {nuevo && nuevo.clave !== negocio?.rubro && (
               <div className="mt-6 rounded-tarjeta bg-superficie p-4">
                 <p className="font-bold text-subtitulo">
-                  ¿Cambiar el rubro a {nuevo.nombre.toLowerCase()}?
+                  {t("negocio.rubro.pregunta", { rubro: nuevo.nombre.toLowerCase() })}
                 </p>
 
-                <p className="mt-4 font-bold text-cuerpo">Qué cambia</p>
+                <p className="mt-4 font-bold text-cuerpo">{t("negocio.rubro.queCambia")}</p>
                 <ul className="mt-1 flex flex-col gap-1 text-tinta-media">
                   <li>
-                    Los cinco estados pasan a llamarse como en {nuevo.nombre.toLowerCase()}:
-                    «{actual.etiquetas.en_proceso}» pasa a decir «{nuevo.etiquetas.en_proceso}
-                    », «{actual.etiquetas.completado}» pasa a «{nuevo.etiquetas.completado}».
+                    {t("negocio.rubro.cambiaEstados", {
+                      rubro: nuevo.nombre.toLowerCase(),
+                      antesProceso: actual.etiquetas.en_proceso,
+                      ahoraProceso: nuevo.etiquetas.en_proceso,
+                      antesCompletado: actual.etiquetas.completado,
+                      ahoraCompletado: nuevo.etiquetas.completado,
+                    })}
                   </li>
                   <li>
-                    Con qué se identifica cada caso: «{actual.identificador.nombre}» pasa a
-                    ser «{nuevo.identificador.nombre}».
+                    {t("negocio.rubro.cambiaIdent", {
+                      antes: actual.identificador.nombre,
+                      ahora: nuevo.identificador.nombre,
+                    })}
                   </li>
-                  <li>Los motivos y los ejemplos que te ofrecemos al cargar algo.</li>
+                  <li>{t("negocio.rubro.cambiaMotivos")}</li>
                 </ul>
 
-                <p className="mt-4 font-bold text-cuerpo">Qué no cambia</p>
+                <p className="mt-4 font-bold text-cuerpo">{t("negocio.rubro.queNoCambia")}</p>
                 <ul className="mt-1 flex flex-col gap-1 text-tinta-media">
-                  <li>Los módulos que tenés prendidos.</li>
+                  <li>{t("negocio.rubro.noCambiaModulos")}</li>
                 </ul>
 
                 <p className="mt-4 max-w-[65ch] text-tinta-media">
-                  Se puede cambiar sólo hasta que abras el primer caso. Después queda
-                  fijo.
+                  {t("negocio.rubro.soloHasta")}
                 </p>
 
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <Boton icono="check" onClick={confirmarRubro}>
-                    Cambiar el rubro
+                  <Boton icono="check" onClick={confirmarRubro} data-testid="negocio-rubro-confirmar">
+                    {t("negocio.rubro.cambiar")}
                   </Boton>
                   <Boton variante="plano" onClick={cerrarCambioDeRubro}>
-                    Dejarlo como está
+                    {t("negocio.rubro.dejarlo")}
                   </Boton>
                 </div>
               </div>
@@ -640,7 +698,7 @@ export default function MiNegocio() {
             {(!nuevo || nuevo.clave === negocio?.rubro) && (
               <div className="mt-6">
                 <Boton variante="plano" onClick={cerrarCambioDeRubro}>
-                  Dejarlo como está
+                  {t("negocio.rubro.dejarlo")}
                 </Boton>
               </div>
             )}

@@ -14,7 +14,8 @@
     "test:unit": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js --verbose",
     "test:watch": "node --no-warnings --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js --verbose --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "test:e2e": "start-server-and-test dev http://localhost:3000 \"wdio run ./wdio.conf.js\""
+    "test:e2e": "start-server-and-test dev http://localhost:3000 \"wdio run ./wdio.conf.js\"",
+    "test:e2e:local": "node pruebas/e2e/local/correr.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

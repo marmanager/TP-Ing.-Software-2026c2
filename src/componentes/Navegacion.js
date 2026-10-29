@@ -31,62 +31,65 @@
 // "Mi negocio" (SCRUM-38). El resto —Inicio, Casos y Mi negocio— es núcleo y
 // está siempre.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Icono from "./Icono";
+import DesplegableVistaMaestra from "./DesplegableVistaMaestra";
 import { useAuth } from "@/lib/auth";
+import { textoDeError } from "@/lib/idioma";
+import { ErrorGeneral } from "./ui";
 import { puede } from "@/lib/permisos";
 import { useDatos } from "@/lib/datos";
-import { estaPrendido, hijosActivos } from "@/lib/modulos";
+import { estaPrendido, hijosActivos, palabraDeBarra } from "@/lib/modulos";
+import { useIdioma } from "@/lib/useIdioma";
 
 const DESTINOS = [
-  { href: "/", icono: "sol", palabra: "Inicio", celular: true },
-  { href: "/casos", icono: "carpeta", palabra: "Casos", celular: true },
+  { href: "/", icono: "sol", id: "inicio", celular: true },
+  { href: "/casos", icono: "carpeta", id: "casos", celular: true },
   {
     href: "/agenda",
     icono: "calendario",
-    palabra: "Agenda",
     celular: true,
     modulo: "agenda",
     // La Agenda tiene pantallas adentro: la lista de turnos y el calendario
     // del mes. Cada una se prende por su cuenta desde "Mi negocio", así que
     // las dos pueden no estar. El Inventario, más abajo, igual.
     hijos: [
-      { href: "/agenda", icono: "reloj", palabra: "Turnos", modulo: "turnos" },
-      { href: "/agenda/calendario", icono: "calendario", palabra: "Calendario", modulo: "calendario" },
+      { href: "/agenda", icono: "reloj", modulo: "turnos" },
+      { href: "/agenda/calendario", icono: "calendario", modulo: "calendario" },
     ],
   },
   // Clientes e Historial eran núcleo y pasaron a módulo (SCRUM-122 y 120).
   // Vienen prendidos de fábrica: ver estaPrendido() en lib/modulos.js.
-  { href: "/clientes", icono: "persona", palabra: "Clientes", modulo: "clientes" },
+  { href: "/clientes", icono: "persona", modulo: "clientes" },
   {
     href: "/inventario",
     icono: "cajas",
-    palabra: "Inventario",
     modulo: "inventario",
     // Igual que la Agenda: lo que hay y lo que viene (SCRUM-113). Si el
     // negocio apagó "En stock", tocar Inventario lleva a "En camino".
     hijos: [
-      { href: "/inventario", icono: "cajas", palabra: "En stock", modulo: "stock" },
-      { href: "/inventario/en-camino", icono: "camion", palabra: "En camino", modulo: "en_camino" },
-      { href: "/inventario/sedes", icono: "tienda", palabra: "Todas las sedes", modulo: "sedes" },
+      { href: "/inventario", icono: "cajas", modulo: "stock" },
+      { href: "/inventario/en-camino", icono: "camion", modulo: "en_camino" },
+      { href: "/inventario/sedes", icono: "tienda", modulo: "sedes" },
     ],
   },
-  { href: "/ecuaciones", icono: "nota", palabra: "Ecuaciones", modulo: "ecuaciones" },
-  { href: "/aprobar", icono: "persona-check", palabra: "Pendientes de aprobación", modulo: "presupuesto" },
+  { href: "/ecuaciones", icono: "nota", modulo: "ecuaciones" },
+  { href: "/lienzo", icono: "pincel", modulo: "lienzo" },
+  { href: "/aprobar", icono: "persona-check", modulo: "presupuesto" },
   // Lo que los clientes contestaron por WhatsApp y no resolvió nada solo
   // (R-10b). Núcleo: cualquier aviso puede tener respuesta.
-  { href: "/respuestas", icono: "chat", palabra: "Respuestas por WhatsApp" },
-  { href: "/equipo", icono: "personas", palabra: "Equipo", modulo: "equipo" },
-  { href: "/historial", icono: "historial", palabra: "Historial", modulo: "historial" },
-  { href: "/dashboard", icono: "grafico", palabra: "Estadísticas", modulo: "dashboard", permiso: "ver_todos_los_casos" },
+  { href: "/respuestas", icono: "chat", id: "respuestas" },
+  { href: "/equipo", icono: "personas", modulo: "equipo" },
+  { href: "/historial", icono: "historial", modulo: "historial" },
+  { href: "/dashboard", icono: "grafico", modulo: "dashboard", permiso: "ver_todos_los_casos" },
   // "alPie": van separados, abajo de todo. Son la configuración, no el
   // trabajo del día.
-  { href: "/negocio", icono: "tienda", palabra: "Mi negocio", alPie: true },
+  { href: "/negocio", icono: "tienda", id: "negocio", alPie: true },
   // Lo de la persona, aparte de lo del negocio (SCRUM-118): sus datos, su
   // foto, su contraseña y el negocio en el que está.
-  { href: "/perfil", icono: "cuenta", palabra: "Mi perfil", alPie: true },
+  { href: "/perfil", icono: "cuenta", id: "perfil", alPie: true },
 ];
 
 // Las dos partes de la lista: lo del trabajo, arriba, y lo de "alPie".
@@ -142,6 +145,7 @@ const paraCelular = (destinos, negocio, quien) => {
 // La lista de secciones con ícono y palabra. La usan la barra lateral y el
 // panel de "Más", así las dos muestran lo mismo en el mismo orden.
 function ListaDeSecciones({ destinos, ruta, grande = false }) {
+  const { t } = useIdioma();
   return (
     <ul className="flex flex-col gap-1">
       {destinos.map((d) => {
@@ -160,7 +164,7 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
               ].join(" ")}
             >
               <Icono nombre={d.icono} className="size-7" />
-              {d.palabra}
+              {palabraDeBarra(d.modulo ?? d.id, t)}
             </Link>
           </li>
         );
@@ -169,15 +173,118 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
   );
 }
 
+// En vista maestra "Mi negocio" no va (se mira, no se configura) y al pie hay
+// "Salir de vista", que hace una llamada: por eso es un botón y no un Link.
+const sinNegocio = (destinos) => destinos.filter((d) => d.id !== "negocio");
+
+function usarSalida() {
+  const router = useRouter();
+  const { t } = useIdioma();
+  const { salirDeVistaMaestra } = useAuth();
+  const [saliendo, setSaliendo] = useState(false);
+  const [errorAlSalir, setErrorAlSalir] = useState(null);
+  async function salir() {
+    setSaliendo(true);
+    setErrorAlSalir(null);
+    const r = await salirDeVistaMaestra();
+    setSaliendo(false);
+    if (r.ok) router.replace(r.negocioId ? "/" : "/negocios");
+    else setErrorAlSalir(textoDeError(t, r.error));
+  }
+  return [salir, saliendo, errorAlSalir];
+}
+
+function BotonSalirDeVista({ salir, saliendo, errorAlSalir, grande = false }) {
+  const { t } = useIdioma();
+  return (
+    <>
+      {errorAlSalir && <div className="mt-2 px-3"><ErrorGeneral>{errorAlSalir}</ErrorGeneral></div>}
+    <button
+      type="button"
+      onClick={salir}
+      disabled={saliendo}
+      className={`mt-1 flex w-full cursor-pointer items-center gap-3 rounded-campo px-3 text-cuerpo text-tinta-media hover:bg-superficie ${grande ? "min-h-14" : "min-h-12"}`}
+    >
+      <Icono nombre="salir" className="size-7" />
+      {t("vistaMaestra.salir")}
+    </button>
+    </>
+  );
+}
+
+// Foto + nombre de hoy, o el ojo y "Vista maestra" con la flechita del
+// desplegable cuando se está en ella. "extra" es el botón de cerrar la barra.
+function Encabezado({ negocio, enVista, extra }) {
+  const { t } = useIdioma();
+  const [abierto, setAbierto] = useState(false);
+  // La barra y el panel "Más" están los dos en el DOM: ids propios de cada uno.
+  const idDesplegable = useId();
+  if (!enVista) {
+    return (
+      <div className="mb-6 flex items-center gap-3 pl-3">
+        {/* La foto va sin texto alternativo a propósito: el nombre del
+            negocio está al lado, y describirla otra vez haría que un lector
+            de pantalla lo diga dos veces seguidas. */}
+        {negocio?.foto ? (
+          <img src={negocio.foto} alt="" className="size-11 shrink-0 rounded-campo object-cover" />
+        ) : (
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
+            <Icono nombre="tienda" />
+          </span>
+        )}
+        <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
+          {negocio?.nombre ?? t("negocio.titulo")}
+        </span>
+        {extra}
+      </div>
+    );
+  }
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-3 pl-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-espera text-white">
+          <Icono nombre="ojo" />
+        </span>
+        <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
+          {t("vistaMaestra.titulo")}
+        </span>
+        <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} controla={idDesplegable} />
+        {extra}
+      </div>
+      {abierto && <DesplegableVistaMaestra id={idDesplegable} />}
+    </div>
+  );
+}
+
+function FlechitaDelDesplegable({ abierto, alTocar, controla }) {
+  const { t } = useIdioma();
+  return (
+    <button
+      type="button"
+      onClick={alTocar}
+      aria-expanded={abierto}
+      aria-controls={controla}
+      aria-label={t("vistaMaestra.desplegable.abrir")}
+      title={t("vistaMaestra.desplegable.abrir")}
+      className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
+    >
+      <Icono nombre={abierto ? "flecha-arriba" : "flecha-abajo"} />
+    </button>
+  );
+}
+
 // Si la barra está cerrada, en este navegador. Es una comodidad de cada
 // persona en su computadora, no algo del negocio: no va a la base.
 const LLAVE_BARRA = "marmanager.barra-cerrada";
 
 export function BarraLateral() {
+  const { t } = useIdioma();
   const ruta = usePathname();
   const { negocio } = useDatos();
   const { usuario } = useAuth();
+  const enVista = Boolean(usuario?.vista_maestra_desde);
   const [arriba, alPie] = partir(conModulo(DESTINOS, negocio, usuario));
+  const [salir, saliendo, errorAlSalir] = usarSalida();
   const [cerrada, setCerrada] = useState(false);
   const boton = useRef(null);
   const recienTocado = useRef(false);
@@ -218,8 +325,8 @@ export function BarraLateral() {
       ref={boton}
       type="button"
       onClick={() => cambiar(!cerrada)}
-      aria-label={cerrada ? "Abrir el menú" : "Cerrar el menú"}
-      title={cerrada ? "Abrir el menú" : "Cerrar el menú"}
+      aria-label={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
+      title={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
       aria-expanded={!cerrada}
       className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
     >
@@ -238,36 +345,18 @@ export function BarraLateral() {
   }
 
   return (
-    <nav aria-label="Secciones" className="hidden w-64 shrink-0 border-r border-borde bg-fondo md:block">
+    <nav aria-label={t("navegacion.secciones")} className="hidden w-64 shrink-0 border-r border-borde bg-fondo md:block">
       {/* Del alto de la pantalla y quieta mientras la página se mueve, así el
           pie queda siempre abajo. Si las secciones no entran, se mueve sólo
           la lista de arriba y el pie no se tapa. */}
       <div className="sticky top-0 flex h-dvh flex-col p-4">
-        <div className="mb-6 flex items-center gap-3 pl-3">
-          {/* La foto va sin texto alternativo a propósito: el nombre del
-              negocio está al lado, y describirla otra vez haría que un lector
-              de pantalla lo diga dos veces seguidas. */}
-          {negocio?.foto ? (
-            <img
-              src={negocio.foto}
-              alt=""
-              className="size-11 shrink-0 rounded-campo object-cover"
-            />
-          ) : (
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
-              <Icono nombre="tienda" />
-            </span>
-          )}
-          <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
-            {negocio?.nombre ?? "Mi negocio"}
-          </span>
-          {botonDeBarra}
-        </div>
+        <Encabezado negocio={negocio} enVista={enVista} extra={botonDeBarra} />
         <div className="min-h-0 flex-1 overflow-y-auto">
           <ListaDeSecciones destinos={arriba} ruta={ruta} />
         </div>
         <div className="mt-4 border-t border-borde pt-4">
-          <ListaDeSecciones destinos={alPie} ruta={ruta} />
+          <ListaDeSecciones destinos={enVista ? sinNegocio(alPie) : alPie} ruta={ruta} />
+          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} errorAlSalir={errorAlSalir} />}
         </div>
       </div>
     </nav>
@@ -305,11 +394,14 @@ const CLASE_DESTINO =
   "[@media(max-height:480px)]:gap-2";
 
 export function BarraCelular() {
+  const { t } = useIdioma();
   const ruta = usePathname();
   const { negocio } = useDatos();
   const { usuario } = useAuth();
-  const directos = paraCelular(DESTINOS, negocio, usuario);
-  const todos = conModulo(DESTINOS, negocio, usuario);
+  const enVista = Boolean(usuario?.vista_maestra_desde);
+  const destinos = enVista ? sinNegocio(DESTINOS) : DESTINOS;
+  const directos = paraCelular(destinos, negocio, usuario);
+  const todos = conModulo(destinos, negocio, usuario);
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
   const botonMas = useRef(null);
@@ -337,7 +429,7 @@ export function BarraCelular() {
     <>
       <nav
         ref={ref}
-        aria-label="Secciones principales"
+        aria-label={t("navegacion.seccionesPrincipales")}
         className="fixed inset-x-0 bottom-0 z-20 border-t border-borde bg-tarjeta md:hidden"
       >
         <ul className="mx-auto flex max-w-lg">
@@ -351,7 +443,7 @@ export function BarraCelular() {
                   className={[CLASE_DESTINO, acá ? "font-bold text-azul" : "text-tinta-media"].join(" ")}
                 >
                   <Icono nombre={d.icono} className="size-7" />
-                  {d.palabra}
+                  {palabraDeBarra(d.modulo ?? d.id, t)}
                 </Link>
               </li>
             );
@@ -370,7 +462,7 @@ export function BarraCelular() {
               ].join(" ")}
             >
               <Icono nombre="secciones" className="size-7" />
-              Más
+              {t("navegacion.mas")}
             </button>
           </li>
         </ul>
@@ -381,6 +473,7 @@ export function BarraCelular() {
           destinos={todos}
           ruta={ruta}
           negocio={negocio}
+          enVista={enVista}
           alCerrar={cerrarPanel}
         />
       )}
@@ -391,7 +484,11 @@ export function BarraCelular() {
 // El panel de "Más": todas las secciones, a pantalla completa, como la barra
 // lateral de la computadora. Se cierra con "Cerrar", con Escape o eligiendo
 // una sección. Mientras está abierto, la página de atrás no se mueve.
-function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
+function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
+  const { t } = useIdioma();
+  const [salir, saliendo, errorAlSalir] = usarSalida();
+  const [abierto, setAbierto] = useState(false);
+  const idDesplegable = useId();
   const cerrar = useRef(null);
 
   useEffect(() => {
@@ -419,7 +516,11 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
     >
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          {negocio?.foto ? (
+          {enVista ? (
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-espera text-white">
+              <Icono nombre="ojo" />
+            </span>
+          ) : negocio?.foto ? (
             <img
               src={negocio.foto}
               alt=""
@@ -432,10 +533,13 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
           )}
           <div className="min-w-0">
             <h2 id="panel-secciones-titulo" className="text-seccion">
-              Todas las secciones
+              {t("navegacion.todasLasSecciones")}
             </h2>
-            <p className="truncate text-apoyo text-tinta-suave">{negocio?.nombre}</p>
+            <p className="truncate text-apoyo text-tinta-suave">
+              {enVista ? t("vistaMaestra.titulo") : negocio?.nombre}
+            </p>
           </div>
+          {enVista && <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} controla={idDesplegable} />}
         </div>
         <button
           ref={cerrar}
@@ -444,15 +548,21 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
           className="flex min-h-12 shrink-0 cursor-pointer items-center gap-2 rounded-campo px-3 font-bold text-azul hover:bg-azul-claro"
         >
           <Icono nombre="cruz" />
-          Cerrar
+          {t("navegacion.cerrar")}
         </button>
       </div>
       {/* Partida igual que la barra de la computadora: Mi negocio y Mi
           perfil en un grupo aparte, al final. */}
-      <nav aria-label="Todas las secciones">
+      {enVista && abierto && (
+        <div className="mb-6">
+          <DesplegableVistaMaestra id={idDesplegable} />
+        </div>
+      )}
+      <nav aria-label={t("navegacion.todasLasSecciones")}>
         <ListaDeSecciones destinos={partir(destinos)[0]} ruta={ruta} grande />
         <div className="mt-4 border-t border-borde pt-4">
           <ListaDeSecciones destinos={partir(destinos)[1]} ruta={ruta} grande />
+          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} errorAlSalir={errorAlSalir} grande />}
         </div>
       </nav>
     </div>

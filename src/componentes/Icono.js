@@ -254,6 +254,23 @@ const TRAZOS = {
       <path d="M9.4 11.3 5.9 14.8a4.2 4.2 0 0 0-1.2 2.4c-.1.9-.7 1.5-1.6 1.9 1.2 1 2.7 1.6 4.3 1.6a4.6 4.6 0 0 0 4.6-4.6c0-.5.2-1 .5-1.4z" />
     </>
   ),
+  // Las herramientas del Lienzo: botones sólo de ícono, con aria-label y title.
+  // Una forma se reconoce mejor dibujada que escrita.
+  lapiz: (
+    <>
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5 3 20l1.5-4.5z" />
+      <path d="M14.5 5.5l3 3" />
+    </>
+  ),
+  linea: <path d="M5 19L19 5" />,
+  rectangulo: <rect x="4" y="6" width="16" height="12" rx="1" />,
+  borrador: (
+    <>
+      <path d="M8 20h12" />
+      <path d="M5.2 14.8 14.8 5.2a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L11 17H8z" />
+      <path d="M8.5 11.5l4 4" />
+    </>
+  ),
 };
 
 export default function Icono({ nombre, className = "size-6" }) {

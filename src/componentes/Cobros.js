@@ -19,7 +19,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  MEDIOS,
   MEDIOS_DEL_LOCAL,
   MEDIOS_EN_LINEA,
   hayPagosEnCamino,
@@ -27,52 +26,61 @@ import {
   montoParaPedir,
   cuentaDelCaso,
   estadoDeCobro,
-  medioDe,
   montoDeCobroValido,
   montoSugerido,
+  palabraDelCobro,
+  palabraDelMedio,
   sePuedeAnular,
 } from "@/lib/cobros";
 import { pesos } from "@/lib/estados";
 import { cuando } from "@/lib/fechas";
+import { textoDeError } from "@/lib/idioma";
+import { useIdioma } from "@/lib/useIdioma";
+import { motivoDePagos } from "@/lib/pagos";
+import { conElementos } from "@/lib/conElementos";
 import { linkDeWhatsApp, linkDeWhatsAppA } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Tarjeta, TituloSeccion } from "@/componentes/ui";
 
 // La cuenta en una frase, según cómo esté. Es lo primero que se lee: el
 // número suelto no dice si está bien o si falta algo.
-export function fraseDeLaCuenta(cuenta) {
+//
+// `t` y `locale` son los de quien mira (useIdioma): la plata sigue en pesos y
+// sólo cambia cómo se escribe.
+export function fraseDeLaCuenta(cuenta, t, locale) {
+  const p = (n) => pesos(n, locale);
   switch (cuenta.situacion) {
     case "sin_cobrar":
       return cuenta.total > 0
-        ? { texto: `Todavía no se cobró nada. Falta ${pesos(cuenta.falta)}.`, icono: "reloj", color: "text-espera" }
-        : { texto: "Todavía no se cobró nada.", icono: "reloj", color: "text-tinta-media" };
+        ? { texto: t("casos.cobros.frase.sinCobrarFalta", { falta: p(cuenta.falta) }), icono: "reloj", color: "text-espera" }
+        : { texto: t("casos.cobros.frase.sinCobrar"), icono: "reloj", color: "text-tinta-media" };
     case "parcial":
-      return { texto: `Falta cobrar ${pesos(cuenta.falta)}.`, icono: "reloj", color: "text-espera" };
+      return { texto: t("casos.cobros.frase.parcial", { falta: p(cuenta.falta) }), icono: "reloj", color: "text-espera" };
     case "esperando_pagos":
       return {
-        texto: `Lo que falta ya se pidió: se espera un pago de ${pesos(cuenta.pendiente)}.`,
+        texto: t("casos.cobros.frase.esperandoPagos", { pendiente: p(cuenta.pendiente) }),
         icono: "reloj",
         color: "text-espera",
       };
     case "completo":
-      return { texto: "Está todo cobrado.", icono: "listo", color: "text-completo" };
+      return { texto: t("casos.cobros.frase.completo"), icono: "listo", color: "text-completo" };
     case "con_descuento":
       return cuenta.pagado > 0
         ? {
-            texto: `Está saldado: se cobraron ${pesos(cuenta.pagado)} y no se le cobran ${pesos(cuenta.descuento)}.`,
+            texto: t("casos.cobros.frase.conDescuento", { pagado: p(cuenta.pagado), descuento: p(cuenta.descuento) }),
             icono: "listo",
             color: "text-completo",
           }
-        : { texto: "No se le cobra: está saldado sin pagar nada.", icono: "listo", color: "text-completo" };
+        : { texto: t("casos.cobros.frase.saldado"), icono: "listo", color: "text-completo" };
     case "de_mas":
       return {
-        texto: `Está todo cobrado, y ${pesos(cuenta.deMas)} más de lo aprobado.`,
+        texto: t("casos.cobros.frase.deMas", { demas: p(cuenta.deMas) }),
         icono: "listo",
         color: "text-completo",
       };
     case "sin_presupuesto":
       return {
-        texto: "No hay pasos aprobados: lo cobrado no se compara con nada.",
+        texto: t("casos.cobros.frase.sinPresupuesto"),
         icono: "nota",
         color: "text-tinta-media",
       };
@@ -84,20 +92,21 @@ export function fraseDeLaCuenta(cuenta) {
 // Los números de la cuenta, uno al lado del otro. "Esperando el pago" y
 // "De más" aparecen sólo cuando hay.
 export function ResumenCuenta({ cuenta }) {
+  const { t, locale } = useIdioma();
   const cifras = [
-    { etiqueta: "Aprobado", valor: cuenta.total },
-    { etiqueta: "Cobrado", valor: cuenta.pagado },
-    cuenta.pendiente > 0 && { etiqueta: "Esperando el pago", valor: cuenta.pendiente },
-    cuenta.descuento > 0 && { etiqueta: "No se cobra", valor: cuenta.descuento },
-    { etiqueta: "Falta", valor: cuenta.falta },
+    { clave: "aprobado", valor: cuenta.total },
+    { clave: "cobrado", valor: cuenta.pagado },
+    cuenta.pendiente > 0 && { clave: "esperando", valor: cuenta.pendiente },
+    cuenta.descuento > 0 && { clave: "noSeCobra", valor: cuenta.descuento },
+    { clave: "falta", valor: cuenta.falta },
   ].filter(Boolean);
 
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
       {cifras.map((c) => (
-        <div key={c.etiqueta}>
-          <dt className="text-apoyo text-tinta-suave">{c.etiqueta}</dt>
-          <dd className="font-titulo font-extrabold text-subtitulo tabular-nums">{pesos(c.valor)}</dd>
+        <div key={c.clave}>
+          <dt className="text-apoyo text-tinta-suave">{t(`casos.cobros.cifras.${c.clave}`)}</dt>
+          <dd className="font-titulo font-extrabold text-subtitulo tabular-nums">{pesos(c.valor, locale)}</dd>
         </div>
       ))}
     </dl>
@@ -106,9 +115,10 @@ export function ResumenCuenta({ cuenta }) {
 
 // Cómo pagó: los tres medios del local, como botones que se eligen.
 export function ElegirMedio({ valor, alElegir }) {
+  const { t } = useIdioma();
   return (
     <fieldset>
-      <legend className="mb-2 font-bold text-cuerpo">¿Cómo te pagó?</legend>
+      <legend className="mb-2 font-bold text-cuerpo">{t("casos.cobros.comoPago")}</legend>
       <ul className="flex flex-wrap gap-2.5">
         {MEDIOS_DEL_LOCAL.map((clave) => {
           const puesto = clave === valor;
@@ -126,7 +136,7 @@ export function ElegirMedio({ valor, alElegir }) {
                 ].join(" ")}
               >
                 {puesto && <Icono nombre="listo" className="size-5" />}
-                {MEDIOS[clave].palabra}
+                {palabraDelMedio(clave, t)}
               </button>
             </li>
           );
@@ -151,6 +161,7 @@ export default function SeccionCobros({
   cliente = null,
   negocio = null,
 }) {
+  const { t, locale } = useIdioma();
   const [anotando, setAnotando] = useState(false);
   const [monto, setMonto] = useState("");
   const [medio, setMedio] = useState("efectivo");
@@ -178,7 +189,7 @@ export default function SeccionCobros({
   }, []);
 
   const cuenta = cuentaDelCaso({ aprobado, cobros, descuento });
-  const frase = fraseDeLaCuenta(cuenta);
+  const frase = fraseDeLaCuenta(cuenta, t, locale);
   const enLinea = datos.pagosEnLinea ?? { disponible: false, motivo: null };
   useEffect(() => {
     let vivo = true;
@@ -192,10 +203,10 @@ export default function SeccionCobros({
     setError(null);
     try {
       const r = await datos.conectarMercadoPago();
-      if (!r.ok) throw new Error(r.error);
+      if (!r.ok) return setError(textoDeError(t, r.error));
       window.sessionStorage.setItem("marmanager.mp-desde", caso.id);
       window.location.assign(r.url);
-    } catch (e) { setError(e.message); }
+    } catch { setError(t("errores.error_interno")); }
   }
 
   // Un pago por link entra del otro lado: el medio de pago le avisa a la API
@@ -210,7 +221,7 @@ export default function SeccionCobros({
       const r = await datos.refrescarCobros(caso.id);
       if (vivo && r?.pagados?.length) {
         const total = r.pagados.reduce((s, c) => s + Number(c.monto), 0);
-        datos.avisarExito(`Entró el pago de ${pesos(total)}.`);
+        datos.avisarExito(t("casos.cobros.entroPago", { monto: pesos(total, locale) }));
       }
     };
     const reloj = setInterval(mirar, CADA_CUANTO);
@@ -255,8 +266,11 @@ export default function SeccionCobros({
       nota: nota.trim() || null,
     });
     setGuardando(false);
-    if (!r.ok) return setError(r.error);
-    datos.avisarExito(`Listo. Anotamos ${pesos(Number(monto))} en ${medioDe(medio).palabra.toLowerCase()}.`);
+    if (!r.ok) return setError(textoDeError(t, r.error));
+    datos.avisarExito(t("casos.cobros.anotamos", {
+      monto: pesos(Number(monto), locale),
+      medio: palabraDelMedio(medio, t).toLowerCase(),
+    }));
     setAnotando(false);
   }
 
@@ -278,11 +292,11 @@ export default function SeccionCobros({
       medio: medioPedido,
     });
     setGuardando(false);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) return setError(textoDeError(t, r.error));
     datos.avisarExito(
       medioPedido === "qr"
-        ? "Listo. Mostrale el QR para que pague."
-        : "Listo. Mandale el link para que pague."
+        ? t("casos.cobros.mostraleQr")
+        : t("casos.cobros.mandaleLink")
     );
     setPidiendo(false);
     if (r.cobro?.id) {
@@ -292,31 +306,31 @@ export default function SeccionCobros({
 
   async function anular(cobro) {
     const r = await datos.anularCobro(cobro.id, motivo.trim() || null);
-    if (!r.ok) return setError(r.error);
-    datos.avisarExito(`Listo. Anulamos el cobro de ${pesos(Number(cobro.monto))}.`);
+    if (!r.ok) return setError(textoDeError(t, r.error));
+    datos.avisarExito(t("casos.cobros.anulamos", { monto: pesos(Number(cobro.monto), locale) }));
     setAnulando(null);
     setMotivo("");
   }
 
   return (
     <>
-      <div id="cobros" className="scroll-mt-6"><TituloSeccion className="mt-12">Cobros</TituloSeccion></div>
+      <div id="cobros" className="scroll-mt-6"><TituloSeccion className="mt-12">{t("casos.cobros.titulo")}</TituloSeccion></div>
       <Tarjeta>
         {vinculadoAhora && (
           <p role="status" className="mb-4 rounded-campo bg-completo-fondo p-3 font-bold text-completo">
-            Mercado Pago quedó vinculado. Ya podés pedir pagos por link o QR.
+            {t("casos.cobros.mercadoPagoVinculado")}
           </p>
         )}
         {soloElNumeroViejo ? (
           <p className="text-tinta-media">
             {Number(caso.cobrado) === 0 ? (
-              "Se entregó sin cobrar nada."
+              t("casos.cobros.entregadoSinCobrar")
             ) : (
-              <>
-                Cobrado <span className="font-bold text-tinta">{pesos(Number(caso.cobrado))}</span>
-              </>
+              conElementos(t("casos.cobros.cobradoMonto"), {
+                monto: <span className="font-bold text-tinta">{pesos(Number(caso.cobrado), locale)}</span>,
+              })
             )}
-            {caso.cobrado_en ? ` · ${cuando(caso.cobrado_en)}` : ""}
+            {caso.cobrado_en ? ` · ${cuando(caso.cobrado_en, locale, t)}` : ""}
           </p>
         ) : (
           <>
@@ -346,19 +360,19 @@ export default function SeccionCobros({
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                     <div className="min-w-0">
                       <p className={`font-bold text-cuerpo tabular-nums ${c.estado === "anulado" ? "text-tinta-suave line-through" : ""}`}>
-                        {pesos(Number(c.monto))}
+                        {pesos(Number(c.monto), locale)}
                       </p>
                       <p className="text-tinta-media">
-                        {medioDe(c.medio).palabra} · {cuando(c.pagado_en ?? c.creado_en)}
+                        {palabraDelMedio(c.medio, t)} · {cuando(c.pagado_en ?? c.creado_en, locale, t)}
                         {c.nota ? ` · ${c.nota}` : ""}
                       </p>
                       {c.estado === "anulado" && c.motivo_anulacion && (
-                        <p className="text-tinta-suave">Por qué se anuló: {c.motivo_anulacion}</p>
+                        <p className="text-tinta-suave">{t("casos.cobros.porQueSeAnulo", { motivo: c.motivo_anulacion })}</p>
                       )}
                     </div>
                     <p className={`flex items-center gap-1.5 font-bold ${e.texto.replace("line-through", "")}`}>
                       <Icono nombre={e.icono} className="size-5 shrink-0" />
-                      {e.palabra}
+                      {palabraDelCobro(c.estado, t)}
                     </p>
                   </div>
 
@@ -382,33 +396,32 @@ export default function SeccionCobros({
                           setError(null);
                         }}
                       >
-                        {c.estado === "pendiente" ? "Cancelar este pedido de pago" : "Anular este cobro"}
+                        {c.estado === "pendiente" ? t("casos.cobros.cancelarPedido") : t("casos.cobros.anularCobro")}
                       </Boton>
                     </div>
                   )}
 
                   {anulando === c.id && (
                     <div className="mt-3 rounded-tarjeta bg-superficie p-4">
-                      <p className="font-bold text-cuerpo">¿Anular el cobro de {pesos(Number(c.monto))}?</p>
+                      <p className="font-bold text-cuerpo">{t("casos.cobros.anularPregunta", { monto: pesos(Number(c.monto), locale) })}</p>
                       <p className="mt-1 max-w-[65ch] text-tinta-media">
-                        Deja de contar como cobrado, pero no se borra: queda en la lista
-                        como anulado, con tu nombre en el historial.
+                        {t("casos.cobros.anularTexto")}
                       </p>
                       <div className="mt-4">
                         <Campo
                           id={`motivo-${c.id}`}
-                          etiqueta="¿Por qué? (si querés)"
-                          ayuda="Por ejemplo: se anotó dos veces."
+                          etiqueta={t("casos.cobros.porQue")}
+                          ayuda={t("casos.cobros.porQueAyuda")}
                           value={motivo}
                           onChange={(ev) => setMotivo(ev.target.value)}
                         />
                       </div>
                       <div className="-mt-2 flex flex-wrap gap-3">
                         <Boton variante="peligro" icono="cruz" onClick={() => anular(c)}>
-                          Sí, anularlo
+                          {t("casos.cobros.siAnularlo")}
                         </Boton>
                         <Boton variante="plano" onClick={() => setAnulando(null)}>
-                          Mejor no
+                          {t("casos.comun.mejorNo")}
                         </Boton>
                       </div>
                     </div>
@@ -423,10 +436,9 @@ export default function SeccionCobros({
             atrás: descontar de más por error no puede quedar para siempre. */}
         {puedeDescontar && descontando && (
           <div className="mt-5 rounded-tarjeta bg-superficie p-4">
-            <p className="font-bold text-cuerpo">¿No le cobrás los {pesos(cuenta.falta)} que faltan?</p>
+            <p className="font-bold text-cuerpo">{t("casos.cobros.noLeCobrasPregunta", { monto: pesos(cuenta.falta, locale) })}</p>
             <p className="mt-1 max-w-[65ch] text-tinta-media">
-              Deja de figurar como plata por cobrar: queda como un descuento. Si
-              después te paga igual, lo anotás como un cobro más.
+              {t("casos.cobros.noLeCobrasTexto")}
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Boton
@@ -434,14 +446,14 @@ export default function SeccionCobros({
                 icono="listo"
                 onClick={() => {
                   datos.cambiarDescuento(caso.id, cuenta.descuento + cuenta.falta);
-                  datos.avisarExito(`Listo. No se le cobran ${pesos(cuenta.falta)}.`);
+                  datos.avisarExito(t("casos.cobros.noSeCobran", { monto: pesos(cuenta.falta, locale) }));
                   setDescontando(false);
                 }}
               >
-                Sí, no se lo cobro
+                {t("casos.cobros.siNoSeLoCobro")}
               </Boton>
               <Boton variante="plano" onClick={() => setDescontando(false)}>
-                Mejor no
+                {t("casos.comun.mejorNo")}
               </Boton>
             </div>
           </div>
@@ -449,31 +461,31 @@ export default function SeccionCobros({
 
         {puedeCargar && pidiendo && (
           <div className="mt-5 rounded-tarjeta border border-borde p-4 sm:p-5">
-            <p className="mb-4 font-bold text-subtitulo">Pedir un pago</p>
+            <p className="mb-4 font-bold text-subtitulo">{t("casos.cobros.pedirUnPago")}</p>
             <Campo
               id="monto-pedido"
-              etiqueta="¿Cuánto le pedís?"
+              etiqueta={t("casos.cobros.cuantoLePedis")}
               ayuda={
                 cuenta.falta > 0
-                  ? `Con números y sin puntos. Falta cobrar ${pesos(cuenta.falta)}.`
-                  : "Con números y sin puntos."
+                  ? t("casos.cobros.cuantoLePedisFalta", { falta: pesos(cuenta.falta, locale) })
+                  : t("casos.cobros.conNumeros")
               }
               ejemplo="60000"
               inputMode="numeric"
               error={
                 montoPedido.trim() && !montoDeCobroValido(montoPedido)
-                  ? "El monto va con números, sin puntos, y mayor que cero."
+                  ? t("casos.cobros.montoInvalido")
                   : null
               }
               value={montoPedido}
               onChange={(ev) => setMontoPedido(ev.target.value)}
             />
             <fieldset>
-              <legend className="mb-2 font-bold text-cuerpo">¿Cómo te va a pagar?</legend>
+              <legend className="mb-2 font-bold text-cuerpo">{t("casos.cobros.comoTeVaAPagar")}</legend>
               <ul className="flex flex-wrap gap-2.5">
                 {[
-                  { valor: "link", palabra: "Con un link que le mando" },
-                  { valor: "qr", palabra: "Con un QR, acá en el local" },
+                  { valor: "link", palabra: t("casos.cobros.conUnLink") },
+                  { valor: "qr", palabra: t("casos.cobros.conUnQr") },
                 ].map((o) => {
                   const puesto = o.valor === medioPedido;
                   return (
@@ -501,14 +513,14 @@ export default function SeccionCobros({
               <Boton
                 icono="listo"
                 motivo={
-                  guardando ? "armando el pedido" : !montoDeCobroValido(montoPedido) ? "falta el monto" : null
+                  guardando ? t("casos.cobros.armandoElPedido") : !montoDeCobroValido(montoPedido) ? t("casos.cobros.faltaElMonto") : null
                 }
                 onClick={pedir}
               >
-                Pedir el pago
+                {t("casos.cobros.pedirElPago")}
               </Boton>
               <Boton variante="plano" onClick={() => setPidiendo(false)}>
-                Mejor no
+                {t("casos.comun.mejorNo")}
               </Boton>
             </div>
           </div>
@@ -519,12 +531,12 @@ export default function SeccionCobros({
             <div className="mt-5 flex flex-wrap gap-3">
               {puedeCargar && (
                 <Boton icono="mas" onClick={abrir}>
-                  Anotar un cobro
+                  {t("casos.cobros.anotarUnCobro")}
                 </Boton>
               )}
               {puedeCargar && enLinea.disponible && mercadoPagoConectado === false && (
                 <Boton variante="plano" onClick={conectarMercadoPago}>
-                  Vincular Mercado Pago
+                  {t("casos.cobros.vincularMercadoPago")}
                 </Boton>
               )}
               {/* Con todo cobrado o pedido no hay nada que pedir. Sin
@@ -533,16 +545,16 @@ export default function SeccionCobros({
                 <Boton
                   variante="neutro"
                   icono="sobre"
-                  motivo={!enLinea.disponible ? enLinea.motivo :
-                    !mercadoPagoConectado ? "primero vinculá Mercado Pago" : null}
+                  motivo={!enLinea.disponible ? motivoDePagos(enLinea, t) :
+                    !mercadoPagoConectado ? t("casos.cobros.primeroVincular") : null}
                   onClick={abrirPedido}
                 >
-                  Pedir un pago por link o QR
+                  {t("casos.cobros.pedirPorLinkOQr")}
                 </Boton>
               )}
               {puedeDescontar && cuenta.falta > 0 && cuenta.total > 0 && !descontando && (
                 <Boton variante="plano" icono="nota" onClick={() => setDescontando(true)}>
-                  No le cobro lo que falta
+                  {t("casos.cobros.noLeCobro")}
                 </Boton>
               )}
               {puedeDescontar && cuenta.descuento > 0 && (
@@ -551,27 +563,27 @@ export default function SeccionCobros({
                   icono="deshacer"
                   onClick={() => {
                     datos.cambiarDescuento(caso.id, 0, { antes: cuenta.descuento });
-                    datos.avisarExito("Listo. Lo que faltaba vuelve a figurar como por cobrar.");
+                    datos.avisarExito(t("casos.cobros.descuentoSacado"));
                   }}
                 >
-                  Sacar el descuento
+                  {t("casos.cobros.sacarDescuento")}
                 </Boton>
               )}
             </div>
           ) : (
             <div className="mt-5 rounded-tarjeta border border-borde p-4 sm:p-5">
-              <p className="mb-4 font-bold text-subtitulo">Anotar un cobro</p>
+              <p className="mb-4 font-bold text-subtitulo">{t("casos.cobros.anotarUnCobro")}</p>
               <Campo
                 id="monto-cobro"
-                etiqueta="¿Cuánto te pagó?"
+                etiqueta={t("casos.cobros.cuantoTePago")}
                 ayuda={
                   cuenta.falta > 0
-                    ? `Con números y sin puntos. Falta cobrar ${pesos(cuenta.falta)}; si es una seña, poné lo que te dio.`
-                    : "Con números y sin puntos."
+                    ? t("casos.cobros.cuantoTePagoFalta", { falta: pesos(cuenta.falta, locale) })
+                    : t("casos.cobros.conNumeros")
                 }
                 ejemplo="20000"
                 inputMode="numeric"
-                error={monto.trim() && !montoDeCobroValido(monto) ? "El monto va con números, sin puntos, y mayor que cero." : null}
+                error={monto.trim() && !montoDeCobroValido(monto) ? t("casos.cobros.montoInvalido") : null}
                 value={monto}
                 onChange={(ev) => setMonto(ev.target.value)}
               />
@@ -579,8 +591,8 @@ export default function SeccionCobros({
               <div className="mt-6">
                 <Campo
                   id="nota-cobro"
-                  etiqueta="Nota (si querés)"
-                  ayuda="Por ejemplo: seña, o el número de la transferencia."
+                  etiqueta={t("casos.cobros.nota")}
+                  ayuda={t("casos.cobros.notaAyuda")}
                   value={nota}
                   onChange={(ev) => setNota(ev.target.value)}
                 />
@@ -589,14 +601,14 @@ export default function SeccionCobros({
                 <Boton
                   icono="listo"
                   motivo={
-                    guardando ? "anotando" : !montoDeCobroValido(monto) ? "falta el monto" : null
+                    guardando ? t("casos.cobros.anotando") : !montoDeCobroValido(monto) ? t("casos.cobros.faltaElMonto") : null
                   }
                   onClick={anotar}
                 >
-                  Anotar el cobro
+                  {t("casos.cobros.anotarElCobro")}
                 </Boton>
                 <Boton variante="plano" onClick={() => setAnotando(false)}>
-                  Mejor no
+                  {t("casos.comun.mejorNo")}
                 </Boton>
               </div>
             </div>
@@ -609,8 +621,10 @@ export default function SeccionCobros({
 // Un pedido de pago que todavía no se pagó: el link para mandar, el QR para
 // mostrar y hasta cuándo vale.
 function PagoEnCamino({ cobro, datos, cliente, negocio }) {
+  const { t, locale } = useIdioma();
+  // Lo manda el negocio: sale en su idioma.
   const mensaje = cobro.link
-    ? mensajeDePago({ negocio: negocio?.nombre, cliente: cliente?.nombre, monto: cobro.monto, link: cobro.link })
+    ? mensajeDePago({ negocio: negocio?.nombre, cliente: cliente?.nombre, monto: cobro.monto, link: cobro.link }, t, locale)
     : null;
   const whatsapp = mensaje
     ? (cliente?.telefono && linkDeWhatsAppA(cliente.telefono, mensaje)) || linkDeWhatsApp(mensaje)
@@ -621,20 +635,20 @@ function PagoEnCamino({ cobro, datos, cliente, negocio }) {
       {cobro.medio === "qr" ? (
         cobro.qr_imagen ? (
           <div>
-            <p className="mb-2 font-bold text-cuerpo">Mostrale este QR para que pague</p>
+            <p className="mb-2 font-bold text-cuerpo">{t("casos.cobros.mostraleEsteQr")}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={cobro.qr_imagen}
-              alt={`QR para pagar ${pesos(Number(cobro.monto))}`}
+              alt={t("casos.cobros.qrAlt", { monto: pesos(Number(cobro.monto), locale) })}
               className="size-56 rounded-campo bg-white p-2"
             />
           </div>
         ) : (
-          <p className="text-tinta-media">El QR todavía no llegó del medio de pago. Esperá unos segundos.</p>
+          <p className="text-tinta-media">{t("casos.cobros.qrNoLlego")}</p>
         )
       ) : cobro.link ? (
         <>
-          <p className="mb-1 font-bold text-cuerpo">El link para pagar</p>
+          <p className="mb-1 font-bold text-cuerpo">{t("casos.cobros.elLinkParaPagar")}</p>
           <p className="break-all text-tinta-media">{cobro.link}</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <Boton
@@ -643,13 +657,13 @@ function PagoEnCamino({ cobro, datos, cliente, negocio }) {
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(cobro.link);
-                  datos.avisarExito("Copiamos el link. Pegalo donde quieras mandarlo.");
+                  datos.avisarExito(t("casos.cobros.linkCopiado"));
                 } catch {
-                  datos.avisarExito("No pudimos copiarlo solo. Seleccionalo y copialo a mano.");
+                  datos.avisarExito(t("casos.cobros.linkNoCopiado"));
                 }
               }}
             >
-              Copiar el link
+              {t("casos.comun.copiarLink")}
             </Boton>
             {whatsapp && (
               <a
@@ -659,17 +673,17 @@ function PagoEnCamino({ cobro, datos, cliente, negocio }) {
                 className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
               >
                 <Icono nombre="chat" />
-                Mandarlo por WhatsApp
+                {t("casos.comun.mandarWhatsapp")}
               </a>
             )}
           </div>
         </>
       ) : (
-        <p className="text-tinta-media">El link todavía no llegó del medio de pago. Esperá unos segundos.</p>
+        <p className="text-tinta-media">{t("casos.cobros.linkNoLlego")}</p>
       )}
 
       {cobro.vence_en && (
-        <p className="mt-3 text-tinta-media">Vence: {cuando(cobro.vence_en)}.</p>
+        <p className="mt-3 text-tinta-media">{t("casos.cobros.vence", { cuando: cuando(cobro.vence_en, locale, t) })}</p>
       )}
     </div>
   );

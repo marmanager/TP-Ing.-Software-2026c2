@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ESTADOS, accionDeFila, queFalta, quienLoTiene } from "@/lib/estados";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "./ChipEstado";
 import { Boton } from "./ui";
@@ -21,19 +22,19 @@ import { Boton } from "./ui";
 export default function FilaCaso({ caso }) {
   const router = useRouter();
   const datos = useDatos();
+  const { t, idioma } = useIdioma();
   const { clientes, empleados, pasos, insumos } = datos;
   const [eligiendo, setEligiendo] = useState(false);
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
-  const accion = accionDeFila(caso, { pasos, insumos });
+  const accion = accionDeFila(caso, { pasos, insumos }, t);
   // El "qué falta" se deriva de los pasos y los insumos, igual que en la
   // pantalla del caso: si no, la lista y el detalle dirían cosas distintas.
-  const falta = queFalta(caso, {
-    rubro: datos.negocio?.rubro,
-    pasos,
-    insumos,
-    cliente,
-  });
+  const falta = queFalta(
+    caso,
+    { rubro: datos.negocio?.rubro, pasos, insumos, cliente, idioma },
+    t
+  );
   const barra = ESTADOS[caso.estado]?.barra ?? "bg-borde";
 
   function tocarAccion() {
@@ -69,19 +70,19 @@ export default function FilaCaso({ caso }) {
             href={`/casos/${caso.id}`}
             className="font-titulo font-extrabold text-ident after:absolute after:inset-0 after:content-['']"
           >
-            {tituloDelCaso(caso)}
+            {tituloDelCaso(caso, t)}
           </Link>
           {/* El número queda siempre a la vista, en chiquito al lado del
               nombre: dos casos del mismo cliente se llaman igual (SCRUM-119). */}
-          {subtituloDelCaso(caso) && (
-            <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(caso)}</span>
+          {subtituloDelCaso(caso, t) && (
+            <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(caso, t)}</span>
           )}
-          <p className="truncate text-tinta-media">{lineaDelCaso(caso, cliente?.nombre)}</p>
+          <p className="truncate text-tinta-media">{lineaDelCaso(caso, cliente?.nombre, t)}</p>
         </div>
 
         <p className="text-tinta-media">
-          <span className="md:hidden">Lo tiene: </span>
-          {quienLoTiene(caso, empleados)}
+          <span className="md:hidden">{t("casos.fila.loTiene")}</span>
+          {quienLoTiene(caso, empleados, t)}
         </p>
 
         <p className="text-tinta-media">{falta}</p>

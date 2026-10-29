@@ -234,15 +234,26 @@
   gap: 16px;
 }
 
+/* En celular, una columna: el alto elegido es un piso y no una medida fija,
+   para que el contenido nunca quede cortado. Es el mismo alto que en la
+   grilla (filas más los huecos de 16 px entre ellas), así que lo que se
+   acomoda en uno se parece a lo que se ve en el otro. */
+.modulo-ubicado {
+  min-height: calc(var(--alto) * var(--alto-fila) + (var(--alto) - 1) * 16px);
+}
+
 @media (min-width: 48rem) {
   .grilla-inicio {
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: var(--alto-fila);
+    /* Cada celda son dos filas de la grilla de CSS: el alto va de a media
+       celda (PASO_ALTO). Dos medias más su hueco dan --alto-fila justo. */
+    grid-auto-rows: calc((var(--alto-fila) - 16px) / 2);
   }
 
   .modulo-ubicado {
+    min-height: 0;
     grid-column: calc(var(--x) + 1) / span var(--ancho);
-    grid-row: calc(var(--y) + 1) / span var(--alto);
+    grid-row: calc(var(--fila) + 1) / span var(--filas);
   }
 }
 

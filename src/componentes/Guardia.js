@@ -13,6 +13,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
 import { useDatos } from "@/lib/datos";
 import { bloquea, RUTAS_SIN_SUSCRIPCION } from "@/lib/suscripcion";
 import { ContextoSuscripcion, useSuscripcion } from "@/lib/useSuscripcion";
@@ -20,8 +21,10 @@ import { BarraLateral, BarraCelular } from "./Navegacion";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 import FranjaDeVisita from "./FranjaDeVisita";
+import FranjaDeVistaMaestra from "./FranjaDeVistaMaestra";
+import SelectorDeVistaMaestra from "./SelectorDeVistaMaestra";
 import Link from "next/link";
-import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos } from "@/lib/modulos";
+import { LISTA_MODULOS, LISTA_SUBMODULOS, estaPrendido, hijosActivos, traducirModulo } from "@/lib/modulos";
 import { Cargando, Vacio } from "./ui";
 import { seguirAlSistema } from "@/lib/tema";
 
@@ -110,6 +113,7 @@ const moduloApagado = (ruta, negocio) => {
 };
 
 export default function Guardia({ children }) {
+  const { t } = useIdioma();
   const { cargando, sesion, usuario, necesitaConfirmarMail, recuperando } = useAuth();
   const { cargando: datosCargando, negocio } = useDatos();
   const suscripcion = useSuscripcion();
@@ -123,6 +127,7 @@ export default function Guardia({ children }) {
   const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta);
   const hayEntrada = Boolean(sesion);
   const tieneNegocio = Boolean(usuario?.negocio_id);
+  const enVista = Boolean(usuario?.vista_maestra_desde);
 
   // A dónde tendría que estar parada la persona según su estado.
   const esperando = cargando || datosCargando || suscripcion.cargando;
@@ -152,6 +157,7 @@ export default function Guardia({ children }) {
       // negocio. /crear-negocio y /negocios se pueden visitar teniendo negocio.
       destino = RUTA_NEGOCIOS;
     } else if (
+      !enVista &&
       bloquea(suscripcion.datos) &&
       !RUTAS_SIN_SUSCRIPCION.includes(ruta) &&
       !esInvitacion(ruta)
@@ -200,7 +206,16 @@ export default function Guardia({ children }) {
   }
 
   // Con la navegación puesta, así se puede ir a otro lado sin volver atrás.
-  const apagado = moduloApagado(ruta, negocio);
+  const apagado = traducirModulo(moduloApagado(ruta, negocio), t);
+  // La frase lleva el enlace adentro: se escribe entera, con un marcador
+  // {enlace}, y se parte ahí; no se arma pegando pedazos traducidos. El
+  // nombre y la descripción del módulo vienen de modulos.js.
+  // En vista maestra no se manda a Planes (se perdería el selector y "Salir de
+  // vista"): se avisa dentro del marco normal.
+  const sinSuscripcion = enVista && bloquea(suscripcion.datos) && !RUTAS_SIN_SUSCRIPCION.includes(ruta);
+  const [antesDelEnlace, despuesDelEnlace] = apagado
+    ? t("ui.moduloApagado.texto", { descripcion: apagado.descripcion }).split("{enlace}")
+    : [];
 
   return (
     <ContextoSuscripcion.Provider value={suscripcion}>
@@ -214,7 +229,7 @@ export default function Guardia({ children }) {
         href="#contenido"
         className="fixed top-3 left-3 z-50 -translate-y-[200%] whitespace-nowrap rounded-campo bg-azul px-4 py-3 font-bold text-white focus:translate-y-0"
       >
-        Ir al contenido
+        {t("ui.irAlContenido")}
       </a>
       <div className="flex min-h-screen">
         <BarraLateral />
@@ -224,20 +239,26 @@ export default function Guardia({ children }) {
           className="min-w-0 flex-1 pb-[calc(var(--alto-barra,4rem)+1rem)] focus:outline-none md:pb-0"
         >
           <FranjaDeVisita />
+          <FranjaDeVistaMaestra />
+          <SelectorDeVistaMaestra />
           {/* "@container": las grillas de las pantallas eligen sus columnas por el
                 ancho de ESTE bloque y no por el de la ventana. En escritorio la
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
                 ventana quedaban tarjetas apretadas entre 768 y 1024 px
                 (auditoría, Responsive). */}
-            <div className="@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
+            <div className={`@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8${enVista ? " lg:pr-64" : ""}`}>
             <Aviso />
-            {apagado ? (
-              <Vacio icono="tuerca" titulo={`Tu negocio no tiene ${apagado.nombre}`}>
-                {apagado.descripcion} Si te sirve, se prende desde{" "}
+            {sinSuscripcion ? (
+              <Vacio icono="alerta" titulo={t("vistaMaestra.sinSuscripcion")}>
+                {t("vistaMaestra.sinSuscripcionTexto")}
+              </Vacio>
+            ) : apagado ? (
+              <Vacio icono="tuerca" titulo={t("ui.moduloApagado.titulo", { nombre: apagado.nombre })}>
+                {antesDelEnlace}
                 <Link href="/negocio/modulos" className="font-bold text-azul">
-                  Mi negocio
+                  {t("ui.moduloApagado.enlace")}
                 </Link>
-                , y lo que ya tengas cargado sigue estando.
+                {despuesDelEnlace}
               </Vacio>
             ) : (
               children

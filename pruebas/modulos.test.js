@@ -18,6 +18,7 @@ import {
   hijosActivos,
   hijosDe,
   ningunoPrendido,
+  pantallasDe,
 } from "../src/lib/modulos.js";
 
 const claves = (lista) => lista.map((m) => m.clave).sort();
@@ -35,6 +36,7 @@ test("los submódulos no ensucian la lista de módulos", () => {
     "equipo",
     "historial",
     "inventario",
+    "lienzo",
     "presupuesto",
   ]);
   for (const s of LISTA_SUBMODULOS) {
@@ -47,7 +49,7 @@ test("los módulos van en el orden de la barra lateral", () => {
   // lugar.
   assert.deepEqual(
     LISTA_MODULOS.map((m) => m.clave),
-    ["agenda", "clientes", "inventario", "ecuaciones", "presupuesto", "equipo", "historial", "dashboard"]
+    ["agenda", "clientes", "inventario", "ecuaciones", "lienzo", "presupuesto", "equipo", "historial", "dashboard"]
   );
 });
 
@@ -74,8 +76,8 @@ test("la Agenda tiene Turnos y Calendario", () => {
   assert.deepEqual(claves(hijosDe("agenda")), ["calendario", "turnos"]);
 });
 
-test("el Inventario tiene En stock, En camino y Todas las sedes", () => {
-  assert.deepEqual(claves(hijosDe("inventario")), ["en_camino", "sedes", "stock"]);
+test("el Inventario tiene En stock, En camino, Todas las sedes y En camino en otras sedes", () => {
+  assert.deepEqual(claves(hijosDe("inventario")), ["en_camino", "en_camino_sedes", "sedes", "stock"]);
 });
 
 test("un negocio de antes con el Inventario prendido tiene las dos pantallas", () => {
@@ -96,7 +98,7 @@ test("cada submódulo tiene lo que la pantalla del módulo apagado necesita", ()
   for (const s of LISTA_SUBMODULOS) {
     assert.ok(s.nombre, `${s.clave} sin nombre`);
     assert.ok(s.descripcion, `${s.clave} sin descripción`);
-    assert.ok(s.ruta?.startsWith("/"), `${s.clave} sin ruta`);
+    if (!s.sinPantalla) assert.ok(s.ruta?.startsWith("/"), `${s.clave} sin ruta`);
   }
 });
 
@@ -345,4 +347,24 @@ test("prender Todas las sedes deja escritos a sus hermanos, y apagarlo los deja"
 
 test("apagar Inventario se lleva también Todas las sedes", () => {
   assert.deepEqual(alternarModulo("inventario", alternarModulo("sedes", ["inventario"])), []);
+});
+
+// ---------- En camino en otras sedes: a pedido y sin pantalla ----------
+// No es una pantalla: suma a "En camino" lo pedido por las otras sedes.
+
+test("En camino en otras sedes viene apagado y no entra en la compatibilidad", () => {
+  assert.deepEqual(claves(hijosActivos("inventario", ["inventario"])), ["en_camino", "stock"]);
+  assert.deepEqual(claves(hijosActivos("inventario", alternarModulo("inventario", []))), ["en_camino", "stock"]);
+});
+
+test("prender En camino en otras sedes deja a sus hermanos, pero no suma pestaña", () => {
+  const con = alternarModulo("en_camino_sedes", ["inventario"]);
+  assert.deepEqual(claves(hijosActivos("inventario", con)), ["en_camino", "en_camino_sedes", "stock"]);
+  assert.deepEqual(claves(pantallasDe("inventario", con)), ["en_camino", "stock"]);
+});
+
+test("una pantalla sola más En camino en otras sedes: apagarla apaga el Inventario", () => {
+  // Sin pantallas no hay Inventario: el que no tiene pantalla no lo sostiene.
+  const activos = ["inventario", "en_camino", "en_camino_sedes"];
+  assert.deepEqual(alternarModulo("en_camino", activos), []);
 });

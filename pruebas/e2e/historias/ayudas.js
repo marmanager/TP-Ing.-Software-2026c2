@@ -50,6 +50,17 @@ export async function entrar(destino = "/", escenario = "taller-completo") {
   return iniciarCon(await sembrar(escenario), destino);
 }
 
+// Un negocio recién creado desde la app no tiene suscripción y Guardia lo
+// manda a /planes (lib/suscripcion.js). Los sembrados ya traen el mes de
+// prueba; uno nuevo lo empieza como lo haría la dueña.
+export async function empezarElMesGratis() {
+  await browser.waitUntil(async () => (await browser.getUrl()).includes("/planes"), {
+    timeoutMsg: "El alta no llevó a elegir un plan",
+  });
+  await tid("planes-empezar-gratis").click();
+  await tid("ir-a-la-app").click();
+}
+
 // Cambia lo que ya dice un campo como lo haría una persona: lo selecciona
 // entero y escribe encima. setValue a veces borra sin que React se entere, y
 // lo nuevo queda pegado a lo de antes ("341 222 3333341 444 5566").
@@ -70,6 +81,13 @@ export async function cargarArchivoEnInput({ nombre, tipo, contenido }) {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }, { nombre, tipo, contenido });
 }
+
+// Un elemento por su data-testid: no depende del texto, del idioma ni del
+// estilo. Convención: pantalla-elemento, en kebab-case (caso-estado).
+export const tid = (id, dentro) => {
+  const selector = `[data-testid="${id}"]`;
+  return dentro ? dentro.$(selector) : $(selector);
+};
 
 export async function verTexto(texto) {
   await expect($("body")).toHaveText(expect.stringContaining(texto));

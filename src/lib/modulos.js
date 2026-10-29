@@ -10,6 +10,11 @@
 // El orden es el de la barra lateral, a propósito: quien busca en "Módulos"
 // la sección que ve en el menú la encuentra en el mismo lugar.
 
+import { tCastellano } from "./idioma.js";
+
+// Los textos de abajo son el castellano de fábrica. Lo que se muestra sale del
+// diccionario con traducirModulo() (más abajo), por la clave del módulo.
+
 // "descripcion" es el renglón corto, para listas y resúmenes.
 // "queHace" es la explicación de la pantalla de módulos, donde alguien está
 // decidiendo si le sirve o no: dice para qué se usa, con un ejemplo.
@@ -58,6 +63,15 @@ export const MODULOS = {
     descripcion: "Tus fórmulas, guardadas para volver a usarlas.",
     queHace:
       "Guardá las fórmulas que usa tu negocio para encontrarlas y volver a utilizarlas. Apagar el módulo sólo lo saca del menú: las ecuaciones guardadas no se borran.",
+  },
+  lienzo: {
+    clave: "lienzo",
+    nombre: "Lienzo",
+    icono: "pincel",
+    ruta: "/lienzo",
+    descripcion: "Un papel en blanco para dibujar y explicar.",
+    queHace:
+      "Un lienzo blanco para hacer un dibujo rápido y explicarle algo a alguien: lápiz, pincel, colores y formas. No se guarda: si te sirve, lo bajás como imagen.",
   },
   // SCRUM-121. La clave sigue siendo "presupuesto" y no "aprobar": está
   // escrita en la lista de módulos de cada negocio que existe y en cada preset,
@@ -220,6 +234,21 @@ export const SUBMODULOS = {
     queHace:
       "Cuánto hay de cada producto en cada una de tus sedes vinculadas, el total, y qué falta dónde. Las sedes se vinculan desde Mi negocio.",
   },
+  // Lo que pidieron las otras sedes, adentro de "En camino" y no en una
+  // pantalla propia: "sinPantalla" lo deja fuera de las pestañas. Sólo se
+  // mira (nombre, modelo, cantidad y a qué sede va), sin el caso ni el
+  // cliente de la otra sede. A pedido, como "Todas las sedes".
+  en_camino_sedes: {
+    clave: "en_camino_sedes",
+    padre: "inventario",
+    nombre: "En camino en otras sedes",
+    icono: "camion",
+    aPedido: true,
+    sinPantalla: true,
+    descripcion: "Lo que pidieron tus sedes vinculadas, en En camino.",
+    queHace:
+      "Suma a En camino lo que pidieron tus sedes vinculadas y todavía no llegó, con a qué sede va. Sólo se mira: para cambiar algo se entra a esa sede.",
+  },
 };
 
 export const LISTA_SUBMODULOS = Object.values(SUBMODULOS);
@@ -242,6 +271,10 @@ export function hijosActivos(clave, activos = []) {
   const escritos = hijos.filter((h) => activos.includes(h.clave));
   return escritos.length ? escritos : hijos.filter((h) => !h.aPedido);
 }
+
+// Los hijos prendidos que son una pantalla: los que van en las pestañas.
+export const pantallasDe = (clave, activos = []) =>
+  hijosActivos(clave, activos).filter((h) => !h.sinPantalla);
 
 // Prender o apagar, devolviendo la lista nueva. Es una función suelta y no
 // dos líneas adentro de la pantalla porque tiene cinco reglas que no se ven:
@@ -270,11 +303,15 @@ export function alternarModulo(clave, activos = []) {
   const def = SUBMODULOS[clave];
   if (def) {
     const hermanos = hijosActivos(def.padre, activos).map((h) => h.clave);
-    // Apagar el último hijo es apagar el módulo entero. Antes no se podía
+    // Apagar la última pantalla es apagar el módulo entero. Antes no se podía
     // (el botón decía "apagá Inventario"). Y no alcanza con sacar al hijo:
     // un padre prendido sin ningún hijo escrito vale como "los dos" (ver
-    // hijosActivos), y volvería a prender lo que se acababa de apagar.
-    if (hermanos.length === 1 && hermanos[0] === clave) return alternarModulo(def.padre, activos);
+    // hijosActivos), y volvería a prender lo que se acababa de apagar. Un
+    // hijo sin pantalla no cuenta: solo, dejaría un módulo sin nada que abrir.
+    const pantallas = pantallasDe(def.padre, activos).map((h) => h.clave);
+    if (!def.sinPantalla && pantallas.length === 1 && pantallas[0] === clave) {
+      return alternarModulo(def.padre, activos);
+    }
     const resto = activos.filter((c) => !hermanos.includes(c));
     return hermanos.includes(clave)
       ? [...resto, ...hermanos.filter((c) => c !== clave)]
@@ -296,3 +333,34 @@ export function alternarModulo(clave, activos = []) {
 // De una lista de claves a las definiciones, salteando las que no existan.
 export const modulosDe = (claves = []) =>
   claves.map((c) => MODULOS[c]).filter(Boolean);
+
+// El módulo (o submódulo) con su nombre, descripción y queHace en el idioma de
+// t. Los textos están en el diccionario (modulos.<clave>.*), con la misma
+// clave que el módulo; si falta alguno, queda el castellano de arriba. Sin t,
+// salen en castellano, igual que las constantes.
+export const traducirModulo = (m, t = tCastellano) =>
+  m && {
+    ...m,
+    nombre: t(`modulos.${m.clave}.nombre`, {}, m.nombre),
+    descripcion: t(`modulos.${m.clave}.descripcion`, {}, m.descripcion),
+    queHace: t(`modulos.${m.clave}.queHace`, {}, m.queHace),
+  };
+
+// Sólo el nombre, para títulos y etiquetas ("Las pantallas de Inventario").
+export const nombreDeModulo = (clave, t = tCastellano) =>
+  traducirModulo(MODULOS[clave] ?? SUBMODULOS[clave], t)?.nombre ?? clave;
+
+// La palabra de cada lugar de la barra de secciones. Los módulos se llaman en
+// la barra como en Mi negocio → Módulos (mismo texto, modulos.<clave>.nombre);
+// los que no son módulos tienen el suyo. "ecuaciones" es la excepción: en la
+// barra es la palabra corta, y el módulo se llama "Ecuaciones personalizadas".
+const PALABRA_PROPIA_DE_BARRA = {
+  inicio: "inicio.titulo",
+  casos: "casos.lista.titulo",
+  ecuaciones: "navegacion.ecuaciones",
+  respuestas: "navegacion.respuestas",
+  negocio: "negocio.titulo",
+  perfil: "cuenta.titulo",
+};
+export const palabraDeBarra = (clave, t = tCastellano) =>
+  PALABRA_PROPIA_DE_BARRA[clave] ? t(PALABRA_PROPIA_DE_BARRA[clave]) : nombreDeModulo(clave, t);

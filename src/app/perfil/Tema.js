@@ -26,8 +26,16 @@ import {
 } from "@/lib/tema";
 import Icono from "@/componentes/Icono";
 import { Boton, Tarjeta } from "@/componentes/ui";
+import { useIdioma } from "@/lib/useIdioma";
+
+// El nombre de una opción, en el idioma de quien mira. Las listas de
+// src/lib/tema.js guardan la palabra en castellano (`palabra`) y la clave; la
+// traducción se busca por la clave y, si no hay (Inter, Merriweather y
+// JetBrains Mono son nombres de marca), queda la palabra.
+const nombreDe = (t, grupo, o) => t(`cuenta.tema.${grupo}.${o.clave}`, {}, o.palabra);
 
 export default function Tema() {
+  const { t } = useIdioma();
   // Se lee después de montar: en el servidor no hay localStorage.
   const [guardada, setGuardada] = useState(null);
   const [borrador, setBorrador] = useState(null);
@@ -65,43 +73,43 @@ export default function Tema() {
   }
 
   const resumen = guardada && [
-    opcion("tema", guardada.tema).palabra,
-    `Letra ${opcion("letra", guardada.letra).palabra}`,
-    `Bordes ${opcion("redondeo", guardada.redondeo).palabra.toLowerCase()}`,
-    `Botones ${opcion("acento", guardada.acento).palabra.toLowerCase()}`,
+    nombreDe(t, "temas", opcion("tema", guardada.tema)),
+    t("cuenta.tema.resumenLetra", { valor: nombreDe(t, "letras", opcion("letra", guardada.letra)) }),
+    t("cuenta.tema.resumenBordes", { valor: nombreDe(t, "redondeos", opcion("redondeo", guardada.redondeo)).toLowerCase() }),
+    t("cuenta.tema.resumenBotones", { valor: nombreDe(t, "colores", opcion("acento", guardada.acento)).toLowerCase() }),
   ].join(" · ");
 
   return (
     <Tarjeta className="mb-12">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-[60ch]">
-          <p>Cómo se ve la app en este dispositivo: claro u oscuro, la letra, los bordes y el color de los botones.</p>
+          <p>{t("cuenta.tema.intro")}</p>
           {resumen && <p className="mt-1 text-apoyo text-tinta-suave">{resumen}</p>}
         </div>
         {!borrador && (
-          <Boton icono="pincel" onClick={abrir} motivo={guardada ? null : "Cargando"}>
-            Editar
+          <Boton icono="pincel" onClick={abrir} motivo={guardada ? null : t("cuenta.tema.cargando")}>
+            {t("cuenta.tema.editar")}
           </Boton>
         )}
       </div>
 
       {borrador && (
         <div className="mt-6 border-t border-borde pt-6">
-          <Parte titulo="Tema" ayuda="El fondo de la app. Con el del sistema, sigue al claro u oscuro de tu dispositivo.">
-            <Grupo nombre="Tema" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {TEMAS.map((t) => (
-                <Opcion key={t.clave} elegida={borrador.tema === t.clave} onClick={() => cambiar("tema", t.clave)} palabra={t.palabra}>
-                  <VistaTema tema={t} />
+          <Parte titulo={t("cuenta.tema.tituloTema")} ayuda={t("cuenta.tema.ayudaTema")}>
+            <Grupo nombre={t("cuenta.tema.tituloTema")} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {TEMAS.map((o) => (
+                <Opcion key={o.clave} elegida={borrador.tema === o.clave} onClick={() => cambiar("tema", o.clave)} palabra={nombreDe(t, "temas", o)}>
+                  <VistaTema tema={o} />
                 </Opcion>
               ))}
             </Grupo>
           </Parte>
 
-          <Parte titulo="Bordes y letra" ayuda="La letra de toda la app, su color y qué tan redondeadas son las tarjetas, los campos y los botones.">
-            <h4 className="mb-2 font-bold">Letra</h4>
-            <Grupo nombre="Letra" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Parte titulo={t("cuenta.tema.tituloBordesLetra")} ayuda={t("cuenta.tema.ayudaBordesLetra")}>
+            <h4 className="mb-2 font-bold">{t("cuenta.tema.letra")}</h4>
+            <Grupo nombre={t("cuenta.tema.letra")} className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {LETRAS.map((l) => (
-                <Opcion key={l.clave} elegida={borrador.letra === l.clave} onClick={() => cambiar("letra", l.clave)} palabra={l.palabra}>
+                <Opcion key={l.clave} elegida={borrador.letra === l.clave} onClick={() => cambiar("letra", l.clave)} palabra={nombreDe(t, "letras", l)}>
                   <span className="block py-2 text-pantalla" style={{ fontFamily: l.familia }} aria-hidden="true">
                     Aa
                   </span>
@@ -109,24 +117,24 @@ export default function Tema() {
               ))}
             </Grupo>
 
-            <h4 className="mb-2 font-bold">Color de la letra</h4>
-            <Grupo nombre="Color de la letra" className="mb-6 flex flex-wrap gap-3">
-              {TINTAS.map((t) => (
+            <h4 className="mb-2 font-bold">{t("cuenta.tema.colorLetra")}</h4>
+            <Grupo nombre={t("cuenta.tema.colorLetra")} className="mb-6 flex flex-wrap gap-3">
+              {TINTAS.map((o) => (
                 <Muestra
-                  key={t.clave}
-                  elegida={borrador.tinta === t.clave}
-                  onClick={() => cambiar("tinta", t.clave)}
-                  palabra={t.palabra}
-                  color={esOscuro(borrador.tema) ? t.oscuro : t.claro}
+                  key={o.clave}
+                  elegida={borrador.tinta === o.clave}
+                  onClick={() => cambiar("tinta", o.clave)}
+                  palabra={nombreDe(t, "tintas", o)}
+                  color={esOscuro(borrador.tema) ? o.oscuro : o.claro}
                   letra
                 />
               ))}
             </Grupo>
 
-            <h4 className="mb-2 font-bold">Bordes</h4>
-            <Grupo nombre="Bordes" className="grid grid-cols-3 gap-3">
+            <h4 className="mb-2 font-bold">{t("cuenta.tema.bordes")}</h4>
+            <Grupo nombre={t("cuenta.tema.bordes")} className="grid grid-cols-3 gap-3">
               {REDONDEOS.map((b) => (
-                <Opcion key={b.clave} elegida={borrador.redondeo === b.clave} onClick={() => cambiar("redondeo", b.clave)} palabra={b.palabra}>
+                <Opcion key={b.clave} elegida={borrador.redondeo === b.clave} onClick={() => cambiar("redondeo", b.clave)} palabra={nombreDe(t, "redondeos", b)}>
                   <span
                     aria-hidden="true"
                     className="mx-auto my-2 block h-12 w-20 border-2 border-borde-fuerte bg-superficie"
@@ -137,14 +145,14 @@ export default function Tema() {
             </Grupo>
           </Parte>
 
-          <Parte titulo="Color de botones" ayuda="El color de lo que se toca: abrir un caso nuevo, ver el caso, los enlaces y lo elegido.">
-            <Grupo nombre="Color de botones" className="mb-4 flex flex-wrap gap-3">
+          <Parte titulo={t("cuenta.tema.tituloBotones")} ayuda={t("cuenta.tema.ayudaBotones")}>
+            <Grupo nombre={t("cuenta.tema.tituloBotones")} className="mb-4 flex flex-wrap gap-3">
               {ACENTOS.map((a) => (
                 <Muestra
                   key={a.clave}
                   elegida={borrador.acento === a.clave}
                   onClick={() => cambiar("acento", a.clave)}
-                  palabra={a.palabra}
+                  palabra={nombreDe(t, "colores", a)}
                   color={a.solido}
                 />
               ))}
@@ -153,23 +161,23 @@ export default function Tema() {
             <div aria-hidden="true" className="flex flex-wrap items-center gap-3 rounded-tarjeta bg-superficie p-4">
               <span className="inline-flex min-h-12 items-center gap-2 rounded-campo bg-azul px-6 font-bold text-white">
                 <Icono nombre="mas" className="size-6" />
-                Abrir un caso nuevo
+                {t("cuenta.tema.muestraAbrir")}
               </span>
               <span className="inline-flex min-h-12 items-center rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-azul">
-                Ver el caso
+                {t("cuenta.tema.muestraVer")}
               </span>
-              <span className="font-bold text-azul underline">Ver todo</span>
+              <span className="font-bold text-azul underline">{t("cuenta.tema.muestraTodo")}</span>
             </div>
           </Parte>
 
-          <Parte titulo="Cajas y rebordes" ayuda="El interior y el borde de las tarjetas, como la de acá. El interior va traslúcido para que el texto se siga leyendo.">
+          <Parte titulo={t("cuenta.tema.tituloCajas")} ayuda={t("cuenta.tema.ayudaCajas")}>
             <EditorCaja
-              titulo="Color de cajas"
+              titulo={t("cuenta.tema.colorCajas")}
               valor={borrador.caja}
               cambiar={(c) => cambiar("caja", c)}
             />
             <EditorCaja
-              titulo="Color de rebordes"
+              titulo={t("cuenta.tema.colorRebordes")}
               valor={borrador.reborde}
               cambiar={(c) => cambiar("reborde", c)}
             />
@@ -177,13 +185,13 @@ export default function Tema() {
 
           <div className="flex flex-wrap gap-3">
             <Boton variante="principal" icono="check" onClick={guardar}>
-              Guardar
+              {t("cuenta.tema.guardar")}
             </Boton>
             <Boton variante="plano" onClick={cancelar}>
-              Cancelar
+              {t("cuenta.tema.cancelar")}
             </Boton>
             <Boton variante="plano" onClick={() => { setBorrador(DE_FABRICA); aplicarApariencia(DE_FABRICA); }}>
-              Volver a lo de fábrica
+              {t("cuenta.tema.deFabrica")}
             </Boton>
           </div>
         </div>
@@ -202,7 +210,8 @@ function Parte({ titulo, ayuda, children }) {
   );
 }
 
-function Grupo({ nombre, className, children }) {
+// Grupo, Opcion y Muestra también los usa el editor de la landing.
+export function Grupo({ nombre, className, children }) {
   return (
     <div role="group" aria-label={nombre} className={className}>
       {children}
@@ -211,9 +220,10 @@ function Grupo({ nombre, className, children }) {
 }
 
 // Una opción grande, con su dibujo arriba y el nombre abajo.
-function Opcion({ elegida, onClick, palabra, children }) {
+export function Opcion({ elegida, onClick, palabra, children, ...resto }) {
   return (
     <button
+      {...resto}
       type="button"
       aria-pressed={elegida}
       onClick={onClick}
@@ -230,9 +240,10 @@ function Opcion({ elegida, onClick, palabra, children }) {
 
 // Una muestra de color redonda. Con "letra", dice "Aa" en ese color sobre el
 // fondo de la app; sin, es el color lleno.
-function Muestra({ elegida, onClick, palabra, color, letra }) {
+export function Muestra({ elegida, onClick, palabra, color, letra, ...resto }) {
   return (
     <button
+      {...resto}
       type="button"
       aria-pressed={elegida}
       onClick={onClick}
@@ -294,6 +305,7 @@ function Ventana({ fondo, tarjeta, tinta }) {
 
 // Un color o dos en degradé, para el interior o el borde de las tarjetas.
 function EditorCaja({ titulo, valor, cambiar }) {
+  const { t } = useIdioma();
   const poner = (parte, clave) => cambiar({ ...valor, [parte]: clave });
   const dos = valor.modo === "degrade";
 
@@ -313,17 +325,17 @@ function EditorCaja({ titulo, valor, cambiar }) {
                 : "border-borde bg-tarjeta text-tinta-media hover:bg-superficie"
             }`}
           >
-            {m.palabra}
+            {nombreDe(t, "modos", m)}
           </button>
         ))}
       </Grupo>
 
       {valor.modo !== "fabrica" && (
         <>
-          <p className="mb-1 text-apoyo text-tinta-media">{dos ? "Primer color" : "Color"}</p>
-          <Grupo nombre={`${titulo}: ${dos ? "primer color" : "color"}`} className="mb-3 flex flex-wrap gap-2">
+          <p className="mb-1 text-apoyo text-tinta-media">{dos ? t("cuenta.tema.primerColor") : t("cuenta.tema.color")}</p>
+          <Grupo nombre={dos ? t("cuenta.tema.grupoPrimerColor", { titulo }) : t("cuenta.tema.grupoColor", { titulo })} className="mb-3 flex flex-wrap gap-2">
             {COLORES_CAJA.map((c) => (
-              <Muestra key={c.clave} elegida={valor.c1 === c.clave} onClick={() => poner("c1", c.clave)} palabra={c.palabra} color={c.color} />
+              <Muestra key={c.clave} elegida={valor.c1 === c.clave} onClick={() => poner("c1", c.clave)} palabra={nombreDe(t, "colores", c)} color={c.color} />
             ))}
           </Grupo>
         </>
@@ -331,17 +343,17 @@ function EditorCaja({ titulo, valor, cambiar }) {
 
       {dos && (
         <>
-          <p className="mb-1 text-apoyo text-tinta-media">Segundo color</p>
-          <Grupo nombre={`${titulo}: segundo color`} className="mb-3 flex flex-wrap gap-2">
+          <p className="mb-1 text-apoyo text-tinta-media">{t("cuenta.tema.segundoColor")}</p>
+          <Grupo nombre={t("cuenta.tema.grupoSegundoColor", { titulo })} className="mb-3 flex flex-wrap gap-2">
             {COLORES_CAJA.map((c) => (
-              <Muestra key={c.clave} elegida={valor.c2 === c.clave} onClick={() => poner("c2", c.clave)} palabra={c.palabra} color={c.color} />
+              <Muestra key={c.clave} elegida={valor.c2 === c.clave} onClick={() => poner("c2", c.clave)} palabra={nombreDe(t, "colores", c)} color={c.color} />
             ))}
           </Grupo>
 
-          <p className="mb-1 text-apoyo text-tinta-media">Patrón del degradé</p>
-          <Grupo nombre={`${titulo}: patrón`} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <p className="mb-1 text-apoyo text-tinta-media">{t("cuenta.tema.patron")}</p>
+          <Grupo nombre={t("cuenta.tema.grupoPatron", { titulo })} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {PATRONES.map((p) => (
-              <Opcion key={p.clave} elegida={valor.patron === p.clave} onClick={() => poner("patron", p.clave)} palabra={p.palabra}>
+              <Opcion key={p.clave} elegida={valor.patron === p.clave} onClick={() => poner("patron", p.clave)} palabra={nombreDe(t, "patrones", p)}>
                 <span aria-hidden="true" className="block h-12 rounded-campo" style={{ background: dibujo({ ...valor, patron: p.clave }) }} />
               </Opcion>
             ))}

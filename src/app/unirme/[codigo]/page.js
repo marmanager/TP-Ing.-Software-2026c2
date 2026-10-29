@@ -14,6 +14,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth, recordarInvitacion, olvidarInvitacion } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { pedirEntrar } from "@/lib/equipo";
 import { useTitulo } from "@/lib/useTitulo";
 import { Boton, Campo, Tarjeta, TituloPantalla, Cargando, ErrorGeneral } from "@/componentes/ui";
@@ -22,7 +24,8 @@ import Icono from "@/componentes/Icono";
 export default function Unirme() {
   const { codigo } = useParams();
   const { sesion, cargando, verInvitacion } = useAuth();
-  useTitulo("Sumarte a un negocio");
+  const { t } = useIdioma();
+  useTitulo(t("acceso.unirme.titulo"));
 
   const [mirando, setMirando] = useState(true);
   const [invitacion, setInvitacion] = useState(null);
@@ -67,14 +70,14 @@ export default function Unirme() {
   if (!invitacion || !invitacion.sirve) {
     return (
       <>
-        <TituloPantalla>Este link no sirve</TituloPantalla>
+        <TituloPantalla>{t("acceso.unirme.noSirve")}</TituloPantalla>
         <Tarjeta>
           <p className="flex items-start gap-2 font-bold text-espera">
             <Icono nombre="alerta" className="mt-0.5 size-6" />
-            <span>{invitacion?.motivo ?? error ?? "No pudimos leer la invitación."}</span>
+            <span>{invitacion?.motivo ?? (textoDeError(t, error) || t("acceso.unirme.noPudimosLeer"))}</span>
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Pedile a quien te invitó que te mande uno nuevo.
+            {t("acceso.unirme.pedileUno")}
           </p>
           <div className="mt-6">
             <Link
@@ -82,7 +85,7 @@ export default function Unirme() {
               className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
             >
               <Icono nombre="volver" />
-              Ir a iniciar sesión
+              {t("acceso.unirme.irAIniciar")}
             </Link>
           </div>
         </Tarjeta>
@@ -91,8 +94,8 @@ export default function Unirme() {
   }
 
   const cabecera = (
-    <TituloPantalla apoyo={`${invitacion.negocio} te invitó a su equipo.`}>
-      Sumarte a {invitacion.negocio}
+    <TituloPantalla apoyo={t("acceso.unirme.cabeceraApoyo", { negocio: invitacion.negocio })}>
+      {t("acceso.unirme.cabecera", { negocio: invitacion.negocio })}
     </TituloPantalla>
   );
 
@@ -103,7 +106,7 @@ export default function Unirme() {
         {cabecera}
         <Tarjeta>
           <p className="max-w-[65ch] text-tinta-media">
-            Para sumarte necesitás tu propia cuenta. Creala y volvés acá solo.
+            {t("acceso.unirme.necesitasCuenta")}
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
@@ -112,7 +115,7 @@ export default function Unirme() {
               className="inline-flex min-h-14 items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado"
             >
               <Icono nombre="persona-mas" />
-              Crear mi cuenta
+              {t("acceso.unirme.crearMiCuenta")}
             </Link>
             <Link
               href="/iniciar-sesion"
@@ -120,7 +123,7 @@ export default function Unirme() {
               className="inline-flex min-h-14 items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
             >
               <Icono nombre="check" />
-              Ya tengo cuenta
+              {t("acceso.unirme.yaTengoCuenta")}
             </Link>
           </div>
         </Tarjeta>
@@ -138,14 +141,14 @@ export default function Unirme() {
             <Icono nombre="listo" className="mt-0.5 size-6" />
             <span>
               {pedido.estado === "ya_estas"
-                ? `Ya estás en ${pedido.negocio}.`
-                : `Listo. Le avisamos a ${pedido.negocio}: vas a poder entrar cuando te acepten.`}
+                ? t("acceso.unirme.yaEstas", { negocio: pedido.negocio })
+                : t("acceso.unirme.listo", { negocio: pedido.negocio })}
             </span>
           </p>
           <div className="mt-6">
             <Link href="/negocios" className="inline-flex min-h-12 items-center gap-2 font-bold text-azul">
               <Icono nombre="flecha" />
-              Ir a mis negocios
+              {t("acceso.unirme.irAMisNegocios")}
             </Link>
           </div>
         </Tarjeta>
@@ -158,13 +161,13 @@ export default function Unirme() {
       {cabecera}
       <Tarjeta>
         <p className="mb-6 max-w-[65ch] text-tinta-media">
-          Cuando te acepten, vas a poder ver y trabajar los casos que te asignen.
+          {t("acceso.unirme.cuandoAcepten")}
         </p>
 
         <Campo
           id="nombre"
-          etiqueta="Cómo te van a ver en la lista"
-          ayuda="Con tu nombre alcanza. Si lo dejás vacío usamos el de tu mail."
+          etiqueta={t("acceso.unirme.nombre")}
+          ayuda={t("acceso.unirme.nombreAyuda")}
           autoComplete="name"
           value={nombre}
           onChange={(e) => {
@@ -174,17 +177,18 @@ export default function Unirme() {
         />
 
         {error && (
-          <ErrorGeneral>{error}</ErrorGeneral>
+          <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
         )}
 
         <Boton
           variante="principal"
           icono="check"
-          motivo={entrando ? "enviando…" : null}
+          motivo={entrando ? t("acceso.unirme.enviando") : null}
           onClick={pedir}
+          data-testid="unirme-pedir"
           className="min-h-14 w-full"
         >
-          Pedir entrar a {invitacion.negocio}
+          {t("acceso.unirme.pedir", { negocio: invitacion.negocio })}
         </Boton>
       </Tarjeta>
     </>

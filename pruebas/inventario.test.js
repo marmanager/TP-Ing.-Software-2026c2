@@ -480,6 +480,7 @@ test("por qué no se puede guardar un producto todavía", () => {
   assert.equal(motivoDelProducto({ ...bien, unidad: "caja", porCaja: "" }), "falta cuántos vienen en cada caja");
   assert.equal(motivoDelProducto({ ...bien, unidad: "caja", porCaja: "0" }), "falta cuántos vienen en cada caja");
   assert.equal(motivoDelProducto({ ...bien, cantidad: "0" }), null, "en el stock puede haber cero");
+  assert.equal(motivoDelProducto({ ...bien, cantidad: "-5" }), "la cantidad no puede ser negativa");
   assert.equal(motivoDelProducto({ ...bien, cantidad: "0" }, { desdeUno: true }), "la cantidad va en números, desde 1");
   assert.equal(motivoDelProducto({ ...bien, cantidad: "2.5" }, { desdeUno: true }), "la cantidad va en números, desde 1");
 });

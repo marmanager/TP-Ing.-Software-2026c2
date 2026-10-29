@@ -27,6 +27,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
+import Frase from "@/componentes/Frase";
 import { casosPorAprobar, casosQueContestoElCliente, estaAbierto, pesos } from "@/lib/estados";
 import { turnosSinVer } from "@/lib/turnos";
 import { casosConSaldo } from "@/lib/cobros";
@@ -40,6 +42,7 @@ import {
   ALTO_FILA,
   COLUMNAS,
   INICIO_POR_DEFECTO,
+  PASO_ALTO,
   SEPARACION,
   agregables,
   agregar,
@@ -47,10 +50,13 @@ import {
   colocar,
   compactar,
   intercambiar,
+  llevarA,
   normalizarInicio,
+  posicion,
   quitar,
   redimensionar,
   resolver,
+  traducirDelCatalogo,
   visibles,
 } from "@/lib/inicio";
 import Modulo from "@/componentes/inicio/Modulo";
@@ -69,6 +75,7 @@ const enAlgoQueSeToca = (destino) =>
   destino instanceof Element && destino.closest("button, select, input, a, label");
 
 export default function Inicio() {
+  const { idioma, locale, t } = useIdioma();
   const {
     cargando,
     casos,
@@ -83,7 +90,7 @@ export default function Inicio() {
     avisarExito,
   } = useDatos();
   const { usuario } = useAuth();
-  useTitulo("Inicio");
+  useTitulo(t("inicio.titulo"));
 
   const [acomodando, setAcomodando] = useState(false);
   const [borrador, setBorrador] = useState(null);
@@ -103,8 +110,33 @@ export default function Inicio() {
       const a = arrastre.current;
       if (!a) return;
 
-      const dx = Math.round((e.clientX - a.px) / a.celda.ancho);
-      const dy = Math.round((e.clientY - a.py) / a.celda.alto);
+      // En celular: si el dedo está sobre otro módulo, éste pasa a su lugar
+      // en el orden. Cerca de los bordes la pantalla se corre sola, porque
+      // mientras se arrastra el dedo no puede scrollear.
+      if (a.tipo === "ordenar") {
+        const borde = 80;
+        if (e.clientY < borde) window.scrollBy(0, -12);
+        else if (e.clientY > window.innerHeight - borde) window.scrollBy(0, 12);
+
+        const el = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-modulo]");
+        const otra = el?.getAttribute("data-modulo");
+        if (!otra || otra === a.clave) return;
+
+        // Recién cuando el dedo pasa la mitad del otro. Si fuera apenas
+        // entrar, al cambiar con uno más alto el dedo quedaría encima de él
+        // otra vez y se intercambiarían de ida y vuelta sin parar.
+        const caja = el.getBoundingClientRect();
+        const mitad = caja.top + caja.height / 2;
+        setBorrador((b) => {
+          const estaArriba = posicion(b, otra) < posicion(b, a.clave);
+          const cruzo = estaArriba ? e.clientY < mitad : e.clientY > mitad;
+          return cruzo ? llevarA(b, a.clave, otra) : b;
+        });
+        return;
+      }
+
+      const dx = a.soloAlto ? 0 : Math.round((e.clientX - a.px) / a.celda.ancho);
+      const dy = Math.round((e.clientY - a.py) / a.celda.alto) * PASO_ALTO;
       if (dx === a.dx && dy === a.dy) return;
       a.dx = dx;
       a.dy = dy;
@@ -179,40 +211,40 @@ export default function Inicio() {
   // stock", que desde SCRUM-113 es una de las dos pantallas del Inventario.
   const conStock = hijosActivos("inventario", modulosActivos).some((h) => h.clave === "stock");
   const prendido = (clave) => estaPrendido(clave, modulosActivos);
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
 
   const hayQueMirar = [
     conTurnos && turnosNuevos.length > 0 && {
       href: "/agenda",
       texto:
         turnosNuevos.length === 1
-          ? "Alguien pidió un turno por el link"
-          : `${turnosNuevos.length} turnos nuevos pedidos por el link`,
+          ? t("inicio.avisos.turnoUno")
+          : t("inicio.avisos.turnosVarios", { n: turnosNuevos.length }),
     },
     contestados.length > 0 && {
       href: contestados.length === 1 ? `/casos/${contestados[0].id}` : "/casos",
       texto:
         contestados.length === 1
-          ? `El cliente contestó el ${casoEnFrase(contestados[0])}`
-          : `${contestados.length} casos que contestó el cliente`,
+          ? t("inicio.avisos.contestoUno", { caso: casoEnFrase(contestados[0], t) })
+          : t("inicio.avisos.contestoVarios", { n: contestados.length }),
     },
     conSaldo.length > 0 && {
       href: conSaldo.length === 1 ? `/casos/${conSaldo[0].caso.id}` : "/casos",
       texto:
         conSaldo.length === 1
-          ? `Falta cobrar ${pesos(saldoTotal)} del ${casoEnFrase(conSaldo[0].caso)}`
-          : `Falta cobrar ${pesos(saldoTotal)} de ${conSaldo.length} casos entregados`,
+          ? t("inicio.avisos.saldoUno", { monto: pesos(saldoTotal, locale), caso: casoEnFrase(conSaldo[0].caso, t) })
+          : t("inicio.avisos.saldoVarios", { monto: pesos(saldoTotal, locale), n: conSaldo.length }),
     },
     prendido("presupuesto") && trabados > 0 && {
       href: "/aprobar",
-      texto: `${trabados} ${trabados === 1 ? "caso espera" : "casos esperan"} respuesta hace más de 3 días`,
+      texto: t("inicio.avisos.trabados", { n: trabados }),
     },
     conStock && bajoMinimo > 0 && {
       href: "/inventario",
-      texto: `${articulo.cuantos(bajoMinimo)} por debajo del mínimo`,
+      texto: t("inicio.avisos.bajoMinimo", { cuantos: articulo.cuantos(bajoMinimo) }),
     },
   ].filter(Boolean);
-  const fecha = new Intl.DateTimeFormat("es-AR", {
+  const fecha = new Intl.DateTimeFormat(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -223,14 +255,20 @@ export default function Inicio() {
     const el = grillaRef.current;
     if (!el) return null;
     const ancho = (el.clientWidth - SEPARACION * (COLUMNAS - 1)) / COLUMNAS;
-    return { ancho: ancho + SEPARACION, alto: ALTO_FILA + SEPARACION };
+    // A lo alto se cuenta de a media celda, que es el paso del alto.
+    return { ancho: ancho + SEPARACION, alto: (ALTO_FILA + SEPARACION) * PASO_ALTO };
   }
 
   function agarrar(e, clave, tipo) {
-    // Sólo el botón principal, y sólo donde hay grilla: en celular se acomoda
-    // con los botones de Ajustes.
+    // Sólo el botón principal. En celular no hay grilla: el módulo no se
+    // agarra del medio, porque el dedo tiene que poder seguir scrolleando.
+    // Se arrastra desde la manija de abajo a la izquierda, y eso cambia el
+    // orden; la esquina de la derecha cambia sólo el alto, porque en una
+    // sola columna el ancho no existe.
     if (e.button > 0) return;
-    if (!window.matchMedia("(min-width: 48rem)").matches) return;
+    const hayGrilla = window.matchMedia("(min-width: 48rem)").matches;
+    if (tipo === "ordenar") tipo = hayGrilla ? "mover" : "ordenar";
+    else if (!hayGrilla && tipo === "mover") return;
     if (enAlgoQueSeToca(e.target)) return;
 
     const item = borrador.find((m) => m.clave === clave);
@@ -239,7 +277,16 @@ export default function Inicio() {
 
     e.preventDefault();
     e.stopPropagation();
-    arrastre.current = { clave, tipo, item, celda, base: borrador, px: e.clientX, py: e.clientY };
+    arrastre.current = {
+      clave,
+      tipo,
+      item,
+      celda,
+      soloAlto: !hayGrilla,
+      base: borrador,
+      px: e.clientX,
+      py: e.clientY,
+    };
     setAgarrado(clave);
     setSeleccion(clave);
   }
@@ -261,10 +308,11 @@ export default function Inicio() {
     const item = borrador.find((m) => m.clave === clave);
     if (!item) return;
 
+    const dy = paso[1] * PASO_ALTO;
     setBorrador((b) =>
       e.shiftKey
-        ? redimensionar(b, clave, item.ancho + paso[0], item.alto + paso[1])
-        : colocar(b, clave, item.x + paso[0], item.y + paso[1])
+        ? redimensionar(b, clave, item.ancho + paso[0], item.alto + dy)
+        : colocar(b, clave, item.x + paso[0], item.y + dy)
     );
   }
 
@@ -305,9 +353,7 @@ export default function Inicio() {
     cambiarInicio([...acomodado, ...ocultos]);
     salirDeAcomodar();
     avisarExito(
-      subioAlgo
-        ? "Listo. Juntamos los módulos para arriba así no te quedan espacios en blanco."
-        : "Listo. Tu pantalla de inicio quedó como la dejaste.",
+      subioAlgo ? t("inicio.acomodar.guardadoJunto") : t("inicio.acomodar.guardado"),
       { deshacer: () => cambiarInicio(comoEstaba) }
     );
   }
@@ -329,9 +375,11 @@ export default function Inicio() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      {/* Acomodando, la cabecera acompaña al scroll: guardar y descartar
+          quedan a mano sin volver a subir. */}
+      <div className={`mb-6 flex flex-wrap items-start justify-between gap-4 ${acomodando ? "sticky top-0 z-30 -mx-4 bg-fondo px-4 py-3 shadow-sm" : ""}`}>
         <div>
-          <h1 className="text-pantalla">Inicio</h1>
+          <h1 className="text-pantalla">{t("inicio.titulo")}</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media first-letter:uppercase">
             {acomodando ? (
               <>
@@ -340,26 +388,25 @@ export default function Inicio() {
                     pantalla. Si dijera "agarrá", alguien lo intenta, no pasa
                     nada y concluye que el sistema está roto (auditoría, H2). */}
                 <span className="md:hidden">
-                  Tocá un módulo y usá sus ajustes para moverlo o cambiarle el tamaño.
+                  {t("inicio.acomodar.movil")}
                 </span>
                 <span className="hidden md:inline">
-                  Agarrá un módulo del medio y llevalo donde quieras. Para el tamaño, tirá
-                  de la esquina punteada; para lo demás, tocalo y abrí sus ajustes.
+                  {t("inicio.acomodar.escritorio")}
                 </span>
               </>
             ) : (
-              `${fecha} · ${abiertos} ${abiertos === 1 ? "caso abierto" : "casos abiertos"}`
+              t("inicio.resumen", { fecha, n: abiertos })
             )}
           </p>
         </div>
 
         {acomodando ? (
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Boton variante="plano" onClick={salirDeAcomodar}>
-              Descartar los cambios
-            </Boton>
             <Boton variante="principal" icono="check" onClick={guardar}>
-              Guardar la pantalla
+              {t("inicio.acomodar.guardar")}
+            </Boton>
+            <Boton variante="plano" onClick={salirDeAcomodar}>
+              {t("inicio.acomodar.descartar")}
             </Boton>
           </div>
         ) : (
@@ -369,10 +416,10 @@ export default function Inicio() {
                 la pantalla" se hace una vez cada varios meses y va al pie de
                 la grilla; con los dos del mismo tamaño al lado había que leer
                 los dos todas las veces (auditoría, H8). */}
-            <Link href="/casos/nuevo" className="flex-1 sm:flex-none">
+            <Link href="/casos/nuevo" data-testid="inicio-abrir-caso" className="flex-1 sm:flex-none">
               <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
                 <Icono nombre="mas" />
-                Abrir un caso nuevo
+                {t("inicio.abrirCaso")}
               </span>
             </Link>
           </div>
@@ -388,13 +435,10 @@ export default function Inicio() {
       {!acomodando && negocio?.rubro === "personalizable" && ningunoPrendido(modulosActivos) && (
         <Tarjeta className="mb-6">
           <p className="font-titulo font-extrabold text-subtitulo">
-            Te damos la bienvenida a MarManager
+            {t("inicio.bienvenida.titulo")}
           </p>
           <p className="mt-2 max-w-[65ch] text-tinta-media">
-            Tu negocio arranca con lo justo: los casos.{" "}
-            {puede(usuario, "configurar_negocio")
-              ? "Elegí qué más usar —la agenda, los clientes, el inventario, el equipo— desde Mi negocio → Módulos."
-              : "Qué más usar —la agenda, los clientes, el inventario, el equipo— lo elige el dueño desde Mi negocio → Módulos."}
+            {puede(usuario, "configurar_negocio") ? t("inicio.bienvenida.puede") : t("inicio.bienvenida.soloLectura")}
           </p>
           {puede(usuario, "configurar_negocio") && (
             <Link
@@ -402,7 +446,7 @@ export default function Inicio() {
               className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-6 font-bold text-cuerpo text-azul hover:bg-azul-claro"
             >
               <Icono nombre="tuerca" />
-              Elegir los módulos
+              {t("inicio.bienvenida.elegir")}
             </Link>
           )}
         </Tarjeta>
@@ -429,10 +473,8 @@ export default function Inicio() {
       )}
 
       {enPantalla.length === 0 ? (
-        <Vacio icono="cajas" titulo="Tu inicio está vacío">
-          {acomodando
-            ? "Agregá abajo los módulos que quieras ver."
-            : "Tocá «Acomodar la pantalla» y elegí qué querés ver al abrir."}
+        <Vacio icono="cajas" titulo={t("inicio.vacioTitulo")}>
+          {acomodando ? t("inicio.vacioAcomodando") : t("inicio.vacio")}
         </Vacio>
       ) : (
         <div ref={grillaRef} className="grilla-inicio">
@@ -453,6 +495,7 @@ export default function Inicio() {
               }
               alAgarrarParaMover={(e) => agarrar(e, m.clave, "mover")}
               alAgarrarParaRedimensionar={(e) => agarrar(e, m.clave, "tamano")}
+              alAgarrarParaOrdenar={(e) => agarrar(e, m.clave, "ordenar")}
               alTeclado={(e) => teclado(e, m.clave)}
             />
           ))}
@@ -461,18 +504,25 @@ export default function Inicio() {
 
       {acomodando && (
         <>
-          <TituloSeccion className="mt-12">Agregar un módulo</TituloSeccion>
+          <TituloSeccion className="mt-12">{t("inicio.acomodar.agregarTitulo")}</TituloSeccion>
           {sePuedenAgregar.length === 0 ? (
             <p className="max-w-[65ch] text-tinta-media">
-              Ya están todos los que podés usar. Para tener más, prendé otros módulos en{" "}
-              <Link href="/negocio/modulos" className="font-bold text-azul">
-                Mi negocio
-              </Link>
-              .
+              <Frase
+                texto={t("inicio.acomodar.yaEstanTodos")}
+                partes={{
+                  enlace: (
+                    <Link href="/negocio/modulos" className="font-bold text-azul">
+                      {t("negocio.titulo")}
+                    </Link>
+                  ),
+                }}
+              />
             </p>
           ) : (
             <ul className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
-              {sePuedenAgregar.map((def) => (
+              {sePuedenAgregar.map((definicion) => {
+                const def = traducirDelCatalogo(definicion, t);
+                return (
                 <li key={def.clave}>
                   <button
                     type="button"
@@ -489,15 +539,16 @@ export default function Inicio() {
                     <span className="text-tinta-media">{def.queMuestra}</span>
                     <span className="mt-2 flex items-center gap-1 font-bold text-azul text-etiqueta">
                       <Icono nombre="mas" className="size-5" />
-                      Agregarlo al inicio
+                      {t("inicio.acomodar.agregarlo")}
                     </span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
 
-          <div className="mt-8">
+          <div className="mt-8 flex justify-end">
             <Boton
               icono="deshacer"
               onClick={() => {
@@ -506,7 +557,7 @@ export default function Inicio() {
                 setAjustando(null);
               }}
             >
-              Volver al orden de fábrica
+              {t("inicio.acomodar.fabrica")}
             </Boton>
           </div>
         </>
@@ -515,7 +566,7 @@ export default function Inicio() {
       {!acomodando && (
         <div className="mt-6">
           <Boton variante="plano" icono="cajas" onClick={empezarAAcomodar}>
-            Acomodar la pantalla
+            {t("inicio.acomodar.empezar")}
           </Boton>
         </div>
       )}

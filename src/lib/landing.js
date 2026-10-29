@@ -8,7 +8,9 @@
 // (src/modulos/negocio/esquemas.ts), que no deja guardar otras. Si se suma
 // una, se suma en los dos lados.
 
-import { LISTA_MODULOS, estaPrendido } from "./modulos.js";
+import { LISTA_MODULOS, estaPrendido, traducirModulo } from "./modulos.js";
+import { tCastellano } from "./idioma.js";
+import { ACENTOS } from "./tema.js";
 
 // El modelo fijo: el negocio no crea ni borra secciones, sólo las ordena.
 // "modulo" es el módulo sin el cual la sección no tiene sentido: sin Agenda
@@ -40,6 +42,24 @@ export const SECCIONES = [
   },
 ];
 
+// Los textos fijos de la landing (etiquetas de sección, colores, tipografías)
+// son de fábrica: salen del diccionario por la clave (landing.secciones.*,
+// landing.partes.*, landing.fuentes.*), y sin t en castellano. Lo que el
+// negocio escribió (nombre, descripción, teléfono) no pasa por acá.
+export const traducirSeccion = (s, t = tCastellano) => ({
+  ...s,
+  nombre: t(`landing.secciones.${s.clave}.nombre`, {}, s.nombre),
+  queMuestra: t(`landing.secciones.${s.clave}.queMuestra`, {}, s.queMuestra),
+});
+
+export const traducirParte = (p, t = tCastellano) => ({
+  ...p,
+  nombre: t(`landing.partes.${p.clave}.nombre`, {}, p.nombre),
+  ayuda: t(`landing.partes.${p.clave}.ayuda`, {}, p.ayuda),
+});
+
+export const nombreDeFuente = (f, t = tCastellano) => t(`landing.fuentes.${f.clave}`, {}, f.nombre);
+
 // Los cuatro colores que elige el negocio, cada uno con el de su texto.
 export const PARTES = [
   { clave: "fondo", nombre: "Fondo", ayuda: "El color de toda la página." },
@@ -47,6 +67,39 @@ export const PARTES = [
   { clave: "botones", nombre: "Botones", ayuda: "Lo que se toca: botones y links." },
   { clave: "acento", nombre: "Acento", ayuda: "Las marcas que llaman la atención, como el estado de un caso." },
 ];
+
+// Los colores que se pueden elegir en cada parte, como en el Tema de Mi perfil:
+// muestras fijas, sin selector libre. El texto de cada una sale solo
+// (textoRecomendado), así que cualquiera se lee. Los botones y el acento usan
+// los mismos colores sólidos que el Tema. La de fábrica está en cada lista.
+// El nombre se traduce por la clave (landing.paleta.<clave>).
+const MUESTRAS_FONDO = [
+  { clave: "crema", palabra: "Crema", color: "#fbf8f4" },
+  { clave: "blanco", palabra: "Blanco", color: "#ffffff" },
+  { clave: "gris", palabra: "Gris claro", color: "#eef1f4" },
+  { clave: "celeste", palabra: "Celeste", color: "#e8eff7" },
+  { clave: "menta", palabra: "Menta", color: "#e3f2e8" },
+  { clave: "rubor", palabra: "Rubor", color: "#f9e6ef" },
+  { clave: "noche", palabra: "Azul noche", color: "#1b2a41" },
+  { clave: "carbon", palabra: "Carbón", color: "#171412" },
+];
+const MUESTRAS_CAJAS = [
+  { clave: "blanco", palabra: "Blanco", color: "#ffffff" },
+  { clave: "marfil", palabra: "Marfil", color: "#fffaf3" },
+  { clave: "bruma", palabra: "Bruma", color: "#f1f6fb" },
+  { clave: "menta", palabra: "Menta", color: "#eef7f1" },
+  { clave: "carbon", palabra: "Carbón", color: "#1e1a17" },
+];
+const MUESTRAS_ACENTOS = ACENTOS.map(({ clave, palabra, solido }) => ({ clave, palabra, color: solido }));
+
+export const PALETAS = {
+  fondo: MUESTRAS_FONDO,
+  cajas: MUESTRAS_CAJAS,
+  botones: MUESTRAS_ACENTOS,
+  acento: MUESTRAS_ACENTOS,
+};
+
+export const nombreDeMuestra = (m, t = tCastellano) => t(`landing.paleta.${m.clave}`, {}, m.palabra);
 
 // "fabrica" es la de la app: Figtree en los títulos y Source Sans 3 en el
 // texto. Las otras van en toda la página (src/componentes/landing/fuentes.js).
@@ -132,7 +185,7 @@ export function moverSeccion(orden, clave, paso) {
 // ("horariosListos", que lo decide la API con la misma regla que la agenda
 // pública). Sin horarios no hay turnos que ofrecer. Por defecto se da por
 // hecho que están, así lo que ya usaba esta función no cambia.
-export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = true) {
+export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = true, t = tCastellano) {
   return normalizarLanding({ orden }).orden.map((clave) => {
     const seccion = SECCIONES.find((s) => s.clave === clave);
     const prendido = !seccion.modulo || estaPrendido(seccion.modulo, modulosActivos ?? []);
@@ -142,13 +195,13 @@ export function estadoDeSecciones(orden, modulosActivos = [], horariosListos = t
     const visible = prendido && !sinHorarios;
     const modulo = LISTA_MODULOS.find((m) => m.clave === seccion.modulo);
     return {
-      ...seccion,
+      ...traducirSeccion(seccion, t),
       visible,
       motivo: visible
         ? null
         : sinHorarios
-          ? "Aparece cuando publicás tus horarios."
-          : `Aparece cuando prendés el módulo ${modulo?.nombre ?? seccion.modulo}.`,
+          ? t("landing.motivo.sinHorarios")
+          : t("landing.motivo.modulo", { modulo: traducirModulo(modulo, t)?.nombre ?? seccion.modulo }),
     };
   });
 }

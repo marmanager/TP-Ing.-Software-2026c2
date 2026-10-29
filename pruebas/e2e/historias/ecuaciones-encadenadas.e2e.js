@@ -1,12 +1,11 @@
-import { $, expect } from "@wdio/globals";
-import { entrar, reemplazarTexto, verTexto } from "./ayudas.js";
+import { $, browser, expect } from "@wdio/globals";
+import { entrar, reemplazarTexto, tid, verTexto } from "./ayudas.js";
 
-const boton = (texto) => $(`button=${texto}`);
 
 async function agregarVariable(nombre) {
-  await $("//h2[normalize-space()='Variables y constantes']/following::button[normalize-space()='Agregar'][1]").click();
+  await tid("ecuacion-variable-agregar").click();
   await reemplazarTexto("#variable-nombre", nombre);
-  await boton("Guardar variable").click();
+  await tid("ecuacion-variable-guardar").click();
 }
 
 async function completar(nombre, valor) {
@@ -16,31 +15,35 @@ async function completar(nombre, valor) {
 
 describe("ecuaciones encadenadas", () => {
   it("crea una base, la utiliza y resuelve el resultado final", async () => {
-    await entrar("/ecuaciones", "taller-sin-casos");
+    // El taller sembrado no trae el módulo: se prende como lo haría la dueña.
+    await entrar("/negocio/modulos", "taller-sin-casos");
+    await tid("modulo-alternar-ecuaciones").click();
+    await expect(tid("modulo-alternar-ecuaciones")).toHaveAttribute("aria-checked", "true");
+    await browser.url("/ecuaciones");
 
-    await boton("Crear una ecuación").click();
+    await tid("ecuaciones-crear").click();
     await reemplazarTexto("#ecuacion-nombre", "IMC");
     await reemplazarTexto("#ecuacion-formula", "peso/altura^2");
     await agregarVariable("peso");
     await agregarVariable("altura");
-    await boton("Guardar ecuación").click();
+    await tid("ecuacion-guardar").click();
     await verTexto("IMC");
 
-    await boton("Crear una ecuación").click();
+    await tid("ecuaciones-crear").click();
     await reemplazarTexto("#ecuacion-nombre", "Nivel de riesgo");
-    await $("select[aria-label='Ecuación para utilizar']").selectByVisibleText("IMC");
-    await $("//h2[normalize-space()='Ecuaciones calculadas']/following::button[normalize-space()='Agregar'][1]").click();
+    await tid("ecuacion-dependencia-select").selectByVisibleText("IMC");
+    await tid("ecuacion-dependencia-agregar").click();
     await reemplazarTexto("#ecuacion-formula", "imc*");
-    await $("//li[contains(.,'peso') and contains(.,'IMC')]//button[normalize-space()='Insertar']").click();
-    await boton("Guardar ecuación").click();
+    await tid("ecuacion-heredada-insertar-IMC-peso").click();
+    await tid("ecuacion-guardar").click();
 
-    await $("//li[.//*[contains(text(),'Nivel de riesgo')]]//button[normalize-space()='Resolver']").click();
+    await tid("ecuacion-resolver-Nivel de riesgo").click();
     await completar("peso", "80");
     await completar("altura", "2");
-    await boton("Calcular").click();
+    await tid("ecuacion-calcular").click();
 
     await expect($("body")).toHaveText(expect.stringContaining("Resultado"));
-    await expect($("body")).toHaveText(expect.stringContaining("1600"));
+    await expect($("body")).toHaveText(expect.stringContaining("1.600"));
     await expect($("body")).toHaveText(expect.stringContaining("Resultados intermedios"));
     await expect($("body")).toHaveText(expect.stringContaining("IMC: 20"));
   });

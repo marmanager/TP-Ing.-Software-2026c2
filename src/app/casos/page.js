@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
+import { conElementos } from "@/lib/conElementos";
 import { ORDEN_ESTADOS } from "@/lib/estados";
 import { comoSeIdentifica } from "@/lib/presets";
 import { presentacionEstado } from "@/lib/presentacion-estados";
@@ -15,13 +17,14 @@ import { Boton, Cargando, Vacio } from "@/componentes/ui";
 
 export default function Casos() {
   const router = useRouter();
+  const { t, idioma } = useIdioma();
   const { cargando, casos, clientes, negocio } = useDatos();
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
   const [orden, setOrden] = useState("estado");
   const [mercadoPagoVinculado, setMercadoPagoVinculado] = useState(false);
   const campoBusqueda = useRef(null);
-  useTitulo("Casos");
+  useTitulo(t("casos.lista.titulo"));
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mp") !== "conectado") return;
     // La nota la borra la pantalla a la que se vuelve, al llegar: si se
@@ -38,7 +41,7 @@ export default function Casos() {
   if (cargando) return <Cargando />;
 
   const texto = busqueda.trim().toLowerCase();
-  const comoIdent = comoSeIdentifica(negocio?.rubro);
+  const comoIdent = comoSeIdentifica(negocio?.rubro, idioma);
   const visibles = casos
     .filter((c) => filtro === "todos" || c.estado === filtro)
     .filter((c) => {
@@ -69,28 +72,27 @@ export default function Casos() {
     <>
       {mercadoPagoVinculado && (
         <p role="status" className="mb-4 rounded-campo bg-completo-fondo p-3 font-bold text-completo">
-          Mercado Pago quedó vinculado. Abrí un caso para pedir un pago por link o QR.
+          {t("casos.lista.mercadoPago")}
         </p>
       )}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-pantalla">Casos</h1>
-          <p className="mt-1 text-tinta-media">Todos los trabajos, incluidos los ya entregados.</p>
+          <h1 className="text-pantalla">{t("casos.lista.titulo")}</h1>
+          <p className="mt-1 text-tinta-media">{t("casos.lista.apoyo")}</p>
         </div>
         <Link href="/casos/nuevo" className="w-full sm:w-auto">
           <span className="flex min-h-14 w-full items-center justify-center gap-2 rounded-campo bg-azul px-6 font-bold text-cuerpo text-white hover:bg-azul-apretado sm:min-h-12">
             <Icono nombre="mas" />
-            Abrir un caso nuevo
+            {t("casos.lista.abrir")}
           </span>
         </Link>
       </div>
 
       <label htmlFor="buscar" className="block font-bold text-cuerpo">
-        Buscar un caso
+        {t("casos.lista.buscar")}
       </label>
       <p className="mt-1 text-apoyo text-tinta-suave">
-        Por número, por {comoIdent.enFrase}, por lo que necesita o por el
-        nombre del cliente.
+        {t("casos.lista.buscarAyuda", { identificador: comoIdent.enFrase })}
       </p>
       <div className="relative mt-2 mb-6">
         <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-tinta-suave">
@@ -101,7 +103,7 @@ export default function Casos() {
           ref={campoBusqueda}
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          placeholder={`248, ${comoIdent.ejemplo}, frenos, Marcela…`}
+          placeholder={t("casos.lista.buscarEjemplo", { ejemplo: comoIdent.ejemplo })}
           className="block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta pl-13 pr-14 text-cuerpo placeholder:text-tinta-suave"
         />
         {/* Borrar letra por letra en el teclado de un celular son doce
@@ -111,7 +113,7 @@ export default function Casos() {
         {busqueda && (
           <button
             type="button"
-            aria-label="Borrar la búsqueda"
+            aria-label={t("ui.borrarBusqueda")}
             onClick={() => {
               setBusqueda("");
               campoBusqueda.current?.focus();
@@ -125,10 +127,10 @@ export default function Casos() {
 
       <div className="mb-4 flex flex-wrap gap-2">
         <BotonFiltro activo={filtro === "todos"} onClick={() => setFiltro("todos")}>
-          Todos ({casos.length})
+          {t("casos.lista.todos", { n: casos.length })}
         </BotonFiltro>
         {ORDEN_ESTADOS.map((estado) => {
-          const visual = presentacionEstado(negocio, estado);
+          const visual = presentacionEstado(negocio, estado, idioma);
           return (
             <BotonFiltro
               key={estado}
@@ -143,12 +145,12 @@ export default function Casos() {
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <span className="text-tinta-media">Ordenados</span>
+        <span className="text-tinta-media">{t("casos.lista.ordenados")}</span>
         <BotonFiltro activo={orden === "estado"} onClick={() => setOrden("estado")}>
-          Por estado
+          {t("casos.lista.porEstado")}
         </BotonFiltro>
         <BotonFiltro activo={orden === "viejos"} onClick={() => setOrden("viejos")}>
-          Los más viejos primero
+          {t("casos.lista.masViejos")}
         </BotonFiltro>
       </div>
 
@@ -159,12 +161,13 @@ export default function Casos() {
       {(filtro !== "todos" || texto) && casos.length > 0 && (
         <p className="mb-4 flex flex-wrap items-center gap-2 text-tinta-media">
           <span>
-            Mostrando <span className="font-bold text-tinta">{visibles.length}</span> de{" "}
-            {casos.length} {casos.length === 1 ? "caso" : "casos"}
+            {conElementos(t("casos.lista.mostrando", { n: casos.length }), {
+              visibles: <span className="font-bold text-tinta">{visibles.length}</span>,
+            })}
           </span>
           {filtro !== "todos" && (
             <Boton variante="plano" icono="cruz" onClick={() => setFiltro("todos")}>
-              {presentacionEstado(negocio, filtro).nombre}
+              {presentacionEstado(negocio, filtro, idioma).nombre}
             </Boton>
           )}
           {texto && (
@@ -183,8 +186,8 @@ export default function Casos() {
       )}
 
       {visibles.length === 0 ? (
-        <Vacio icono="buscar" titulo="No hay casos que coincidan">
-          Probá con otra palabra o sacá el filtro de estado.
+        <Vacio icono="buscar" titulo={t("casos.lista.vacioTitulo")}>
+          {t("casos.lista.vacioTexto")}
         </Vacio>
       ) : (
         <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">

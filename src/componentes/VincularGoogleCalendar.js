@@ -2,11 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 import { Boton, ErrorGeneral, Tarjeta } from "./ui";
 
+// Los textos que arma este componente (errores, avisos) se guardan como clave
+// del diccionario y se traducen al dibujarlos, así siguen al idioma si cambia.
+// Lo que viene escrito de /api/google-calendar (data.error) se muestra tal cual.
+const EN_DICCIONARIO = "agenda.google.";
+
 export default function VincularGoogleCalendar({ comoIntegracion = false }) {
-  const { sesion, tokenActual } = useAuth();
+  const { t } = useIdioma();
+  const verTexto = (texto) => (texto?.startsWith?.(EN_DICCIONARIO) ? t(texto) : texto);
+  const { sesion, tokenActual, usuario } = useAuth();
+  const motivoEnVista = usuario?.vista_maestra_desde ? t("vistaMaestra.googleApagado") : null;
   const [estado, setEstado] = useState(null);
   const [error, setError] = useState(null);
   const [ocupado, setOcupado] = useState(false);
@@ -18,11 +27,11 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
     let activo = true;
     tokenActual()
       .then((token) => {
-        if (!token) throw new Error("Tu sesión venció. Volvé a entrar.");
+        if (!token) throw new Error("agenda.google.sesionVencida");
         return fetch("/api/google-calendar", { headers: { authorization: `Bearer ${token}` } });
       })
       .then(async r => {
-        if (!r.ok) throw new Error("No se pudo consultar Google Calendar.");
+        if (!r.ok) throw new Error("agenda.google.noSePudoConsultar");
         return r.json();
       })
       .then(data => { if (activo) setEstado(data); })
@@ -38,7 +47,7 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
     setMensaje(null);
     try {
       const token = await tokenActual();
-      if (!token) throw new Error("Tu sesión venció. Volvé a entrar.");
+      if (!token) throw new Error("agenda.google.sesionVencida");
       const response = await fetch("/api/google-calendar", {
         method,
         headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
@@ -48,12 +57,12 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
         }) } : {}),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "No se pudo conectar Google Calendar.");
+      if (!response.ok) throw new Error(data.error || "agenda.google.noSePudoConectar");
       if (action === "connect") window.location.assign(data.url);
       else {
         setEstado({ ...estado, conectado: false, error: null });
         setConfirmando(false);
-        setMensaje("Google Calendar quedó desvinculado de tu cuenta.");
+        setMensaje("agenda.google.desvinculado");
       }
     } catch (e) { setError(e.message); }
     finally { setOcupado(false); }
@@ -74,62 +83,60 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
           <p className="font-bold">Google Calendar</p>
           <p className="max-w-[65ch] text-tinta-media">
             {estado === null
-              ? "Consultando la conexión…"
+              ? t("agenda.google.consultando")
               : estado.conectado
-                ? "Vinculado con tu cuenta. Tus turnos se copian automáticamente."
-                : "Vinculá tu cuenta para copiar tus turnos a tu calendario principal."}
+                ? t("agenda.google.vinculado")
+                : t("agenda.google.vincular")}
           </p>
         </div>
         {estado && !estado.conectado && (
           <Boton
             icono="calendario"
-            motivo={ocupado ? "conectando" : !estado.disponible ? "falta configurar Google" : null}
+            motivo={motivoEnVista ?? (ocupado ? t("agenda.google.conectando") : !estado.disponible ? t("agenda.google.faltaConfigurar") : null)}
             onClick={() => pedir("POST", "connect")}
           >
-            Vincular Google Calendar
+            {t("agenda.google.botonVincular")}
           </Boton>
         )}
         {estado?.conectado && !confirmando && (
-          <Boton variante="peligro" icono="salir" onClick={() => setConfirmando(true)}>
-            Desvincular Google Calendar
+          <Boton variante="peligro" icono="salir" motivo={motivoEnVista} onClick={() => setConfirmando(true)}>
+            {t("agenda.google.botonDesvincular")}
           </Boton>
         )}
       </div>
 
       <p className="mt-4 max-w-[65ch] text-apoyo text-tinta-suave">
-        Los cambios hechos en Google no modifican la app. Si antes agregaste el link .ics,
-        quitá esa suscripción para evitar turnos duplicados.
+        {t("agenda.google.avisoIntegracion")}
       </p>
 
       {(error || estado?.error || resultado === "error") && (
         <div className="mt-4">
-          <ErrorGeneral>{error || estado?.error || "No se pudo completar la autorización con Google."}</ErrorGeneral>
+          <ErrorGeneral>{verTexto(error || estado?.error) || t("agenda.google.autorizacion")}</ErrorGeneral>
         </div>
       )}
       {(mensaje || (resultado === "conectado" && !error && !estado?.error)) && (
         <p className="mt-4 font-bold text-completo" role="status">
-          {mensaje || "Google Calendar quedó vinculado. Copiamos los turnos existentes."}
+          {verTexto(mensaje) || t("agenda.google.quedoVinculado")}
         </p>
       )}
 
       {confirmando && (
         <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-          <p className="font-bold">¿Desvincular Google Calendar de tu cuenta?</p>
+          <p className="font-bold">{t("agenda.google.confirmarTitulo")}</p>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
-            Los turnos que ya se copiaron quedan en Google. Los nuevos turnos y cambios dejan
-            de sincronizarse hasta que vuelvas a vincular una cuenta.
+            {t("agenda.google.confirmarTexto")}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Boton
               variante="peligro"
               icono="salir"
-              motivo={ocupado ? "desvinculando" : null}
+              motivo={motivoEnVista ?? (ocupado ? t("agenda.google.desvinculando") : null)}
               onClick={() => pedir("DELETE")}
             >
-              Sí, desvincularla
+              {t("agenda.google.siDesvincular")}
             </Boton>
             <Boton variante="plano" disabled={ocupado} onClick={() => setConfirmando(false)}>
-              Dejarla vinculada
+              {t("agenda.google.dejarVinculada")}
             </Boton>
           </div>
         </div>
@@ -141,30 +148,28 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
     <div className="mt-4 flex flex-wrap items-center gap-3">
       {estado?.conectado ? (
         <>
-          <span className="font-bold text-azul">Google Calendar vinculado</span>
-          <Boton variante="plano" motivo={ocupado ? "desconectando" : null}
-            onClick={() => pedir("DELETE")}>Desvincular</Boton>
+          <span className="font-bold text-azul">{t("agenda.google.estaVinculado")}</span>
+          <Boton variante="plano" motivo={motivoEnVista ?? (ocupado ? t("agenda.google.desconectando") : null)}
+            onClick={() => pedir("DELETE")}>{t("agenda.google.desvincular")}</Boton>
         </>
       ) : (
         <Boton icono="calendario"
-          motivo={ocupado ? "conectando" : estado && !estado.disponible ? "falta configurar Google" : null}
-          onClick={() => pedir("POST", "connect")}>Vincular con Google Calendar</Boton>
+          motivo={motivoEnVista ?? (ocupado ? t("agenda.google.conectando") : estado && !estado.disponible ? t("agenda.google.faltaConfigurar") : null)}
+          onClick={() => pedir("POST", "connect")}>{t("agenda.google.vincularCon")}</Boton>
       )}
       <p className="w-full text-apoyo text-tinta-media">
-        Tus turnos se copian a tu calendario principal. Se revisan al entrar,
-        mientras usás la app y una vez al día cuando está cerrada. Los cambios
-        en Google no modifican la app.
+        {t("agenda.google.explicacion")}
       </p>
       <p className="w-full text-apoyo text-tinta-suave">
-        Si ya agregaste el link .ics a Google, quitá esa suscripción para no ver turnos duplicados.
+        {t("agenda.google.avisoIcs")}
       </p>
       {(error || estado?.error || resultado === "error") && (
         <p className="w-full text-rojo" role="alert">
-          {error || estado?.error || "No se pudo completar la autorización con Google."}
+          {verTexto(error || estado?.error) || t("agenda.google.autorizacion")}
         </p>
       )}
       {resultado === "conectado" && !error && !estado?.error && (
-        <p className="w-full text-azul" role="status">Cuenta vinculada. Copiamos los turnos existentes.</p>
+        <p className="w-full text-azul" role="status">{t("agenda.google.cuentaVinculada")}</p>
       )}
     </div>
   );

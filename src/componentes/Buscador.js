@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
 
 // ------------------------------------------------------------
@@ -12,6 +13,7 @@ import Icono from "./Icono";
 // devuelve el foco al campo para escribir otra cosa (auditoría, H3).
 
 export default function Buscador({ id, etiqueta, ayuda, valor, alCambiar }) {
+  const { t } = useIdioma();
   const campo = useRef(null);
   return (
     <div className="min-w-64 flex-1">
@@ -34,7 +36,7 @@ export default function Buscador({ id, etiqueta, ayuda, valor, alCambiar }) {
         {valor && (
           <button
             type="button"
-            aria-label="Borrar la búsqueda"
+            aria-label={t("ui.borrarBusqueda")}
             onClick={() => {
               alCambiar("");
               campo.current?.focus();

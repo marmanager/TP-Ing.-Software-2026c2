@@ -1,7 +1,8 @@
 // Categorías internas de Dashboard: comparten un único interruptor de módulo.
 // Clientes e Inventario acompañan a los módulos que ya usa el negocio.
 import { cobrosConLoDeAntes, cobrosDelCaso } from "./cobros.js";
-import { MODULOS, estaPrendido, hijosActivos } from "./modulos.js";
+import { MODULOS, estaPrendido, hijosActivos, nombreDeModulo } from "./modulos.js";
+import { tCastellano, textoDeError } from "./idioma.js";
 
 export const CATEGORIAS_DASHBOARD = [
   {
@@ -38,20 +39,29 @@ export const CATEGORIAS_DASHBOARD = [
   },
 ];
 
-export const categoriasDashboard = (activos = []) =>
-  CATEGORIAS_DASHBOARD.filter((categoria) => !categoria.modulo || estaPrendido(categoria.modulo, activos));
+// Los textos de cada categoría salen del diccionario (dashboard.categorias.*);
+// sin t, en castellano, igual que las constantes de arriba.
+export const traducirCategoria = (c, t = tCastellano) => ({
+  ...c,
+  nombre: t(`dashboard.categorias.${c.clave}.nombre`, {}, c.nombre),
+  descripcion: t(`dashboard.categorias.${c.clave}.descripcion`, {}, c.descripcion),
+});
+
+export const categoriasDashboard = (activos = [], t = tCastellano) =>
+  CATEGORIAS_DASHBOARD.filter((categoria) => !categoria.modulo || estaPrendido(categoria.modulo, activos))
+    .map((categoria) => traducirCategoria(categoria, t));
 
 // Los accesos usan los mismos módulos y destinos que la navegación principal.
 // Cobros vive dentro de los casos; no hay una pantalla /cobros independiente.
-export function destinoDashboard(clave, activos = []) {
+export function destinoDashboard(clave, activos = [], t = tCastellano) {
   const categoria = categoriasDashboard(activos).find((c) => c.clave === clave);
   if (!categoria || clave === "resumen") return null;
-  if (clave === "casos") return { href: "/casos", texto: "Ir a Casos" };
-  if (clave === "cobros") return { href: "/casos", texto: "Ver cobros en Casos" };
+  if (clave === "casos") return { href: "/casos", texto: t("dashboard.destino.casos") };
+  if (clave === "cobros") return { href: "/casos", texto: t("dashboard.destino.cobros") };
   const modulo = MODULOS[categoria.modulo];
   if (!modulo) return null;
   const ruta = clave === "inventario" ? hijosActivos("inventario", activos)[0]?.ruta : modulo.ruta;
-  return ruta ? { href: ruta, texto: `Ir a ${modulo.nombre}` } : null;
+  return ruta ? { href: ruta, texto: t("dashboard.destino.modulo", { modulo: nombreDeModulo(categoria.modulo, t) }) } : null;
 }
 
 export const ZONA_DASHBOARD = "America/Argentina/Buenos_Aires";
@@ -62,6 +72,34 @@ export const PERIODOS_DASHBOARD = [
   { clave: "personalizado", nombre: "Rango personalizado" },
 ];
 
+// El nombre de un período en el idioma de t.
+export const nombreDePeriodo = (clave, t = tCastellano) =>
+  t(`dashboard.periodos.${clave}`, {}, PERIODOS_DASHBOARD.find((p) => p.clave === clave)?.nombre ?? clave);
+
+// La agrupación del gráfico ("día", "semana", "mes", "año" son las claves
+// internas) como palabra para mostrar.
+const CLAVE_DE_AGRUPACION = { "día": "dia", semana: "semana", mes: "mes", "año": "anio" };
+export const nombreDeAgrupacion = (agrupacion, t = tCastellano) =>
+  t(`dashboard.agrupaciones.${CLAVE_DE_AGRUPACION[agrupacion] ?? agrupacion}`, {}, agrupacion);
+
+// "03:05 p. m." en es-AR y "15:05" en inglés, para que el pie de las
+// estadísticas use la misma hora de 24 h que las tablas. El castellano queda
+// como estaba (el ciclo por defecto del locale).
+export function horaDeConsulta(iso, locale = "es-AR") {
+  return new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: ZONA_DASHBOARD,
+    ...(locale === "en-US" ? { hourCycle: "h23" } : {}),
+  }).format(new Date(iso));
+}
+
+// Lo que se muestra de una consulta que falló: o un error de la API ({codigo,
+// mensaje}, que se traduce por código), o un texto propio del tablero que
+// viaja como clave del diccionario ("fallback").
+export const mensajeDeRespuesta = (respuesta, t = tCastellano) =>
+  respuesta?.fallback ? t(respuesta.fallback) : textoDeError(t, respuesta?.error);
+
 export function hoyDashboard(ahora = new Date()) {
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: ZONA_DASHBOARD, year: "numeric", month: "2-digit", day: "2-digit",
@@ -70,12 +108,12 @@ export function hoyDashboard(ahora = new Date()) {
   return `${dato("year")}-${dato("month")}-${dato("day")}`;
 }
 
-export function errorPeriodo({ desde, hasta }) {
+export function errorPeriodo({ desde, hasta }, t = tCastellano) {
   const valida = (fecha) => /^\d{4}-\d{2}-\d{2}$/.test(fecha ?? "") &&
     Number.isFinite(Date.parse(`${fecha}T00:00:00Z`)) &&
     new Date(`${fecha}T00:00:00Z`).toISOString().slice(0, 10) === fecha;
-  if (!valida(desde) || !valida(hasta)) return "Elegí una fecha inicial y una final válidas.";
-  if (desde > hasta) return "La fecha final debe ser igual o posterior a la inicial.";
+  if (!valida(desde) || !valida(hasta)) return t("dashboard.periodo.errorFechas");
+  if (desde > hasta) return t("dashboard.periodo.errorOrden");
   return null;
 }
 
@@ -87,10 +125,10 @@ export function periodoDashboard(clave = "mes", ahora = new Date()) {
   return { desde, hasta };
 }
 
-export function textoPeriodo({ desde, hasta }) {
-  const formato = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+export function textoPeriodo({ desde, hasta }, locale = "es-AR", t = tCastellano) {
+  const formato = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
   const fecha = (valor) => formato.format(new Date(`${valor}T12:00:00Z`));
-  return desde === hasta ? fecha(desde) : `${fecha(desde)} al ${fecha(hasta)}`;
+  return desde === hasta ? fecha(desde) : t("dashboard.periodo.rango", { desde: fecha(desde), hasta: fecha(hasta) });
 }
 
 // Sólo para el modo de ejemplo. Las cuentas reales obtienen los agregados de

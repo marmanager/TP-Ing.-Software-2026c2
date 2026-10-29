@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Icono from "./Icono";
+import { useIdioma } from "@/lib/useIdioma";
 
 const BASE_BOTON =
   "inline-flex items-center justify-center gap-2 rounded-campo px-6 min-h-12 " +
@@ -67,18 +68,26 @@ export function Interruptor({
   onChange,
   children,
   ayuda,
-  palabras = ["Apagado", "Prendido"],
+  palabras,
   motivo,
   disabled,
+  // Como disabled pero sin sacarle el foco al teclado: se ve apagado, avisa
+  // aria-disabled y el toque no hace nada (mientras se guarda algo).
+  bloqueado,
+  testid,
 }) {
-  const apagado = Boolean(motivo) || disabled;
+  const { t } = useIdioma();
+  const apagado = Boolean(motivo) || disabled || bloqueado;
+  const [sinPrender, prendidoDice] = palabras ?? [t("ui.apagado"), t("ui.prendido")];
   return (
     <button
       type="button"
       role="switch"
       aria-checked={prendido}
-      disabled={apagado}
-      onClick={() => onChange(!prendido)}
+      data-testid={testid}
+      disabled={Boolean(motivo) || disabled}
+      aria-disabled={bloqueado || undefined}
+      onClick={() => !bloqueado && onChange(!prendido)}
       className="inline-flex min-h-12 cursor-pointer items-center gap-3 rounded-campo text-left disabled:cursor-not-allowed"
     >
       <span
@@ -99,7 +108,7 @@ export function Interruptor({
         <span className="block font-bold">{children}</span>
         {ayuda && <span className="block text-tinta-media">{ayuda}</span>}
         <span className="block text-apoyo text-tinta-suave">
-          {prendido ? palabras[1] : palabras[0]}
+          {prendido ? prendidoDice : sinPrender}
           {motivo && ` · ${motivo}`}
         </span>
       </span>
@@ -176,13 +185,14 @@ export function TituloSeccion({ children, className = "", ...props }) {
 // faltan varios y el botón apagado dice sólo cuántos. El punto es para la
 // vista; el lector de pantalla oye "falta completar".
 export function MarcaFalta() {
+  const { t } = useIdioma();
   return (
     <>
       <span
         aria-hidden="true"
         className="ml-2 inline-block size-2.5 rounded-full bg-espera align-middle"
       />
-      <span className="sr-only">, falta completar</span>
+      <span className="sr-only">{t("ui.faltaCompletar")}</span>
     </>
   );
 }
@@ -193,6 +203,7 @@ export const claseDeEntrada = ({ error, exito }) =>
   [
     "block w-full rounded-campo border-2 bg-tarjeta px-4 min-h-12 text-cuerpo",
     "placeholder:text-tinta-suave",
+    "disabled:cursor-not-allowed disabled:border-borde disabled:bg-superficie disabled:text-tinta-suave",
     error ? "border-rojo" : exito ? "border-completo" : "border-borde-fuerte",
   ].join(" ");
 
@@ -215,6 +226,7 @@ export function Campo({
   id,
   ...props
 }) {
+  const { t } = useIdioma();
   const idAyuda = ayuda ? `${id}-ayuda` : undefined;
   const idError = error ? `${id}-error` : undefined;
 
@@ -245,7 +257,7 @@ export function Campo({
           <Icono nombre="alerta" className="size-5 mt-px" />
           <span>
             {error}
-            {ejemplo && ` Por ejemplo: ${ejemplo}.`}
+            {ejemplo && ` ${t("ui.porEjemplo", { ejemplo })}`}
           </span>
         </p>
       )}
@@ -263,8 +275,9 @@ export function Campo({
 // que se ve es lo escrito en este campo: la contraseña guardada no la puede
 // mostrar nadie, porque Supabase no la guarda, guarda una huella.
 export function CampoContrasena({ etiqueta, ayuda, error, ejemplo, exito, falta, id, ...props }) {
+  const { t } = useIdioma();
   const [ver, setVer] = useState(false);
-  const accion = ver ? "Ocultar la contraseña" : "Mostrar la contraseña";
+  const accion = ver ? t("ui.ocultarContrasena") : t("ui.mostrarContrasena");
 
   return (
     <Campo id={id} etiqueta={etiqueta} ayuda={ayuda} error={error} ejemplo={ejemplo} exito={exito} falta={falta}>
@@ -336,9 +349,10 @@ export function Vacio({ icono = "carpeta", titulo, children }) {
 // y que hay que esperar (auditoría, H1). El lector de pantalla oye
 // "Cargando…". El pulso se apaga si la persona pidió menos movimiento.
 export function Cargando({ filas = 3 }) {
+  const { t } = useIdioma();
   return (
     <div role="status">
-      <span className="sr-only">Cargando…</span>
+      <span className="sr-only">{t("ui.cargando")}</span>
       <div aria-hidden="true" className="motion-safe:animate-pulse">
         <div className="h-9 w-2/3 max-w-sm rounded-campo bg-superficie" />
         <div className="mt-3 h-5 w-full max-w-md rounded-campo bg-superficie" />

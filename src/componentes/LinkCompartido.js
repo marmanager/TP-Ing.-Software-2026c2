@@ -14,6 +14,8 @@
 
 import { useEffect, useState } from "react";
 import { useDatos } from "@/lib/datos";
+import { textoDeError } from "@/lib/idioma";
+import { useIdioma } from "@/lib/useIdioma";
 import { linkDeWhatsApp } from "@/lib/seguimiento";
 import Icono from "@/componentes/Icono";
 import { Boton, Campo, Tarjeta } from "@/componentes/ui";
@@ -26,7 +28,9 @@ import { Boton, Campo, Tarjeta } from "@/componentes/ui";
 //   nombre      el del negocio, para el mensaje de WhatsApp
 //   compartir / dejarDeCompartir
 //               las acciones de datos.js: { ok } o { ok: false, error }
-//   textos      todo lo que se lee y cambia de una pantalla a otra
+//   textos      todo lo que se lee y cambia de una pantalla a otra, ya
+//               traducido por la pantalla que lo pasa. `whatsapp(nombre,
+//               link)` arma el mensaje en el idioma de quien lo manda.
 export default function LinkCompartido({
   id,
   codigo,
@@ -38,6 +42,7 @@ export default function LinkCompartido({
   textos,
 }) {
   const { avisarExito } = useDatos();
+  const { idioma, t } = useIdioma();
   const [compartiendo, setCompartiendo] = useState(false);
   const [error, setError] = useState(null);
   const [cortando, setCortando] = useState(false);
@@ -46,14 +51,16 @@ export default function LinkCompartido({
   const [origen, setOrigen] = useState("");
   useEffect(() => setOrigen(window.location.origin), []);
 
-  const link = origen && codigo ? origen + ruta + codigo : "";
+  // El link lleva el idioma de Mi perfil: las pantallas públicas no tienen
+  // selector (docs/idioma-en-links-publicos.md).
+  const link = origen && codigo ? `${origen}${ruta}${codigo}?idioma=${idioma}` : "";
 
   return (
     <Tarjeta className="mb-8">
       {error && (
         <p className="mb-3 flex items-start gap-2 font-bold text-rojo">
           <Icono nombre="alerta" className="mt-0.5 size-6 shrink-0" />
-          <span>{error}</span>
+          <span>{textoDeError(t, error)}</span>
         </p>
       )}
 
@@ -63,7 +70,8 @@ export default function LinkCompartido({
           <div className="mt-4">
             <Boton
               icono={icono}
-              motivo={compartiendo ? "armando el link" : null}
+              data-testid="link-armar"
+              motivo={compartiendo ? t("casos.link.armando") : null}
               onClick={async () => {
                 setError(null);
                 setCompartiendo(true);
@@ -82,7 +90,7 @@ export default function LinkCompartido({
           <Campo
             id={id}
             etiqueta={textos.etiqueta}
-            ayuda="Es el mismo siempre. Podés repartirlo donde quieras."
+            ayuda={t("casos.link.ayuda")}
             value={link}
             readOnly
             onFocus={(ev) => ev.target.select()}
@@ -94,23 +102,23 @@ export default function LinkCompartido({
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(link);
-                  avisarExito("Copiamos el link. Pegalo donde lo quieras poner.");
+                  avisarExito(t("casos.link.copiado"));
                 } catch {
                   document.getElementById(id)?.select();
-                  avisarExito("Quedó seleccionado. Copialo con Ctrl+C.");
+                  avisarExito(t("casos.link.seleccionado"));
                 }
               }}
             >
-              Copiar el link
+              {t("casos.comun.copiarLink")}
             </Boton>
             <a
-              href={linkDeWhatsApp(textos.whatsapp(nombre ?? "tu negocio", link))}
+              href={linkDeWhatsApp(textos.whatsapp(nombre ?? t("casos.comun.tuNegocio"), link))}
               target="_blank"
               rel="noreferrer"
               className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
             >
               <Icono nombre="chat" />
-              Mandarlo por WhatsApp
+              {t("casos.comun.mandarWhatsapp")}
             </a>
           </div>
 
@@ -122,6 +130,7 @@ export default function LinkCompartido({
                 <Boton
                   variante="peligro"
                   icono="tacho"
+                  data-testid="link-dejar-confirmar"
                   onClick={async () => {
                     setCortando(false);
                     const r = await dejarDeCompartir();
@@ -129,16 +138,16 @@ export default function LinkCompartido({
                     avisarExito(textos.cortado);
                   }}
                 >
-                  Sí, dejar de compartirla
+                  {t("casos.link.siDejar")}
                 </Boton>
                 <Boton variante="plano" onClick={() => setCortando(false)}>
-                  Seguir compartiéndola
+                  {t("casos.link.seguir")}
                 </Boton>
               </div>
             </div>
           ) : (
             <div className="mt-2">
-              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)}>
+              <Boton variante="plano" icono="tacho" onClick={() => setCortando(true)} data-testid="link-dejar">
                 {textos.dejar}
               </Boton>
             </div>

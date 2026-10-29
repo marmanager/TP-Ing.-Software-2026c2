@@ -11,11 +11,16 @@
 // - En celular van fijos abajo, encima de la barra de secciones (64 px).
 // - En escritorio quedan fijos abajo para conservar la posición al cobrar.
 
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import Icono from "./Icono";
 import { Boton } from "./ui";
 
-function Banda({ tono, icono, texto, alDescartar, deshacer, rol, textoDescartar = "Entendido" }) {
+function Banda({ tono, icono, texto, alDescartar, deshacer, rol, textoDescartar }) {
+  const { t } = useIdioma();
   return (
     <div
       role={rol}
@@ -32,11 +37,11 @@ function Banda({ tono, icono, texto, alDescartar, deshacer, rol, textoDescartar 
               alDescartar();
             }}
           >
-            Deshacer
+            {t("ui.aviso.deshacer")}
           </Boton>
         )}
         <Boton variante="plano" onClick={alDescartar}>
-          {textoDescartar}
+          {textoDescartar ?? t("ui.aviso.entendido")}
         </Boton>
       </div>
     </div>
@@ -44,7 +49,17 @@ function Banda({ tono, icono, texto, alDescartar, deshacer, rol, textoDescartar 
 }
 
 export default function Aviso() {
+  const { t } = useIdioma();
   const { aviso, exito, deshacerExito, descartarAviso, descartarExito, otroNegocio } = useDatos();
+
+  // Al cambiar de pantalla la confirmación ya cumplió: no hace falta tocar "Entendido".
+  const ruta = usePathname();
+  const rutaAnterior = useRef(ruta);
+  useEffect(() => {
+    if (rutaAnterior.current !== ruta) descartarExito();
+    rutaAnterior.current = ruta;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ruta]);
 
   if (!exito && !aviso && !otroNegocio) return null;
 
@@ -67,7 +82,7 @@ export default function Aviso() {
           rol="alert"
           tono="border-l-espera bg-espera-fondo text-espera"
           icono="alerta"
-          texto={aviso}
+          texto={textoDeError(t, aviso)}
           alDescartar={descartarAviso}
         />
       )}
@@ -81,10 +96,10 @@ export default function Aviso() {
           icono="alerta"
           texto={
             otroNegocio.nombre
-              ? `Desde otro dispositivo pasaste a ${otroNegocio.nombre}. Lo que ves acá es del negocio anterior y ya no se guarda.`
-              : "Ya no estás en este negocio. Lo que ves acá ya no se guarda."
+              ? t("ui.aviso.otroNegocio", { nombre: otroNegocio.nombre })
+              : t("ui.aviso.yaNoEstas")
           }
-          textoDescartar="Recargar"
+          textoDescartar={t("ui.aviso.recargar")}
           alDescartar={() => window.location.assign("/")}
         />
       )}

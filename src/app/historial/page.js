@@ -16,8 +16,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
 import { pesos } from "@/lib/estados";
 import { diaPasado, horaYMinutos } from "@/lib/fechas";
 import { casoEnFrase, tituloDelCaso } from "@/lib/nombres";
@@ -32,11 +33,12 @@ import {
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
 
-function Opcion({ elegida, onClick, children }) {
+function Opcion({ elegida, onClick, children, testid }) {
   return (
     <button
       type="button"
       aria-pressed={elegida}
+      data-testid={testid}
       onClick={onClick}
       className={[
         "min-h-12 cursor-pointer rounded-full border-2 px-4 text-etiqueta",
@@ -53,7 +55,8 @@ function Opcion({ elegida, onClick, children }) {
 export default function Historial() {
   const { cargando, eventos, casos, clientes, pasos } = useDatos();
   const { usuario } = useAuth();
-  useTitulo("Historial");
+  const { t, locale } = useIdioma();
+  useTitulo(t("historial.titulo"));
 
   const [periodo, setPeriodo] = useState("semana");
   const [tipo, setTipo] = useState("todo");
@@ -63,7 +66,7 @@ export default function Historial() {
 
   if (cargando) return <Cargando />;
   if (!puede(usuario, "ver_historial")) {
-    return <Vacio icono="candado" titulo="Historial">{QUIEN_PUEDE.ver_historial}</Vacio>;
+    return <Vacio icono="candado" titulo={t("historial.titulo")}>{quienPuede("ver_historial", t)}</Vacio>;
   }
 
   // El resumen mira el período entero, sin el filtro de tipo: si no, al
@@ -80,16 +83,15 @@ export default function Historial() {
   const dias = agruparPorDia(visibles);
 
   const numeros = [
-    ["Entraron", entraron, entraron === 1 ? "caso" : "casos"],
-    ["Se entregaron", entregados, entregados === 1 ? "caso" : "casos"],
+    [t("historial.entraron"), entraron, t("historial.casos", { n: entraron })],
+    [t("historial.seEntregaron"), entregados, t("historial.casos", { n: entregados })],
   ];
 
   return (
     <>
-      <h1 className="text-pantalla">Historial</h1>
+      <h1 className="text-pantalla">{t("historial.titulo")}</h1>
       <p className="mt-1 mb-8 max-w-[65ch] text-tinta-media">
-        Todo lo que pasó en el negocio: qué entró, qué cambió, qué se entregó y la plata de
-        cada paso, con quién lo hizo.
+        {t("historial.apoyo")}
       </p>
 
       {/* Los dos grupos de filtros parecían hacer lo mismo, y uno cambia los
@@ -98,21 +100,24 @@ export default function Historial() {
           que faltaba era decirlo (auditoría, H8). */}
       <fieldset className="mb-4">
         <legend className="mb-2 font-bold text-cuerpo">
-          Desde cuándo{" "}
-          <span className="font-normal text-tinta-media">· cambia los números de abajo</span>
+          {t("historial.desdeCuando")}{" "}
+          <span className="font-normal text-tinta-media">{t("historial.desdeCuandoApoyo")}</span>
         </legend>
         <div className="flex flex-wrap gap-2">
           {LISTA_PERIODOS.map((p) => (
             <Opcion key={p.clave} elegida={periodo === p.clave} onClick={() => setPeriodo(p.clave)}>
-              {p.palabra}
+              {t(`historial.periodos.${p.clave}`)}
             </Opcion>
           ))}
         </div>
       </fieldset>
 
-      <dl className="mb-8 grid gap-3 @xl:grid-cols-3">
+      {/* En celular los dos números van de a dos y la plata abajo, a todo el
+          ancho: apiladas una por línea, las tres tarjetas ocupaban la
+          pantalla entera antes de llegar a la lista. */}
+      <dl className="mb-8 grid grid-cols-2 gap-3 @xl:grid-cols-3">
         {numeros.map(([que, cuanto, unidad]) => (
-          <div key={que} className="rounded-tarjeta border border-borde bg-tarjeta p-4">
+          <div key={que} className="min-w-0 rounded-tarjeta border border-borde bg-tarjeta p-4">
             <dt className="text-tinta-media">{que}</dt>
             <dd className="font-titulo font-extrabold text-dato tabular-nums">
               {cuanto} <span className="text-cuerpo font-normal text-tinta-media">{unidad}</span>
@@ -121,33 +126,33 @@ export default function Historial() {
         ))}
         {/* La plata que los clientes dijeron que sí. Sale de los pasos: lo
             aprobado ya no se deshace, así que cada paso cuenta una vez. */}
-        <div className="rounded-tarjeta border border-borde bg-tarjeta p-4">
-          <dt className="text-tinta-media">Aprobaron los clientes</dt>
+        <div className="col-span-2 rounded-tarjeta border border-borde bg-tarjeta p-4 @xl:col-span-1">
+          <dt className="text-tinta-media">{t("historial.aprobaron")}</dt>
           <dd className="font-titulo font-extrabold text-dato text-completo tabular-nums">
-            {pesos(aprobado.total)}
+            {pesos(aprobado.total, locale)}
           </dd>
           <dd className="text-apoyo text-tinta-suave">
             {aprobado.pasos === 0
-              ? "Ningún paso aprobado"
-              : `En ${aprobado.pasos} ${aprobado.pasos === 1 ? "paso" : "pasos"}`}
+              ? t("historial.ningunPaso")
+              : t("historial.enPasos", { n: aprobado.pasos })}
           </dd>
         </div>
       </dl>
 
       <fieldset className="mb-8">
         <legend className="mb-2 font-bold text-cuerpo">
-          Qué mostrar{" "}
+          {t("historial.queMostrar")}{" "}
           <span className="font-normal text-tinta-media">
-            · filtra la lista, no los números
+            {t("historial.queMostrarApoyo")}
           </span>
         </legend>
         <div className="flex flex-wrap gap-2">
-          <Opcion elegida={tipo === "todo"} onClick={() => setTipo("todo")}>
-            Todo
+          <Opcion elegida={tipo === "todo"} onClick={() => setTipo("todo")} testid="historial-filtro-todo">
+            {t("historial.todo")}
           </Opcion>
-          {LISTA_TIPOS.map((t) => (
-            <Opcion key={t.clave} elegida={tipo === t.clave} onClick={() => setTipo(t.clave)}>
-              {t.palabra}
+          {LISTA_TIPOS.map((tp) => (
+            <Opcion key={tp.clave} elegida={tipo === tp.clave} onClick={() => setTipo(tp.clave)} testid={`historial-filtro-${tp.clave}`}>
+              {t(`historial.tipos.${tp.clave}`)}
             </Opcion>
           ))}
         </div>
@@ -157,27 +162,26 @@ export default function Historial() {
         <p className="mb-4 flex flex-wrap items-center gap-3">
           <span className="font-bold text-cuerpo">
             {/* "de Hugo Peralta" sólo si el caso no se llama ya así. */}
-            Mostrando sólo el {casoEnFrase(casoElegido)}
-            {clienteElegido && clienteElegido.nombre !== tituloDelCaso(casoElegido)
-              ? ` de ${clienteElegido.nombre}`
-              : ""}
+            {clienteElegido && clienteElegido.nombre !== tituloDelCaso(casoElegido, t)
+              ? t("historial.soloElDe", { caso: casoEnFrase(casoElegido, t), cliente: clienteElegido.nombre })
+              : t("historial.soloEl", { caso: casoEnFrase(casoElegido, t) })}
           </span>
           <Boton variante="plano" icono="cruz" onClick={() => setSoloCaso(null)}>
-            Ver todo de nuevo
+            {t("historial.verTodo")}
           </Boton>
         </p>
       )}
 
       {dias.length === 0 ? (
-        <Vacio icono="historial" titulo="No pasó nada con este filtro">
+        <Vacio icono="historial" titulo={t("historial.vacioTitulo")}>
           {eventos.length === 0
-            ? "Cuando abras el primer caso, lo que vaya pasando aparece acá."
-            : "Probá con un período más largo o con «Todo»."}
+            ? t("historial.vacioSinEventos")
+            : t("historial.vacioConEventos")}
         </Vacio>
       ) : (
         dias.map(({ clave, dia, eventos: delDia }) => (
           <section key={clave} className="mb-10">
-            <TituloSeccion className="first-letter:uppercase">{diaPasado(dia)}</TituloSeccion>
+            <TituloSeccion className="first-letter:uppercase">{diaPasado(dia, locale, t)}</TituloSeccion>
             <ol className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
               {delDia.map((e) => {
                 const caso = casos.find((c) => c.id === e.caso_id);
@@ -194,30 +198,47 @@ export default function Historial() {
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-superficie text-tinta-media">
                         <Icono nombre={e.icono} className="size-5" />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-bold">{e.titulo}</span>
-                        {e.detalle && (
-                          <span className="block text-tinta-media">{e.detalle}</span>
+                      {/* En celular la plata va debajo del texto: a su lado,
+                          con el ícono y el botón de filtrar, al texto le
+                          quedaba una columna de dos palabras. Desde sm vuelve
+                          a la derecha. */}
+                      <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
+                        <span className="min-w-0 sm:flex-1">
+                          <span className="block font-bold [overflow-wrap:anywhere]">{e.titulo}</span>
+                          {e.detalle && (
+                            <span className="block text-tinta-media">{e.detalle}</span>
+                          )}
+                          <span className="mt-1 block text-apoyo text-tinta-suave">
+                            {!caso
+                              ? t("historial.linea", { hora: horaYMinutos(e.ocurrido_en, locale), autor: e.autor })
+                              : cliente && cliente.nombre !== tituloDelCaso(caso, t)
+                                ? t("historial.lineaCasoCliente", {
+                                    hora: horaYMinutos(e.ocurrido_en, locale),
+                                    autor: e.autor,
+                                    caso: tituloDelCaso(caso, t),
+                                    cliente: cliente.nombre,
+                                  })
+                                : t("historial.lineaCaso", {
+                                    hora: horaYMinutos(e.ocurrido_en, locale),
+                                    autor: e.autor,
+                                    caso: tituloDelCaso(caso, t),
+                                  })}
+                          </span>
+                        </span>
+                        {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
+                          <span className="shrink-0 font-titulo font-extrabold text-subtitulo tabular-nums">
+                            {pesos(e.monto, locale)}
+                          </span>
                         )}
-                        <span className="mt-1 block text-apoyo text-tinta-suave">
-                          {horaYMinutos(e.ocurrido_en)} · {e.autor}
-                          {caso && ` · ${tituloDelCaso(caso)}`}
-                          {cliente && cliente.nombre !== (caso && tituloDelCaso(caso)) &&
-                            ` de ${cliente.nombre}`}
-                        </span>
                       </span>
-                      {e.tipo === "plata" && e.monto !== null && e.monto !== undefined && (
-                        <span className="shrink-0 font-titulo font-extrabold text-subtitulo tabular-nums">
-                          {pesos(e.monto)}
-                        </span>
-                      )}
                     </Link>
                     {/* Afuera del enlace: un botón adentro de un enlace no se
                         puede tocar por separado. */}
                     {caso && !soloCaso && (
                       <button
                         type="button"
-                        aria-label={`Ver sólo lo del ${casoEnFrase(caso)}`}
+                        aria-label={t("historial.verSoloLoDel", { caso: casoEnFrase(caso, t) })}
+                        data-testid={`historial-solo-caso-${caso.numero}`}
                         onClick={() => setSoloCaso(caso.id)}
                         className="flex min-h-12 w-12 shrink-0 cursor-pointer items-center justify-center self-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
                       >

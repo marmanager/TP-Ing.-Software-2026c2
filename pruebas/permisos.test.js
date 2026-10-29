@@ -11,9 +11,10 @@ import { GRUPOS, PERMISOS, PERMISOS_DE_MIRAR, QUIEN_PUEDE, conImplicados, implic
 
 const claves = PERMISOS.map((p) => p.clave);
 
-test("son las mismas 23 claves que la 057, en el mismo orden", () => {
-  const sql = readFileSync(new URL("../supabase/057_roles.sql", import.meta.url), "utf8");
-  const bloque = sql.slice(sql.indexOf("function permisos_conocidos()"), sql.indexOf("]::text[]"));
+// La 071 redefine permisos_conocidos() con la clave de las copias: es la última.
+test("son las mismas 24 claves que la 071, en el mismo orden", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/20261027000000_071_copia_de_seguridad.sql", import.meta.url), "utf8");
+  const bloque = sql.slice(sql.indexOf("select array["), sql.indexOf("]::text[]"));
   assert.deepEqual(claves, [...bloque.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
 });
 
@@ -60,7 +61,7 @@ test("qué gana y qué pierde alguien al cambiar de rol", () => {
 
 test("pasar a Dueño gana todo lo que no tenía", () => {
   const { gana, pierde } = queCambiaConElRol({ es_duenio: false, permisos: ["cobrar"] }, { es_duenio: true, permisos: [] });
-  assert.equal(gana.length, 22);
+  assert.equal(gana.length, 23);
   assert.equal(pierde.length, 0);
 });
 

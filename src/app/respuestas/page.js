@@ -15,6 +15,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDatos } from "@/lib/datos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { useTitulo } from "@/lib/useTitulo";
 import { telefonoLegible } from "@/lib/telefono";
 import { cuandoContesto, linkParaContestar, loQueEscribio, respuestasPendientes } from "@/lib/recordatorios";
@@ -25,6 +27,7 @@ import { Boton, Cargando, ErrorGeneral, Tarjeta, TituloPantalla, Vacio } from "@
 const POR_PAGINA = 50;
 
 export default function Respuestas() {
+  const { t } = useIdioma();
   const datos = useDatos();
   const { cargando, clientes, turnos, casos } = datos;
   useTitulo("Respuestas por WhatsApp");
@@ -45,7 +48,7 @@ export default function Respuestas() {
     setError(null);
     const r = await acciones.current.leerRespuestas({ limite: POR_PAGINA, cursor });
     setLeyendo(false);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) return setError(textoDeError(t, r.error));
     setLeidas((antes) => [...(cursor ? antes ?? [] : []), ...r.respuestas]);
     setSiguiente(r.siguiente);
   };
@@ -55,7 +58,7 @@ export default function Respuestas() {
     let vivo = true;
     acciones.current.leerRespuestas({ limite: POR_PAGINA }).then((r) => {
       if (!vivo) return;
-      if (!r.ok) return setError(r.error);
+      if (!r.ok) return setError(textoDeError(t, r.error));
       setLeidas(r.respuestas);
       setSiguiente(r.siguiente);
     });

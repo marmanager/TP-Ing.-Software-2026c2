@@ -17,13 +17,16 @@ import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, QUIEN_PUEDE } from "@/lib/permisos";
+import { puede, quienPuede } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import { estaPrendido } from "@/lib/modulos";
 import {
   cambiosDelRecordatorio,
   cuandoSaleEnPalabras,
   erroresDelRecordatorio,
   esTipoDeRecordatorio,
+  ofreceCanal,
   recordatoriosDeLaApi,
   textosDelRecordatorio,
 } from "@/lib/recordatorios";
@@ -44,6 +47,8 @@ export default function Recordatorio() {
   const datos = useDatos();
   const { cargando, negocio } = datos;
   const { usuario } = useAuth();
+  const { idioma, locale, t } = useIdioma();
+  const lang = { t, locale, idioma };
 
   const [guardado, setGuardado] = useState(null);
   const [borrador, setBorrador] = useState(null);
@@ -56,8 +61,8 @@ export default function Recordatorio() {
   const negocioId = negocio?.id;
 
   const valido = esTipoDeRecordatorio(tipo);
-  const textos = textosDelRecordatorio(tipo, negocio?.rubro);
-  useTitulo(valido ? textos.nombre : "Recordatorios por WhatsApp");
+  const textos = textosDelRecordatorio(tipo, negocio?.rubro, lang);
+  useTitulo(valido ? textos.nombre : t("negocio.recordatorios.titulo"));
 
   useEffect(() => {
     if (!negocioId || !valido) return;
@@ -79,7 +84,7 @@ export default function Recordatorio() {
   const volver = (
     <Link href="/negocio/recordatorios" className="mb-4 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
       <Icono nombre="volver" />
-      Volver a los recordatorios
+      {t("negocio.recordatorios.volver")}
     </Link>
   );
 
@@ -92,9 +97,9 @@ export default function Recordatorio() {
     return (
       <>
         {volver}
-        <TituloPantalla>Recordatorios por WhatsApp</TituloPantalla>
+        <TituloPantalla>{t("negocio.recordatorios.titulo")}</TituloPantalla>
         <p className="max-w-[65ch] text-tinta-media">
-          Este recordatorio no está disponible en tu negocio. Volvé a la lista para ver los que podés usar.
+          {t("negocio.recordatorios.noDisponible")}
         </p>
       </>
     );
@@ -107,29 +112,29 @@ export default function Recordatorio() {
       <>
         {volver}
         <TituloPantalla>{textos.nombre}</TituloPantalla>
-        <ErrorGeneral>{error}</ErrorGeneral>
-        <Boton className="mt-4" onClick={() => setIntento((n) => n + 1)}>Volver a cargar</Boton>
+        <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>
+        <Boton className="mt-4" onClick={() => setIntento((n) => n + 1)}>{t("negocio.recordatorios.recargar")}</Boton>
       </>
     );
   }
 
   const puedeConfigurar = puede(usuario, "entregar_y_reabrir");
   // Los errores sólo cuentan si está prendido: lo apagado no se manda.
-  const errores = borrador.activo ? erroresDelRecordatorio({ tipo, ...borrador }) : {};
+  const errores = borrador.activo ? erroresDelRecordatorio({ tipo, ...borrador }, lang) : {};
   const cambios = cambiosDelRecordatorio(tipo, guardado, borrador);
 
   const motivo = guardando
-    ? "se está guardando"
+    ? t("negocio.recordatorios.guardando")
     : errores.mensaje
-      ? "falta el texto del mensaje"
+      ? t("negocio.recordatorios.faltaMensaje")
       : errores.plazo
-        ? "revisá el plazo"
+        ? t("negocio.recordatorios.revisaPlazo")
         : !Object.keys(cambios).length
-          ? "no cambiaste nada"
+          ? t("negocio.recordatorios.nadaCambio")
           : null;
 
   const cambiar = (que) => setBorrador((b) => ({ ...b, ...que }));
-  const plazoValido = !erroresDelRecordatorio({ tipo, ...borrador }).plazo;
+  const plazoValido = !erroresDelRecordatorio({ tipo, ...borrador }, lang).plazo;
 
   async function guardar() {
     setGuardando(true);
@@ -142,20 +147,23 @@ export default function Recordatorio() {
     setBorrador(editable);
     datos.avisarExito(
       editable.activo
-        ? `Listo. «${textos.nombre}» quedó prendido. ${cuandoSaleEnPalabras({ tipo, plazo: editable.plazo, rubro: negocio?.rubro })}`
-        : `Listo. «${textos.nombre}» quedó apagado.`
+        ? t("negocio.recordatorios.listoPrendido", {
+            nombre: textos.nombre,
+            cuando: cuandoSaleEnPalabras({ tipo, plazo: editable.plazo, rubro: negocio?.rubro }, lang),
+          })
+        : t("negocio.recordatorios.listoApagado", { nombre: textos.nombre })
     );
   }
 
   return (
     <>
       {volver}
-      <TituloPantalla apoyo="Un mensaje que le llega solo al cliente por WhatsApp.">
+      <TituloPantalla apoyo={t("negocio.recordatorios.apoyoTipo")}>
         {textos.nombre}
       </TituloPantalla>
 
       {!puedeConfigurar && (
-        <p className="mb-6 max-w-[65ch] text-tinta-media">{QUIEN_PUEDE.entregar_y_reabrir}</p>
+        <p className="mb-6 max-w-[65ch] text-tinta-media">{quienPuede("entregar_y_reabrir", t)}</p>
       )}
 
       <fieldset disabled={!puedeConfigurar || guardando}>
@@ -163,6 +171,7 @@ export default function Recordatorio() {
           <Interruptor
             prendido={borrador.activo}
             onChange={(activo) => cambiar({ activo })}
+            testid={`recordatorio-${tipo}-interruptor`}
             ayuda={textos.ayudaInterruptor}
           >
             {textos.interruptor}
@@ -172,7 +181,7 @@ export default function Recordatorio() {
             <div className="mt-6">
               {plazoValido && (
                 <p id={`${tipo}-frase`} className="mb-6 max-w-[65ch] font-bold text-tinta">
-                  {cuandoSaleEnPalabras({ tipo, plazo: borrador.plazo, rubro: negocio?.rubro })}
+                  {cuandoSaleEnPalabras({ tipo, plazo: borrador.plazo, rubro: negocio?.rubro }, lang)}
                 </p>
               )}
               <Campo
@@ -184,10 +193,29 @@ export default function Recordatorio() {
                 error={errores.plazo}
                 onChange={(e) => cambiar({ plazo: e.target.value })}
               />
+              {ofreceCanal(tipo) && (
+                <Campo
+                  id={`${tipo}-canal`}
+                  etiqueta={t("negocio.recordatorios.canal")}
+                  ayuda={t("negocio.recordatorios.canalAyuda")}
+                >
+                  <select
+                    id={`${tipo}-canal`}
+                    aria-describedby={`${tipo}-canal-ayuda`}
+                    value={borrador.canal}
+                    onChange={(e) => cambiar({ canal: e.target.value })}
+                    data-testid={`recordatorio-${tipo}-canal`}
+                    className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
+                  >
+                    <option value="whatsapp">{t("negocio.recordatorios.canalWhatsapp")}</option>
+                    <option value="email">{t("negocio.recordatorios.canalEmail")}</option>
+                  </select>
+                </Campo>
+              )}
               <Campo
                 id={`${tipo}-mensaje`}
-                etiqueta="Lo que le llega al cliente"
-                ayuda="Viene con una sugerencia según tu rubro. Cambiala como quieras."
+                etiqueta={t("negocio.recordatorios.mensaje")}
+                ayuda={t("negocio.recordatorios.mensajeAyuda")}
                 error={errores.mensaje}
               >
                 <textarea
@@ -206,11 +234,11 @@ export default function Recordatorio() {
         </Tarjeta>
       </fieldset>
 
-      {error && <ErrorGeneral>{error}</ErrorGeneral>}
+      {error && <ErrorGeneral>{textoDeError(t, error)}</ErrorGeneral>}
 
       {puedeConfigurar && (
-        <BotonPrincipalFijo icono="check" motivo={motivo} onClick={guardar}>
-          Guardar el recordatorio
+        <BotonPrincipalFijo icono="check" motivo={motivo} onClick={guardar} data-testid="recordatorio-guardar">
+          {t("negocio.recordatorios.guardar")}
         </BotonPrincipalFijo>
       )}
     </>

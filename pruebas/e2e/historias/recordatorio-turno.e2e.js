@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrar, noVerTexto, reemplazarTexto, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, reemplazarTexto, tid, verTexto } from "./ayudas.js";
 import { avisoEnPalabras } from "../../../src/lib/recordatorios.js";
 
 // R-4b · Recordarle el turno al cliente (módulo Recordatorios).
@@ -19,6 +19,9 @@ import { avisoEnPalabras } from "../../../src/lib/recordatorios.js";
 function enDias(dias, hora = "10:00") {
   const d = new Date();
   d.setDate(d.getDate() + dias);
+  // El negocio de fábrica atiende de lunes a viernes: si cae en fin de
+  // semana, se pasa al lunes.
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
   const dos = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${hora}`;
 }
@@ -31,39 +34,44 @@ const fraseDelAviso = (horaLocal, horas) =>
     ahora: Date.now(),
   }).frase;
 
-// El <input type="datetime-local"> se escribe distinto según el idioma del
-// navegador: se le pone el valor y se avisa a React.
+// El día es un <input type="date"> (`${selector}-dia`) y la hora son botones
+// (`${selector}-h-HH`, y después `${selector}-m-MM`). El día se escribe por
+// script y se avisa a React, porque el input de fecha se escribe distinto
+// según el idioma.
 async function ponerValor(selector, valor) {
+  const [dia, hora] = valor.split("T");
   await browser.execute((sel, v) => {
-    const input = document.querySelector(sel);
-    const poner = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-    poner.call(input, v);
+    const input = document.querySelector(`${sel}-dia`);
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, v);
     input.dispatchEvent(new Event("input", { bubbles: true }));
-  }, selector, valor);
+  }, selector, dia);
+  const [hh, mm] = hora.split(":");
+  await $(`${selector}-h-${hh}`).click();
+  await $(`${selector}-m-${mm}`).click();
 }
 
 async function prenderLaAgenda() {
   await browser.url("/negocio/modulos");
-  await $("button=Prender Agenda").click();
-  await expect($("button=Apagar Agenda")).toBeDisplayed();
+  await tid("modulo-alternar-agenda").click();
+  await expect(tid("modulo-alternar-agenda")).toHaveAttribute("aria-checked", "true");
 }
 
 async function prenderElRecordatorioDeTurnos(horas = "24") {
   await browser.url("/negocio/recordatorios/turno");
-  await $('button[role="switch"]*=Recordatorio del turno').click();
+  await tid("recordatorio-turno-interruptor").click();
   await reemplazarTexto("#turno-plazo", horas);
-  await $("button*=Guardar el recordatorio").click();
+  await tid("recordatorio-guardar").click();
   await verTexto("«Antes del turno» quedó prendido");
 }
 
 async function anotarTurno({ cliente, telefono = null, motivo, cuando }) {
   await browser.url("/agenda");
-  await $("button=Anotar un turno").click();
+  await tid("agenda-anotar").click();
   await $("#turno-cliente").setValue(cliente);
   if (telefono !== null) await $("#turno-telefono").setValue(telefono);
   await $("#turno-motivo").setValue(motivo);
   await ponerValor("#turno-cuando", cuando);
-  await $("button=Guardar el turno").click();
+  await tid("turno-guardar").click();
   await verTexto(`El turno de ${motivo} quedó anotado`);
 }
 
@@ -87,7 +95,7 @@ describe("Historia: recordarle el turno al cliente", () => {
     await verTexto("Antes del turno");
     await $('a[href="/negocio/recordatorios/turno"]').click();
 
-    await $('button[role="switch"]*=Recordatorio del turno').click();
+    await tid("recordatorio-turno-interruptor").click();
     await expect($("#turno-plazo")).toHaveValue("24");
     await expect($("#turno-frase")).toHaveText("Le llega al cliente el día anterior a su turno, a la misma hora.");
     await reemplazarTexto("#turno-plazo", "2");
@@ -98,8 +106,8 @@ describe("Historia: recordarle el turno al cliente", () => {
 
     // AC5: vacío, el botón se apaga y dice por qué.
     await reemplazarTexto("#turno-mensaje", " ");
-    await expect($("button*=Guardar el recordatorio")).toBeDisabled();
-    await expect($("button*=Guardar el recordatorio")).toHaveText(expect.stringContaining("falta el texto del mensaje"));
+    await expect(tid("recordatorio-guardar")).toBeDisabled();
+    await expect(tid("recordatorio-guardar")).toHaveText(expect.stringContaining("falta el texto del mensaje"));
   });
 
   it("AC2: prender el de turnos no toca el de después de entregar", async () => {
@@ -118,7 +126,7 @@ describe("Historia: recordarle el turno al cliente", () => {
     await anotarTurno({ cliente: "Persona Sin Teléfono", motivo: "revisar frenos", cuando: enDias(3) });
     const fila = await filaDe("revisar frenos");
     await expect(fila.$('[data-aviso="sin_telefono"]')).toBeDisplayed();
-    await expect(fila.$("a=Completar el teléfono")).toBeDisplayed();
+    await expect(tid("turno-completar-telefono", fila)).toBeDisplayed();
   });
 
   it("AC7 y AC11: el turno muestra cuándo le llega el aviso, y al moverlo, la fecha nueva", async () => {
@@ -132,9 +140,9 @@ describe("Historia: recordarle el turno al cliente", () => {
     await expect(fila.$('[data-aviso="programado"]')).toHaveText(fraseDelAviso(cuando, 24));
 
     const despues = enDias(4, "16:30");
-    await fila.$("button=Cambiar la hora").click();
+    await tid("turno-cambiar-hora", fila).click();
     await ponerValor(`#mover-${await fila.getAttribute("data-turno")}`, despues);
-    await fila.$("button*=Guardar la hora nueva").click();
+    await tid("turno-mover-guardar", fila).click();
     await verTexto("El turno de cambio de aceite pasó a");
 
     fila = await filaDe("cambio de aceite");

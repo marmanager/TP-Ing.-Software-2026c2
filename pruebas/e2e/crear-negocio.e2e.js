@@ -1,5 +1,5 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrar } from "./historias/ayudas.js";
+import { empezarElMesGratis, entrar, tid } from "./historias/ayudas.js";
 
 // Antes era "modo de ejemplo": entrar sin cuenta y crear un negocio en el
 // navegador. Ese modo se fue; lo que sigue valiendo es que una cuenta recién
@@ -11,11 +11,12 @@ describe("crear el negocio", () => {
     await expect(browser).toHaveUrl(expect.stringContaining("/crear-negocio"));
     await expect($("h1=Crear tu negocio")).toBeDisplayed();
     await $("#nombre").setValue("Taller de prueba");
-    await $("button*=Taller mecánico").click();
-    await $("button=Crear el negocio").click();
+    await tid("rubro-taller").click();
+    await tid("crear-negocio-crear").click();
+    await empezarElMesGratis();
 
     await expect($("h1=Inicio")).toBeDisplayed();
-    const abrirCaso = await $("*=Abrir un caso nuevo");
+    const abrirCaso = tid("inicio-abrir-caso");
     await expect(abrirCaso).toBeDisplayed();
 
     await abrirCaso.click();

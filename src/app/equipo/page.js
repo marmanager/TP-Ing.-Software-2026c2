@@ -13,7 +13,8 @@ import Link from "next/link";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
-import { puede, queCambiaConElRol, QUIEN_PUEDE, rolesQuePuedeDar } from "@/lib/permisos";
+import { nombreDelRol, puede, queCambiaConElRol, quienPuede, rolesQuePuedeDar } from "@/lib/permisos";
+import { useIdioma } from "@/lib/useIdioma";
 import { estaAbierto } from "@/lib/estados";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "@/componentes/ChipEstado";
@@ -27,7 +28,8 @@ export default function Equipo() {
   const datos = useDatos();
   const { cargando, empleados, casos, negocio, avisarExito, fotosEquipo } = datos;
   const { usuario } = useAuth();
-  useTitulo("Equipo");
+  const { t } = useIdioma();
+  useTitulo(t("equipo.titulo"));
 
   // Cambiar el rol y sacar gente son permisos distintos. La base también los
   // controla; acá sólo evitamos ofrecer un botón que va a fallar.
@@ -59,8 +61,8 @@ export default function Equipo() {
     datos.eliminarEmpleado(persona.id);
     avisarExito(
       suyos.length
-        ? `${persona.nombre} salió del equipo. Sus ${suyos.length} ${suyos.length === 1 ? "caso quedó" : "casos quedaron"} sin responsable.`
-        : `${persona.nombre} salió del equipo.`
+        ? t("equipo.salioConCasos", { nombre: persona.nombre, n: suyos.length })
+        : t("equipo.salio", { nombre: persona.nombre })
     );
     setSacando(null);
   }
@@ -69,11 +71,11 @@ export default function Equipo() {
     <>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-pantalla">Equipo</h1>
+          <h1 className="text-pantalla">{t("equipo.titulo")}</h1>
           <p className="mt-1 max-w-[65ch] text-tinta-media">
             {puedeCambiarRol || puedeSacar
-              ? "Quién está trabajando en qué. Para sumar a alguien, mandale el link del equipo."
-              : `Quién está trabajando en qué. ${QUIEN_PUEDE.manejar_roles}`}
+              ? t("equipo.apoyoGestion")
+              : t("equipo.apoyoSolo", { quienPuede: quienPuede("manejar_roles", t) })}
           </p>
         </div>
       </div>
@@ -81,8 +83,8 @@ export default function Equipo() {
       <SumarAlEquipo />
 
       {empleados.length === 0 ? (
-        <Vacio icono="personas" titulo="Todavía no hay nadie cargado">
-          Mandá el link del equipo al grupo y aceptá a quienes pidan entrar.
+        <Vacio icono="personas" titulo={t("equipo.vacioTitulo")}>
+          {t("equipo.vacioTexto")}
         </Vacio>
       ) : (
         <ul className="mb-12 grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-3">
@@ -118,7 +120,7 @@ export default function Equipo() {
                     <p className="font-bold text-subtitulo">{e.nombre}</p>
                     {esVos && (
                       <span className="shrink-0 rounded-full bg-azul-claro px-3 py-1 text-apoyo font-bold text-azul">
-                        Vos
+                        {t("equipo.vos")}
                       </span>
                     )}
                   </div>
@@ -129,7 +131,7 @@ export default function Equipo() {
                         htmlFor={`rol-${e.id}`}
                         className="block font-bold text-etiqueta text-tinta-media"
                       >
-                        Qué hace
+                        {t("equipo.queHace")}
                       </label>
                       {/* Con cuenta, el rol da los permisos (037): elegir otro no
                           lo cambia todavía, abre la confirmación de abajo. Sin
@@ -145,13 +147,13 @@ export default function Equipo() {
                             return;
                           }
                           datos.cambiarRolEmpleado(e.id, nuevo);
-                          avisarExito(`${e.nombre} ahora figura como ${rolDe(nuevo).nombre}.`);
+                          avisarExito(t("equipo.ahoraFigura", { nombre: e.nombre, rol: nombreDelRol(rolDe(nuevo), t) }));
                         }}
                         className="mt-1 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
                       >
                         {ofrecidos.map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.nombre}
+                            {nombreDelRol(r, t)}
                           </option>
                         ))}
                       </select>
@@ -164,7 +166,7 @@ export default function Equipo() {
                           alConfirmar={() => {
                             datos.cambiarRolEmpleado(e.id, cambiandoRol.rol);
                             avisarExito(
-                              `${e.nombre} tiene ahora el rol ${rolDe(cambiandoRol.rol).nombre}.`
+                              t("equipo.tieneAhoraElRol", { nombre: e.nombre, rol: nombreDelRol(rolDe(cambiandoRol.rol), t) })
                             );
                             setCambiandoRol(null);
                           }}
@@ -174,15 +176,15 @@ export default function Equipo() {
                     </div>
                   ) : (
                     <p className="mt-2 text-apoyo text-tinta-suave">
-                      {rolDe(e.rol_id)?.nombre}
-                      {esFundador && !esVos && " · Creó el negocio"}
+                      {nombreDelRol(rolDe(e.rol_id), t)}
+                      {esFundador && !esVos && ` · ${t("equipo.creoElNegocio")}`}
                     </p>
                   )}
 
                   <p className="mt-4 text-tinta-media">
                     {suyos.length === 0
-                      ? "No tiene ningún caso ahora."
-                      : `Tiene ${suyos.length} ${suyos.length === 1 ? "caso" : "casos"} sin cerrar.`}
+                      ? t("equipo.sinCasos")
+                      : t("equipo.tieneCasos", { n: suyos.length })}
                   </p>
 
                   {/* Tres casos y el resto a pedido: alguien con siete
@@ -197,10 +199,10 @@ export default function Equipo() {
                             className="flex min-h-12 items-center gap-2 text-azul"
                           >
                             <Icono nombre="carpeta" className="size-5" />
-                            {tituloDelCaso(c)}
-                            {lineaDelCaso(c) && ` · ${lineaDelCaso(c)}`}
-                            {subtituloDelCaso(c) && (
-                              <span className="text-apoyo text-tinta-suave">{subtituloDelCaso(c)}</span>
+                            {tituloDelCaso(c, t)}
+                            {lineaDelCaso(c, undefined, t) && ` · ${lineaDelCaso(c, undefined, t)}`}
+                            {subtituloDelCaso(c, t) && (
+                              <span className="text-apoyo text-tinta-suave">{subtituloDelCaso(c, t)}</span>
                             )}
                           </Link>
                         </li>
@@ -214,8 +216,8 @@ export default function Equipo() {
                       onClick={() => setVerTodosDe((v) => (v === e.id ? null : e.id))}
                     >
                       {verTodosDe === e.id
-                        ? "Mostrar menos"
-                        : `y ${suyos.length - CASOS_A_LA_VISTA} más`}
+                        ? t("equipo.mostrarMenos")
+                        : t("equipo.yMas", { n: suyos.length - CASOS_A_LA_VISTA })}
                     </Boton>
                   )}
 
@@ -224,34 +226,34 @@ export default function Equipo() {
                   {!puedeSacar || intocable || (e.usuario_id && !ofrecidos.some((r) => r.id === e.rol_id))
                     ? null : sacando === e.id ? (
                     <div className="mt-4 rounded-tarjeta bg-superficie p-4">
-                      <p className="font-bold text-cuerpo">¿Sacar a {e.nombre} del equipo?</p>
+                      <p className="font-bold text-cuerpo">{t("equipo.sacarPregunta", { nombre: e.nombre })}</p>
                       {/* Con cuenta, sacarlo también le quita el acceso (036): es
                           lo más importante que pasa, y va primero. */}
                       {e.usuario_id && (
                         <p className="mt-1 font-bold text-tinta">
-                          Su cuenta deja de poder entrar a este negocio.
+                          {t("equipo.suCuenta")}
                         </p>
                       )}
                       <p className="mt-1 text-tinta-media">
                         {suyos.length
-                          ? `Sus ${suyos.length} ${suyos.length === 1 ? "caso queda" : "casos quedan"} sin responsable. No se borra ningún caso.`
+                          ? t("equipo.suyosQuedan", { n: suyos.length })
                           : e.usuario_id
-                            ? "No tiene casos abiertos."
-                            : "No tiene casos abiertos, así que no cambia nada más."}
+                            ? t("equipo.sinCasosAbiertos")
+                            : t("equipo.sinCasosAbiertosNada")}
                       </p>
                       <div className="mt-4 flex flex-wrap gap-3">
                         <Boton variante="peligro" icono="tacho" onClick={() => sacar(e)}>
-                          Sacar del equipo
+                          {t("equipo.sacarDelEquipo")}
                         </Boton>
                         <Boton variante="plano" onClick={() => setSacando(null)}>
-                          Dejarlo
+                          {t("equipo.dejarlo")}
                         </Boton>
                       </div>
                     </div>
                   ) : (
                     <div className="mt-4">
                       <Boton variante="plano" icono="tacho" onClick={() => setSacando(e.id)}>
-                        Sacar del equipo
+                        {t("equipo.sacarDelEquipo")}
                       </Boton>
                     </div>
                   )}
@@ -264,7 +266,7 @@ export default function Equipo() {
 
       {sinAsignar.length > 0 && (
         <>
-          <TituloSeccion>Casos que no tiene nadie</TituloSeccion>
+          <TituloSeccion>{t("equipo.casosSinNadie")}</TituloSeccion>
           <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
             {sinAsignar.map((c) => (
               <li
@@ -273,12 +275,12 @@ export default function Equipo() {
               >
                 <div>
                   <Link href={`/casos/${c.id}`} className="font-bold text-azul">
-                    {tituloDelCaso(c)}
+                    {tituloDelCaso(c, t)}
                   </Link>
-                  {subtituloDelCaso(c) && (
-                    <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(c)}</span>
+                  {subtituloDelCaso(c, t) && (
+                    <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(c, t)}</span>
                   )}
-                  {lineaDelCaso(c) && <p className="text-tinta-media">{lineaDelCaso(c)}</p>}
+                  {lineaDelCaso(c, undefined, t) && <p className="text-tinta-media">{lineaDelCaso(c, undefined, t)}</p>}
                 </div>
                 <ChipEstado estado={c.estado} />
               </li>
@@ -304,38 +306,39 @@ export default function Equipo() {
 // Bajar a alguien —que pierda algo— va en rojo, como "Sacar del equipo": deja
 // a una persona sin poder hacer parte de su trabajo.
 function ConfirmarRol({ persona, antes, despues, alConfirmar, alCancelar }) {
-  const { gana, pierde } = queCambiaConElRol(antes, despues);
+  const { t } = useIdioma();
+  const { gana, pierde } = queCambiaConElRol(antes, despues, t);
   return (
     <div className="mt-3 rounded-tarjeta bg-superficie p-4">
       <p className="font-bold text-cuerpo">
-        ¿Pasar a {persona.nombre} al rol {despues.nombre}?
+        {t("equipo.confirmar.pregunta", { nombre: persona.nombre, rol: nombreDelRol(despues, t) })}
       </p>
       {pierde.length > 0 && (
         <>
-          <p className="mt-2 font-bold text-tinta">Permisos que se quitan</p>
+          <p className="mt-2 font-bold text-tinta">{t("equipo.confirmar.quitan")}</p>
           <ul className="ml-5 list-disc text-tinta-media">
-            {pierde.map((t) => (
-              <li key={t}>{t}</li>
+            {pierde.map((texto) => (
+              <li key={texto}>{texto}</li>
             ))}
           </ul>
         </>
       )}
       {gana.length > 0 && (
         <>
-          <p className="mt-2 font-bold text-tinta">Permisos que se agregan</p>
+          <p className="mt-2 font-bold text-tinta">{t("equipo.confirmar.agregan")}</p>
           <ul className="ml-5 list-disc text-tinta-media">
-            {gana.map((t) => (
-              <li key={t}>{t}</li>
+            {gana.map((texto) => (
+              <li key={texto}>{texto}</li>
             ))}
           </ul>
         </>
       )}
       <div className="mt-4 flex flex-wrap gap-3">
         <Boton variante={pierde.length > 0 ? "peligro" : "borde"} icono="check" onClick={alConfirmar}>
-          Sí, cambiarlo
+          {t("equipo.confirmar.si")}
         </Boton>
         <Boton variante="plano" onClick={alCancelar}>
-          Dejarlo como está
+          {t("equipo.confirmar.dejar")}
         </Boton>
       </div>
     </div>

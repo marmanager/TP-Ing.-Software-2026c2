@@ -1,11 +1,11 @@
 import { $, browser, expect } from "@wdio/globals";
-import { entrar, noVerTexto, reemplazarTexto, ruta, verTexto } from "./ayudas.js";
+import { entrar, noVerTexto, reemplazarTexto, ruta, tid, verTexto } from "./ayudas.js";
 
 describe("Historia: Compartir estado del trabajo con el cliente", () => {
   // Compartir se mudó a la pantalla de los pasos, al lado del presupuesto
   // que se le manda (e9f2ce0).
   async function abrirElLink() {
-    await $("button=Mandarle los pasos al cliente").click();
+    await tid("pasos-mandar").click();
     const campo = await $("#link-seguimiento");
     await expect(campo).toBeDisplayed();
     return campo.getValue();
@@ -49,10 +49,10 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
     const link = await generarLink();
     await browser.url(link);
 
-    await $("button=Lo apruebo").click();
+    await tid("seguimiento-aprobar").click();
     await verTexto("¿Aprobás «Cambio de pieza»?");
     await verTexto("lo que aprobaste pasa de $74.000 a $96.000");
-    await $("button=Sí, lo apruebo").click();
+    await tid("seguimiento-aprobar-confirmar").click();
     await verTexto("Listo, quedó aprobado");
     await verTexto("lo que aprobaste hasta ahora suma $96.000");
 
@@ -70,9 +70,9 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
     const link = await generarLink();
     await browser.url(link);
 
-    await $("button=No lo hago").click();
+    await tid("seguimiento-rechazar").click();
     await verTexto("¿Decís que no a «Cambio de pieza»?");
-    await $("button=Sí, no lo hago").click();
+    await tid("seguimiento-rechazar-confirmar").click();
     await verTexto("Listo, anotamos que no");
     await verTexto("Lo que aprobaste sigue siendo $74.000");
 
@@ -91,26 +91,29 @@ describe("Historia: Compartir estado del trabajo con el cliente", () => {
       "href",
       expect.stringContaining("https://wa.me/5493412223333")
     );
-    await expect($("a=Llamar al 341 222 3333")).toHaveAttribute("href", "tel:3412223333");
+    await expect($("a=Llamar al +54 9 341 222 3333")).toHaveAttribute("href", "tel:+5493412223333");
   });
 
   it("AC9: el negocio puede modificar su teléfono y conservarlo", async () => {
     await entrar("/negocio");
-    await $("button=Editar").click();
+    await tid("negocio-editar").click();
     await reemplazarTexto("#negocio-telefono", "341 444 5566");
-    await $("button=Guardar").click();
-    await verTexto("Teléfono 341 444 5566");
+    await tid("negocio-guardar").click();
+    // Se guarda y se muestra entero, con el código del país (B-1b).
+    await verTexto("Teléfono +54 9 341 444 5566");
 
     await browser.refresh();
-    await verTexto("Teléfono 341 444 5566");
+    await verTexto("Teléfono +54 9 341 444 5566");
   });
 
   it("AC4: un enlace deshabilitado deja de revelar el caso", async () => {
     const link = await generarLink();
     await browser.url(ruta("/casos/{k248}/pasos"));
     await abrirElLink();
-    await $("button=Dejar de compartirlo").click();
-    await $("button=Sí, dejar de compartirlo").click();
+    await tid("pasos-dejar").click();
+    await tid("pasos-dejar-confirmar").click();
+    // Si se abre el link antes de que la API conteste, todavía anda.
+    await verTexto("Ese link dejó de funcionar");
     await browser.url(link);
     await verTexto("Este link ya no sirve");
   });

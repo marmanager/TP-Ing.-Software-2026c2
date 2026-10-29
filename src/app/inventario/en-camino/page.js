@@ -22,22 +22,31 @@
 //
 // Las palabras del oficio salen de vocabulario(): en un taller se piden
 // repuestos y en un consultorio, insumos.
+//
+// Con "En camino en otras sedes" prendido (y el permiso de ver el inventario
+// de las sedes), la lista suma lo que pidieron las sedes vinculadas, y cada
+// fila dice a qué sede va. Las de otra sede sólo se miran: sin caso, sin
+// cliente y sin botones.
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
+import { useIdioma } from "@/lib/useIdioma";
+import { conElementos } from "@/lib/conElementos";
 import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
+import { hijosActivos } from "@/lib/modulos";
+import { inventarioDeSedes, pedidosDeOtrasSedes } from "@/lib/sedes";
 import { mayuscula, vocabulario } from "@/lib/presets";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import { buscarIgual, formDeProducto, limpiarProducto, motivoDelProducto, presentacion } from "@/lib/inventario";
 import Icono from "@/componentes/Icono";
 import Pestanas from "@/componentes/Pestanas";
 import { CamposDeProducto, EdicionDeProducto, PRODUCTO_VACIO } from "@/componentes/Producto";
-import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import { Boton, Campo, Cargando, ErrorGeneral, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 // Sin caso elegido, el pedido es para reponer el stock.
 const PARA_EL_STOCK = "";
@@ -54,23 +63,29 @@ export default function EnCamino() {
 
 function Pantalla() {
   const datos = useDatos();
-  const { usuario } = useAuth();
+  const { usuario, sesion } = useAuth();
   const puedeCargar = puede(usuario, "editar_inventario");
   const { cargando, insumos, casos, clientes, negocio } = datos;
   const pedido = useSearchParams();
   const casoPedido = pedido.get("caso");
   const nombrePedido = pedido.get("pedir");
   const reponer = pedido.get("reponer");
-  useTitulo("En camino");
+  const { idioma, t } = useIdioma();
+  useTitulo(t("inventario.enCamino.pestana"));
 
   // Si se llegó con algo para pedir, el formulario arranca abierto y cargado:
   // se vino a pedir, no a mirar.
   const [abierto, setAbierto] = useState(Boolean(casoPedido || nombrePedido || reponer));
 
+  const conOtrasSedes =
+    hijosActivos("inventario", negocio?.modulos_activos ?? []).some((h) => h.clave === "en_camino_sedes") &&
+    puede(usuario, "ver_inventario_de_sedes");
+  const otrasSedes = useOtrasSedes(conOtrasSedes, sesion?.access_token, negocio?.id);
+
   if (cargando) return <Cargando />;
 
-  const { articulo } = vocabulario(negocio?.rubro);
-  const titulo = `${mayuscula(articulo.palabra(2))} en camino`;
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
+  const titulo = t("inventario.enCamino.titulo", { palabra: mayuscula(articulo.palabra(2)) });
 
   const pedidos = insumos.filter((i) => i.estado === "pedido");
   // "Llegado" es el paso intermedio que pensó el diseño original —llegó y
@@ -93,10 +108,10 @@ function Pantalla() {
     const despues = await datos.marcarInsumoLlegado(i.id);
     datos.avisarExito(
       !caso
-        ? `Listo. ${i.nombre} ya está en el stock.`
+        ? t("inventario.enCamino.llegoAlStock", { nombre: i.nombre })
         : despues?.estado === "en_proceso"
-          ? `Listo. Llegó ${i.nombre} y el ${casoEnFrase(caso)} ya puede seguir.`
-          : `Listo. Llegó ${i.nombre}. El ${casoEnFrase(caso)} sigue esperando otra cosa.`
+          ? t("inventario.enCamino.llegoYSigue", { nombre: i.nombre, caso: casoEnFrase(caso, t) })
+          : t("inventario.enCamino.llegoYEspera", { nombre: i.nombre, caso: casoEnFrase(caso, t) })
     );
   }
 
@@ -108,7 +123,7 @@ function Pantalla() {
         <div>
           <h1 className="text-pantalla">{titulo}</h1>
           <p className="mt-1 text-tinta-media">
-            Lo que pediste y todavía no llegó, con el caso que lo espera.
+            {t("inventario.enCamino.apoyo")}
           </p>
         </div>
         {/* El mismo arreglo que "Anotar un turno": mientras hay un pedido a
@@ -117,10 +132,10 @@ function Pantalla() {
         {puedeCargar && (
           <Boton
             icono="mas"
-            motivo={abierto ? `ya estás pidiendo ${articulo.segun("uno", "una")}` : null}
+            motivo={abierto ? t(`inventario.enCamino.yaPidiendo.${articulo.segun("m", "f")}`) : null}
             onClick={() => setAbierto(true)}
           >
-            Pedir {articulo.un()}
+            {t("inventario.enCamino.pedir", { articulo: articulo.un() })}
           </Boton>
         )}
       </div>
@@ -136,7 +151,7 @@ function Pantalla() {
 
       {llegados.length > 0 && (
         <>
-          <TituloSeccion>Llegaron y hay que usarlos</TituloSeccion>
+          <TituloSeccion>{t("inventario.enCamino.llegaronTitulo")}</TituloSeccion>
           <ul className="mb-10 flex flex-col gap-3">
             {llegados.map((i) => {
               const caso = casoDe(i.caso_id);
@@ -147,21 +162,19 @@ function Pantalla() {
                       <div>
                         <p className="font-bold text-subtitulo">{i.nombre}</p>
                         <p className="text-tinta-media">
-                          {caso ? (
-                            <>
-                              Es del{" "}
-                              <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
-                                {casoEnFrase(caso)}
-                              </Link>
-                              . Marcarlo destraba el trabajo.
-                            </>
-                          ) : (
-                            "Llegó y todavía nadie lo usó."
-                          )}
+                          {caso
+                            ? conElementos(t("inventario.enCamino.esDelCaso"), {
+                                enlace: (
+                                  <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
+                                    {casoEnFrase(caso, t)}
+                                  </Link>
+                                ),
+                              })
+                            : t("inventario.enCamino.llegoSinUso")}
                         </p>
                       </div>
                       <Boton icono="cajas" onClick={() => llego(i)}>
-                        Guardarlo en stock
+                        {t("inventario.enCamino.guardarEnStock")}
                       </Boton>
                     </div>
                   </Tarjeta>
@@ -172,32 +185,102 @@ function Pantalla() {
         </>
       )}
 
-      {pedidos.length === 0 ? (
-        <Vacio icono="camion" titulo={`No hay ${articulo.palabra(2)} en camino`}>
-          {puedeCargar
-            ? `Cuando pidas ${articulo.un()} para un caso, va a aparecer acá hasta que llegue, y el caso va a quedar esperándolo.`
-            : `Cuando alguien pida ${articulo.un()}, va a aparecer acá hasta que llegue.`}
+      {conOtrasSedes && otrasSedes.error && <ErrorGeneral>{otrasSedes.error}</ErrorGeneral>}
+
+      {pedidos.length + otrasSedes.pedidos.length === 0 ? (
+        <Vacio icono="camion" titulo={t("inventario.enCamino.vacioTitulo", { palabra: articulo.palabra(2) })}>
+          {t(puedeCargar ? "inventario.enCamino.vacioConPermiso" : "inventario.enCamino.vacioSinPermiso", {
+            articulo: articulo.un(),
+          })}
         </Vacio>
       ) : (
         <>
           <TituloSeccion>
-            {mayuscula(articulo.cuantos(pedidos.length))} sin llegar
+            {t("inventario.enCamino.sinLlegar", {
+              cuantos: mayuscula(articulo.cuantos(pedidos.length + otrasSedes.pedidos.length)),
+            })}
           </TituloSeccion>
+          {/* Una sola lista: lo de esta sede y lo de las otras, por nombre,
+              así la misma pieza pedida en dos sedes queda junta. */}
           <ul className="flex flex-col gap-3">
-            {pedidos.map((i) => (
-              <FilaDePedido
-                key={i.id}
-                insumo={i}
-                caso={casoDe(i.caso_id)}
-                cliente={clienteDe(casoDe(i.caso_id))}
-                puedeCargar={puedeCargar}
-                alLlegar={() => llego(i)}
-              />
-            ))}
+            {[...pedidos, ...otrasSedes.pedidos]
+              .sort((a, b) => a.nombre.localeCompare(b.nombre, idioma))
+              .map((i) =>
+                i.sede ? (
+                  <FilaDeOtraSede key={i.id} insumo={i} />
+                ) : (
+                  <FilaDePedido
+                    key={i.id}
+                    insumo={i}
+                    sede={conOtrasSedes ? negocio?.nombre : null}
+                    caso={casoDe(i.caso_id)}
+                    cliente={clienteDe(casoDe(i.caso_id))}
+                    puedeCargar={puedeCargar}
+                    alLlegar={() => llego(i)}
+                  />
+                )
+              )}
           </ul>
         </>
       )}
     </>
+  );
+}
+
+// ------------------------------------------------------------
+// Lo pedido en las otras sedes
+// ------------------------------------------------------------
+// Sale de la misma API que "Todas las sedes": la base ya deja sólo las sedes
+// donde la persona tiene ficha y puede ver el inventario de sedes.
+const SIN_OTRAS = { pedidos: [], error: null };
+
+function useOtrasSedes(prendido, token, activoId) {
+  const [estado, setEstado] = useState(SIN_OTRAS);
+  useEffect(() => {
+    if (!prendido) return;
+    let vivo = true;
+    inventarioDeSedes(token).then((r) => {
+      if (!vivo) return;
+      setEstado(
+        r.ok ? { pedidos: pedidosDeOtrasSedes(r.insumos, r.sedes, activoId), error: null } : { pedidos: [], error: r.error }
+      );
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [prendido, token, activoId]);
+  return prendido ? estado : SIN_OTRAS;
+}
+
+// Sólo se mira: para cambiar algo se entra a esa sede.
+function FilaDeOtraSede({ insumo: i }) {
+  const { t } = useIdioma();
+  const detalle = [i.marca, i.modelo, i.categoria].filter(Boolean).join(" · ");
+  return (
+    <li>
+      <Tarjeta className="border-l-4 border-l-borde-fuerte">
+        <p className="font-bold text-subtitulo">
+          {i.nombre}
+          <span className="font-normal text-tinta-media">
+            {" "}
+            · {i.cantidad} {presentacion(i, i.cantidad, t)}
+          </span>
+        </p>
+        {detalle && <p className="text-apoyo text-tinta-suave">{detalle}</p>}
+        <EnCaminoA sede={i.sede} />
+      </Tarjeta>
+    </li>
+  );
+}
+
+// "En camino a {sede}", con el nombre en negrita.
+function EnCaminoA({ sede }) {
+  const { t } = useIdioma();
+  return (
+    <p className="flex items-center gap-1.5 text-tinta-media">
+      <Icono nombre="tienda" className="size-5 shrink-0" />
+      <span>{conElementos(t("inventario.enCamino.enCaminoA"), { sede: <span className="font-bold">{sede}</span> })}</span>
+    </p>
   );
 }
 
@@ -210,6 +293,7 @@ function Pantalla() {
 function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
   const datos = useDatos();
   const { insumos, casos, clientes, negocio } = datos;
+  const { idioma, t } = useIdioma();
   const [form, setForm] = useState(inicial);
   const [casoElegido, setCasoElegido] = useState(casoInicial ?? PARA_EL_STOCK);
   // Mientras la API contesta, el botón no se puede volver a tocar: un
@@ -217,7 +301,7 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
   const [guardando, setGuardando] = useState(false);
   const cambiar = (que) => setForm((f) => ({ ...f, ...que }));
 
-  const { articulo } = vocabulario(negocio?.rubro);
+  const { articulo } = vocabulario(negocio?.rubro, idioma);
   const enCaja = form.unidad === "caja";
   const abiertos = casos.filter(estaAbierto);
   const clienteDe = (caso) => clientes.find((c) => c.id === caso?.cliente_id);
@@ -227,7 +311,9 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
 
   const producto = limpiarProducto(form);
   const igual = producto.nombre ? buscarIgual(insumos, producto) : null;
-  const motivo = guardando ? "se está guardando" : motivoDelProducto(form, { desdeUno: true });
+  const motivo = guardando
+    ? t("inventario.guardandoMotivo")
+    : motivoDelProducto(form, { desdeUno: true }, t);
 
   async function pedir() {
     setGuardando(true);
@@ -237,22 +323,22 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
     const caso = casos.find((c) => c.id === casoId);
     datos.avisarExito(
       caso
-        ? `Listo. Pediste ${insumo.nombre} para el ${casoEnFrase(caso)}, que queda esperándolo.`
-        : `Listo. Pediste ${insumo.nombre} para reponer el stock.`
+        ? t("inventario.enCamino.pedidoParaCaso", { nombre: insumo.nombre, caso: casoEnFrase(caso, t) })
+        : t("inventario.enCamino.pedidoParaStock", { nombre: insumo.nombre })
     );
     alCerrar();
   }
 
   return (
     <Tarjeta className="mb-8 max-w-[640px]">
-      <TituloSeccion>Pedir {articulo.un()}</TituloSeccion>
+      <TituloSeccion>{t("inventario.enCamino.pedir", { articulo: articulo.un() })}</TituloSeccion>
 
       <CamposDeProducto
         prefijo="pedir"
         form={form}
         cambiar={cambiar}
-        etiquetaCantidad={enCaja ? "Cuántas cajas pedís" : "Cuántos pedís"}
-        ayudaCantidad="Desde 1."
+        etiquetaCantidad={t(enCaja ? "inventario.producto.cuantasCajasPedis" : "inventario.producto.cuantosPedis")}
+        ayudaCantidad={t("inventario.producto.desdeUno")}
         conMinimo={!igual}
       />
 
@@ -260,16 +346,18 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
         <p className="mb-6 flex items-start gap-2 rounded-campo bg-azul-claro p-3 font-bold text-azul">
           <Icono nombre="cajas" className="mt-0.5 size-5 shrink-0" />
           <span>
-            Ya tenés {igual.cantidad} {presentacion(igual, igual.cantidad)} en stock. Cuando llegue, se
-            suma ahí.
+            {t("inventario.enCamino.yaTenesEnStock", {
+              n: igual.cantidad,
+              presentacion: presentacion(igual, igual.cantidad, t),
+            })}
           </span>
         </p>
       )}
 
       <Campo
         id="pedir-caso"
-        etiqueta="Para qué"
-        ayuda="Si es para un caso, el caso queda esperándolo hasta que marques que llegó."
+        etiqueta={t("inventario.enCamino.paraQue")}
+        ayuda={t("inventario.enCamino.paraQueAyuda")}
       >
         <select
           id="pedir-caso"
@@ -278,13 +366,13 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
           onChange={(e) => setCasoElegido(e.target.value)}
           className="mt-2 block w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 min-h-12 text-cuerpo"
         >
-          <option value={PARA_EL_STOCK}>Para reponer el stock</option>
+          <option value={PARA_EL_STOCK}>{t("inventario.enCamino.paraReponerOpcion")}</option>
           {abiertos.map((c) => (
             // En un desplegable no hay letra chica: el número va entre
             // paréntesis cuando el caso tiene nombre. Un solo texto, que
             // es lo único que un <option> sabe mostrar.
             <option key={c.id} value={c.id}>
-              {`${tituloDelCaso(c)}${subtituloDelCaso(c) ? ` (${subtituloDelCaso(c)})` : ""} · ${lineaDelCaso(c, clienteDe(c)?.nombre ?? "sin cliente")}`}
+              {`${tituloDelCaso(c, t)}${subtituloDelCaso(c, t) ? ` (${subtituloDelCaso(c, t)})` : ""} · ${lineaDelCaso(c, clienteDe(c)?.nombre ?? t("inventario.enCamino.sinCliente"), t)}`}
             </option>
           ))}
         </select>
@@ -292,10 +380,10 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Boton variante="principal" icono="check" motivo={motivo} className="w-full sm:w-auto" onClick={pedir}>
-          Pedirlo
+          {t("inventario.enCamino.pedirlo")}
         </Boton>
         <Boton variante="peligro" icono="tacho" className="w-full sm:w-auto" onClick={alCerrar}>
-          Cancelar
+          {t("casos.comun.cancelar")}
         </Boton>
       </div>
     </Tarjeta>
@@ -307,8 +395,9 @@ function FormularioDePedido({ inicial, casoInicial, alCerrar }) {
 // ------------------------------------------------------------
 // "Marcar que llegó" es lo de todos los días. "Editar" cambia los datos y la
 // cantidad, y es el único lugar desde donde se borra, preguntando antes.
-function FilaDePedido({ insumo: i, caso, cliente, puedeCargar, alLlegar }) {
+function FilaDePedido({ insumo: i, sede, caso, cliente, puedeCargar, alLlegar }) {
   const [editando, setEditando] = useState(false);
+  const { t } = useIdioma();
   const detalle = [i.marca, i.modelo].filter(Boolean).join(" · ");
 
   return (
@@ -321,7 +410,7 @@ function FilaDePedido({ insumo: i, caso, cliente, puedeCargar, alLlegar }) {
               {(i.cantidad > 1 || i.unidad === "caja") && (
                 <span className="font-normal text-tinta-media">
                   {" "}
-                  · {i.cantidad} {presentacion(i, i.cantidad)}
+                  · {i.cantidad} {presentacion(i, i.cantidad, t)}
                 </span>
               )}
             </p>
@@ -329,24 +418,28 @@ function FilaDePedido({ insumo: i, caso, cliente, puedeCargar, alLlegar }) {
             <p className="text-tinta-media">
               {caso ? (
                 <>
-                  Para el{" "}
-                  <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
-                    {casoEnFrase(caso)}
-                  </Link>
-                  {cliente && cliente.nombre !== tituloDelCaso(caso) && ` · ${cliente.nombre}`}
+                  {conElementos(t("inventario.enCamino.paraElCaso"), {
+                    enlace: (
+                      <Link href={`/casos/${caso.id}`} className="font-bold text-azul">
+                        {casoEnFrase(caso, t)}
+                      </Link>
+                    ),
+                  })}
+                  {cliente && cliente.nombre !== tituloDelCaso(caso, t) && ` · ${cliente.nombre}`}
                 </>
               ) : (
-                "Para reponer el stock."
+                t("inventario.enCamino.paraReponer")
               )}
             </p>
+            {sede && <EnCaminoA sede={sede} />}
           </div>
           {puedeCargar && (
             <div className="flex flex-wrap gap-2">
-              <Boton icono="pincel" motivo={editando ? "lo estás editando" : null} onClick={() => setEditando(true)}>
-                Editar
+              <Boton icono="pincel" motivo={editando ? t("inventario.editandoMotivo") : null} onClick={() => setEditando(true)}>
+                {t("inventario.editar")}
               </Boton>
               <Boton icono="check" onClick={alLlegar}>
-                Marcar que llegó
+                {t("inventario.enCamino.marcarLlego")}
               </Boton>
             </div>
           )}
