@@ -31,12 +31,14 @@
 // "Mi negocio" (SCRUM-38). El resto —Inicio, Casos y Mi negocio— es núcleo y
 // está siempre.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Icono from "./Icono";
 import DesplegableVistaMaestra from "./DesplegableVistaMaestra";
 import { useAuth } from "@/lib/auth";
+import { textoDeError } from "@/lib/idioma";
+import { ErrorGeneral } from "./ui";
 import { puede } from "@/lib/permisos";
 import { useDatos } from "@/lib/datos";
 import { estaPrendido, hijosActivos, palabraDeBarra } from "@/lib/modulos";
@@ -174,20 +176,26 @@ const sinNegocio = (destinos) => destinos.filter((d) => d.id !== "negocio");
 
 function usarSalida() {
   const router = useRouter();
+  const { t } = useIdioma();
   const { salirDeVistaMaestra } = useAuth();
   const [saliendo, setSaliendo] = useState(false);
+  const [errorAlSalir, setErrorAlSalir] = useState(null);
   async function salir() {
     setSaliendo(true);
+    setErrorAlSalir(null);
     const r = await salirDeVistaMaestra();
     setSaliendo(false);
     if (r.ok) router.replace(r.negocioId ? "/" : "/negocios");
+    else setErrorAlSalir(textoDeError(t, r.error));
   }
-  return [salir, saliendo];
+  return [salir, saliendo, errorAlSalir];
 }
 
-function BotonSalirDeVista({ salir, saliendo, grande = false }) {
+function BotonSalirDeVista({ salir, saliendo, errorAlSalir, grande = false }) {
   const { t } = useIdioma();
   return (
+    <>
+      {errorAlSalir && <div className="mt-2 px-3"><ErrorGeneral>{errorAlSalir}</ErrorGeneral></div>}
     <button
       type="button"
       onClick={salir}
@@ -197,6 +205,7 @@ function BotonSalirDeVista({ salir, saliendo, grande = false }) {
       <Icono nombre="salir" className="size-7" />
       {t("vistaMaestra.salir")}
     </button>
+    </>
   );
 }
 
@@ -205,6 +214,8 @@ function BotonSalirDeVista({ salir, saliendo, grande = false }) {
 function Encabezado({ negocio, enVista, extra }) {
   const { t } = useIdioma();
   const [abierto, setAbierto] = useState(false);
+  // La barra y el panel "Más" están los dos en el DOM: ids propios de cada uno.
+  const idDesplegable = useId();
   if (!enVista) {
     return (
       <div className="mb-6 flex items-center gap-3 pl-3">
@@ -234,22 +245,22 @@ function Encabezado({ negocio, enVista, extra }) {
         <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
           {t("vistaMaestra.titulo")}
         </span>
-        <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} />
+        <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} controla={idDesplegable} />
         {extra}
       </div>
-      {abierto && <DesplegableVistaMaestra id="desplegable-vista-maestra" />}
+      {abierto && <DesplegableVistaMaestra id={idDesplegable} />}
     </div>
   );
 }
 
-function FlechitaDelDesplegable({ abierto, alTocar }) {
+function FlechitaDelDesplegable({ abierto, alTocar, controla }) {
   const { t } = useIdioma();
   return (
     <button
       type="button"
       onClick={alTocar}
       aria-expanded={abierto}
-      aria-controls="desplegable-vista-maestra"
+      aria-controls={controla}
       aria-label={t("vistaMaestra.desplegable.abrir")}
       title={t("vistaMaestra.desplegable.abrir")}
       className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
@@ -270,7 +281,7 @@ export function BarraLateral() {
   const { usuario } = useAuth();
   const enVista = Boolean(usuario?.vista_maestra_desde);
   const [arriba, alPie] = partir(conModulo(DESTINOS, negocio, usuario));
-  const [salir, saliendo] = usarSalida();
+  const [salir, saliendo, errorAlSalir] = usarSalida();
   const [cerrada, setCerrada] = useState(false);
   const boton = useRef(null);
   const recienTocado = useRef(false);
@@ -342,7 +353,7 @@ export function BarraLateral() {
         </div>
         <div className="mt-4 border-t border-borde pt-4">
           <ListaDeSecciones destinos={enVista ? sinNegocio(alPie) : alPie} ruta={ruta} />
-          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} />}
+          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} errorAlSalir={errorAlSalir} />}
         </div>
       </div>
     </nav>
@@ -472,8 +483,9 @@ export function BarraCelular() {
 // una sección. Mientras está abierto, la página de atrás no se mueve.
 function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
   const { t } = useIdioma();
-  const [salir, saliendo] = usarSalida();
+  const [salir, saliendo, errorAlSalir] = usarSalida();
   const [abierto, setAbierto] = useState(false);
+  const idDesplegable = useId();
   const cerrar = useRef(null);
 
   useEffect(() => {
@@ -524,7 +536,7 @@ function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
               {enVista ? t("vistaMaestra.titulo") : negocio?.nombre}
             </p>
           </div>
-          {enVista && <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} />}
+          {enVista && <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} controla={idDesplegable} />}
         </div>
         <button
           ref={cerrar}
@@ -540,14 +552,14 @@ function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
           perfil en un grupo aparte, al final. */}
       {enVista && abierto && (
         <div className="mb-6">
-          <DesplegableVistaMaestra id="desplegable-vista-maestra" />
+          <DesplegableVistaMaestra id={idDesplegable} />
         </div>
       )}
       <nav aria-label={t("navegacion.todasLasSecciones")}>
         <ListaDeSecciones destinos={partir(destinos)[0]} ruta={ruta} grande />
         <div className="mt-4 border-t border-borde pt-4">
           <ListaDeSecciones destinos={partir(destinos)[1]} ruta={ruta} grande />
-          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} grande />}
+          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} errorAlSalir={errorAlSalir} grande />}
         </div>
       </nav>
     </div>

@@ -5,7 +5,7 @@
 // grupos para prender o apagar varios de una. Se guarda al tocar, en la cuenta
 // (076), así el celular ve lo mismo.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useIdioma } from "@/lib/useIdioma";
 import {
@@ -27,6 +27,23 @@ export default function DesplegableVistaMaestra({ id }) {
   const [error, setError] = useState(null);
   const [arrastrado, setArrastrado] = useState(null);
   const [grupoEditado, setGrupoEditado] = useState(null); // { id|null, nombre, negocios }
+  // Una sola escritura a la vez: si dos viajaran juntas, la que llega última
+  // pisaría a la otra con una vista vieja. El ref frena el doble toque antes
+  // de que React llegue a apagar los botones.
+  const [guardando, setGuardando] = useState(false);
+  const enCurso = useRef(false);
+
+  async function una(tarea) {
+    if (enCurso.current) return;
+    enCurso.current = true;
+    setGuardando(true);
+    try {
+      await tarea();
+    } finally {
+      enCurso.current = false;
+      setGuardando(false);
+    }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -35,27 +52,27 @@ export default function DesplegableVistaMaestra({ id }) {
   }, [token]);
 
   // Optimista: se muestra ya y, si la base dice que no, se vuelve atrás.
-  async function guardar(negocios) {
+  const guardar = (negocios) => una(async () => {
     const antes = vista;
     setVista({ ...vista, negocios });
     setError(null);
     const r = await guardarNegociosDeVista(negocios, token);
     if (r.ok) { setVista(r.vista); avisar(); }
     else { setVista(antes); setError(r.error.mensaje); }
-  }
+  });
 
-  async function guardarGrupo() {
+  const guardarGrupo = () => una(async () => {
     const { id: gid, nombre, negocios } = grupoEditado;
     const r = gid ? await cambiarGrupo(gid, { nombre, negocios }, token) : await crearGrupo({ nombre, negocios }, token);
     if (r.ok) { setVista(r.vista); setGrupoEditado(null); setError(null); avisar(); }
     else setError(r.error.mensaje);
-  }
+  });
 
-  async function quitarGrupo(gid) {
+  const quitarGrupo = (gid) => una(async () => {
     const r = await borrarGrupo(gid, token);
-    if (r.ok) { setVista(r.vista); setGrupoEditado(null); avisar(); }
+    if (r.ok) { setVista(r.vista); setGrupoEditado(null); setError(null); avisar(); }
     else setError(r.error.mensaje);
-  }
+  });
 
   if (!vista) {
     return (
@@ -69,6 +86,7 @@ export default function DesplegableVistaMaestra({ id }) {
   return (
     <div id={id} className="mt-3 flex max-h-[60dvh] flex-col gap-4 overflow-y-auto rounded-campo border border-borde bg-superficie p-3">
       {error && <ErrorGeneral>{error}</ErrorGeneral>}
+      {guardando && <p role="status" className="text-apoyo text-tinta-suave">{t("vistaMaestra.desplegable.guardando")}</p>}
 
       <section aria-labelledby={`${id}-grupos`}>
         <h2 id={`${id}-grupos`} className="mb-2 font-bold">{t("vistaMaestra.desplegable.grupos")}</h2>
@@ -80,13 +98,14 @@ export default function DesplegableVistaMaestra({ id }) {
                 <div className="min-w-0 flex-1">
                   <Interruptor
                     prendido={estado === "prendido"}
+                    disabled={guardando}
                     onChange={() => guardar(conGrupo(negocios, g, estado !== "prendido", mirandoId))}
                     ayuda={estado === "mezclado" ? t("vistaMaestra.desplegable.mezclado") : undefined}
                   >
                     {g.nombre}
                   </Interruptor>
                 </div>
-                <button type="button" className="min-h-12 px-2 text-apoyo font-bold text-azul"
+                <button type="button" disabled={guardando} className="min-h-12 px-2 text-apoyo font-bold text-azul disabled:opacity-40"
                   onClick={() => setGrupoEditado({ id: g.id, nombre: g.nombre, negocios: g.negocios })}>
                   {t("vistaMaestra.desplegable.cambiarGrupo")}
                 </button>
@@ -120,11 +139,11 @@ export default function DesplegableVistaMaestra({ id }) {
               </label>
             ))}
             <div className="flex flex-wrap gap-2">
-              <Boton onClick={guardarGrupo} motivo={grupoEditado.nombre.trim() ? undefined : t("vistaMaestra.desplegable.nombreGrupo")}>
+              <Boton onClick={guardarGrupo} motivo={guardando ? t("vistaMaestra.desplegable.guardando") : grupoEditado.nombre.trim() ? undefined : t("vistaMaestra.desplegable.nombreGrupo")}>
                 {t("vistaMaestra.desplegable.guardarGrupo")}
               </Boton>
               {grupoEditado.id && (
-                <Boton icono="tacho" onClick={() => quitarGrupo(grupoEditado.id)}>
+                <Boton icono="tacho" onClick={() => quitarGrupo(grupoEditado.id)} motivo={guardando ? t("vistaMaestra.desplegable.guardando") : undefined}>
                   {t("vistaMaestra.desplegable.borrarGrupo")}
                 </Boton>
               )}
@@ -132,7 +151,7 @@ export default function DesplegableVistaMaestra({ id }) {
             </div>
           </div>
         ) : (
-          <Boton icono="mas" className="mt-2" onClick={() => setGrupoEditado({ id: null, nombre: "", negocios: [] })}>
+          <Boton icono="mas" className="mt-2" motivo={guardando ? t("vistaMaestra.desplegable.guardando") : undefined} onClick={() => setGrupoEditado({ id: null, nombre: "", negocios: [] })}>
             {t("vistaMaestra.desplegable.nuevoGrupo")}
           </Boton>
         )}
@@ -145,7 +164,7 @@ export default function DesplegableVistaMaestra({ id }) {
           {negocios.map((n, i) => (
             <li
               key={n.id}
-              draggable
+              draggable={!guardando}
               onDragStart={() => setArrastrado(n.id)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => { if (arrastrado && arrastrado !== n.id) guardar(moverA(negocios, arrastrado, n.id)); setArrastrado(null); }}
@@ -155,19 +174,22 @@ export default function DesplegableVistaMaestra({ id }) {
               <div className="min-w-0 flex-1">
                 <Interruptor
                   prendido={n.prendido}
+                  disabled={guardando}
                   onChange={() => guardar(conPrendido(negocios, n.id, !n.prendido, mirandoId))}
                   motivo={n.id === mirandoId ? t("vistaMaestra.mirando") : undefined}
                 >
                   {n.nombre}
                 </Interruptor>
               </div>
-              <button type="button" disabled={i === 0} onClick={() => guardar(mover(negocios, n.id, -1))}
-                aria-label={t("vistaMaestra.desplegable.subir", { negocio: n.nombre })}
+              <button type="button" disabled={guardando || i === 0} onClick={() => guardar(mover(negocios, n.id, -1))}
+                aria-label={t(i === 0 ? "vistaMaestra.desplegable.subirPrimero" : "vistaMaestra.desplegable.subir", { negocio: n.nombre })}
+                title={i === 0 ? t("vistaMaestra.desplegable.subirPrimero", { negocio: n.nombre }) : undefined}
                 className="flex size-12 items-center justify-center rounded-campo disabled:opacity-40">
                 <Icono nombre="flecha-arriba" />
               </button>
-              <button type="button" disabled={i === negocios.length - 1} onClick={() => guardar(mover(negocios, n.id, 1))}
-                aria-label={t("vistaMaestra.desplegable.bajar", { negocio: n.nombre })}
+              <button type="button" disabled={guardando || i === negocios.length - 1} onClick={() => guardar(mover(negocios, n.id, 1))}
+                aria-label={t(i === negocios.length - 1 ? "vistaMaestra.desplegable.bajarUltimo" : "vistaMaestra.desplegable.bajar", { negocio: n.nombre })}
+                title={i === negocios.length - 1 ? t("vistaMaestra.desplegable.bajarUltimo", { negocio: n.nombre }) : undefined}
                 className="flex size-12 items-center justify-center rounded-campo disabled:opacity-40">
                 <Icono nombre="flecha-abajo" />
               </button>
