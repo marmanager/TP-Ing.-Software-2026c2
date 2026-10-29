@@ -127,6 +127,7 @@ export default function Guardia({ children }) {
   const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta);
   const hayEntrada = Boolean(sesion);
   const tieneNegocio = Boolean(usuario?.negocio_id);
+  const enVista = Boolean(usuario?.vista_maestra_desde);
 
   // A dónde tendría que estar parada la persona según su estado.
   const esperando = cargando || datosCargando || suscripcion.cargando;
@@ -156,6 +157,7 @@ export default function Guardia({ children }) {
       // negocio. /crear-negocio y /negocios se pueden visitar teniendo negocio.
       destino = RUTA_NEGOCIOS;
     } else if (
+      !enVista &&
       bloquea(suscripcion.datos) &&
       !RUTAS_SIN_SUSCRIPCION.includes(ruta) &&
       !esInvitacion(ruta)
@@ -208,6 +210,9 @@ export default function Guardia({ children }) {
   // La frase lleva el enlace adentro: se escribe entera, con un marcador
   // {enlace}, y se parte ahí; no se arma pegando pedazos traducidos. El
   // nombre y la descripción del módulo vienen de modulos.js.
+  // En vista maestra no se manda a Planes (se perdería el selector y "Salir de
+  // vista"): se avisa dentro del marco normal.
+  const sinSuscripcion = enVista && bloquea(suscripcion.datos) && !RUTAS_SIN_SUSCRIPCION.includes(ruta);
   const [antesDelEnlace, despuesDelEnlace] = apagado
     ? t("ui.moduloApagado.texto", { descripcion: apagado.descripcion }).split("{enlace}")
     : [];
@@ -241,9 +246,13 @@ export default function Guardia({ children }) {
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
                 ventana quedaban tarjetas apretadas entre 768 y 1024 px
                 (auditoría, Responsive). */}
-            <div className={`@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8${usuario?.vista_maestra_desde ? " md:pr-64" : ""}`}>
+            <div className={`@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8${enVista ? " lg:pr-64" : ""}`}>
             <Aviso />
-            {apagado ? (
+            {sinSuscripcion ? (
+              <Vacio icono="alerta" titulo={t("vistaMaestra.sinSuscripcion")}>
+                {t("vistaMaestra.sinSuscripcionTexto")}
+              </Vacio>
+            ) : apagado ? (
               <Vacio icono="tuerca" titulo={t("ui.moduloApagado.titulo", { nombre: apagado.nombre })}>
                 {antesDelEnlace}
                 <Link href="/negocio/modulos" className="font-bold text-azul">

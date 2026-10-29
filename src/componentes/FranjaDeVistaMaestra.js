@@ -9,7 +9,9 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useDatos } from "@/lib/datos";
 import { useIdioma } from "@/lib/useIdioma";
+import { textoDeError } from "@/lib/idioma";
 import Icono from "./Icono";
+import { ErrorGeneral } from "./ui";
 
 export default function FranjaDeVistaMaestra() {
   const { usuario, entrarAlNegocio } = useAuth();
@@ -17,15 +19,18 @@ export default function FranjaDeVistaMaestra() {
   const { t } = useIdioma();
   const router = useRouter();
   const [yendo, setYendo] = useState(false);
+  const [error, setError] = useState(null);
 
   if (!usuario?.vista_maestra_desde) return null;
 
   // Sale de la vista maestra y entra a éste, con su rol de siempre (076).
   async function editarAca() {
     setYendo(true);
-    const r = await entrarAlNegocio(negocio.id);
+    setError(null);
+    const r = await entrarAlNegocio(usuario.negocio_id ?? negocio.id);
     setYendo(false);
     if (r.ok) router.refresh();
+    else setError(textoDeError(t, r.error));
   }
 
   return (
@@ -35,6 +40,7 @@ export default function FranjaDeVistaMaestra() {
       <button type="button" disabled={yendo || !negocio} onClick={editarAca} className="ml-auto min-h-12 font-bold underline">
         {t("vistaMaestra.editarAca")}
       </button>
+      {error && <div className="w-full"><ErrorGeneral>{error}</ErrorGeneral></div>}
     </div>
   );
 }

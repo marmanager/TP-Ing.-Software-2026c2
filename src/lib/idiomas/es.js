@@ -3102,6 +3102,9 @@ export default {
       mezclado: "Algunos",
     },
     perfilApagado: "Salí de la vista maestra para cambiar tus datos.",
+    googleApagado: "Salí de la vista maestra para vincular o desvincular Google Calendar.",
+    sinSuscripcion: "Este negocio no tiene suscripción activa",
+    sinSuscripcionTexto: "Para cambiarlo, salí de la vista maestra y entrá a este negocio.",
   },
   errores: {
     landing_no_encontrada: "Este link ya no sirve. Pedile uno nuevo al negocio.",

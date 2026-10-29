@@ -98,15 +98,15 @@ export default function DesplegableVistaMaestra({ id }) {
                 <div className="min-w-0 flex-1">
                   <Interruptor
                     prendido={estado === "prendido"}
-                    disabled={guardando}
+                    bloqueado={guardando}
                     onChange={() => guardar(conGrupo(negocios, g, estado !== "prendido", mirandoId))}
                     ayuda={estado === "mezclado" ? t("vistaMaestra.desplegable.mezclado") : undefined}
                   >
                     {g.nombre}
                   </Interruptor>
                 </div>
-                <button type="button" disabled={guardando} className="min-h-12 px-2 text-apoyo font-bold text-azul disabled:opacity-40"
-                  onClick={() => setGrupoEditado({ id: g.id, nombre: g.nombre, negocios: g.negocios })}>
+                <button type="button" aria-disabled={guardando || undefined} className={`min-h-12 px-2 text-apoyo font-bold text-azul${guardando ? " opacity-40" : ""}`}
+                  onClick={() => !guardando && setGrupoEditado({ id: g.id, nombre: g.nombre, negocios: g.negocios })}>
                   {t("vistaMaestra.desplegable.cambiarGrupo")}
                 </button>
               </li>
@@ -174,23 +174,23 @@ export default function DesplegableVistaMaestra({ id }) {
               <div className="min-w-0 flex-1">
                 <Interruptor
                   prendido={n.prendido}
-                  disabled={guardando}
+                  bloqueado={guardando}
                   onChange={() => guardar(conPrendido(negocios, n.id, !n.prendido, mirandoId))}
                   motivo={n.id === mirandoId ? t("vistaMaestra.mirando") : undefined}
                 >
                   {n.nombre}
                 </Interruptor>
               </div>
-              <button type="button" disabled={guardando || i === 0} onClick={() => guardar(mover(negocios, n.id, -1))}
+              <button type="button" aria-disabled={guardando || i === 0 || undefined} onClick={() => i > 0 && guardar(mover(negocios, n.id, -1))}
                 aria-label={t(i === 0 ? "vistaMaestra.desplegable.subirPrimero" : "vistaMaestra.desplegable.subir", { negocio: n.nombre })}
                 title={i === 0 ? t("vistaMaestra.desplegable.subirPrimero", { negocio: n.nombre }) : undefined}
-                className="flex size-12 items-center justify-center rounded-campo disabled:opacity-40">
+                className={`flex size-12 items-center justify-center rounded-campo${guardando || i === 0 ? " opacity-40" : ""}`}>
                 <Icono nombre="flecha-arriba" />
               </button>
-              <button type="button" disabled={guardando || i === negocios.length - 1} onClick={() => guardar(mover(negocios, n.id, 1))}
+              <button type="button" aria-disabled={guardando || i === negocios.length - 1 || undefined} onClick={() => i < negocios.length - 1 && guardar(mover(negocios, n.id, 1))}
                 aria-label={t(i === negocios.length - 1 ? "vistaMaestra.desplegable.bajarUltimo" : "vistaMaestra.desplegable.bajar", { negocio: n.nombre })}
                 title={i === negocios.length - 1 ? t("vistaMaestra.desplegable.bajarUltimo", { negocio: n.nombre }) : undefined}
-                className="flex size-12 items-center justify-center rounded-campo disabled:opacity-40">
+                className={`flex size-12 items-center justify-center rounded-campo${guardando || i === negocios.length - 1 ? " opacity-40" : ""}`}>
                 <Icono nombre="flecha-abajo" />
               </button>
             </li>

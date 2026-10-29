@@ -3148,5 +3148,8 @@ export default {
       mezclado: "Some",
     },
     perfilApagado: "Leave master view to change your details.",
+    googleApagado: "Leave master view to link or unlink Google Calendar.",
+    sinSuscripcion: "This business has no active subscription",
+    sinSuscripcionTexto: "To change that, leave master view and enter this business.",
   },
 };

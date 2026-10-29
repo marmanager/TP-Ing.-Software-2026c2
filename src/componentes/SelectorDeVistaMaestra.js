@@ -121,12 +121,12 @@ export default function SelectorDeVistaMaestra() {
   return (
     <>
       <nav aria-label={t("vistaMaestra.selector")}
-        className="fixed top-1/2 right-4 z-30 hidden max-h-[70dvh] w-56 -translate-y-1/2 overflow-y-auto rounded-campo border border-borde bg-fondo p-2 shadow-lg md:block">
+        className="fixed top-1/2 right-4 z-30 hidden max-h-[70dvh] w-56 -translate-y-1/2 overflow-y-auto rounded-campo border border-borde bg-fondo p-2 shadow-lg lg:block">
         <ul className="flex flex-col gap-1">{selector.map((n, i) => boton(n, i, false))}</ul>
         {fallo}
       </nav>
       <nav aria-label={t("vistaMaestra.selector")}
-        className="sticky top-0 z-30 overflow-x-auto border-b border-borde bg-fondo px-2 py-2 md:hidden">
+        className="sticky top-0 z-30 overflow-x-auto border-b border-borde bg-fondo px-2 py-2 lg:hidden">
         <ul className="flex gap-2">{selector.map((n, i) => boton(n, i, true))}</ul>
         {fallo}
       </nav>
