@@ -1,6 +1,6 @@
 # Vista maestra — diseño
 
-Estado: **borrador, en preguntas** (rama `vista-maestra`).
+Estado: **implementado-pendiente-de-prueba-a-mano** (rama `vista-maestra`). La base (076) y las pruebas SQL todavía no se corrieron.
 Fecha: 28 de octubre de 2026.
 
 ## La historia
@@ -228,3 +228,61 @@ Ninguna por ahora. Lo que salga al escribir el plan se agrega acá.
 
 - Hacer cambios desde la vista maestra.
 - Sumar o comparar números de varios negocios en una misma pantalla.
+
+## Prueba a mano
+
+Con la 076 corrida y las pruebas de la base pasadas. Una cuenta **Dueña** con 3
+negocios (uno con un caso de hace 20 días, cambiando `actualizado_en` en el SQL
+Editor, y un producto bajo el mínimo), una cuenta con 1 negocio y **Caro**.
+
+1. Cuenta con 1 negocio: Mi perfil, el botón "Vista maestra" apagado con
+   *"Hace falta más de un negocio."*. Con 2 o más: prendido, a la derecha del
+   título.
+2. Modo de ejemplo ("Probá sin cuenta"): no hay botón de vista maestra.
+3. Dueña entra a vista maestra: la barra dice "Vista maestra" con el ojo; la
+   flechita abre el desplegable. El botón de Mi perfil queda apagado con
+   *"Ya estás en vista maestra"*.
+4. Apagar un negocio que no se mira: se apaga. El que se mira: apagado con
+   *"Estás mirándolo."*.
+5. Subir/Bajar cambia el orden; arrastrar también. Recargar: el orden se
+   mantiene.
+6. Crear "Zona sur" con 2 negocios y apagarlo: se apagan, menos el que se mira.
+7. El pie: "Mi perfil" y abajo "Salir de vista"; "Mi negocio" no está. En el
+   celular, "Más" muestra lo mismo.
+8. Selector a la derecha, centrado; tocar otro negocio cambia la pantalla sin
+   irse de la sección (probar en Casos y en Inventario). En el celular, la tira
+   de arriba se desliza.
+9. Alt+1, Alt+2, Alt+3 saltan; Alt+4 y Alt+0 no hacen nada. Probarlo con el
+   foco en el buscador de Casos: igual cambia y no escribe el carácter.
+10. El puntito aparece en el negocio con el caso viejo y el stock bajo; el
+    `title` lo dice.
+11. Ningún botón de crear o editar en ninguna sección. Un `fetch` POST desde la
+    consola: 403 `vista_maestra`. Mi perfil: los campos del nombre apagados.
+12. "Editar en este negocio": sale de la vista y queda en ese negocio, con los
+    botones de siempre. "Salir de vista": vuelve al negocio de antes.
+13. De visita en una sede vinculada, Mi perfil, Vista maestra: la visita
+    termina; "Salir de vista" vuelve a la sede propia.
+14. Con Google Calendar conectado: entrar a vista maestra, mirar otros
+    negocios, esperar un minuto, salir: la Agenda del negocio conectado sigue
+    conectada.
+15. Dueña le saca la ficha a Caro mientras Caro mira ese negocio en vista
+    maestra: Caro, al volver a la pestaña, ve el cartel; "Salir de vista" la
+    lleva a su negocio.
+16. Consola del navegador sin errores en todo el recorrido.
+
+## Pendiente al publicar
+
+Orden: 1) correr la 076 en Supabase; 2) correr `supabase/pruebas/vista_maestra.sql`,
+`roles.sql`, `red_de_sedes.sql` y `multinegocio.sql`, más `pruebas/base` y
+`pruebas/contrato` de la API; 3) publicar la API; 4) publicar el front.
+
+Seguimientos conocidos (de la revisión, no bloquean):
+
+- Al tocar un interruptor del desplegable los controles se apagan mientras se
+  guarda y el teclado pierde el foco.
+- "Editar en este negocio" usa el `negocio.id` de `useDatos`, que puede ir
+  atrás de `usuario.negocio_id`, y falla en silencio.
+- Los errores del selector no pasan por `textoDeError`.
+- La FK `vista_maestra_desde` es `on delete set null`: borrar ese negocio saca
+  de vista maestra sin avisar.
+- `guardar_negocios_de_vista_maestra` acepta un ítem sin `prendido`.
