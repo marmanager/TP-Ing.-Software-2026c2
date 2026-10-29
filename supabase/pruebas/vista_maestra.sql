@@ -225,16 +225,16 @@ begin
     perform entrar_a_vista_maestra();
     perform set_config('request.jwt.claims', '', true);
     perform set_config('role', 'postgres', true);
-    insert into caso (negocio_id, numero, servicio) values (neg_a, 1, 'Alineación');   -- algo que ver en A
+    insert into cliente (negocio_id, nombre) values (neg_a, 'Cliente de A');   -- algo que ve el técnico (ver_clientes) en A
     perform set_config('role', 'authenticated', true);
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
-    if not exists (select 1 from caso where negocio_id = neg_a) then raise exception 'FALLA 13-previa: no veía A antes de sacarle la ficha'; end if;
+    if not exists (select 1 from cliente where negocio_id = neg_a) then raise exception 'FALLA 13-previa: no veía A antes de sacarle la ficha'; end if;
     perform set_config('request.jwt.claims', '', true);
     perform set_config('role', 'postgres', true);
     delete from empleado where negocio_id = neg_a and usuario_id = caro;   -- como lo hace Equipo
     perform set_config('role', 'authenticated', true);
     perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
-    if exists (select 1 from caso where negocio_id = neg_a) then raise exception 'FALLA 13: sigue viendo A'; end if;
+    if exists (select 1 from cliente where negocio_id = neg_a) then raise exception 'FALLA 13: sigue viendo A'; end if;
     vuelta := salir_de_vista_maestra();
     if vuelta is not distinct from neg_a then raise exception 'FALLA 13b: volvió a un negocio sin ficha'; end if;
 
