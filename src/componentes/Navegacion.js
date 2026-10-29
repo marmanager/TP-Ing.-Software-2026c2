@@ -77,9 +77,8 @@ const DESTINOS = [
   { href: "/ecuaciones", icono: "nota", modulo: "ecuaciones" },
   { href: "/lienzo", icono: "pincel", modulo: "lienzo" },
   { href: "/aprobar", icono: "persona-check", modulo: "presupuesto" },
-  // Lo que los clientes contestaron por WhatsApp y no resolvió nada solo
-  // (R-10b). Núcleo, sin "modulo": cualquier aviso puede tener respuesta.
-  { href: "/respuestas", icono: "chat", id: "respuestas" },
+  // Oculto del menú hasta que esté terminado (R-10b); la página /respuestas sigue.
+  // (la entrada era href /respuestas, icono chat)
   { href: "/equipo", icono: "personas", modulo: "equipo" },
   { href: "/historial", icono: "historial", modulo: "historial" },
   { href: "/dashboard", icono: "grafico", modulo: "dashboard", permiso: "ver_todos_los_casos" },
