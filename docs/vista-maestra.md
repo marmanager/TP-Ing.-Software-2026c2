@@ -251,8 +251,8 @@ Editor, y un producto bajo el mínimo), una cuenta con 1 negocio y **Caro**.
 7. El pie: "Mi perfil" y abajo "Salir de vista"; "Mi negocio" no está. En el
    celular, "Más" muestra lo mismo.
 8. Selector a la derecha, centrado; tocar otro negocio cambia la pantalla sin
-   irse de la sección (probar en Casos y en Inventario). En el celular, la tira
-   de arriba se desliza.
+   irse de la sección (probar en Casos y en Inventario). Por debajo de
+   1024 px (celular y tablet), la tira de arriba se desliza.
 9. Alt+1, Alt+2, Alt+3 saltan; Alt+4 y Alt+0 no hacen nada. Probarlo con el
    foco en el buscador de Casos: igual cambia y no escribe el carácter.
 10. El puntito aparece en el negocio con el caso viejo y el stock bajo; el
@@ -279,11 +279,16 @@ Orden: 1) correr la 076 en Supabase; 2) correr `supabase/pruebas/vista_maestra.s
 
 Seguimientos conocidos (de la revisión, no bloquean):
 
-- Al tocar un interruptor del desplegable los controles se apagan mientras se
-  guarda y el teclado pierde el foco.
-- "Editar en este negocio" usa el `negocio.id` de `useDatos`, que puede ir
-  atrás de `usuario.negocio_id`, y falla en silencio.
 - Los errores del selector no pasan por `textoDeError`.
 - La FK `vista_maestra_desde` es `on delete set null`: borrar ese negocio saca
   de vista maestra sin avisar.
 - `guardar_negocios_de_vista_maestra` acepta un ítem sin `prendido`.
+- Una pestaña vieja, después de salir de la vista desde otro dispositivo,
+  recibe 422 y se queda en la vista.
+- Sacarle la ficha a alguien mientras mira ese negocio lo deja sin "Salir de
+  vista" en `/negocios`.
+- El middleware de la API exime todo `/sesiones/*` (incluye
+  `POST /sesiones/contrasena`); la UI ya apaga el formulario.
+- En vista maestra se pierden las lecturas que necesitan permisos que no son de
+  mirar (cobros, Inventario > Sedes, Equipo, Copias), igual que en la visita
+  entre sedes.
