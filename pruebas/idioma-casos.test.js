@@ -20,7 +20,6 @@ import {
 import { presentacionEstado } from "../src/lib/presentacion-estados.js";
 import { mensajeDePago, palabraDelCobro, palabraDelMedio, MEDIOS } from "../src/lib/cobros.js";
 import { erroresSeguimiento, linkDelAvisoDeAvance } from "../src/lib/seguimiento-whatsapp.js";
-import { mensajeDeLoHecho } from "../src/lib/seguimiento.js";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "../src/lib/nombres.js";
 import { cuando, cuantoHace, diaPasado, haceCuanto } from "../src/lib/fechas.js";
 import { conElementos } from "../src/lib/conElementos.js";
@@ -106,16 +105,6 @@ test("seguimiento de WhatsApp: errores y aviso de link en el idioma del t", () =
   const aviso = linkDelAvisoDeAvance({ caso: caso("en_proceso"), pasos: [paso("esperando")] }, tEn);
   assert.equal(aviso.boton, "Create the link");
   assert.ok(aviso.consecuencia.startsWith("It has unanswered steps"));
-});
-
-test("el aviso de lo hecho que manda el negocio sale en el idioma de quien lo arma", () => {
-  const base = { negocioNombre: "Taller Sur", clienteNombre: "Marcela", identificador: "AB 123 CD", estadoEnPalabras: "Control final", pasos: [{ nombre: "Correa", hecho: true }], link: "http://l" };
-  assert.ok(mensajeDeLoHecho(base).startsWith("Hola Marcela, te escribimos de Taller Sur por AB 123 CD."));
-  const ingles = mensajeDeLoHecho({ ...base, estadoEnPalabras: "Final check" }, tEn);
-  assert.ok(ingles.startsWith("Hi Marcela, we're writing from Taller Sur about AB 123 CD."));
-  assert.ok(ingles.includes("✓ Correa"));
-  assert.ok(ingles.includes("You can keep following it here: http://l"));
-  assert.ok(mensajeDeLoHecho({ ...base, identificador: null, servicio: null, clienteNombre: null }, tEn).startsWith("Hi, we're writing from Taller Sur about what you left with us."));
 });
 
 test("el nombre del caso: 'Caso 271' sale en el idioma; el nombre que le puso el negocio, tal cual", () => {

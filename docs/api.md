@@ -85,6 +85,10 @@ Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.tes
 - Si se pide seguimiento, el cierre envía `seguimiento: true`, `seguimiento_dias` y
   `seguimiento_mensaje`. Los días se aplican sólo a ese caso. Desmarcado manda
   `seguimiento: false`, sin días ni mensaje.
+- El posventa es también el resumen de lo hecho: al mandarlo, la API le suma al texto
+  configurado los pasos aprobados (✓ hecho, • no) y el link del caso. Si el caso nunca se
+  compartió, entregar con seguimiento lo comparte, y la respuesta trae el
+  `seguimiento_codigo`. El front ya no arma ese resumen ni lo manda por wa.me.
 - Después de confirmar un cierre con seguimiento, si el mensaje utilizado cambió
   respecto del texto cargado, se guarda con `PATCH /negocio/seguimiento` enviando
   sólo `mensaje`. Se comparan los textos sin espacios en los extremos. Si ese
