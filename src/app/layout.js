@@ -34,9 +34,10 @@ const sourceSans = Source_Sans_3({
 // Las letras que se pueden elegir en Mi perfil (src/lib/tema.js). Sin precarga:
 // el navegador las baja sólo si alguien las eligió.
 const inter = Inter({ subsets: ["latin"], variable: "--fuente-inter", display: "swap", preload: false });
+// Merriweather es variable: pedirle pesos sueltos hace que Google devuelva
+// archivos sin extensión y el build de next/font falla.
 const serif = Merriweather({
   subsets: ["latin"],
-  weight: ["400", "700", "900"],
   variable: "--fuente-serif",
   display: "swap",
   preload: false,
