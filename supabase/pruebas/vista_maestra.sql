@@ -79,22 +79,30 @@ begin
     -- 4. Nada se escribe: ni por la tabla ni por una función.
     frenado := false;
     begin
-      update caso set servicio = 'Otra cosa' where id = caso_b;
-    exception when insufficient_privilege then frenado := true;
+      update caso set actualizado_en = now() where id = caso_b;  -- sin cambio de fondo: los otros triggers no se quejan, sólo el freno
+    exception when insufficient_privilege then frenado := (sqlerrm = 'Estás en vista maestra: es sólo para mirar. Salí de la vista para cambiar algo.');
     end;
     if not frenado then raise exception 'FALLA 4: se cambió un caso en vista maestra'; end if;
     frenado := false;
     begin
       insert into evento (caso_id, titulo) values (caso_b, 'Nota');
-    exception when insufficient_privilege then frenado := true;
+    exception when insufficient_privilege then frenado := (sqlerrm = 'Estás en vista maestra: es sólo para mirar. Salí de la vista para cambiar algo.');
     end;
     if not frenado then raise exception 'FALLA 4b: se escribió el historial en vista maestra'; end if;
     frenado := false;
     begin
       perform guardar_mi_perfil('Ana Nueva', null, null);
-    exception when insufficient_privilege then frenado := true;
+    exception when insufficient_privilege then frenado := (sqlerrm = 'Estás en vista maestra: es sólo para mirar. Salí de la vista para cambiar algo.');
     end;
     if not frenado then raise exception 'FALLA 4c: guardar_mi_perfil escribió la ficha en vista maestra'; end if;
+
+    frenado := false;
+    begin
+      perform guardar_preferencias_de_entrada(neg_b, false);
+    exception when insufficient_privilege then
+      frenado := (sqlerrm = 'Estás en vista maestra: es sólo para mirar. Salí de la vista para cambiar algo.');
+    end;
+    if not frenado then raise exception 'FALLA 4d: guardar_preferencias_de_entrada escribió en vista maestra'; end if;
 
     -- 5. Mirar otro negocio propio sí; uno ajeno no.
     perform mirar_en_vista_maestra(neg_c);

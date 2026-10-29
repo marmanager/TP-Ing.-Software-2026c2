@@ -143,6 +143,9 @@ begin
 end;
 $$;
 
+-- OJO: usuario no tiene el freno (lo necesitan entrar/mirar/salir). Toda función
+-- security definer que escriba SÓLO en usuario debe chequear en_vista_maestra()
+-- ella misma (ver guardar_preferencias_de_entrada, abajo).
 -- Una tabla nueva después de la 076 queda sin freno: la prueba
 -- vista_maestra.sql (paso 11) lo detecta. Volver a correr este bloque la cubre.
 do $$
@@ -159,6 +162,46 @@ begin
                    'for each row execute function frenar_en_vista_maestra()', t);
   end loop;
 end $$;
+
+-- Igual que la de la base; escribe sólo usuario, así que el trigger no la ve:
+-- frena ella misma en vista maestra.
+create or replace function guardar_preferencias_de_entrada(p_predeterminado uuid, p_inicio_rapido boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if en_vista_maestra() then
+    raise exception 'Estás en vista maestra: es sólo para mirar. Salí de la vista para cambiar algo.'
+      using errcode = '42501';
+  end if;
+  if auth.uid() is null then
+    raise exception 'Hace falta entrar con tu cuenta.';
+  end if;
+
+  if p_predeterminado is not null and not exists (
+    select 1 from empleado
+     where usuario_id = auth.uid()
+       and negocio_id = p_predeterminado
+  ) then
+    raise exception 'No estás en ese negocio.';
+  end if;
+
+  if coalesce(p_inicio_rapido, false) and p_predeterminado is null then
+    raise exception 'Elegí primero cuál es tu negocio predeterminado.';
+  end if;
+
+  update usuario
+     set negocio_predeterminado = p_predeterminado,
+         inicio_rapido          = coalesce(p_inicio_rapido, false)
+   where id = auth.uid();
+end;
+$$;
+
+revoke all on function guardar_preferencias_de_entrada(uuid, boolean) from public;
+revoke all on function guardar_preferencias_de_entrada(uuid, boolean) from anon;
+grant execute on function guardar_preferencias_de_entrada(uuid, boolean) to authenticated;
 
 -- ------------------------------------------------------------
 -- 5. Una fila por negocio con ficha
