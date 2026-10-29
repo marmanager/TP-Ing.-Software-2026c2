@@ -3068,6 +3068,10 @@ export default {
       circular: "Existe una dependencia circular.",
     },
   },
+  vistaMaestra: {
+    yaEstas: "Ya estás en vista maestra.",
+    faltanNegocios: "Hace falta más de un negocio.",
+  },
   errores: {
     landing_no_encontrada: "Este link ya no sirve. Pedile uno nuevo al negocio.",
     datos_incorrectos: "Esos datos no coinciden. Revisalos y probá de nuevo.",
