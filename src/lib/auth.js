@@ -358,6 +358,36 @@ export function AuthProvider({ children }) {
         return { ok: true };
       },
 
+      // La vista maestra (docs/vista-maestra.md): mirar todos los negocios de
+      // la cuenta sin cambiar nada. Como la visita entre sedes, cada negocio
+      // que se mira pasa a ser el activo; la base frena toda escritura
+      // mientras dure (076).
+      async entrarAVistaMaestra() {
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
+        const r = await mandar("/vista-maestra", {}, sesion?.access_token);
+        if (!r.ok) return { ok: false, error: r.error };
+        if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
+        return { ok: true };
+      },
+
+      async mirarEnVistaMaestra(negocioId) {
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
+        const r = await mandar("/vista-maestra/negocio", { negocio_id: negocioId }, sesion?.access_token);
+        if (!r.ok) return { ok: false, error: r.error };
+        if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
+        return { ok: true };
+      },
+
+      // Vuelve al negocio de antes; si ya no está ahí, a ninguno, y la
+      // Guardia lleva al selector de negocios.
+      async salirDeVistaMaestra() {
+        if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
+        const r = await quitar("/vista-maestra", sesion?.access_token);
+        if (!r.ok) return { ok: false, error: r.error };
+        if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
+        return { ok: true, negocioId: r.datos.negocio_id ?? null };
+      },
+
       // El predeterminado y el Inicio rápido: valen para la cuenta, en todos
       // los dispositivos, por eso van a la base y no al navegador.
       async guardarPreferenciasDeEntrada({ predeterminado, inicioRapido }) {

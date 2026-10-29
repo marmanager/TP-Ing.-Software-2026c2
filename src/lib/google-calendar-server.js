@@ -23,7 +23,7 @@ export async function usuarioAutenticado(request) {
   const { data: auth, error } = await db.auth.getUser(bearer);
   if (error || !auth.user) return null;
   const { data, error: userError } = await db.from("usuario")
-    .select("id,negocio_id").eq("id", auth.user.id).maybeSingle();
+    .select("id,negocio_id,vista_maestra_desde").eq("id", auth.user.id).maybeSingle();
   if (userError || !data?.negocio_id) return null;
   return data;
 }

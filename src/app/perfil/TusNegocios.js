@@ -7,7 +7,7 @@
 // Sin la 038 corrida no hay lista: se muestra el negocio activo, como antes,
 // sin interruptores ni "Nuevo negocio" (la base no dejaría crear otro).
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -19,29 +19,15 @@ import FilaNegocio, { FilaNuevoNegocio } from "@/componentes/FilaNegocio";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, ErrorGeneral, Interruptor, Tarjeta } from "@/componentes/ui";
 
-export default function TusNegocios() {
+// La lista la pide Mi perfil (la comparte con el botón de vista maestra).
+export default function TusNegocios({ negocios, sinLista }) {
   const router = useRouter();
-  const { usuario, misNegocios, entrarAlNegocio, guardarPreferenciasDeEntrada } = useAuth();
+  const { usuario, entrarAlNegocio, guardarPreferenciasDeEntrada } = useAuth();
   const { t } = useIdioma();
   const { negocio, avisarExito } = useDatos();
 
-  const [negocios, setNegocios] = useState(null);
-  const [sinLista, setSinLista] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    let vivo = true;
-    misNegocios().then((r) => {
-      if (!vivo) return;
-      if (r.ok) setNegocios(r.negocios);
-      else setSinLista(true);
-    });
-    return () => {
-      vivo = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const predeterminado = usuario?.negocio_predeterminado ?? null;
   const inicioRapido = Boolean(usuario?.inicio_rapido);

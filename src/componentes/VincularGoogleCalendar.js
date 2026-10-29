@@ -14,7 +14,8 @@ const EN_DICCIONARIO = "agenda.google.";
 export default function VincularGoogleCalendar({ comoIntegracion = false }) {
   const { t } = useIdioma();
   const verTexto = (texto) => (texto?.startsWith?.(EN_DICCIONARIO) ? t(texto) : texto);
-  const { sesion, tokenActual } = useAuth();
+  const { sesion, tokenActual, usuario } = useAuth();
+  const motivoEnVista = usuario?.vista_maestra_desde ? t("vistaMaestra.googleApagado") : null;
   const [estado, setEstado] = useState(null);
   const [error, setError] = useState(null);
   const [ocupado, setOcupado] = useState(false);
@@ -91,14 +92,14 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
         {estado && !estado.conectado && (
           <Boton
             icono="calendario"
-            motivo={ocupado ? t("agenda.google.conectando") : !estado.disponible ? t("agenda.google.faltaConfigurar") : null}
+            motivo={motivoEnVista ?? (ocupado ? t("agenda.google.conectando") : !estado.disponible ? t("agenda.google.faltaConfigurar") : null)}
             onClick={() => pedir("POST", "connect")}
           >
             {t("agenda.google.botonVincular")}
           </Boton>
         )}
         {estado?.conectado && !confirmando && (
-          <Boton variante="peligro" icono="salir" onClick={() => setConfirmando(true)}>
+          <Boton variante="peligro" icono="salir" motivo={motivoEnVista} onClick={() => setConfirmando(true)}>
             {t("agenda.google.botonDesvincular")}
           </Boton>
         )}
@@ -129,7 +130,7 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
             <Boton
               variante="peligro"
               icono="salir"
-              motivo={ocupado ? t("agenda.google.desvinculando") : null}
+              motivo={motivoEnVista ?? (ocupado ? t("agenda.google.desvinculando") : null)}
               onClick={() => pedir("DELETE")}
             >
               {t("agenda.google.siDesvincular")}
@@ -148,12 +149,12 @@ export default function VincularGoogleCalendar({ comoIntegracion = false }) {
       {estado?.conectado ? (
         <>
           <span className="font-bold text-azul">{t("agenda.google.estaVinculado")}</span>
-          <Boton variante="plano" motivo={ocupado ? t("agenda.google.desconectando") : null}
+          <Boton variante="plano" motivo={motivoEnVista ?? (ocupado ? t("agenda.google.desconectando") : null)}
             onClick={() => pedir("DELETE")}>{t("agenda.google.desvincular")}</Boton>
         </>
       ) : (
         <Boton icono="calendario"
-          motivo={ocupado ? t("agenda.google.conectando") : estado && !estado.disponible ? t("agenda.google.faltaConfigurar") : null}
+          motivo={motivoEnVista ?? (ocupado ? t("agenda.google.conectando") : estado && !estado.disponible ? t("agenda.google.faltaConfigurar") : null)}
           onClick={() => pedir("POST", "connect")}>{t("agenda.google.vincularCon")}</Boton>
       )}
       <p className="w-full text-apoyo text-tinta-media">

@@ -67,7 +67,7 @@ export default function FichaDeCliente() {
     let vivo = true;
     acciones.current.leerTodasLasRespuestas().then((r) => {
       if (!vivo) return;
-      setRespuestas(r.ok ? r.respuestas : { error: r.error });
+      setRespuestas(r.ok ? r.respuestas : { error: textoDeError(t, r.error) });
       setRespuestasIncompletas(r.ok && !r.completas);
     });
     return () => { vivo = false; };

@@ -160,14 +160,14 @@ export default function VerCaso() {
     setRespuestas({ lista: [], siguiente: null, error: null });
     acciones.current.leerRespuestasDelCaso(id, { limite: 50 }).then((r) => {
       if (!vivo) return;
-      setRespuestas(r.ok ? { lista: r.respuestas, siguiente: r.siguiente, error: null } : { lista: [], siguiente: null, error: r.error });
+      setRespuestas(r.ok ? { lista: r.respuestas, siguiente: r.siguiente, error: null } : { lista: [], siguiente: null, error: textoDeError(t, r.error) });
     });
     return () => { vivo = false; };
   }, [id, negocioId]);
   const verMasRespuestas = async () => {
     const r = await acciones.current.leerRespuestasDelCaso(id, { limite: 50, cursor: respuestas.siguiente });
     setRespuestas((antes) =>
-      r.ok ? { lista: [...antes.lista, ...r.respuestas], siguiente: r.siguiente, error: null } : { ...antes, error: r.error }
+      r.ok ? { lista: [...antes.lista, ...r.respuestas], siguiente: r.siguiente, error: null } : { ...antes, error: textoDeError(t, r.error) }
     );
   };
 

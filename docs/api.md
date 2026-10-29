@@ -130,6 +130,27 @@ Los tests del contrato de red están en [pruebas/api.test.js](../pruebas/api.tes
   salen de `porQueNoSeAviso()` y `errorAlRevertirBaja()` (`lib/recordatorios.js`), por
   código, como pide la sección 07 de la cartilla.
 
+## Vista maestra
+
+Todos bajo `/v1`, con sesión. Los que cambian algo devuelven lo mismo que el `GET`.
+
+| Método | Ruta | Qué hace | Devuelve |
+|---|---|---|---|
+| `GET` | `/vista-maestra` | Negocios con ficha, grupos y urgencias | `{ negocios, grupos, urgencias: [{ negocio_id, casos_atrasados, stock_bajo }] }` |
+| `POST` | `/vista-maestra` | Entrar (hacen falta 2 o más negocios) | `{ negocio_id }` |
+| `POST` | `/vista-maestra/negocio` | Mirar otro negocio. Body `{ negocio_id }` | `{ negocio_id }` |
+| `DELETE` | `/vista-maestra` | Salir | `{ negocio_id: string \| null }` |
+| `PUT` | `/vista-maestra/negocios` | Prender o apagar negocios. Body `{ negocios: [{ id, prendido }] }` | igual que el `GET` |
+| `POST` | `/vista-maestra/grupos` | Crear un grupo. Body `{ nombre, negocios: [uuid] }` | igual que el `GET` |
+| `PUT` | `/vista-maestra/grupos/:id` | Cambiar un grupo. Body `{ nombre, negocios }` | igual que el `GET` |
+| `DELETE` | `/vista-maestra/grupos/:id` | Borrar un grupo | igual que el `GET` |
+
+Errores de la base: `P0001` da 422 `vista_maestra_regla` con el mensaje de la base;
+`42501` da 403 `sin_permiso`.
+
+En vista maestra, todo pedido que no sea GET, fuera de estos y de `/cuenta/negocio`,
+`/cuenta/preferencias` y `/sesiones`, da 403 `vista_maestra`.
+
 ## Respuestas del cliente por WhatsApp (R-10b)
 
 Lo que el cliente contesta a un aviso lo recibe el webhook de Kapso (R-10a, migraciones 069

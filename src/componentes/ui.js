@@ -71,10 +71,13 @@ export function Interruptor({
   palabras,
   motivo,
   disabled,
+  // Como disabled pero sin sacarle el foco al teclado: se ve apagado, avisa
+  // aria-disabled y el toque no hace nada (mientras se guarda algo).
+  bloqueado,
   testid,
 }) {
   const { t } = useIdioma();
-  const apagado = Boolean(motivo) || disabled;
+  const apagado = Boolean(motivo) || disabled || bloqueado;
   const [sinPrender, prendidoDice] = palabras ?? [t("ui.apagado"), t("ui.prendido")];
   return (
     <button
@@ -82,8 +85,9 @@ export function Interruptor({
       role="switch"
       aria-checked={prendido}
       data-testid={testid}
-      disabled={apagado}
-      onClick={() => onChange(!prendido)}
+      disabled={Boolean(motivo) || disabled}
+      aria-disabled={bloqueado || undefined}
+      onClick={() => !bloqueado && onChange(!prendido)}
       className="inline-flex min-h-12 cursor-pointer items-center gap-3 rounded-campo text-left disabled:cursor-not-allowed"
     >
       <span
@@ -199,6 +203,7 @@ export const claseDeEntrada = ({ error, exito }) =>
   [
     "block w-full rounded-campo border-2 bg-tarjeta px-4 min-h-12 text-cuerpo",
     "placeholder:text-tinta-suave",
+    "disabled:cursor-not-allowed disabled:border-borde disabled:bg-superficie disabled:text-tinta-suave",
     error ? "border-rojo" : exito ? "border-completo" : "border-borde-fuerte",
   ].join(" ");
 

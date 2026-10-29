@@ -7,6 +7,8 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const SOLO_MIRAR = "Estás en vista maestra: es sólo para mirar. Salí de la vista para cambiar algo.";
+
 export async function GET(request) {
   if (!googleConfigurado) return Response.json({ disponible: false, conectado: false });
   const usuario = await usuarioAutenticado(request);
@@ -29,6 +31,7 @@ export async function POST(request) {
   const { action } = body;
   try {
     if (action === "connect") {
+      if (usuario.vista_maestra_desde) return Response.json({ error: SOLO_MIRAR }, { status: 403 });
       const nonce = randomBytes(24).toString("hex");
       const state = estadoOAuth(usuario, nonce, body.volver);
       const response = Response.json({ url: urlAutorizacion(state) });
@@ -47,6 +50,7 @@ export async function DELETE(request) {
   if (!googleConfigurado) return Response.json({ error: "Google Calendar todavía no está configurado." }, { status: 503 });
   const usuario = await usuarioAutenticado(request);
   if (!usuario) return Response.json({ error: "Iniciá sesión." }, { status: 401 });
+  if (usuario.vista_maestra_desde) return Response.json({ error: SOLO_MIRAR }, { status: 403 });
   try { await desconectar(usuario.id); return Response.json({ ok: true }); }
   catch { return Response.json({ error: "No se pudo desconectar." }, { status: 500 }); }
 }
