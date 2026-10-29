@@ -33,8 +33,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Icono from "./Icono";
+import DesplegableVistaMaestra from "./DesplegableVistaMaestra";
 import { useAuth } from "@/lib/auth";
 import { puede } from "@/lib/permisos";
 import { useDatos } from "@/lib/datos";
@@ -167,6 +168,97 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
   );
 }
 
+// En vista maestra "Mi negocio" no va (se mira, no se configura) y al pie hay
+// "Salir de vista", que hace una llamada: por eso es un botón y no un Link.
+const sinNegocio = (destinos) => destinos.filter((d) => d.id !== "negocio");
+
+function usarSalida() {
+  const router = useRouter();
+  const { salirDeVistaMaestra } = useAuth();
+  const [saliendo, setSaliendo] = useState(false);
+  async function salir() {
+    setSaliendo(true);
+    const r = await salirDeVistaMaestra();
+    setSaliendo(false);
+    if (r.ok) router.replace(r.negocioId ? "/" : "/negocios");
+  }
+  return [salir, saliendo];
+}
+
+function BotonSalirDeVista({ salir, saliendo, grande = false }) {
+  const { t } = useIdioma();
+  return (
+    <button
+      type="button"
+      onClick={salir}
+      disabled={saliendo}
+      className={`mt-1 flex w-full cursor-pointer items-center gap-3 rounded-campo px-3 text-cuerpo text-tinta-media hover:bg-superficie ${grande ? "min-h-14" : "min-h-12"}`}
+    >
+      <Icono nombre="salir" className="size-7" />
+      {t("vistaMaestra.salir")}
+    </button>
+  );
+}
+
+// Foto + nombre de hoy, o el ojo y "Vista maestra" con la flechita del
+// desplegable cuando se está en ella. "extra" es el botón de cerrar la barra.
+function Encabezado({ negocio, enVista, extra }) {
+  const { t } = useIdioma();
+  const [abierto, setAbierto] = useState(false);
+  if (!enVista) {
+    return (
+      <div className="mb-6 flex items-center gap-3 pl-3">
+        {/* La foto va sin texto alternativo a propósito: el nombre del
+            negocio está al lado, y describirla otra vez haría que un lector
+            de pantalla lo diga dos veces seguidas. */}
+        {negocio?.foto ? (
+          <img src={negocio.foto} alt="" className="size-11 shrink-0 rounded-campo object-cover" />
+        ) : (
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
+            <Icono nombre="tienda" />
+          </span>
+        )}
+        <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
+          {negocio?.nombre ?? t("negocio.titulo")}
+        </span>
+        {extra}
+      </div>
+    );
+  }
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-3 pl-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-espera text-white">
+          <Icono nombre="ojo" />
+        </span>
+        <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
+          {t("vistaMaestra.titulo")}
+        </span>
+        <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} />
+        {extra}
+      </div>
+      {abierto && <DesplegableVistaMaestra id="desplegable-vista-maestra" />}
+    </div>
+  );
+}
+
+function FlechitaDelDesplegable({ abierto, alTocar }) {
+  const { t } = useIdioma();
+  return (
+    <button
+      type="button"
+      onClick={alTocar}
+      aria-expanded={abierto}
+      aria-controls="desplegable-vista-maestra"
+      aria-label={t("vistaMaestra.desplegable.abrir")}
+      title={t("vistaMaestra.desplegable.abrir")}
+      className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
+    >
+      <Icono nombre={abierto ? "flecha-arriba" : "flecha-abajo"} />
+    </button>
+  );
+}
+
 // Si la barra está cerrada, en este navegador. Es una comodidad de cada
 // persona en su computadora, no algo del negocio: no va a la base.
 const LLAVE_BARRA = "marmanager.barra-cerrada";
@@ -176,7 +268,9 @@ export function BarraLateral() {
   const ruta = usePathname();
   const { negocio } = useDatos();
   const { usuario } = useAuth();
+  const enVista = Boolean(usuario?.vista_maestra_desde);
   const [arriba, alPie] = partir(conModulo(DESTINOS, negocio, usuario));
+  const [salir, saliendo] = usarSalida();
   const [cerrada, setCerrada] = useState(false);
   const boton = useRef(null);
   const recienTocado = useRef(false);
@@ -242,31 +336,13 @@ export function BarraLateral() {
           pie queda siempre abajo. Si las secciones no entran, se mueve sólo
           la lista de arriba y el pie no se tapa. */}
       <div className="sticky top-0 flex h-dvh flex-col p-4">
-        <div className="mb-6 flex items-center gap-3 pl-3">
-          {/* La foto va sin texto alternativo a propósito: el nombre del
-              negocio está al lado, y describirla otra vez haría que un lector
-              de pantalla lo diga dos veces seguidas. */}
-          {negocio?.foto ? (
-            <img
-              src={negocio.foto}
-              alt=""
-              className="size-11 shrink-0 rounded-campo object-cover"
-            />
-          ) : (
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-azul text-white">
-              <Icono nombre="tienda" />
-            </span>
-          )}
-          <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
-            {negocio?.nombre ?? t("negocio.titulo")}
-          </span>
-          {botonDeBarra}
-        </div>
+        <Encabezado negocio={negocio} enVista={enVista} extra={botonDeBarra} />
         <div className="min-h-0 flex-1 overflow-y-auto">
           <ListaDeSecciones destinos={arriba} ruta={ruta} />
         </div>
         <div className="mt-4 border-t border-borde pt-4">
-          <ListaDeSecciones destinos={alPie} ruta={ruta} />
+          <ListaDeSecciones destinos={enVista ? sinNegocio(alPie) : alPie} ruta={ruta} />
+          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} />}
         </div>
       </div>
     </nav>
@@ -308,8 +384,10 @@ export function BarraCelular() {
   const ruta = usePathname();
   const { negocio } = useDatos();
   const { usuario } = useAuth();
-  const directos = paraCelular(DESTINOS, negocio, usuario);
-  const todos = conModulo(DESTINOS, negocio, usuario);
+  const enVista = Boolean(usuario?.vista_maestra_desde);
+  const destinos = enVista ? sinNegocio(DESTINOS) : DESTINOS;
+  const directos = paraCelular(destinos, negocio, usuario);
+  const todos = conModulo(destinos, negocio, usuario);
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
   const botonMas = useRef(null);
@@ -381,6 +459,7 @@ export function BarraCelular() {
           destinos={todos}
           ruta={ruta}
           negocio={negocio}
+          enVista={enVista}
           alCerrar={cerrarPanel}
         />
       )}
@@ -391,8 +470,10 @@ export function BarraCelular() {
 // El panel de "Más": todas las secciones, a pantalla completa, como la barra
 // lateral de la computadora. Se cierra con "Cerrar", con Escape o eligiendo
 // una sección. Mientras está abierto, la página de atrás no se mueve.
-function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
+function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
   const { t } = useIdioma();
+  const [salir, saliendo] = usarSalida();
+  const [abierto, setAbierto] = useState(false);
   const cerrar = useRef(null);
 
   useEffect(() => {
@@ -420,7 +501,11 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
     >
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          {negocio?.foto ? (
+          {enVista ? (
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-espera text-white">
+              <Icono nombre="ojo" />
+            </span>
+          ) : negocio?.foto ? (
             <img
               src={negocio.foto}
               alt=""
@@ -435,8 +520,11 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
             <h2 id="panel-secciones-titulo" className="text-seccion">
               {t("navegacion.todasLasSecciones")}
             </h2>
-            <p className="truncate text-apoyo text-tinta-suave">{negocio?.nombre}</p>
+            <p className="truncate text-apoyo text-tinta-suave">
+              {enVista ? t("vistaMaestra.titulo") : negocio?.nombre}
+            </p>
           </div>
+          {enVista && <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} />}
         </div>
         <button
           ref={cerrar}
@@ -450,10 +538,16 @@ function PanelDeSecciones({ destinos, ruta, negocio, alCerrar }) {
       </div>
       {/* Partida igual que la barra de la computadora: Mi negocio y Mi
           perfil en un grupo aparte, al final. */}
+      {enVista && abierto && (
+        <div className="mb-6">
+          <DesplegableVistaMaestra id="desplegable-vista-maestra" />
+        </div>
+      )}
       <nav aria-label={t("navegacion.todasLasSecciones")}>
         <ListaDeSecciones destinos={partir(destinos)[0]} ruta={ruta} grande />
         <div className="mt-4 border-t border-borde pt-4">
           <ListaDeSecciones destinos={partir(destinos)[1]} ruta={ruta} grande />
+          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} grande />}
         </div>
       </nav>
     </div>
