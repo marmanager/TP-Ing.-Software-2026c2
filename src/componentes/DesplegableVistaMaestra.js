@@ -1,9 +1,10 @@
 "use client";
 
-// El desplegable de la flechita, en vista maestra (docs/vista-maestra.md):
-// qué negocios aparecen en el selector de la derecha, en qué orden, y los
-// grupos para prender o apagar varios de una. Se guarda al tocar, en la cuenta
-// (076), así el celular ve lo mismo.
+// El desplegable de la flechita, en Mi perfil al lado de "Vista maestra"
+// (docs/vista-maestra.md): qué negocios van a aparecer en el selector de la
+// derecha, en qué orden, y los grupos para prender o apagar varios de una. Se
+// arma antes de entrar: adentro de la vista sólo se mira. Se guarda al tocar,
+// en la cuenta (076 y 077), así el celular ve lo mismo.
 
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -19,10 +20,9 @@ import { Boton, Campo, ErrorGeneral, Interruptor } from "./ui";
 const avisar = () => window.dispatchEvent(new Event("vista-maestra:cambio"));
 
 export default function DesplegableVistaMaestra({ id }) {
-  const { sesion, usuario } = useAuth();
+  const { sesion } = useAuth();
   const { t } = useIdioma();
   const token = sesion?.access_token;
-  const mirandoId = usuario?.negocio_id;
   const [vista, setVista] = useState(null);
   const [error, setError] = useState(null);
   const [arrastrado, setArrastrado] = useState(null);
@@ -99,7 +99,7 @@ export default function DesplegableVistaMaestra({ id }) {
                   <Interruptor
                     prendido={estado === "prendido"}
                     bloqueado={guardando}
-                    onChange={() => guardar(conGrupo(negocios, g, estado !== "prendido", mirandoId))}
+                    onChange={() => guardar(conGrupo(negocios, g, estado !== "prendido"))}
                     ayuda={estado === "mezclado" ? t("vistaMaestra.desplegable.mezclado") : undefined}
                   >
                     {g.nombre}
@@ -175,8 +175,7 @@ export default function DesplegableVistaMaestra({ id }) {
                 <Interruptor
                   prendido={n.prendido}
                   bloqueado={guardando}
-                  onChange={() => guardar(conPrendido(negocios, n.id, !n.prendido, mirandoId))}
-                  motivo={n.id === mirandoId ? t("vistaMaestra.mirando") : undefined}
+                  onChange={() => guardar(conPrendido(negocios, n.id, !n.prendido))}
                 >
                   {n.nombre}
                 </Interruptor>
@@ -198,5 +197,23 @@ export default function DesplegableVistaMaestra({ id }) {
         </ol>
       </section>
     </div>
+  );
+}
+
+// La flechita que abre y cierra el desplegable.
+export function FlechitaDelDesplegable({ abierto, alTocar, controla }) {
+  const { t } = useIdioma();
+  return (
+    <button
+      type="button"
+      onClick={alTocar}
+      aria-expanded={abierto}
+      aria-controls={controla}
+      aria-label={t("vistaMaestra.desplegable.abrir")}
+      title={t("vistaMaestra.desplegable.abrir")}
+      className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
+    >
+      <Icono nombre={abierto ? "flecha-arriba" : "flecha-abajo"} />
+    </button>
   );
 }

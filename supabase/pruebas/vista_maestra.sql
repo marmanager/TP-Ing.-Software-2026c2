@@ -1,7 +1,7 @@
 -- ============================================================
--- supabase/pruebas/vista_maestra.sql — la vista maestra (076)
+-- supabase/pruebas/vista_maestra.sql — la vista maestra (076 y 077)
 --
--- Correr entera en el SQL Editor, después de la 076. Corre dentro de una
+-- Correr entera en el SQL Editor, después de la 076 y la 077. Corre dentro de una
 -- transacción que se deshace al final: no deja nada. Si una prueba falla,
 -- frena y dice cuál; si pasan todas, lo dice.
 --
@@ -216,6 +216,20 @@ begin
     perform entrar_a_vista_maestra();
     if (select visitando_desde from usuario where id = ana) is not null then raise exception 'FALLA 12: sigue de visita'; end if;
     if salir_de_vista_maestra() <> neg_a then raise exception 'FALLA 12b: no volvió a la sede propia'; end if;
+
+    -- 12b. (077) Los negocios se arman afuera de la vista, en Mi perfil: ana
+    --      acaba de salir y puede apagar uno y ordenarlos sin entrar.
+    if en_vista_maestra() then raise exception 'FALLA 12b-previa: sigue en la vista'; end if;
+    perform guardar_negocios_de_vista_maestra(jsonb_build_array(
+      jsonb_build_object('id', neg_b, 'prendido', false),
+      jsonb_build_object('id', neg_a, 'prendido', true),
+      jsonb_build_object('id', neg_c, 'prendido', true)));
+    if (select string_agg(n ->> 'nombre', ',' order by (n ->> 'orden')::int)
+          from jsonb_array_elements(mi_vista_maestra() -> 'negocios') n) <> 'Taller B,Taller A,Taller C'
+      or (select (n ->> 'prendido')::boolean from jsonb_array_elements(mi_vista_maestra() -> 'negocios') n
+           where (n ->> 'id')::uuid = neg_b) then
+      raise exception 'FALLA 12c: no guardó afuera de la vista';
+    end if;
 
     -- 13. A Caro le sacan la ficha de A mientras la mira: ya no la ve, y
     --     salir no la deja en A.

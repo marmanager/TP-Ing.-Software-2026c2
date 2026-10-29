@@ -31,11 +31,10 @@
 // "Mi negocio" (SCRUM-38). El resto —Inicio, Casos y Mi negocio— es núcleo y
 // está siempre.
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Icono from "./Icono";
-import DesplegableVistaMaestra from "./DesplegableVistaMaestra";
 import { useAuth } from "@/lib/auth";
 import { textoDeError } from "@/lib/idioma";
 import { ErrorGeneral } from "./ui";
@@ -212,13 +211,11 @@ function BotonSalirDeVista({ salir, saliendo, errorAlSalir, grande = false }) {
   );
 }
 
-// Foto + nombre de hoy, o el ojo y "Vista maestra" con la flechita del
-// desplegable cuando se está en ella. "extra" es el botón de cerrar la barra.
+// Foto + nombre de hoy, o el ojo y "Vista maestra" cuando se está en ella.
+// Los negocios y grupos se arman antes de entrar, en Mi perfil: adentro sólo
+// se mira. "extra" es el botón de cerrar la barra.
 function Encabezado({ negocio, enVista, extra }) {
   const { t } = useIdioma();
-  const [abierto, setAbierto] = useState(false);
-  // La barra y el panel "Más" están los dos en el DOM: ids propios de cada uno.
-  const idDesplegable = useId();
   if (!enVista) {
     return (
       <div className="mb-6 flex items-center gap-3 pl-3">
@@ -240,36 +237,15 @@ function Encabezado({ negocio, enVista, extra }) {
     );
   }
   return (
-    <div className="mb-6">
-      <div className="flex items-center gap-3 pl-3">
+    <div className="mb-6 flex items-center gap-3 pl-3">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-espera text-white">
           <Icono nombre="ojo" />
         </span>
         <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
           {t("vistaMaestra.titulo")}
         </span>
-        <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} controla={idDesplegable} />
         {extra}
-      </div>
-      {abierto && <DesplegableVistaMaestra id={idDesplegable} />}
     </div>
-  );
-}
-
-function FlechitaDelDesplegable({ abierto, alTocar, controla }) {
-  const { t } = useIdioma();
-  return (
-    <button
-      type="button"
-      onClick={alTocar}
-      aria-expanded={abierto}
-      aria-controls={controla}
-      aria-label={t("vistaMaestra.desplegable.abrir")}
-      title={t("vistaMaestra.desplegable.abrir")}
-      className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
-    >
-      <Icono nombre={abierto ? "flecha-arriba" : "flecha-abajo"} />
-    </button>
   );
 }
 
@@ -487,8 +463,6 @@ export function BarraCelular() {
 function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
   const { t } = useIdioma();
   const [salir, saliendo, errorAlSalir] = usarSalida();
-  const [abierto, setAbierto] = useState(false);
-  const idDesplegable = useId();
   const cerrar = useRef(null);
 
   useEffect(() => {
@@ -539,7 +513,6 @@ function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
               {enVista ? t("vistaMaestra.titulo") : negocio?.nombre}
             </p>
           </div>
-          {enVista && <FlechitaDelDesplegable abierto={abierto} alTocar={() => setAbierto(!abierto)} controla={idDesplegable} />}
         </div>
         <button
           ref={cerrar}
@@ -553,11 +526,6 @@ function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
       </div>
       {/* Partida igual que la barra de la computadora: Mi negocio y Mi
           perfil en un grupo aparte, al final. */}
-      {enVista && abierto && (
-        <div className="mb-6">
-          <DesplegableVistaMaestra id={idDesplegable} />
-        </div>
-      )}
       <nav aria-label={t("navegacion.todasLasSecciones")}>
         <ListaDeSecciones destinos={partir(destinos)[0]} ruta={ruta} grande />
         <div className="mt-4 border-t border-borde pt-4">
