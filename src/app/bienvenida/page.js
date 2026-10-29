@@ -372,6 +372,16 @@ export default function Bienvenida() {
         ))}
       </div>
 
+      {/* el logo en grande, como banner: la marca de las cinco franjas con el nombre */}
+      <div className="border-b border-borde bg-superficie">
+        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-center gap-5 px-6 py-10 md:gap-8 md:py-16">
+          <Marca className="size-20 md:size-36" />
+          <span className="font-titulo text-[clamp(36px,11vw,64px)]/[1] font-black tracking-[-0.03em] md:text-[120px]/[1]">
+            MarManager
+          </span>
+        </div>
+      </div>
+
       {/* ======================== hero + producto ====================== */}
       <section className="hero relative pt-14 md:pt-32">
         <div aria-hidden className={`${HILO} hilo--fija bg-borde-fuerte`} />
@@ -420,10 +430,18 @@ export default function Bienvenida() {
             </Link>
           </p>
 
-          {/* El recorte del producto. Llega al borde derecho y se corta por
-              abajo: el corte es la profundidad. Sin sombra, sin marco de
-              notebook, sin inclinación. */}
-          <div className="mt-14 md:mt-24 md:-mr-[130px] md:h-[634px] md:overflow-hidden md:rounded-tl-tarjeta md:border-l md:border-t md:border-borde md:pt-7 md:pl-8">
+        </div>
+
+        {/* El recorte del producto. Llega al borde derecho y se corta por
+            abajo: el corte es la profundidad. Sin sombra, sin marco de
+            notebook, sin inclinación. Va sobre una franja de ancho completo,
+            del alto del recorte, para que se note que es un ejemplo. */}
+        <div className="mt-14 border-y border-borde bg-superficie pt-8 pb-10 md:mt-24 md:pb-0">
+        <div className={HOJA}>
+          <p className="mb-6 text-etiqueta font-extrabold tracking-[0.06em] text-terracota md:mb-4">
+            {L("recorte.ejemplo")}
+          </p>
+          <div className="md:-mr-[130px] md:h-[634px] md:overflow-hidden md:rounded-tl-tarjeta md:border-l md:border-t md:border-borde md:pt-7 md:pl-8">
             <div className="flex flex-col gap-5 md:h-[88px] md:flex-row md:items-start md:justify-between md:gap-6 md:pr-8">
               <div>
                 <h2 className="font-titulo text-[26px]/[30px] font-extrabold tracking-[-0.02em] md:text-pantalla md:tracking-[-0.02em]">
@@ -526,6 +544,7 @@ export default function Bienvenida() {
               })}
             </div>
           </div>
+        </div>
         </div>
       </section>
 

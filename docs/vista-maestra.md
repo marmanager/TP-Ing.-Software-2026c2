@@ -1,6 +1,6 @@
 # Vista maestra — diseño
 
-Estado: **implementado-pendiente-de-prueba-a-mano** (rama `vista-maestra`). La base (076) y las pruebas SQL todavía no se corrieron.
+Estado: **implementado**, en prueba a mano. Los negocios y grupos se arman en Mi perfil (077, rama `vista-maestra-grupos-en-perfil`).
 Fecha: 28 de octubre de 2026.
 
 ## La historia
@@ -19,6 +19,10 @@ vinculados en una red de sedes o no**, y en **sólo lectura**.
 
 - Un botón **"Vista maestra"** en Mi perfil, arriba a la derecha, alineado con el
   título grande "Mi perfil" (`<h1>` de `src/app/perfil/page.js`).
+- A la derecha del botón, una **flechita** que despliega **qué negocios van
+  a aparecer en el selector de la derecha**: un interruptor por negocio, el
+  orden y los **grupos**. Está sólo mientras no se esté en vista maestra y hay
+  más de un negocio.
 - Estando ya en vista maestra, ese botón queda **apagado** y dice *"Ya estás en
   vista maestra"* (cartilla: un botón apagado dice por qué).
 
@@ -42,9 +46,9 @@ vinculados en una red de sedes o no**, y en **sólo lectura**.
 
 - Donde hoy van la foto y el nombre del negocio activo (`Navegacion.js`,
   encabezado de la barra), dice **"Vista maestra"**.
-- A la derecha de "Vista maestra", una **flechita** que despliega **qué
-  negocios aparecen en el selector de la derecha**: un interruptor por negocio y
-  los **grupos**.
+- Adentro de la vista no se arma nada: sólo se mira. Qué negocios aparecen en
+  el selector, en qué orden y los grupos se arman **antes de entrar**, en Mi
+  perfil (ver abajo).
 - El botón del pie **"Mi negocio"** pasa a ser **"Salir de vista"** y se
   intercambia de lugar con "Mi perfil", así que queda **abajo de todo**.
 
@@ -186,9 +190,9 @@ rol ve ahí: si en un negocio no ve inventario, el stock bajo de ése no cuenta.
 Devuelve, por negocio, cuántos de cada cosa, y el selector lo dice con color,
 ícono y palabra al pasar el mouse (*"2 casos atrasados · 1 con stock bajo"*).
 
-**7. Los grupos se crean y editan en el desplegable de la flechita**, donde se
-usan: *"+ Nuevo grupo"*, renombrar, borrar, y en cada negocio qué etiquetas
-tiene. Mi perfil no los muestra.
+**7. Los grupos se crean y editan en el desplegable de la flechita, en Mi
+perfil** (077), antes de entrar: *"+ Nuevo grupo"*, renombrar, borrar, y en
+cada negocio qué etiquetas tiene. Adentro de la vista no se arma nada.
 
 **8. El orden del selector se arma arrastrando** en el desplegable, y queda
 guardado en la cuenta. Así Alt+1 es siempre el que uno eligió, y sumar un
@@ -196,10 +200,11 @@ negocio no corre los números (el nuevo va al final). Arrastrar no alcanza para
 quien usa teclado o lector de pantalla: cada fila tiene también **Subir** y
 **Bajar**.
 
-**9. El negocio que se está mirando no se puede apagar.** Su interruptor queda
-apagado y dice *"Estás mirándolo"*. Para sacarlo del selector, primero se elige
-otro. Lo mismo al apagar un grupo que lo incluye: se apagan los demás y ése
-queda prendido, con el mismo motivo.
+**9. El negocio que se está mirando no se puede apagar** (regla de la base,
+que vale sólo adentro de la vista). Como el desplegable está en Mi perfil,
+antes de entrar, hoy no se puede tocar desde la vista y la regla queda como
+red de seguridad. Afuera se puede apagar cualquiera; si se apaga el negocio
+desde donde se entra, la vista arranca en el primero prendido.
 
 ## Lo que se guarda en la base
 
@@ -240,14 +245,16 @@ Editor, y un producto bajo el mínimo), una cuenta con 1 negocio y **Caro**.
    título.
 2. Modo de ejemplo ("Probá sin cuenta"): el botón está, apagado con
    *"Hace falta más de un negocio."*.
-3. Dueña entra a vista maestra: la barra dice "Vista maestra" con el ojo; la
-   flechita abre el desplegable. El botón de Mi perfil queda apagado con
-   *"Ya estás en vista maestra"*.
-4. Apagar un negocio que no se mira: se apaga. El que se mira: apagado con
-   *"Estás mirándolo."*.
+3. Dueña, en Mi perfil, toca la flechita al lado de "Vista maestra": se abre el
+   desplegable. Entra a la vista: la barra dice "Vista maestra" con el ojo, sin
+   flechita, y en Mi perfil el botón queda apagado con *"Ya estás en vista
+   maestra"* y la flechita no está.
+4. Antes de entrar, en Mi perfil: apagar un negocio lo saca del selector al
+   entrar; la vista arranca en el primero prendido si el de antes quedó apagado.
 5. Subir/Bajar cambia el orden; arrastrar también. Recargar: el orden se
    mantiene.
-6. Crear "Zona sur" con 2 negocios y apagarlo: se apagan, menos el que se mira.
+6. En Mi perfil, crear "Zona sur" con 2 negocios y apagarlo: se apagan los dos
+   en el selector al entrar.
 7. El pie: "Mi perfil" y abajo "Salir de vista"; "Mi negocio" no está. En el
    celular, "Más" muestra lo mismo.
 8. Selector a la derecha, centrado; tocar otro negocio cambia la pantalla sin

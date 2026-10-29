@@ -181,6 +181,7 @@ export default {
         texto: "Entra un auto y lo abrís como un caso: su ficha con quién lo trajo, qué hay que hacerle, cómo viene, quién lo tiene y qué falta para entregarlo. Lo mismo con un paciente o con un equipo.",
       },
       recorte: {
+        ejemplo: "EJEMPLO · ASÍ SE VE POR DENTRO",
         titulo: "Casos",
         apoyo: "Todo lo que entró, en el estado en el que está.",
         abrir: "Abrir un caso nuevo",

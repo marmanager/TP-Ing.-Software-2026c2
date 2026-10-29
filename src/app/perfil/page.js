@@ -15,12 +15,13 @@
 // El mail se muestra pero no se edita: cambiarlo en Supabase manda una
 // confirmación a la dirección nueva, y ese ida y vuelta es otro trabajo.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { nombreDelRol } from "@/lib/permisos";
 import { motivoParaEntrar } from "@/lib/vista-maestra";
+import DesplegableVistaMaestra, { FlechitaDelDesplegable } from "@/componentes/DesplegableVistaMaestra";
 import { useTitulo } from "@/lib/useTitulo";
 import { estadoDeLaContrasena, motivoDeContrasenaNueva } from "@/lib/validaciones";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
@@ -95,6 +96,9 @@ export default function MiPerfil() {
   const [negocios, setNegocios] = useState(null);
   const [sinLista, setSinLista] = useState(false);
   const [errorVista, setErrorVista] = useState(null);
+  // Los negocios y grupos de la vista maestra se arman acá, antes de entrar.
+  const [gruposAbiertos, setGruposAbiertos] = useState(false);
+  const idGrupos = useId();
   useEffect(() => {
     let vivo = true;
     misNegocios().then((r) => {
@@ -256,15 +260,21 @@ export default function MiPerfil() {
         <h1 className="text-pantalla">{t("cuenta.titulo")}</h1>
         {/* Arriba a la derecha (docs/vista-maestra.md). Borde y no azul: el
             botón azul de la pantalla es el de guardar los datos. */}
-        <Boton
-          icono="ojo"
-          onClick={entrarAVista}
-          motivo={motivoParaEntrar({ enVista, cantidad: negocios?.length ?? 0 }, t)}
-          data-testid="entrar-vista-maestra"
-        >
-          {t("vistaMaestra.entrar")}
-        </Boton>
+        <div className="flex items-center gap-2">
+          <Boton
+            icono="ojo"
+            onClick={entrarAVista}
+            motivo={motivoParaEntrar({ enVista, cantidad: negocios?.length ?? 0 }, t)}
+            data-testid="entrar-vista-maestra"
+          >
+            {t("vistaMaestra.entrar")}
+          </Boton>
+          {!enVista && (negocios?.length ?? 0) > 1 && (
+            <FlechitaDelDesplegable abierto={gruposAbiertos} alTocar={() => setGruposAbiertos(!gruposAbiertos)} controla={idGrupos} />
+          )}
+        </div>
       </div>
+      {gruposAbiertos && !enVista && <DesplegableVistaMaestra id={idGrupos} />}
       {errorVista && <ErrorGeneral>{textoDeError(t, errorVista)}</ErrorGeneral>}
       <p className="mt-1 mb-6 max-w-[65ch] text-tinta-media">
         {t("cuenta.apoyo")}
