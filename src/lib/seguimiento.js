@@ -157,45 +157,6 @@ export const totalAprobado = (pasos = []) =>
 export const linkDeSeguimiento = (origen, codigo) =>
   `${(origen ?? "").replace(/\/$/, "")}/seguimiento/${codigo}`;
 
-// El aviso de que el trabajo está listo (flujo, punto 9).
-//
-// Es el hermano del mensaje del presupuesto: mismo patrón, mismo link, otro
-// momento. Aquel se manda cuando hay que decidir; este, cuando ya se hizo.
-//
-// Lleva las tres cosas que pide la historia: qué se hizo, en qué estado está
-// el caso y el link para seguir mirando. Los pasos van con su marca —lo
-// terminado con un tilde y lo que todavía no, con un punto— porque decir
-// "ya está todo" cuando falta algo es la clase de mentira que el cliente
-// descubre al llegar al mostrador.
-//
-// Lo manda el negocio: sale en el idioma de quien lo arma (`t`, al final).
-export function mensajeDeLoHecho({
-  negocioNombre,
-  clienteNombre,
-  identificador,
-  servicio,
-  estadoEnPalabras,
-  entregado = false,
-  pasos = [],
-  link,
-}, t = tCastellano) {
-  const cual = identificador || servicio || t("casos.aviso.mensaje.loQueDejo");
-
-  return [
-    clienteNombre
-      ? t("casos.aviso.mensaje.conNombre", { nombre: clienteNombre, negocio: negocioNombre, cual })
-      : t("casos.aviso.mensaje.sinNombre", { negocio: negocioNombre, cual }),
-    "",
-    entregado ? t("casos.aviso.mensaje.hicimos") : t("casos.aviso.mensaje.terminamos"),
-    ...pasos.map((p) => `${p.hecho ? "✓" : "•"} ${p.nombre}`),
-    "",
-    entregado
-      ? t("casos.aviso.mensaje.entregado", { estado: estadoEnPalabras })
-      : t("casos.aviso.mensaje.revision", { estado: estadoEnPalabras }),
-    ...(link ? ["", t("casos.aviso.mensaje.seguirMirando", { link })] : []),
-  ].join("\n");
-}
-
 // wa.me abre WhatsApp con el mensaje ya escrito, sin integración ni
 // servidor: es un link común. Sin número, porque el que lo toca es el
 // negocio y elige a quién mandárselo desde su propia agenda.

@@ -59,11 +59,6 @@ import {
   TituloSeccion,
   Vacio,
 } from "@/componentes/ui";
-import {
-  linkDeSeguimiento,
-  linkDeWhatsApp,
-  mensajeDeLoHecho,
-} from "@/lib/seguimiento";
 
 const EVENTOS_A_LA_VISTA = 5;
 
@@ -849,24 +844,16 @@ export default function VerCaso() {
         negocio={negocio}
       />
 
-      {puedeCargar && (caso.estado === "revision_final" || caso.estado === "completado") && (
-        <AvisarleQueEstaListo
-          caso={caso}
-          cliente={cliente}
-          negocio={negocio}
-          datos={datos}
-          aprobados={aprobados}
-        />
-      )}
-
       {/* Cerrar el caso y volver a abrirlo: las dos puntas de lo mismo, en
-          el mismo lugar de la pantalla y con el mismo peso.
+          el mismo lugar de la pantalla y con el mismo peso. Antes estaban
+          con una pinta distinta de la de todas las demás secciones: un
+          título suelto con una línea arriba en vez de la tarjeta con título
+          que usa el resto.
 
-          Van después de "avisarle que ya está" porque ese es el orden en que
-          pasa: primero se le avisa, después viene a buscarlo, y recién ahí se
-          entrega. Antes estaban antes, y encima con una pinta distinta de la
-          de todas las demás secciones: un título suelto con una línea arriba
-          en vez de la tarjeta con título que usa el resto. */}
+          Acá había una tarjeta para mandarle al cliente, a mano por wa.me,
+          que ya estaba listo y qué se le hizo. Ya no: lo de "ya está" lo
+          manda el aviso de avance, y lo que se hizo va en el posventa, que
+          arma la API con los pasos y el link. */}
       {abierto && !puedeEntregar ? null : abierto ? (
         <>
           <TituloSeccion className="mt-12">{t("casos.detalle.terminar")}</TituloSeccion>
@@ -1438,121 +1425,6 @@ export default function VerCaso() {
           </Boton>
         </div>
       )}
-    </>
-  );
-}
-
-// "Ya está listo" — el aviso al cliente cuando el trabajo pasó el control
-// (flujo, punto 9).
-//
-// Es el hermano de "Mandarle los pasos al cliente" de la pantalla de pasos:
-// mismo patrón, mismo link, otro momento. Aquel se manda cuando hay que
-// decidir; este, cuando ya se hizo.
-//
-// Usa el link que ya existe y lo arma si todavía no hay ninguno, en el mismo
-// toque: si hubiera que ir a compartirlo primero, avisar dejaría de ser una
-// sola acción y nadie lo usaría con el mostrador lleno.
-function AvisarleQueEstaListo({ caso, cliente, negocio, datos, aprobados }) {
-  const { t, idioma } = useIdioma();
-  const [abierto, setAbierto] = useState(false);
-  const [armando, setArmando] = useState(false);
-  const [error, setError] = useState(null);
-  const [origen, setOrigen] = useState("");
-
-  useEffect(() => setOrigen(window.location.origin), []);
-
-  const entregado = caso.estado === "completado";
-  const codigo = caso.seguimiento_codigo ?? null;
-  const link = codigo && origen ? linkDeSeguimiento(origen, codigo) : "";
-
-  // Lo manda el negocio: sale en el idioma de quien lo arma.
-  const mensaje = mensajeDeLoHecho({
-    negocioNombre: negocio?.nombre ?? t("casos.comun.tuNegocio"),
-    clienteNombre: cliente?.nombre?.split(" ")[0] ?? null,
-    identificador: caso.identificador,
-    servicio: caso.servicio,
-    estadoEnPalabras: presentacionEstado(negocio, caso.estado, idioma).nombre,
-    entregado,
-    pasos: aprobados.map((p) => ({ nombre: p.nombre, hecho: Boolean(p.hecho_en) })),
-    link,
-  }, t);
-
-  async function preparar() {
-    setError(null);
-    if (codigo) return setAbierto((v) => !v);
-
-    // Sin link todavía: se arma ahora. compartirCaso() devuelve el mismo
-    // código si ya hubiera uno, así que nunca se genera uno nuevo por error
-    // y el que el cliente ya tenga sigue andando.
-    setArmando(true);
-    const r = await datos.compartirCaso(caso.id);
-    setArmando(false);
-    if (!r.ok) return setError(textoDeError(t, r.error));
-    setAbierto(true);
-  }
-
-  async function copiar() {
-    try {
-      await navigator.clipboard.writeText(mensaje);
-      datos.avisarExito(t("casos.aviso.copiado"));
-    } catch {
-      const pre = document.getElementById("aviso-listo");
-      if (pre) window.getSelection()?.selectAllChildren(pre);
-      datos.avisarExito(t("casos.comun.noPudimosCopiar"));
-    }
-  }
-
-  return (
-    <>
-      <TituloSeccion className="mt-12">
-        {entregado ? t("casos.aviso.contarle") : t("casos.aviso.avisarle")}
-      </TituloSeccion>
-      <Tarjeta>
-        {error && <ErrorGeneral>{error}</ErrorGeneral>}
-
-        <p className="max-w-[65ch] text-tinta-media">
-          {entregado
-            ? t("casos.aviso.resumenApoyo")
-            : t("casos.aviso.listoApoyo", { nombre: cliente?.nombre?.split(" ")[0] ?? t("casos.comun.tuCliente") })}
-        </p>
-
-        <div className="mt-4">
-          <Boton
-            icono="chat"
-            motivo={armando ? t("casos.aviso.armandoLink") : null}
-            onClick={preparar}
-          >
-            {abierto ? t("casos.comun.cerrar") : entregado ? t("casos.aviso.armarResumen") : t("casos.aviso.armarAviso")}
-          </Boton>
-        </div>
-
-        {abierto && (
-          <div className="mt-4 rounded-tarjeta border border-borde bg-superficie p-4">
-            <p className="font-bold">{t("casos.comun.esteEsElMensaje")}</p>
-            <pre
-              id="aviso-listo"
-              className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-campo bg-tarjeta p-4 font-cuerpo text-etiqueta text-tinta-media"
-            >
-              {mensaje}
-            </pre>
-
-            <div className="mt-3 flex flex-wrap gap-3">
-              <Boton icono="copiar" onClick={copiar}>
-                {t("casos.aviso.copiar")}
-              </Boton>
-              <a
-                href={linkDeWhatsApp(mensaje)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 font-bold text-cuerpo text-tinta hover:bg-superficie"
-              >
-                <Icono nombre="chat" />
-                {t("casos.comun.mandarWhatsapp")}
-              </a>
-            </div>
-          </div>
-        )}
-      </Tarjeta>
     </>
   );
 }
