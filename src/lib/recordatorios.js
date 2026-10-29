@@ -10,6 +10,7 @@
 // solo, y acá se configura y se dice cuándo sale o por qué no. La quinta
 // (R-5b) es el aviso del presupuesto sin respuesta: una entrada más del
 // registro, y /aprobar dice en cada caso cuándo le llega o si ya se le avisó.
+// La sexta (R-10b) es la vuelta: lo que el cliente contestó por WhatsApp.
 //
 // Dos reglas que valen para todo el archivo:
 //
@@ -36,6 +37,7 @@ import { tCastellano } from "./idioma.js";
 // sin eso salen en castellano, como siempre.
 const POR_DEFECTO = { t: tCastellano, locale: "es-AR", idioma: "es" };
 const lang = (o) => ({ ...POR_DEFECTO, ...o });
+import { normalizarTelefono } from "./telefono.js";
 
 // ------------------------------------------------------------
 // Días del calendario
@@ -716,4 +718,132 @@ const AL_REVERTIR = ["sin_permiso", "cliente_no_encontrado", "no_esta", "sin_con
 export function errorAlRevertirBaja(error, opciones) {
   const { t } = lang(opciones);
   return t(`recordatorios.alRevertir.${AL_REVERTIR.includes(error?.codigo) ? error.codigo : "otro"}`);
+}
+
+// ------------------------------------------------------------
+// Las respuestas del cliente (R-10b)
+// ------------------------------------------------------------
+// El cliente contesta los avisos por WhatsApp y la API decide qué hacer
+// (R-10a, seguimiento/interpretar.ts): un "sí" o un "no" al recordatorio de
+// un turno quedan en turno.respuesta_cliente ("confirmo" o "no_puede") y
+// turno.respuesta_cliente_en; un BAJA, en cliente.avisos_baja_en. Todo lo
+// que escribió queda además en las respuestas, que se leen del negocio (la
+// bandeja, sin contexto) o de un caso (con el aviso que contestó).
+//
+// Acá no se interpreta nada: lo que dijo el cliente se muestra tal cual, y
+// lo que la API ya decidió se dice en palabras.
+//
+// Que avise que no puede no es un error: el turno sigue en pie y el negocio
+// decide si lo llama, lo mueve o lo cancela. La frase lo informa; el color
+// lo pone la pantalla, sin rojo (como la baja, R-8b).
+
+// Sólo un turno en pie espera respuesta: uno cancelado o atendido, no.
+const ESPERA_RESPUESTA = new Set(["agendado", "confirmado"]);
+
+// Lo que la agenda dice de un turno: { estado, frase }, o null si no hay
+// nada que decir. "Todavía no contestó" sólo con el recordatorio ya
+// mandado: si no le llegó nada, no hay qué contestar.
+export function respuestaDelTurno({ turno, rubro, ahora }) {
+  const { cita } = vocabulario(rubro);
+  switch (turno?.respuesta_cliente) {
+    case "confirmo":
+      return { estado: "confirmo", frase: `Confirmó por WhatsApp ${momentoEnPalabras(turno.respuesta_cliente_en, ahora, lang())}.` };
+    case "no_puede":
+      return {
+        estado: "no_puede",
+        frase: `Avisó por WhatsApp que no puede venir a su ${cita.palabra()} (${momentoEnPalabras(turno.respuesta_cliente_en, ahora, lang())}).`,
+      };
+  }
+  if (!turno || !ESPERA_RESPUESTA.has(turno.estado) || avisoDelTurno(turno)?.estado !== "enviado") return null;
+  return { estado: "sin_respuesta", frase: "Todavía no contestó el recordatorio." };
+}
+
+// Cada aviso nombrado como lo conoce el negocio, por su tipo en la API. Su
+// texto (contexto.texto) no se repite: es largo, y el tipo ya dice cuál es.
+const QUE_AVISO = {
+  turno: ({ cita }) => `al recordatorio de su ${cita.palabra()}`,
+  volver: () => "al aviso de que le toca volver",
+  presupuesto: () => "al aviso del presupuesto sin respuesta",
+  cierre: () => "al mensaje que le mandamos al entregar",
+  estado: () => "al aviso de cómo va el caso",
+};
+
+// A qué aviso contestó: { certeza, frase }, o null si la API no lo sabe.
+// "citada" es que el cliente respondió ese mensaje en WhatsApp: se afirma.
+// "ultimo_aviso" es que la API lo asoció al último que le mandamos: es una
+// deducción, y la frase no dice más de lo que se sabe.
+export function aQueContesto({ contexto, rubro }) {
+  if (!contexto) return null;
+  const que = (QUE_AVISO[contexto.tipo] ?? (() => "a un mensaje que le mandamos"))(vocabulario(rubro));
+  const cuando = enArgentina(contexto.enviado_en);
+  const dia = cuando ? diaEnPalabrasSinAño(cuando.dia, "es-AR") : null;
+  if (contexto.asociacion === "citada") {
+    return { certeza: "citada", frase: `Contestó ${que}${dia ? ` que le mandamos el ${dia}` : ""}.` };
+  }
+  return {
+    certeza: "deducida",
+    frase: `Parece contestar ${que}, que fue lo último que le mandamos${dia ? `, el ${dia}` : ""}.`,
+  };
+}
+
+// Cuándo lo escribió el cliente, con el día de Argentina: lo que mandó a
+// las 22:30 es de ese día, aunque en UTC ya sea el siguiente.
+export function cuandoContesto(respuesta) {
+  const cuando = enArgentina(respuesta?.enviado_en);
+  return cuando ? `el ${diaEnPalabrasSinAño(cuando.dia, "es-AR")} a las ${cuando.hora}` : "";
+}
+
+// Lo que escribió, tal cual: sin recortar, sin corregir y sin cambiarlo por
+// lo que la API entendió. Lo que no es texto no tiene nada que mostrar
+// literal, y se dice qué mandó.
+const NO_ES_TEXTO = {
+  audio: "Mandó un audio.",
+  image: "Mandó una foto.",
+  video: "Mandó un video.",
+  document: "Mandó un archivo.",
+  sticker: "Mandó un sticker.",
+  location: "Mandó una ubicación.",
+};
+
+export function loQueEscribio(respuesta) {
+  const texto = respuesta?.texto;
+  if (typeof texto === "string" && texto.trim()) return { literal: true, texto };
+  return { literal: false, texto: NO_ES_TEXTO[respuesta?.tipo] ?? "Mandó un mensaje que no es de texto." };
+}
+
+// Lo que contestó un cliente, para su ficha: de lo más nuevo a lo más viejo,
+// como el resto de su historial, con cuándo lo escribió.
+export function respuestasDelCliente({ respuestas, clienteId }) {
+  return (respuestas ?? [])
+    .filter((r) => r.cliente_id === clienteId)
+    .sort((a, b) => Date.parse(b.enviado_en) - Date.parse(a.enviado_en))
+    .map((r) => ({ ...r, cuando: cuandoContesto(r) }));
+}
+
+// La bandeja: lo que no resolvió nada solo. Un "sí" o un "no" que la API
+// anotó en un turno ya se ve en la agenda, y un BAJA en la ficha. La API no
+// marca cuál fue cuál, pero guarda la hora exacta del mensaje en lo que
+// cambió (respuesta_cliente_en, avisos_baja_en): la misma hora del mismo
+// cliente es ese mensaje.
+//
+// Quedan adentro los que repiten algo ya dicho (un segundo "sí"): la API no
+// los anota de nuevo, así que no hay cómo distinguirlos de otro mensaje.
+export function respuestasPendientes({ respuestas, turnos, clientes }) {
+  const resueltas = new Set();
+  const clave = (clienteId, instante) => `${clienteId}|${Date.parse(instante)}`;
+  for (const t of turnos ?? []) {
+    if (t.respuesta_cliente && t.respuesta_cliente_en) resueltas.add(clave(t.cliente_id, t.respuesta_cliente_en));
+  }
+  for (const c of clientes ?? []) {
+    if (c.avisos_baja_en) resueltas.add(clave(c.id, c.avisos_baja_en));
+  }
+  return (respuestas ?? []).filter((r) => !resueltas.has(clave(r.cliente_id, r.enviado_en)));
+}
+
+// Para contestarle a mano: el chat de WhatsApp con su número internacional,
+// como se guarda desde B-1b. Uno sin código de país no arma link: mejor no
+// ofrecer el botón que abrir el chat de otra persona.
+export function linkParaContestar(telefono) {
+  const r = normalizarTelefono(telefono);
+  return r.ok ? `https://wa.me/${r.telefono}` : null;
 }

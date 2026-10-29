@@ -358,6 +358,7 @@ const PALABRA_PROPIA_DE_BARRA = {
   inicio: "inicio.titulo",
   casos: "casos.lista.titulo",
   ecuaciones: "navegacion.ecuaciones",
+  respuestas: "navegacion.respuestas",
   negocio: "negocio.titulo",
   perfil: "cuenta.titulo",
 };

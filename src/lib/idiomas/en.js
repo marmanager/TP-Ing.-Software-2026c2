@@ -2543,6 +2543,7 @@ export default {
   },
   navegacion: {
     ecuaciones: "Custom equations",
+    respuestas: "WhatsApp replies",
     secciones: "Sections",
     seccionesPrincipales: "Main sections",
     todasLasSecciones: "All sections",

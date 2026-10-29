@@ -2549,6 +2549,7 @@ export default {
   },
   navegacion: {
     ecuaciones: "Ecuaciones",
+    respuestas: "Respuestas por WhatsApp",
     secciones: "Secciones",
     seccionesPrincipales: "Secciones principales",
     todasLasSecciones: "Todas las secciones",
