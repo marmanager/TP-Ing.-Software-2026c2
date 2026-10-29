@@ -224,10 +224,10 @@ begin
       jsonb_build_object('id', neg_b, 'prendido', false),
       jsonb_build_object('id', neg_a, 'prendido', true),
       jsonb_build_object('id', neg_c, 'prendido', true)));
-    if (select string_agg(n ->> 'nombre', ',' order by (n ->> 'orden')::int)
-          from jsonb_array_elements(mi_vista_maestra() -> 'negocios') n) <> 'Taller B,Taller A,Taller C'
-      or (select (n ->> 'prendido')::boolean from jsonb_array_elements(mi_vista_maestra() -> 'negocios') n
-           where (n ->> 'id')::uuid = neg_b) then
+    if (select string_agg(x ->> 'nombre', ',' order by (x ->> 'orden')::int)
+          from jsonb_array_elements(mi_vista_maestra() -> 'negocios') x) <> 'Taller B,Taller A,Taller C'
+      or (select (x ->> 'prendido')::boolean from jsonb_array_elements(mi_vista_maestra() -> 'negocios') x
+           where (x ->> 'id')::uuid = neg_b) then
       raise exception 'FALLA 12c: no guardó afuera de la vista';
     end if;
 

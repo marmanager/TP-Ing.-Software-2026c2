@@ -178,6 +178,7 @@ export default {
         texto: "A car comes in and you open it as a case: its file with who brought it, what needs doing, how it's going, who has it and what's missing to hand it back. Same with a patient or a device.",
       },
       recorte: {
+        ejemplo: "EXAMPLE · THIS IS WHAT IT LOOKS LIKE INSIDE",
         titulo: "Cases",
         apoyo: "Everything that came in, in the status it's in.",
         abrir: "Open a new case",
