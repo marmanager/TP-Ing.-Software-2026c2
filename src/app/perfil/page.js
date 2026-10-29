@@ -15,18 +15,19 @@
 // El mail se muestra pero no se edita: cambiarlo en Supabase manda una
 // confirmación a la dirección nueva, y ese ida y vuelta es otro trabajo.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { nombreDelRol } from "@/lib/permisos";
+import { motivoParaEntrar } from "@/lib/vista-maestra";
 import { useTitulo } from "@/lib/useTitulo";
 import { estadoDeLaContrasena, motivoDeContrasenaNueva } from "@/lib/validaciones";
 import { paisInicial, telefonoLegible } from "@/lib/telefono";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import { achicar, revisarArchivo } from "@/lib/imagen";
 import Icono from "@/componentes/Icono";
-import { Boton, Campo, CampoContrasena, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import { Boton, Campo, CampoContrasena, Cargando, ErrorGeneral, Tarjeta, TituloSeccion } from "@/componentes/ui";
 import Suscripcion from "./Suscripcion";
 import TusNegocios from "./TusNegocios";
 import Tema from "./Tema";
@@ -39,8 +40,16 @@ export default function MiPerfil() {
   const { t } = useIdioma();
   const datos = useDatos();
   const { cargando, negocio } = datos;
-  const { sesion, usuario, cerrarSesion, definirContrasena, guardarPerfil, pedirResetContrasena } =
-    useAuth();
+  const {
+    sesion,
+    usuario,
+    cerrarSesion,
+    definirContrasena,
+    guardarPerfil,
+    pedirResetContrasena,
+    misNegocios,
+    entrarAVistaMaestra,
+  } = useAuth();
   useTitulo(t("cuenta.titulo"));
 
   // Editar el perfil, sobre un borrador como la ficha del negocio: "Cancelar"
@@ -78,6 +87,38 @@ export default function MiPerfil() {
   const [guardandoContrasena, setGuardandoContrasena] = useState(false);
   const [mailMandado, setMailMandado] = useState(null);
   const [mandandoMail, setMandandoMail] = useState(false);
+
+  // Los negocios de la cuenta, pedidos una sola vez acá para "Tus negocios" y
+  // para el botón de vista maestra. null = todavía no llegó. Sin base (modo de
+  // ejemplo) o sin la 038, misNegocios() da ok: false: la lista queda vacía y
+  // el botón apagado dice que hace falta más de un negocio.
+  const [negocios, setNegocios] = useState(null);
+  const [sinLista, setSinLista] = useState(false);
+  const [errorVista, setErrorVista] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    misNegocios().then((r) => {
+      if (!vivo) return;
+      if (r.ok) setNegocios(r.negocios);
+      else setSinLista(true);
+    });
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const enVista = Boolean(usuario?.vista_maestra_desde);
+  async function entrarAVista() {
+    setErrorVista(null);
+    const r = await entrarAVistaMaestra();
+    if (r.ok) router.push("/");
+    else setErrorVista(r.error);
+  }
+
+  // En vista maestra guardar los datos escribiría en la ficha del equipo, y la
+  // base lo rechaza: se apaga con el motivo antes de que lo intenten.
+  const motivoEnVista = enVista ? t("vistaMaestra.perfilApagado") : null;
 
   if (cargando) return <Cargando />;
 
@@ -211,7 +252,20 @@ export default function MiPerfil() {
 
   return (
     <>
-      <h1 className="text-pantalla">{t("cuenta.titulo")}</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h1 className="text-pantalla">{t("cuenta.titulo")}</h1>
+        {/* Arriba a la derecha (docs/vista-maestra.md). Borde y no azul: el
+            botón azul de la pantalla es el de guardar los datos. */}
+        <Boton
+          icono="ojo"
+          onClick={entrarAVista}
+          motivo={motivoParaEntrar({ enVista, cantidad: negocios?.length ?? 0 }, t)}
+          data-testid="entrar-vista-maestra"
+        >
+          {t("vistaMaestra.entrar")}
+        </Boton>
+      </div>
+      {errorVista && <ErrorGeneral>{textoDeError(t, errorVista)}</ErrorGeneral>}
       <p className="mt-1 mb-6 max-w-[65ch] text-tinta-media">
         {t("cuenta.apoyo")}
       </p>
@@ -250,8 +304,9 @@ export default function MiPerfil() {
                     type="button"
                     aria-label={t("cuenta.cambiarFoto")}
                     aria-expanded={menuFoto}
+                    disabled={enVista}
                     onClick={() => setMenuFoto((v) => !v)}
-                    className="absolute -right-2 -bottom-2 flex size-9 cursor-pointer items-center justify-center rounded-full border-2 border-tarjeta bg-azul text-white hover:bg-azul-apretado"
+                    className="absolute -right-2 -bottom-2 flex size-9 cursor-pointer items-center disabled:cursor-not-allowed disabled:opacity-50 justify-center rounded-full border-2 border-tarjeta bg-azul text-white hover:bg-azul-apretado"
                   >
                     <Icono nombre="pincel" className="size-5" />
                   </button>
@@ -326,6 +381,7 @@ export default function MiPerfil() {
                   ayuda={t("cuenta.nombreAyuda")}
                   autoComplete="name"
                   value={borrador.nombre}
+                  disabled={enVista}
                   onChange={(e) => setBorrador((b) => ({ ...b, nombre: e.target.value }))}
                 />
                 <CampoTelefono
@@ -336,6 +392,7 @@ export default function MiPerfil() {
                   error={errorTelefono}
                   valor={tel.valor}
                   onChange={tel.setValor}
+                  disabled={enVista}
                 />
                 {/* El mail se ve pero no se toca: es con lo que entrás. */}
                 <p className="mb-6 text-tinta-media">
@@ -352,7 +409,7 @@ export default function MiPerfil() {
                 )}
 
                 <div className="flex flex-wrap gap-3">
-                  <Boton variante="principal" icono="check" motivo={motivoPerfil} onClick={guardar}>
+                  <Boton variante="principal" icono="check" motivo={motivoEnVista ?? motivoPerfil} onClick={guardar}>
                     {t("cuenta.guardar")}
                   </Boton>
                   <Boton variante="plano" onClick={cancelarEdicion}>
@@ -396,6 +453,7 @@ export default function MiPerfil() {
                           ayuda={t("cuenta.contrasena.anteriorAyuda")}
                           autoComplete="current-password"
                           value={anterior}
+                          disabled={enVista}
                           onChange={(e) => {
                             setAnterior(e.target.value);
                             setErrorContrasena(null);
@@ -412,6 +470,7 @@ export default function MiPerfil() {
                         }
                         autoComplete="new-password"
                         value={contrasena}
+                        disabled={enVista}
                         onChange={(e) => {
                           setContrasena(e.target.value);
                           setErrorContrasena(null);
@@ -424,6 +483,7 @@ export default function MiPerfil() {
                         exito={repetida && contrasena === repetida ? t("cuenta.contrasena.coinciden") : null}
                         autoComplete="new-password"
                         value={repetida}
+                        disabled={enVista}
                         onChange={(e) => {
                           setRepetida(e.target.value);
                           setErrorContrasena(null);
@@ -436,7 +496,7 @@ export default function MiPerfil() {
                         </p>
                       )}
                       <div className="flex flex-wrap gap-3">
-                        <Boton icono="check" motivo={motivoContrasena} onClick={guardarContrasena}>
+                        <Boton icono="check" motivo={motivoEnVista ?? motivoContrasena} onClick={guardarContrasena}>
                           {contrasenaPor === "crear" ? t("cuenta.contrasena.crearLa") : t("cuenta.contrasena.cambiarLa")}
                         </Boton>
                         <Boton variante="plano" onClick={cerrarCambioDeContrasena}>
@@ -450,7 +510,7 @@ export default function MiPerfil() {
                           elige cómo cambiarla. */}
                       <Boton
                         icono="llave"
-                        motivo={mandandoMail ? t("cuenta.mandandoMail") : null}
+                        motivo={motivoEnVista ?? (mandandoMail ? t("cuenta.mandandoMail") : null)}
                         aria-expanded={tieneContrasena ? contrasenaPor === "menu" : undefined}
                         onClick={() => {
                           setMailMandado(null);
@@ -541,7 +601,7 @@ export default function MiPerfil() {
 
       {/* Todos los negocios de la cuenta (docs/multinegocio.md). */}
       <TituloSeccion id="negocios">{t("cuenta.negocios.seccion")}</TituloSeccion>
-      <TusNegocios />
+      <TusNegocios negocios={negocios} sinLista={sinLista} />
 
       <TituloSeccion id="tema">{t("cuenta.tema.seccion")}</TituloSeccion>
       <Tema />

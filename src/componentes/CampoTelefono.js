@@ -69,6 +69,7 @@ export default function CampoTelefono({
   exito,
   falta = false,
   autoFocus,
+  disabled,
 }) {
   const { t } = useIdioma();
   const pais = valor?.pais ?? paisPorDefecto;
@@ -111,6 +112,7 @@ export default function CampoTelefono({
             aria-label={t("ui.telefono.pais")}
             aria-describedby={idAyuda}
             value={pais}
+            disabled={disabled}
             onChange={(e) => {
               setAviso(null);
               onChange({ pais: e.target.value, numero });
@@ -134,6 +136,7 @@ export default function CampoTelefono({
           aria-invalid={errorVisible ? "true" : undefined}
           className={`min-w-0 flex-1 ${claseDeEntrada({ error: errorVisible, exito })}`}
           value={numero}
+          disabled={disabled}
           onChange={(e) => alEscribir(e.target.value)}
           onBlur={onBlur}
         />
