@@ -157,8 +157,11 @@ begin
      where schemaname = 'public'
        and tablename <> all (array['usuario', 'vista_maestra_negocio', 'grupo_de_negocios', 'grupo_negocio'])
   loop
-    execute format('drop trigger if exists frenar_en_vista_maestra on public.%I', t);
-    execute format('create trigger frenar_en_vista_maestra before insert or update or delete on public.%I '
+    -- "a_": los triggers del mismo momento corren por orden alfabético, y éste
+    -- tiene que frenar antes que caso_cambio_permitido y compañía.
+    execute format('drop trigger if exists frenar_en_vista_maestra on public.%I', t);  -- nombre anterior
+    execute format('drop trigger if exists a_frenar_en_vista_maestra on public.%I', t);
+    execute format('create trigger a_frenar_en_vista_maestra before insert or update or delete on public.%I '
                    'for each row execute function frenar_en_vista_maestra()', t);
   end loop;
 end $$;
@@ -224,7 +227,8 @@ as $$
     from empleado e
     join negocio n on n.id = e.negocio_id
    where e.usuario_id = auth.uid()
-     and not exists (select 1 from vista_maestra_negocio v where v.usuario_id = auth.uid() and v.negocio_id = e.negocio_id);
+     and not exists (select 1 from vista_maestra_negocio v where v.usuario_id = auth.uid() and v.negocio_id = e.negocio_id)
+  on conflict do nothing;  -- dos llamadas a la vez no chocan por la clave
 $$;
 
 revoke all on function preparar_vista_maestra() from public;

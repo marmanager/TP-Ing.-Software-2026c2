@@ -316,7 +316,7 @@ begin
        and not exists (select 1 from pg_trigger g join pg_class c on c.oid = g.tgrelid
                         join pg_namespace s on s.oid = c.relnamespace
                         where s.nspname = 'public' and c.relname = t.tablename
-                          and g.tgname = 'frenar_en_vista_maestra');
+                          and g.tgname = 'a_frenar_en_vista_maestra');
     if n > 0 then raise exception 'FALLA 11: % tablas sin el freno de vista maestra', n; end if;
 
     -- 12. Entrar desde una visita (Ana mirando D de visita, como el sistema)
@@ -531,8 +531,8 @@ begin
      where schemaname = 'public'
        and tablename <> all (array['usuario', 'vista_maestra_negocio', 'grupo_de_negocios', 'grupo_negocio'])
   loop
-    execute format('drop trigger if exists frenar_en_vista_maestra on public.%I', t);
-    execute format('create trigger frenar_en_vista_maestra before insert or update or delete on public.%I '
+    execute format('drop trigger if exists a_frenar_en_vista_maestra on public.%I', t);
+    execute format('create trigger a_frenar_en_vista_maestra before insert or update or delete on public.%I '
                    'for each row execute function frenar_en_vista_maestra()', t);
   end loop;
 end $$;

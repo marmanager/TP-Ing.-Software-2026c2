@@ -238,7 +238,8 @@ Editor, y un producto bajo el mínimo), una cuenta con 1 negocio y **Caro**.
 1. Cuenta con 1 negocio: Mi perfil, el botón "Vista maestra" apagado con
    *"Hace falta más de un negocio."*. Con 2 o más: prendido, a la derecha del
    título.
-2. Modo de ejemplo ("Probá sin cuenta"): no hay botón de vista maestra.
+2. Modo de ejemplo ("Probá sin cuenta"): el botón está, apagado con
+   *"Hace falta más de un negocio."*.
 3. Dueña entra a vista maestra: la barra dice "Vista maestra" con el ojo; la
    flechita abre el desplegable. El botón de Mi perfil queda apagado con
    *"Ya estás en vista maestra"*.

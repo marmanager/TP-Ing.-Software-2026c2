@@ -203,7 +203,7 @@ begin
        and not exists (select 1 from pg_trigger g join pg_class c on c.oid = g.tgrelid
                         join pg_namespace s on s.oid = c.relnamespace
                         where s.nspname = 'public' and c.relname = t.tablename
-                          and g.tgname = 'frenar_en_vista_maestra');
+                          and g.tgname = 'a_frenar_en_vista_maestra');
     if n > 0 then raise exception 'FALLA 11: % tablas sin el freno de vista maestra', n; end if;
 
     -- 12. Entrar desde una visita (Ana mirando D de visita, como el sistema)
@@ -223,6 +223,12 @@ begin
     perform crear_mi_negocio('Taller de Caro', 'taller', '[]'::jsonb);  -- para tener dos
     perform entrar_al_negocio(neg_a);
     perform entrar_a_vista_maestra();
+    perform set_config('request.jwt.claims', '', true);
+    perform set_config('role', 'postgres', true);
+    insert into caso (negocio_id, numero, servicio) values (neg_a, 1, 'Alineación');   -- algo que ver en A
+    perform set_config('role', 'authenticated', true);
+    perform set_config('request.jwt.claims', json_build_object('sub', caro, 'role', 'authenticated')::text, true);
+    if not exists (select 1 from caso where negocio_id = neg_a) then raise exception 'FALLA 13-previa: no veía A antes de sacarle la ficha'; end if;
     perform set_config('request.jwt.claims', '', true);
     perform set_config('role', 'postgres', true);
     delete from empleado where negocio_id = neg_a and usuario_id = caro;   -- como lo hace Equipo
