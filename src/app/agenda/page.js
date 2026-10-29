@@ -7,20 +7,22 @@ import { useAuth } from "@/lib/auth";
 import { useTitulo } from "@/lib/useTitulo";
 import { puede } from "@/lib/permisos";
 import { estaAbierto } from "@/lib/estados";
-import { estadoDeTurno } from "@/lib/turnos";
-import { diaLargo, horaYMinutos } from "@/lib/fechas";
+import { estadoDeTurno, turnoEnPie } from "@/lib/turnos";
+import { diaLargo, diaLargoEnFrase, horaYMinutos } from "@/lib/fechas";
 import { casoEnFrase } from "@/lib/nombres";
+import { vocabulario } from "@/lib/presets";
 import { useIdioma } from "@/lib/useIdioma";
 import Icono from "@/componentes/Icono";
 import AltaDeTurno from "@/componentes/AltaDeTurno";
 import AvisoDelTurno from "@/componentes/AvisoDelTurno";
 import MoverTurno from "@/componentes/MoverTurno";
 import Pestanas from "@/componentes/Pestanas";
-import { Boton, Cargando, TituloSeccion, Vacio } from "@/componentes/ui";
+import RespuestaDelTurno from "@/componentes/RespuestaDelTurno";
+import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 
 export default function Agenda() {
   const datos = useDatos();
-  const { locale, t: tr } = useIdioma();
+  const { idioma, locale, t: tr } = useIdioma();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario, "manejar_turnos");
   const { cargando, turnos, clientes, casos } = datos;
@@ -56,22 +58,30 @@ export default function Agenda() {
   const proximos =
     cuando === "pasados"
       ? turnos
-          .filter((t) => new Date(t.empieza_en) < arrancaHoy)
+          .filter((turno) => new Date(turno.empieza_en) < arrancaHoy)
           // Los pasados, del más reciente al más viejo: lo de ayer importa
           // más que lo del mes pasado.
           .sort((a, b) => new Date(b.empieza_en) - new Date(a.empieza_en))
       : turnos
-          .filter((t) => new Date(t.empieza_en) >= arrancaHoy)
+          .filter((turno) => new Date(turno.empieza_en) >= arrancaHoy)
           .sort((a, b) => new Date(a.empieza_en) - new Date(b.empieza_en));
 
   // Agrupados por día, para leer la semana de un vistazo. Como "proximos" ya
   // viene ordenado —para adelante, o para atrás si se miran los pasados—, los
   // días salen en ese mismo orden.
-  const porDia = proximos.reduce((acc, t) => {
-    const clave = new Date(t.empieza_en).toDateString();
-    (acc[clave] ??= []).push(t);
+  const porDia = proximos.reduce((acc, turno) => {
+    const clave = new Date(turno.empieza_en).toDateString();
+    (acc[clave] ??= []).push(turno);
     return acc;
   }, {});
+
+  // Los que avisaron por WhatsApp que no pueden venir (R-10b), de los
+  // turnos que todavía no pasaron: se ven al abrir la agenda, antes de la
+  // lista, para que el negocio decida si los llama, los mueve o los cancela.
+  const noPueden = turnos
+    .filter((turno) => turno.respuesta_cliente === "no_puede" && turnoEnPie(turno) && Date.parse(turno.empieza_en) > ahora)
+    .sort((a, b) => Date.parse(a.empieza_en) - Date.parse(b.empieza_en));
+  const { cita } = vocabulario(datos.negocio?.rubro, idioma);
 
   return (
     <>
@@ -105,6 +115,37 @@ export default function Agenda() {
           alGuardar={() => setAbierto(false)}
           alCancelar={() => setAbierto(false)}
         />
+      )}
+
+      {/* No es un error ni una alerta: es información que el negocio
+          necesita. Va con la barra y el color de "esperando", sin rojo. */}
+      {noPueden.length > 0 && (
+        <Tarjeta data-no-pueden className="mb-8 border-l-4 border-l-espera">
+          <p className="flex items-center gap-2 font-bold text-cuerpo text-espera">
+            <Icono nombre="whatsapp" className="size-5 shrink-0" />
+            {tr("agenda.respuestas.noPueden", { n: noPueden.length })}
+          </p>
+          <ul className="mt-2 flex flex-col">
+            {noPueden.map((turno) => (
+              <li key={turno.id}>
+                <a
+                  href={`#turno-${turno.id}`}
+                  onClick={() => setCuando("proximos")}
+                  className="inline-flex min-h-12 items-center text-azul [overflow-wrap:anywhere]"
+                >
+                  {tr("agenda.respuestas.turnoDe", {
+                    nombre: clientes.find((c) => c.id === turno.cliente_id)?.nombre ?? tr("agenda.respuestas.unCliente"),
+                    dia: diaLargoEnFrase(turno.empieza_en, locale, tr),
+                    hora: horaYMinutos(turno.empieza_en, locale),
+                  })}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 max-w-[65ch] text-tinta-media">
+            {tr("agenda.respuestas.sigueAnotado", { el: cita.el() })}
+          </p>
+        </Tarjeta>
       )}
 
       {/* La agenda mira para adelante; los que ya pasaron se piden. */}
@@ -141,16 +182,16 @@ export default function Agenda() {
               {diaLargo(delDia[0].empieza_en, locale, tr)}
             </TituloSeccion>
             <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-              {delDia.map((t) => {
-                const cliente = clientes.find((c) => c.id === t.cliente_id);
-                const caso = casos.find((c) => c.id === t.caso_id);
-                const cancelado = t.estado === "cancelado";
+              {delDia.map((turno) => {
+                const cliente = clientes.find((c) => c.id === turno.cliente_id);
+                const caso = casos.find((c) => c.id === turno.caso_id);
+                const cancelado = turno.estado === "cancelado";
                 // El caso abierto que ya tiene esta persona, si tiene alguno:
                 // entonces el turno es para retirarlo o seguirlo, no para
                 // abrir uno nuevo.
                 const suCaso =
-                  t.cliente_id &&
-                  casos.find((c) => c.cliente_id === t.cliente_id && estaAbierto(c));
+                  turno.cliente_id &&
+                  casos.find((c) => c.cliente_id === turno.cliente_id && estaAbierto(c));
                 return (
                   // En celular es una grilla de dos columnas: arriba la hora y
                   // el estado en una sola línea, debajo el texto a todo el
@@ -159,13 +200,18 @@ export default function Agenda() {
                   // línea. Desde sm vuelve la fila horizontal de siempre.
                   // Todos los hijos llevan order-* porque en una grilla los
                   // que no lo tienen se colocarían antes que los que sí.
+                  // El que avisó que no puede lleva la barra de "esperando"
+                  // a la izquierda, para encontrarlo de reojo en la lista.
                   <li
-                    key={t.id}
-                    data-turno={t.id}
-                    className="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 border-b border-borde p-4 last:border-b-0 sm:flex sm:flex-wrap sm:items-center sm:gap-4"
+                    key={turno.id}
+                    id={`turno-${turno.id}`}
+                    data-turno={turno.id}
+                    className={`grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-2 border-b border-borde p-4 last:border-b-0 sm:flex sm:flex-wrap sm:items-center sm:gap-4 ${
+                      turno.respuesta_cliente === "no_puede" && turnoEnPie(turno) ? "border-l-4 border-l-espera" : ""
+                    }`}
                   >
                     <p className="order-1 font-titulo font-extrabold text-subtitulo tabular-nums sm:order-none sm:w-20">
-                      {horaYMinutos(t.empieza_en, locale)}
+                      {horaYMinutos(turno.empieza_en, locale)}
                     </p>
                     {/* min-w-0 deja que el texto se encoja en vez de empujar
                         la tarjeta, y overflow-wrap corta lo que no tiene
@@ -177,7 +223,7 @@ export default function Agenda() {
                       <p
                         className={`font-bold [overflow-wrap:anywhere] ${cancelado ? estadoDeTurno("cancelado", tr).texto : ""}`}
                       >
-                        {t.motivo}
+                        {turno.motivo}
                       </p>
                       <p className="text-tinta-media [overflow-wrap:anywhere]">
                         {cliente?.nombre ?? tr("agenda.sinCliente")}
@@ -186,7 +232,7 @@ export default function Agenda() {
                             hubo mostrador. Se nota hasta que alguien lo
                             confirma, que es el momento en que deja de ser
                             nuevo (024). */}
-                        {t.origen === "cliente" && t.estado === "agendado" && (
+                        {turno.origen === "cliente" && turno.estado === "agendado" && (
                           <>
                             {" · "}
                             <span className="font-bold text-azul">{tr("agenda.pidioPorLink")}</span>
@@ -202,21 +248,22 @@ export default function Agenda() {
                         )}
                       </p>
                       <AvisoDelTurno
-                        turno={t}
+                        turno={turno}
                         cliente={cliente}
                         rubro={datos.negocio?.rubro}
                         recordatorioActivo={recordatorioActivo}
                         ahora={ahora}
                       />
+                      <RespuestaDelTurno turno={turno} rubro={datos.negocio?.rubro} ahora={ahora} />
                     </div>
 
                     {/* El estado con su color, su ícono y su palabra, del
                         vocabulario de turnos (lib/turnos.js). */}
                     <p
-                      className={`order-2 flex items-center gap-1.5 whitespace-nowrap font-bold text-etiqueta sm:order-none ${estadoDeTurno(t.estado, tr).texto}`}
+                      className={`order-2 flex items-center gap-1.5 whitespace-nowrap font-bold text-etiqueta sm:order-none ${estadoDeTurno(turno.estado, tr).texto}`}
                     >
-                      <Icono nombre={estadoDeTurno(t.estado, tr).icono} className="size-5" />
-                      {estadoDeTurno(t.estado, tr).palabra}
+                      <Icono nombre={estadoDeTurno(turno.estado, tr).icono} className="size-5" />
+                      {estadoDeTurno(turno.estado, tr).palabra}
                     </p>
 
                     {/* "Vino" quiere decir dos cosas según el turno, y el
@@ -230,12 +277,12 @@ export default function Agenda() {
                         pegado a "Confirmar", en rojo, y errarle al dedo
                         cancelaba el turno de otra persona sin ninguna red
                         (auditoría, H5). */}
-                    {cancelando === t.id && (
+                    {cancelando === turno.id && (
                       <div className="order-4 col-span-2 w-full rounded-tarjeta bg-superficie p-4 sm:order-none sm:col-span-1">
                         <p className="font-bold text-cuerpo">
                           {tr("agenda.cancelar.pregunta", {
                             nombre: cliente?.nombre ?? tr("agenda.cancelar.estaPersona"),
-                            hora: horaYMinutos(t.empieza_en, locale),
+                            hora: horaYMinutos(turno.empieza_en, locale),
                           })}
                         </p>
                         <p className="mt-1 text-tinta-media">
@@ -247,14 +294,14 @@ export default function Agenda() {
                             icono="cruz"
                             className="w-full sm:w-auto"
                             onClick={() => {
-                              const antes = t.estado;
-                              datos.cambiarEstadoTurno(t.id, "cancelado");
+                              const antes = turno.estado;
+                              datos.cambiarEstadoTurno(turno.id, "cancelado");
                               datos.avisarExito(
                                 tr("agenda.cancelar.listo", {
                                   nombre: cliente?.nombre ?? tr("agenda.cancelar.esaPersona"),
-                                  hora: horaYMinutos(t.empieza_en, locale),
+                                  hora: horaYMinutos(turno.empieza_en, locale),
                                 }),
-                                { deshacer: () => datos.cambiarEstadoTurno(t.id, antes) }
+                                { deshacer: () => datos.cambiarEstadoTurno(turno.id, antes) }
                               );
                               setCancelando(null);
                             }}
@@ -278,19 +325,19 @@ export default function Agenda() {
                         pegadas (auditoría, Responsive). */}
                     {/* Como el resto de los hijos de la grilla, lleva su
                         order-* para quedar debajo del texto en celular. */}
-                    {moviendo === t.id && (
+                    {moviendo === turno.id && (
                       <div className="order-4 col-span-2 w-full sm:order-none sm:col-span-1">
-                        <MoverTurno turno={t} alTerminar={() => setMoviendo(null)} />
+                        <MoverTurno turno={turno} alTerminar={() => setMoviendo(null)} />
                       </div>
                     )}
 
-                    {!cancelado && t.estado !== "atendido" && cancelando !== t.id && moviendo !== t.id && (
+                    {!cancelado && turno.estado !== "atendido" && cancelando !== turno.id && moviendo !== turno.id && (
                       <div className="order-4 col-span-2 flex w-full flex-col gap-2 sm:order-none sm:col-span-1 sm:w-auto sm:flex-row sm:flex-wrap">
-                        {t.estado === "agendado" && (
+                        {turno.estado === "agendado" && (
                           <Boton
                             icono="check"
                             className="w-full sm:w-auto"
-                            onClick={() => datos.cambiarEstadoTurno(t.id, "confirmado")}
+                            onClick={() => datos.cambiarEstadoTurno(turno.id, "confirmado")}
                           >
                             {tr("agenda.confirmar")}
                           </Boton>
@@ -301,7 +348,7 @@ export default function Agenda() {
                             icono="persona-check"
                             className="w-full sm:w-auto"
                             onClick={() => {
-                              datos.marcarTurnoAtendido(t.id, suCaso.id);
+                              datos.marcarTurnoAtendido(turno.id, suCaso.id);
                               datos.avisarExito(
                                 tr("agenda.vinoPorCaso", {
                                   nombre: cliente?.nombre ?? tr("agenda.laPersona"),
@@ -313,7 +360,7 @@ export default function Agenda() {
                             {tr("agenda.vinoABuscarlo")}
                           </Boton>
                         ) : (
-                          <Link href={`/casos/nuevo?turno=${t.id}`}>
+                          <Link href={`/casos/nuevo?turno=${turno.id}`}>
                             <span className="flex min-h-12 w-full items-center justify-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-4 font-bold text-azul text-etiqueta hover:bg-azul-claro sm:w-auto sm:justify-start">
                               <Icono nombre="carpeta" />
                               {tr("agenda.vinoAbrirCaso")}
@@ -326,7 +373,7 @@ export default function Agenda() {
                             icono="calendario"
                             className="w-full sm:w-auto"
                             data-testid="turno-cambiar-hora"
-                            onClick={() => { setCancelando(null); setMoviendo(t.id); }}
+                            onClick={() => { setCancelando(null); setMoviendo(turno.id); }}
                           >
                             {tr("agenda.cambiarHora")}
                           </Boton>
@@ -336,7 +383,7 @@ export default function Agenda() {
                           variante="peligro"
                           icono="cruz"
                           className="w-full sm:w-auto"
-                          onClick={() => setCancelando(t.id)}
+                          onClick={() => setCancelando(turno.id)}
                         >
                           {tr("agenda.cancelarTurno")}
                         </Boton>
@@ -346,13 +393,13 @@ export default function Agenda() {
                     {/* Marcar que vino se puede deshacer. El caso
                         que haya salido del turno no se toca: existe por su
                         cuenta y se cierra desde el caso. */}
-                    {t.estado === "atendido" && (
+                    {turno.estado === "atendido" && (
                       <Boton
                         variante="plano"
                         icono="deshacer"
                         className="order-4 col-span-2 w-full sm:order-none sm:col-span-1 sm:w-auto"
                         onClick={() => {
-                          datos.desmarcarTurnoAtendido(t.id);
+                          datos.desmarcarTurnoAtendido(turno.id);
                           // Si quedó en pantalla el "queda anotado que vino",
                           // se va con esto: acabamos de decir lo contrario.
                           datos.descartarExito();

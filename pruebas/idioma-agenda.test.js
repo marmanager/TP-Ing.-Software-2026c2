@@ -179,3 +179,18 @@ test("plurales de terminasteTodoTexto, sueleVolverDias y sueleVolverMeses: n=1 y
     for (const f of ["one", "other"]) assert.deepEqual(vars(get(es)[f]), vars(get(en)[f]));
   }
 });
+
+test("respuestas del cliente (R-10b): las frases siguen al t que se pasa, y sin t salen en castellano", async () => {
+  const { aQueContesto, cuandoContesto, loQueEscribio, respuestaDelTurno } = await import("../src/lib/recordatorios.js");
+  const en = { t: tEn, locale: "en-US", idioma: "en" };
+  const contexto = { tipo: "turno", enviado_en: "2026-10-13T13:00:05+00:00", asociacion: "ultimo_aviso" };
+  assert.equal(
+    aQueContesto({ contexto, rubro: "taller" }, en).frase,
+    "Seems to reply to the reminder for their appointment, the last thing we sent them, on October 13."
+  );
+  assert.match(aQueContesto({ contexto, rubro: "taller" }).frase, /^Parece contestar al recordatorio de su turno/);
+  assert.equal(cuandoContesto({ enviado_en: "2026-10-15T01:30:00+00:00" }, en), "on October 14 at 22:30");
+  assert.equal(loQueEscribio({ tipo: "audio", texto: null }, en).texto, "Sent a voice message.");
+  const turno = { estado: "agendado", respuesta_cliente: null, aviso: { estado: "enviado" } };
+  assert.equal(respuestaDelTurno({ turno, rubro: "taller", ahora: Date.now() }, en).frase, "Hasn't answered the reminder yet.");
+});
