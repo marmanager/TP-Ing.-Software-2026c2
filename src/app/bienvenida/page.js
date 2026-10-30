@@ -365,7 +365,7 @@ export default function Bienvenida() {
       </div>
 
       {/* el logo en grande, como banner: la marca de las cinco franjas con el nombre */}
-      <div className="border-b border-borde bg-[#f5f1e5]">
+      <div className="border-b border-borde bg-[#f5f1e5] text-[#241f1b]">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-center gap-5 px-6 py-10 md:gap-8 md:py-16">
           <Marca className="size-20 md:size-36" />
           <span className="eva text-[clamp(40px,12vw,72px)]/[1] md:text-[clamp(64px,9vw,140px)]/[1]">
