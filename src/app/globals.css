@@ -211,6 +211,22 @@
   }
 }
 
+/* El nombre de la marca en la landing: serif en negrita, mayúsculas y
+   condensado al 79 % como los títulos de Neon Genesis Evangelion. La fuente
+   original (Matisse EB, de Fontworks) es paga y no tiene licencia web, así
+   que se aproxima con Times New Roman en negrita. Va con `scale` y no con
+   `transform` porque la regla de movimiento reducido de .landing apaga
+   transform. El margen negativo devuelve el ancho que se comió el escalado. */
+.eva {
+  display: inline-block;
+  font-family: "Times New Roman", Tinos, Times, serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  scale: 0.79 1;
+  transform-origin: left center;
+  margin-right: -21%;
+}
+
 /* ============================================================
    La grilla del Inicio.
 

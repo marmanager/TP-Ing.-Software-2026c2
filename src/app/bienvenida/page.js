@@ -332,7 +332,7 @@ export default function Bienvenida() {
         <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center justify-between px-6 md:px-[130px]">
           <span className="flex items-center gap-3.5">
             <Marca />
-            <span className="font-titulo text-[20px]/[20px] font-black tracking-[-0.01em]">
+            <span className="eva text-[22px]/[22px]">
               MarManager
             </span>
           </span>
@@ -365,10 +365,10 @@ export default function Bienvenida() {
       </div>
 
       {/* el logo en grande, como banner: la marca de las cinco franjas con el nombre */}
-      <div className="border-b border-borde bg-superficie">
+      <div className="border-b border-borde bg-[#f5f1e5]">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-center gap-5 px-6 py-10 md:gap-8 md:py-16">
           <Marca className="size-20 md:size-36" />
-          <span className="font-titulo text-[clamp(36px,11vw,64px)]/[1] font-black tracking-[-0.03em] md:text-[120px]/[1]">
+          <span className="eva text-[clamp(40px,12vw,72px)]/[1] md:text-[clamp(64px,9vw,140px)]/[1]">
             MarManager
           </span>
         </div>
@@ -884,7 +884,7 @@ export default function Bienvenida() {
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-6 py-8 md:px-[130px]">
           <span className="flex items-center gap-3">
             <Marca className="size-7" />
-            <span className="font-titulo text-etiqueta font-black">MarManager</span>
+            <span className="eva text-subtitulo">MarManager</span>
           </span>
           <Link
             href="/iniciar-sesion"
