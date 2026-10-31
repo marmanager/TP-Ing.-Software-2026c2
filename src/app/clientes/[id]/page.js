@@ -7,7 +7,7 @@
 // ningún lado. Y para ver el historial de alguien que vino cinco veces había
 // que buscarlo caso por caso.
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDatos } from "@/lib/datos";
@@ -19,7 +19,7 @@ import { puede } from "@/lib/permisos";
 import { estaAbierto, pesos } from "@/lib/estados";
 import { comoSeIdentifica, mayuscula, vocabulario } from "@/lib/presets";
 import { diaDeArgentina, diaEnPalabras, diaLargo, elDia, horaYMinutos } from "@/lib/fechas";
-import { avisoDeLaProximaVisita, bajaDeAvisos, errorAlRevertirBaja, respuestasDelCliente } from "@/lib/recordatorios";
+import { avisoDeLaProximaVisita, bajaDeAvisos, errorAlRevertirBaja } from "@/lib/recordatorios";
 import { useRecordatorioVolver } from "@/lib/useRecordatorioVolver";
 import {
   fraseTelefonoIncompleto,
@@ -34,7 +34,7 @@ import ChipEstado from "@/componentes/ChipEstado";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
-import ListaDeRespuestas from "@/componentes/ListaDeRespuestas";
+import ConversacionDelCliente from "@/componentes/ConversacionDelCliente";
 
 export default function FichaDeCliente() {
   const { id } = useParams();
@@ -53,25 +53,6 @@ export default function FichaDeCliente() {
 
   const cliente = clientes.find((c) => c.id === id);
   useTitulo(cliente ? cliente.nombre : t("clientes.ficha.titulo"));
-
-  // Lo que contestó por WhatsApp (R-10b). La API no filtra por cliente: se
-  // leen las del negocio y se quedan las suyas. Aunque haya pedido la baja,
-  // lo que dijo antes se muestra: la baja es de lo que se le manda.
-  const [respuestas, setRespuestas] = useState(null);
-  const [respuestasIncompletas, setRespuestasIncompletas] = useState(false);
-  const acciones = useRef(datos);
-  acciones.current = datos;
-  const negocioId = negocio?.id;
-  useEffect(() => {
-    if (!negocioId) return;
-    let vivo = true;
-    acciones.current.leerTodasLasRespuestas().then((r) => {
-      if (!vivo) return;
-      setRespuestas(r.ok ? r.respuestas : { error: textoDeError(t, r.error) });
-      setRespuestasIncompletas(r.ok && !r.completas);
-    });
-    return () => { vivo = false; };
-  }, [negocioId]);
 
   if (cargando) return <Cargando />;
   if (!cliente) {
@@ -117,8 +98,6 @@ export default function FichaDeCliente() {
   // Si pidió no recibir avisos (R-8a), cuándo y qué quiere decir.
   const baja = bajaDeAvisos({ cliente, rubro: negocio?.rubro }, { t, locale, idioma });
 
-  // Lo que contestó, con cuándo en el idioma de quien mira.
-  const suyasRespuestas = respuestas?.error ? [] : respuestasDelCliente({ respuestas, clienteId: cliente.id }, { t, locale, idioma });
   const { cita } = vocabulario(negocio?.rubro, idioma);
 
   const proximos = turnos
@@ -365,25 +344,9 @@ export default function FichaDeCliente() {
         </>
       )}
 
-      {/* Lo que contestó por WhatsApp (R-10b), de lo más nuevo a lo más
-          viejo. Sin respuestas no hay sección, como "Le toca volver". */}
-      {respuestas?.error ? (
-        <>
-          <TituloSeccion>{t("clientes.ficha.loQueTeContesto")}</TituloSeccion>
-          <p className="mb-12 text-tinta-media">{textoDeError(t, respuestas.error)}</p>
-        </>
-      ) : (
-        suyasRespuestas.length > 0 && (
-          <section data-respuestas-del-cliente className="mb-12">
-            <TituloSeccion>{t("clientes.ficha.loQueTeContesto")}</TituloSeccion>
-            {/* Los últimos tres; el resto, de a diez, para que no tape sus casos. */}
-            <ListaDeRespuestas respuestas={suyasRespuestas} rubro={negocio?.rubro} primeros={3} />
-            {respuestasIncompletas && (
-              <p className="mt-2 text-apoyo text-tinta-suave">{t("clientes.ficha.respuestasIncompletas")}</p>
-            )}
-          </section>
-        )
-      )}
+      {/* Lo que hablamos por WhatsApp (FRONT-2): lo que le mandamos y lo
+          que escribió, como un chat. Sin mensajes no hay sección. */}
+      <ConversacionDelCliente clienteId={cliente.id} rubro={negocio?.rubro} />
 
       <TituloSeccion>{t("clientes.ficha.loQueTrajo")}</TituloSeccion>
       {suyos.length === 0 ? (

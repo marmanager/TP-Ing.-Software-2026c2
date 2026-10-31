@@ -1,6 +1,7 @@
 "use client";
 
-// Lo que escribió el cliente por WhatsApp (R-10b), en la ficha y en el caso:
+// Lo que escribió el cliente por WhatsApp (R-10b), en el caso (la ficha usa
+// ConversacionDelCliente, con lo que le mandamos al lado):
 // cuándo, lo que escribió tal cual y, si la API lo sabe, a qué aviso
 // contestaba. Las frases salen de lib/recordatorios.js; el orden lo pone
 // quien la usa.
@@ -8,37 +9,16 @@
 // La certeza se dice: "Contestó al…" cuando el cliente citó el aviso, y
 // "Parece contestar al…" cuando la API lo asoció al último que le mandamos.
 
-//
-// Con "primeros", se ven sólo esos (los más nuevos, que es como llegan) y el
-// resto se abre de a DE_A: un cliente que escribió cincuenta veces no tapa lo
-// que viene abajo en la ficha. Arriba, cuántos son y cuándo fue el último,
-// para saber de un vistazo cuánto hay sin abrirlo.
-
-import { useState } from "react";
 import { aQueContesto, cuandoContesto, loQueEscribio } from "@/lib/recordatorios";
 import { useIdioma } from "@/lib/useIdioma";
 import Icono from "./Icono";
-import { Boton } from "./ui";
 
-const DE_A = 10;
-
-export default function ListaDeRespuestas({ respuestas, rubro, primeros = null }) {
+export default function ListaDeRespuestas({ respuestas, rubro }) {
   const { idioma, locale, t } = useIdioma();
   const lang = { t, locale, idioma };
-  const [cuantas, setCuantas] = useState(primeros ?? respuestas.length);
-  const visibles = primeros === null ? respuestas : respuestas.slice(0, cuantas);
-  const quedan = respuestas.length - visibles.length;
-  const recortable = primeros !== null && respuestas.length > primeros;
-
   return (
-    <>
-      {recortable && (
-        <p data-resumen-respuestas className="mb-2 text-tinta-media">
-          {t("respuestas.resumen", { n: respuestas.length, cuando: cuandoContesto(respuestas[0], lang) })}
-        </p>
-      )}
     <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
-      {visibles.map((r) => {
+      {respuestas.map((r) => {
         const escrito = loQueEscribio(r, lang);
         const contesto = aQueContesto({ contexto: r.contexto, rubro }, lang);
         return (
@@ -62,22 +42,5 @@ export default function ListaDeRespuestas({ respuestas, rubro, primeros = null }
         );
       })}
     </ul>
-      {recortable && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {quedan > 0 && (
-            <Boton variante="plano" icono="flecha-abajo" onClick={() => setCuantas((n) => n + DE_A)}>
-              {quedan > DE_A
-                ? t("respuestas.verAnterioresDe", { n: DE_A, total: quedan })
-                : t("respuestas.verAnteriores", { n: quedan })}
-            </Boton>
-          )}
-          {cuantas > primeros && (
-            <Boton variante="plano" icono="flecha-arriba" onClick={() => setCuantas(primeros)}>
-              {t("respuestas.mostrarMenos")}
-            </Boton>
-          )}
-        </div>
-      )}
-    </>
   );
 }

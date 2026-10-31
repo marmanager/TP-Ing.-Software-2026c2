@@ -47,13 +47,16 @@ describe("Historia: las respuestas del cliente", () => {
     }
 
     // Lo que contestaron al recordatorio, como lo deja la API: el mensaje
-    // en las respuestas y lo que quiso decir en el turno, con la misma hora.
+    // en las respuestas, con lo que resolvió (079), y lo que quiso decir en
+    // el turno, con la misma hora.
     const confirmo = instante(ahora - 2 * HORA);
-    await respuesta({ aviso: anotados.c1.aviso, cliente_id: ids.c1, texto: "sí", enviado_en: confirmo, citada: true });
+    const si = await respuesta({ aviso: anotados.c1.aviso, cliente_id: ids.c1, texto: "sí", enviado_en: confirmo, citada: true });
+    await cambiar("seguimiento_whatsapp_respuesta", si.id, { resolvio: "confirmo" });
     await cambiar("turno", anotados.c1.fila.id, { estado: "confirmado", respuesta_cliente: "confirmo", respuesta_cliente_en: confirmo });
 
     const noPuede = instante(ahora - HORA);
-    await respuesta({ aviso: anotados.c2.aviso, cliente_id: ids.c2, texto: "no puedo", enviado_en: noPuede });
+    const noPuedo = await respuesta({ aviso: anotados.c2.aviso, cliente_id: ids.c2, texto: "no puedo", enviado_en: noPuede });
+    await cambiar("seguimiento_whatsapp_respuesta", noPuedo.id, { resolvio: "no_puede" });
     await cambiar("turno", anotados.c2.fila.id, { respuesta_cliente: "no_puede", respuesta_cliente_en: noPuede });
 
     // Dos preguntas sobre el caso 248, que no resolvió nada sola. La
@@ -175,15 +178,21 @@ describe("Historia: las respuestas del cliente", () => {
     await verTexto("No hay respuestas para leer");
   });
 
-  it("AC2 y AC13: la ficha lista lo que contestó, con la fecha de Argentina", async () => {
+  it("AC2 y AC13: la ficha muestra la conversación, con la fecha de Argentina", async () => {
     await iniciarCon(datos, "/clientes/{c1}");
-    const lista = $("[data-respuestas-del-cliente]");
-    await expect(lista).toHaveText(expect.stringContaining("Lo que te contestó"));
-    const filas = lista.$$("[data-respuesta]");
-    await expect(filas).toBeElementsArrayOfSize(3);
-    // De la más nueva a la más vieja: el «sí» de hoy, después las del caso.
-    await expect(filas[0]).toHaveText(expect.stringContaining("sí"));
-    await expect(filas[2]).toHaveText(expect.stringContaining("19 de octubre a las 22:30"));
+    const seccion = $("[data-respuestas-del-cliente]");
+    await expect(seccion).toHaveText(expect.stringContaining("Lo que hablamos por WhatsApp"));
+    // Lo suyo (el «sí» y las dos del caso) y lo nuestro (el recordatorio y el
+    // aviso del presupuesto), como un chat.
+    await expect(seccion.$$('[data-mensaje="cliente"]')).toBeElementsArrayOfSize(3);
+    await expect(seccion.$$('[data-mensaje="negocio"]')).toBeElementsArrayOfSize(2);
+    // El «sí» dice que se anotó solo.
+    await expect(seccion).toHaveText(expect.stringContaining("Se anotó solo: confirmó su turno."));
+    // Lo de las 22:30 del 19 en Argentina va con ese día, y con su caso.
+    await expect(seccion).toHaveText(expect.stringContaining("19 de octubre · caso 248"));
+    // «Sólo lo que escribió» esconde lo nuestro.
+    await seccion.$("input[type=checkbox]").click();
+    await expect(seccion.$$('[data-mensaje="negocio"]')).toBeElementsArrayOfSize(0);
   });
 
   it("AC3 y AC11: el caso dice a qué contestó, y si es una deducción lo dice", async () => {
