@@ -819,6 +819,10 @@ export function respuestasDelCliente({ respuestas, clienteId }, opciones) {
 //
 // Quedan adentro los que repiten algo ya dicho (un segundo "sí"): la API no
 // los anota de nuevo, así que no hay cómo distinguirlos de otro mensaje.
+//
+// Desde la 079 la API dice qué resolvió cada una (resolvio) y, desde la 078,
+// si alguien ya la vio (vista_en): esas tampoco quedan. Lo de la hora sigue
+// para las anteriores a la 079, que vienen con resolvio en null.
 export function respuestasPendientes({ respuestas, turnos, clientes }) {
   const resueltas = new Set();
   const clave = (clienteId, instante) => `${clienteId}|${Date.parse(instante)}`;
@@ -828,7 +832,31 @@ export function respuestasPendientes({ respuestas, turnos, clientes }) {
   for (const c of clientes ?? []) {
     if (c.avisos_baja_en) resueltas.add(clave(c.id, c.avisos_baja_en));
   }
-  return (respuestas ?? []).filter((r) => !resueltas.has(clave(r.cliente_id, r.enviado_en)));
+  return (respuestas ?? []).filter(
+    (r) => !r.resolvio && !r.vista_en && !resueltas.has(clave(r.cliente_id, r.enviado_en))
+  );
+}
+
+// Las pendientes de a una por cliente: alguien que manda quince mensajes es
+// una fila ("15 mensajes"), no quince. Sin cliente, el teléfono hace de
+// cliente. La más reciente arriba; de cada uno, sus mensajes del más viejo al
+// más nuevo, el último, y el caso del que habla (el del último que diga uno).
+export function agruparPorCliente(respuestas) {
+  const grupos = new Map();
+  for (const r of respuestas ?? []) {
+    const clave = r.cliente_id ? `cliente:${r.cliente_id}` : `telefono:${r.telefono ?? ""}`;
+    const grupo = grupos.get(clave) ?? { clave, clienteId: r.cliente_id ?? null, telefono: r.telefono ?? null, mensajes: [] };
+    grupo.mensajes.push(r);
+    grupos.set(clave, grupo);
+  }
+  return [...grupos.values()]
+    .map((g) => {
+      const mensajes = [...g.mensajes].sort((a, b) => Date.parse(a.enviado_en) - Date.parse(b.enviado_en));
+      const ultima = mensajes[mensajes.length - 1];
+      const conCaso = mensajes.findLast((m) => m.caso_id);
+      return { ...g, mensajes, cantidad: mensajes.length, ultima, casoId: conCaso?.caso_id ?? null };
+    })
+    .sort((a, b) => Date.parse(b.ultima.enviado_en) - Date.parse(a.ultima.enviado_en));
 }
 
 // Para contestarle a mano: el chat de WhatsApp con su número internacional,

@@ -171,6 +171,20 @@ export const CATALOGO = {
       { clave: "plata", palabra: "La plata" },
     ],
   },
+  // Lo que contestaron los clientes por WhatsApp y nadie vio: una fila por
+  // cliente, no por mensaje. No depende de un módulo, porque cualquier aviso
+  // puede tener respuesta; sí de un permiso, que la pantalla mira.
+  respuestas: {
+    clave: "respuestas",
+    nombre: "Te contestaron",
+    icono: "chat",
+    ruta: "/respuestas",
+    modulo: null,
+    queMuestra: "Lo que te escribieron los clientes por WhatsApp y todavía no viste.",
+    ancho: 6,
+    alto: 3,
+    filtros: null,
+  },
   // El Resumen del módulo Estadísticas, en filas. Lleva al módulo completo.
   dashboard: {
     clave: "dashboard",
@@ -202,13 +216,16 @@ export const traducirDelCatalogo = (def, t = tCastellano) =>
 // de todo, a todo el ancho, el historial.
 //
 // El historial está desde el principio porque en el celular es la única
-// forma de llegar a esa sección: la barra de abajo tiene cuatro lugares.
+// forma de llegar a esa sección: la barra de abajo tiene cuatro lugares. Las
+// respuestas por WhatsApp, también: no tienen lugar en la barra lateral, y
+// éste es el camino a la bandeja.
 export const INICIO_POR_DEFECTO = [
   { clave: "pendientes", x: 0, y: 0, ancho: 6, alto: 2, filtro: null },
   { clave: "casos", x: 0, y: 2, ancho: 4, alto: 3, filtro: "abiertos" },
   { clave: "agenda", x: 4, y: 2, ancho: 2, alto: 2, filtro: "hoy" },
   { clave: "inventario", x: 4, y: 4, ancho: 2, alto: 1, filtro: "bajo" },
-  { clave: "historial", x: 0, y: 5, ancho: 6, alto: 2, filtro: "todo" },
+  { clave: "respuestas", x: 0, y: 5, ancho: 6, alto: 3, filtro: null },
+  { clave: "historial", x: 0, y: 8, ancho: 6, alto: 2, filtro: "todo" },
 ];
 
 const entre = (n, minimo, maximo) => Math.min(maximo, Math.max(minimo, n));

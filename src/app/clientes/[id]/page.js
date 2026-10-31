@@ -376,7 +376,8 @@ export default function FichaDeCliente() {
         suyasRespuestas.length > 0 && (
           <section data-respuestas-del-cliente className="mb-12">
             <TituloSeccion>{t("clientes.ficha.loQueTeContesto")}</TituloSeccion>
-            <ListaDeRespuestas respuestas={suyasRespuestas} rubro={negocio?.rubro} />
+            {/* Los últimos tres; el resto, de a diez, para que no tape sus casos. */}
+            <ListaDeRespuestas respuestas={suyasRespuestas} rubro={negocio?.rubro} primeros={3} />
             {respuestasIncompletas && (
               <p className="mt-2 text-apoyo text-tinta-suave">{t("clientes.ficha.respuestasIncompletas")}</p>
             )}

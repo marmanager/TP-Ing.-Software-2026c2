@@ -33,6 +33,9 @@ import { hijosActivos } from "@/lib/modulos";
 import { casoEnFrase, lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import { telefonoLegible } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
+import FilaDeRespuestas from "@/componentes/FilaDeRespuestas";
+import { useRespuestasSinVer } from "@/lib/useRespuestasSinVer";
+import { textoDeError } from "@/lib/idioma";
 
 // ---------- piezas compartidas ----------
 
@@ -594,6 +597,42 @@ function CuerpoEstadisticas({ filas }) {
 }
 
 // Qué componente le toca a cada módulo del catálogo.
+// ---------- respuestas por WhatsApp ----------
+
+// Una fila por cliente, las que entran según el alto; el resto, en la
+// bandeja. Sin nada sin ver, lo dice en una línea y no ocupa más. Cada fila
+// son tres renglones (quién, qué dijo, cuántos), así que entra la mitad de
+// filas que en los otros módulos.
+function CuerpoRespuestas({ filas: renglones }) {
+  const filas = Math.max(1, Math.floor(renglones / 2));
+  const { t } = useIdioma();
+  const { autorizado, leyendo, error, grupos, verlo } = useRespuestasSinVer();
+
+  if (!autorizado) return <SinNada>{t("respuestas.sinPermiso")}</SinNada>;
+  if (leyendo) return <SinNada>…</SinNada>;
+  if (error) return <SinNada>{textoDeError(t, error)}</SinNada>;
+  if (grupos.length === 0) return <SinNada>{t("respuestas.nadaPorLeer")}</SinNada>;
+
+  const resto = grupos.length - filas;
+  return (
+    <ul>
+      {grupos.slice(0, filas).map((g) => (
+        <FilaDeRespuestas key={g.clave} grupo={g} verlo={verlo} />
+      ))}
+      {/* "Ver todo" ya está arriba, en el título del módulo: abajo, sólo
+          cuántos quedaron afuera. */}
+      {resto > 0 && (
+        <li className="border-t border-borde">
+          <Link href="/respuestas" className="flex min-h-12 items-center gap-2 px-4 font-bold text-azul sm:px-6">
+            <Icono nombre="mas" className="size-5" />
+            {t("respuestas.ymas", { n: resto })}
+          </Link>
+        </li>
+      )}
+    </ul>
+  );
+}
+
 export const CUERPOS = {
   pendientes: CuerpoPendientes,
   casos: CuerpoCasos,
@@ -604,4 +643,5 @@ export const CUERPOS = {
   clientes: CuerpoClientes,
   historial: CuerpoHistorial,
   dashboard: CuerpoEstadisticas,
+  respuestas: CuerpoRespuestas,
 };
