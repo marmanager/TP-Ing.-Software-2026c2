@@ -901,6 +901,32 @@ export function agruparPorCliente(respuestas) {
     .sort((a, b) => Date.parse(b.ultima.enviado_en) - Date.parse(a.ultima.enviado_en));
 }
 
+// Si se le puede escribir libre desde la app (FRONT-3): WhatsApp lo deja
+// durante las 24 horas siguientes a su último mensaje (ventana_hasta, que
+// calcula la API). Abierta, hasta cuándo; cerrada (o si nunca escribió:
+// "escribio"), por qué no y el chat de
+// su número para escribirle desde el teléfono del negocio, si tiene uno que
+// sirva. "Retomar la conversación" con una plantilla llega con API-4.
+export function ventanaParaEscribir({ ventanaHasta, ahora = Date.now(), telefono, escribio = true }, opciones) {
+  const l = lang(opciones);
+  const { t } = l;
+  const hasta = ventanaHasta ? Date.parse(ventanaHasta) : NaN;
+  if (Number.isFinite(hasta) && hasta > ahora) {
+    return {
+      abierta: true,
+      frase: t("recordatorios.conversacion.ventana.abierta", { cuando: momentoEnPalabras(ventanaHasta, ahora, l) }),
+    };
+  }
+  const link = linkParaContestar(telefono);
+  return {
+    abierta: false,
+    frase: t(`recordatorios.conversacion.ventana.${escribio ? "cerrada" : "nuncaEscribio"}`),
+    porQue: t("recordatorios.conversacion.ventana.porQue"),
+    link,
+    sinLink: link ? null : t("recordatorios.conversacion.ventana.sinTelefono"),
+  };
+}
+
 // Para contestarle a mano: el chat de WhatsApp con su número internacional,
 // como se guarda desde B-1b. Uno sin código de país no arma link: mejor no
 // ofrecer el botón que abrir el chat de otra persona.

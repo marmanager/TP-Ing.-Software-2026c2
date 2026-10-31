@@ -28,6 +28,7 @@ import {
   loQueEscribio,
   respuestaDelTurno,
   conversacion,
+  ventanaParaEscribir,
   respuestasPendientes,
   agruparPorCliente,
 } from "../../src/lib/recordatorios.js";
@@ -323,5 +324,36 @@ describe("La conversación de un cliente", () => {
     expect(mensajes(conversacion({ mensajes: [item("a", { tipo: "audio", texto: null })], casos }))[0].escrito)
       .toEqual({ literal: false, texto: "Mandó un audio." });
     expect(conversacion({ mensajes: undefined, casos })).toEqual([]);
+  });
+});
+
+// FRONT-3: contestarle desde la ficha. WhatsApp deja escribirle libre
+// durante las 24 horas siguientes a su último mensaje; la API dice hasta
+// cuándo (ventana_hasta). Después, el chat de su número desde el teléfono
+// del negocio.
+describe("Contestarle por WhatsApp", () => {
+  // AHORA: el 14 de octubre a las 9:00 en Argentina.
+  test("con la ventana abierta dice hasta cuándo, en palabras", () => {
+    const hoy = ventanaParaEscribir({ ventanaHasta: "2026-10-14T20:30:00.000Z", ahora: AHORA, telefono: "5493414567890" });
+    expect(hoy).toEqual({ abierta: true, frase: "Podés contestarle con texto libre hasta hoy a las 17:30." });
+    const manana = ventanaParaEscribir({ ventanaHasta: "2026-10-15T11:00:00.000Z", ahora: AHORA });
+    expect(manana.frase).toBe("Podés contestarle con texto libre hasta mañana a las 08:00.");
+  });
+
+  test("cerrada, o si nunca escribió, ofrece su chat desde el teléfono del negocio", () => {
+    const vencida = ventanaParaEscribir({ ventanaHasta: "2026-10-14T11:00:00.000Z", ahora: AHORA, telefono: "5493414567890" });
+    expect(vencida.abierta).toBe(false);
+    expect(vencida.frase).toBe("Pasaron más de 24 horas desde que te escribió");
+    expect(vencida.link).toBe("https://wa.me/5493414567890");
+    expect(vencida.sinLink).toBeNull();
+    const nunca = ventanaParaEscribir({ ventanaHasta: null, ahora: AHORA, telefono: "5493414567890", escribio: false });
+    expect(nunca.abierta).toBe(false);
+    expect(nunca.frase).toBe("Todavía no te escribió por WhatsApp");
+  });
+
+  test("sin un teléfono que sirva no hay link, y lo dice", () => {
+    const r = ventanaParaEscribir({ ventanaHasta: null, ahora: AHORA, telefono: "3414567890" });
+    expect(r.link).toBeNull();
+    expect(r.sinLink).toBe("Para escribirle desde tu WhatsApp falta su teléfono con código de país.");
   });
 });
