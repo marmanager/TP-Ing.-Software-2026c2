@@ -69,7 +69,7 @@ test("el orden por defecto es una grilla sana", () => {
   const config = normalizarInicio(INICIO_POR_DEFECTO);
   grillaSana(config, "por defecto:");
   sinHuecosVerticales(config, "por defecto:");
-  assert.deepEqual(claves(config), ["pendientes", "casos", "agenda", "inventario", "historial"]);
+  assert.deepEqual(claves(config), ["pendientes", "casos", "agenda", "inventario", "respuestas", "historial"]);
 });
 
 test("el orden por defecto reproduce el boceto", () => {
@@ -86,6 +86,10 @@ test("el orden por defecto reproduce el boceto", () => {
   assert.equal(de(c, "inventario").x, 4);
   assert.equal(de(c, "casos").y, de(c, "agenda").y, "casos y agenda arrancan en la misma fila");
   assert.ok(de(c, "inventario").y > de(c, "agenda").y, "inventario va debajo de agenda");
+  // Debajo de casos, a todo el ancho: lo que contestaron por WhatsApp.
+  assert.equal(de(c, "respuestas").x, 0);
+  assert.equal(de(c, "respuestas").ancho, 6);
+  assert.ok(de(c, "respuestas").y >= de(c, "casos").y + de(c, "casos").alto, "va debajo de casos");
   // Abajo de todo, a todo el ancho: el historial.
   assert.equal(de(c, "historial").x, 0);
   assert.equal(de(c, "historial").ancho, 6);
@@ -253,7 +257,7 @@ test("los módulos se leen de arriba abajo y de izquierda a derecha", () => {
 
 test("subir y bajar intercambian el lugar con el vecino", () => {
   const antes = normalizarInicio(INICIO_POR_DEFECTO);
-  assert.deepEqual(claves(antes), ["pendientes", "casos", "agenda", "inventario", "historial"]);
+  assert.deepEqual(claves(antes), ["pendientes", "casos", "agenda", "inventario", "respuestas", "historial"]);
 
   const subido = intercambiar(antes, "agenda", -1);
   grillaSana(subido, "tras subir:");
@@ -285,7 +289,7 @@ test("un módulo nuevo entra abajo de todo, sin tapar nada", () => {
 test("un módulo apagado en Mi negocio no se muestra, pero no se pierde", () => {
   const config = normalizarInicio(INICIO_POR_DEFECTO);
 
-  assert.deepEqual(claves(visibles(config, ["agenda"])), ["pendientes", "casos", "agenda", "historial"]);
+  assert.deepEqual(claves(visibles(config, ["agenda"])), ["pendientes", "casos", "agenda", "respuestas", "historial"]);
   assert.deepEqual(claves(visibles(config, TODOS_LOS_MODULOS)), claves(config));
 });
 

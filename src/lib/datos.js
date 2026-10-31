@@ -74,10 +74,11 @@ const Contexto = createContext(null);
 const PAGINAS_DE_RESPUESTAS = 10;
 const sinLoCrudo = ({ contenido, contacto_id, numero_emisor_id, ...respuesta }) => respuesta;
 
-async function paginaDeRespuestas(ruta, { limite, cursor }, token) {
+async function paginaDeRespuestas(ruta, { limite, cursor, pendientes }, token) {
   const consulta = new URLSearchParams({
     ...(limite ? { limite: String(limite) } : {}),
     ...(cursor ? { cursor } : {}),
+    ...(pendientes ? { pendientes: "true" } : {}),
   });
   const r = await traer(consulta.toString() ? `${ruta}?${consulta}` : ruta, token);
   // El error de la API, con su código: la pantalla lo dice con textoDeError.
@@ -344,6 +345,11 @@ export function DatosProvider({ children }) {
   // Si desde otro dispositivo la cuenta pasó a otro negocio (o la sacaron de
   // éste): { nombre } del nuevo, o nombre null. Ver docs/multinegocio.md.
   const [otroNegocio, setOtroNegocio] = useState(null);
+  // Las respuestas por WhatsApp sin ver: null hasta que alguna pantalla las
+  // pide (leerRespuestasSinVer), y de nuevo null al cambiar de negocio o
+  // refrescar, para que se vuelvan a leer.
+  const [respuestasSinVer, setRespuestasSinVer] = useState(null);
+  const leyendoSinVer = useRef(false);
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
   // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
@@ -904,6 +910,49 @@ export function DatosProvider({ children }) {
           if (!cursor) return { ok: true, respuestas, completas: true };
         }
         return { ok: true, respuestas, completas: false };
+      },
+
+      // Las que nadie marcó con "Ya lo vi" (078), para el Inicio, las marcas
+      // de Casos y Clientes y la bandeja. Se leen una vez y las comparten
+      // todas las pantallas; "Ya lo vi" las saca de acá sin volver a pedirlas.
+      async leerRespuestasSinVer() {
+        if (leyendoSinVer.current) return;
+        leyendoSinVer.current = true;
+        const token = await tokenDeSesion();
+        const lista = [];
+        let cursor = null;
+        let completas = false;
+        for (let i = 0; i < PAGINAS_DE_RESPUESTAS; i++) {
+          const r = await paginaDeRespuestas("/seguimiento/respuestas", { limite: 200, cursor, pendientes: true }, token);
+          if (!r.ok) {
+            leyendoSinVer.current = false;
+            return setRespuestasSinVer({ lista: [], error: r.error, completas: true });
+          }
+          lista.push(...r.respuestas);
+          cursor = r.siguiente;
+          if (!cursor) {
+            completas = true;
+            break;
+          }
+        }
+        leyendoSinVer.current = false;
+        setRespuestasSinVer({ lista, error: null, completas });
+      },
+
+      // "Ya lo vi": todo lo de ese cliente, o lo de ese teléfono si no es
+      // cliente de nadie. Si después escribe otra vez, vuelve a aparecer.
+      async marcarRespuestasVistas({ clienteId, telefono }) {
+        const token = await tokenDeSesion();
+        const r = clienteId
+          ? await mandar(`/clientes/${encodeURIComponent(clienteId)}/whatsapp/visto`, {}, token)
+          : await mandar("/seguimiento/respuestas/visto", { telefono }, token);
+        if (!r.ok) {
+          setAviso(r.error);
+          return { ok: false };
+        }
+        const esDeEse = (x) => (clienteId ? x.cliente_id === clienteId : !x.cliente_id && x.telefono === telefono);
+        setRespuestasSinVer((s) => s && { ...s, lista: s.lista.filter((x) => !esDeEse(x)) });
+        return { ok: true };
       },
 
       // Los recordatorios van por el mismo camino: arriba el posventa
@@ -1664,11 +1713,15 @@ export function DatosProvider({ children }) {
     };
   }, [datos, sesion]);
 
+  const negocioId = datos.negocio?.id;
+  useEffect(() => setRespuestasSinVer(null), [negocioId, refresco]);
+
   // El Inicio se sirve ya normalizado: las pantallas nunca ven una
   // configuración a medias guardada por una versión anterior.
   const valor = {
     ...datos,
     inicio: normalizarInicio(datos.negocio?.inicio),
+    respuestasSinVer,
     cargando,
     aviso,
     otroNegocio,

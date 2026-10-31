@@ -12,6 +12,7 @@ import { comoSeIdentifica } from "@/lib/presets";
 import { presentacionEstado } from "@/lib/presentacion-estados";
 import { vueltaDeMercadoPago } from "@/lib/pagos";
 import FilaCaso from "@/componentes/FilaCaso";
+import { useRespuestasSinVer } from "@/lib/useRespuestasSinVer";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Vacio } from "@/componentes/ui";
 
@@ -19,6 +20,7 @@ export default function Casos() {
   const router = useRouter();
   const { t, idioma } = useIdioma();
   const { cargando, casos, clientes, negocio } = useDatos();
+  const { casosConRespuesta } = useRespuestasSinVer();
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
   const [orden, setOrden] = useState("estado");
@@ -192,7 +194,7 @@ export default function Casos() {
       ) : (
         <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
           {visibles.map((caso) => (
-            <FilaCaso key={caso.id} caso={caso} />
+            <FilaCaso key={caso.id} caso={caso} conRespuesta={casosConRespuesta.has(caso.id)} />
           ))}
         </ul>
       )}

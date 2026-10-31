@@ -12,6 +12,8 @@ const env = {
   SUPABASE_SERVICE_ROLE_KEY: SERVICIO,
 };
 
-const hijo = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--port", "3000"],
+// Con webpack, como el build: Turbopack falla al bajar la fuente de Google
+// Fonts (872e0a8) y la pantalla queda en error.
+const hijo = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--webpack", "--port", "3000"],
   { cwd: FRONT, env, stdio: "inherit" });
 hijo.on("exit", (codigo) => process.exit(codigo ?? 0));

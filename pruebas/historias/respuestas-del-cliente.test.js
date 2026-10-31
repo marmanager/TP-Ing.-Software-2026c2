@@ -29,6 +29,7 @@ import {
   respuestaDelTurno,
   respuestasDelCliente,
   respuestasPendientes,
+  agruparPorCliente,
 } from "../../src/lib/recordatorios.js";
 
 // El 14 de octubre de 2026 a las 9:00 en Argentina.
@@ -201,5 +202,64 @@ describe("Historia: las respuestas del cliente", () => {
     const r = respuesta("r1", { enviado_en: "2026-10-15T01:30:00+00:00" });
     expect(cuandoContesto(r)).toBe("el 14 de octubre a las 22:30");
     expect(respuestasDelCliente({ respuestas: [r], clienteId: "c1" })[0].cuando).toBe("el 14 de octubre a las 22:30");
+  });
+});
+
+// Lo que ve el negocio sin que lo bombardeen: una fila por cliente, no por
+// mensaje, y fuera lo que ya vio o lo que se resolvió solo (078 y 079).
+describe("Las respuestas agrupadas por cliente", () => {
+  test("las que ya se vieron o resolvieron algo no quedan pendientes", () => {
+    const respuestas = [
+      respuesta("r1", { resolvio: "confirmo", enviado_en: "2026-10-13T15:00:00+00:00" }),
+      respuesta("r2", { vista_en: "2026-10-13T18:00:00+00:00", enviado_en: "2026-10-13T16:00:00+00:00" }),
+      respuesta("r3", { resolvio: null, vista_en: null, enviado_en: "2026-10-13T17:00:00+00:00" }),
+    ];
+    expect(respuestasPendientes({ respuestas, turnos: [], clientes: [] }).map((r) => r.id)).toEqual(["r3"]);
+  });
+
+  test("quince mensajes del mismo cliente son una sola fila, con el último", () => {
+    const respuestas = Array.from({ length: 15 }, (_, i) =>
+      respuesta(`r${i}`, { texto: `mensaje ${i}`, enviado_en: new Date(Date.UTC(2026, 9, 13, 12, i)).toISOString() })
+    );
+    const [grupo, ...resto] = agruparPorCliente(respuestas);
+    expect(resto).toEqual([]);
+    expect(grupo.clienteId).toBe("c1");
+    expect(grupo.cantidad).toBe(15);
+    expect(grupo.ultima.texto).toBe("mensaje 14");
+    expect(grupo.mensajes[0].texto).toBe("mensaje 0");
+  });
+
+  test("el que escribió último va arriba", () => {
+    const grupos = agruparPorCliente([
+      respuesta("r1", { cliente_id: "c1", enviado_en: "2026-10-13T15:00:00+00:00" }),
+      respuesta("r2", { cliente_id: "c2", enviado_en: "2026-10-13T17:00:00+00:00" }),
+      respuesta("r3", { cliente_id: "c1", enviado_en: "2026-10-13T16:00:00+00:00" }),
+    ]);
+    expect(grupos.map((g) => g.clienteId)).toEqual(["c2", "c1"]);
+    expect(grupos[1].cantidad).toBe(2);
+  });
+
+  test("sin cliente, el teléfono hace de cliente", () => {
+    const grupos = agruparPorCliente([
+      respuesta("r1", { cliente_id: null, telefono: "5491100000000" }),
+      respuesta("r2", { cliente_id: null, telefono: "5491100000000" }),
+      respuesta("r3", { cliente_id: null, telefono: "5491199999999" }),
+    ]);
+    expect(grupos).toHaveLength(2);
+    expect(grupos.every((g) => g.clienteId === null)).toBe(true);
+    expect(grupos.map((g) => g.cantidad).sort()).toEqual([1, 2]);
+  });
+
+  test("el caso es el del último mensaje que nombra uno", () => {
+    const [grupo] = agruparPorCliente([
+      respuesta("r1", { caso_id: "k1", enviado_en: "2026-10-13T15:00:00+00:00" }),
+      respuesta("r2", { caso_id: "k2", enviado_en: "2026-10-13T16:00:00+00:00" }),
+      respuesta("r3", { caso_id: null, enviado_en: "2026-10-13T17:00:00+00:00" }),
+    ]);
+    expect(grupo.casoId).toBe("k2");
+  });
+
+  test("sin respuestas, ninguna fila", () => {
+    expect(agruparPorCliente(undefined)).toEqual([]);
   });
 });
