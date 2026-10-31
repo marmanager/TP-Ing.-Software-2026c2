@@ -894,22 +894,25 @@ export function DatosProvider({ children }) {
         );
       },
 
-      // Todas las del negocio, página por página, para la ficha de un
-      // cliente: la API no filtra por cliente. Con tope, para que un negocio
-      // con años de mensajes no se quede leyendo; "completas" dice si llegó
-      // al final.
-      async leerTodasLasRespuestas() {
-        const token = await tokenDeSesion();
-        const respuestas = [];
-        let cursor = null;
-        for (let i = 0; i < PAGINAS_DE_RESPUESTAS; i++) {
-          const r = await paginaDeRespuestas("/seguimiento/respuestas", { limite: 200, cursor }, token);
-          if (!r.ok) return r;
-          respuestas.push(...r.respuestas);
-          cursor = r.siguiente;
-          if (!cursor) return { ok: true, respuestas, completas: true };
-        }
-        return { ok: true, respuestas, completas: false };
+      // La conversación por WhatsApp de un cliente (API-2), para su ficha: lo
+      // que le mandamos y lo que escribió, del más nuevo al más viejo, de a
+      // una página. Trae además hasta cuándo se le puede escribir libre
+      // (ventana_hasta) y cuántas respuestas suyas nadie vio (pendientes).
+      async leerConversacion(clienteId, { limite, cursor } = {}) {
+        const consulta = new URLSearchParams({
+          ...(limite ? { limite: String(limite) } : {}),
+          ...(cursor ? { cursor } : {}),
+        });
+        const ruta = `/clientes/${encodeURIComponent(clienteId)}/whatsapp`;
+        const r = await traer(consulta.toString() ? `${ruta}?${consulta}` : ruta, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        return {
+          ok: true,
+          mensajes: r.datos ?? [],
+          siguiente: r.siguiente ?? null,
+          ventanaHasta: r.ventana_hasta ?? null,
+          pendientes: r.pendientes ?? 0,
+        };
       },
 
       // Las que nadie marcó con "Ya lo vi" (078), para el Inicio, las marcas

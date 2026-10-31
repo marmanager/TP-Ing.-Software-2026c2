@@ -31,6 +31,7 @@ import { cadaCuantoVuelve, mayuscula, vocabulario } from "./presets.js";
 import { telefonoWhatsAppValido } from "./seguimiento-whatsapp.js";
 import { diaEnPalabras } from "./fechas.js";
 import { tCastellano } from "./idioma.js";
+import { casoEnFrase } from "./nombres.js";
 import { normalizarTelefono } from "./telefono.js";
 
 // Los textos para mostrar salen del diccionario (recordatorios.*). Lo último
@@ -802,13 +803,54 @@ export function loQueEscribio(respuesta, opciones) {
   return { literal: false, texto: t(`recordatorios.respuestas.noEsTexto.${tipo}`) };
 }
 
-// Lo que contestó un cliente, para su ficha: de lo más nuevo a lo más viejo,
-// como el resto de su historial, con cuándo lo escribió.
-export function respuestasDelCliente({ respuestas, clienteId }, opciones) {
-  return (respuestas ?? [])
-    .filter((r) => r.cliente_id === clienteId)
-    .sort((a, b) => Date.parse(b.enviado_en) - Date.parse(a.enviado_en))
-    .map((r) => ({ ...r, cuando: cuandoContesto(r, opciones) }));
+// La conversación por WhatsApp de un cliente, para su ficha (FRONT-2): lo
+// que le mandamos y lo que escribió, como lo devuelve GET
+// /clientes/:id/whatsapp (del más nuevo al más viejo). Sale como se lee un
+// chat, del más viejo al más nuevo, con un separador cada vez que cambia el
+// día (de Argentina) o el caso del que se habla.
+//
+// Lo nuestro dice qué aviso fue (o que lo escribió alguien del negocio); lo
+// suyo, tal cual (loQueEscribio). Si su mensaje resolvió algo solo (resolvio,
+// 079), se dice al pie: es lo que explica por qué no está en la bandeja.
+const DE_NEGOCIO = ["turno", "volver", "presupuesto", "cierre", "estado", "manual", "retomar"];
+const RESOLVIO = ["confirmo", "no_puede", "baja"];
+
+export function conversacion({ mensajes, casos, rubro }, opciones) {
+  const l = lang(opciones);
+  const { t, locale, idioma } = l;
+  const { cita } = vocabulario(rubro, idioma);
+  const ordenados = [...(mensajes ?? [])].sort((a, b) => Date.parse(a.enviado_en) - Date.parse(b.enviado_en));
+  const filas = [];
+  let antes = null;
+  for (const m of ordenados) {
+    const cuando = enArgentina(m.enviado_en);
+    const dia = cuando?.dia ?? null;
+    const casoId = m.caso_id ?? null;
+    if (!antes || antes.dia !== dia || antes.casoId !== casoId) {
+      const caso = casoId ? (casos ?? []).find((c) => c.id === casoId) : null;
+      const enPalabras = dia ? mayuscula(diaEnPalabrasSinAño(dia, locale)) : "";
+      filas.push({
+        tipo: "separador",
+        clave: `${dia}|${casoId}|${m.id}`,
+        frase: caso ? t("recordatorios.conversacion.separadorConCaso", { dia: enPalabras, caso: casoEnFrase(caso, t) }) : enPalabras,
+      });
+    }
+    antes = { dia, casoId };
+    const delNegocio = m.de === "negocio";
+    filas.push({
+      tipo: "mensaje",
+      clave: m.id,
+      id: m.id,
+      delNegocio,
+      etiqueta: delNegocio
+        ? t(`recordatorios.conversacion.de.${DE_NEGOCIO.includes(m.tipo) ? m.tipo : "otro"}`, { cita: cita.palabra() })
+        : null,
+      escrito: delNegocio ? { literal: true, texto: m.texto ?? "" } : loQueEscribio(m, l),
+      hora: cuando?.hora ?? "",
+      nota: RESOLVIO.includes(m.resolvio) ? t(`recordatorios.conversacion.resolvio.${m.resolvio}`, { cita: cita.palabra() }) : null,
+    });
+  }
+  return filas;
 }
 
 // La bandeja: lo que no resolvió nada solo. Un "sí" o un "no" que la API

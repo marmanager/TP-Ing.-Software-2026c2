@@ -27,7 +27,7 @@ import {
   linkParaContestar,
   loQueEscribio,
   respuestaDelTurno,
-  respuestasDelCliente,
+  conversacion,
   respuestasPendientes,
   agruparPorCliente,
 } from "../../src/lib/recordatorios.js";
@@ -64,22 +64,6 @@ const respuesta = (id, extra = {}) => ({
 });
 
 describe("Historia: las respuestas del cliente", () => {
-  test("la ficha lista lo que contestó, con fecha y en orden", () => {
-    const respuestas = [
-      respuesta("r1", { texto: "primero", enviado_en: "2026-10-10T15:00:00+00:00" }),
-      respuesta("r2", { cliente_id: "c2", texto: "de otro", enviado_en: "2026-10-11T15:00:00+00:00" }),
-      respuesta("r3", { texto: "último", enviado_en: "2026-10-13T15:00:00+00:00" }),
-      respuesta("r4", { texto: "del medio", enviado_en: "2026-10-12T15:00:00+00:00" }),
-    ];
-    const suyas = respuestasDelCliente({ respuestas, clienteId: "c1" });
-    // Sólo las suyas, de la más nueva a la más vieja, como el resto del
-    // historial de la ficha.
-    expect(suyas.map((r) => r.id)).toEqual(["r3", "r4", "r1"]);
-    expect(suyas[0].cuando).toBe("el 13 de octubre a las 12:00");
-    // Sin respuestas, una lista vacía: la ficha no muestra la sección.
-    expect(respuestasDelCliente({ respuestas: undefined, clienteId: "c1" })).toEqual([]);
-  });
-
   test("la agenda dice que el turno está confirmado por el cliente", () => {
     const r = respuestaDelTurno({
       turno: turno({ estado: "confirmado", respuesta_cliente: "confirmo", respuesta_cliente_en: "2026-10-14T11:30:00+00:00" }),
@@ -201,7 +185,6 @@ describe("Historia: las respuestas del cliente", () => {
     // 01:30 del 15 en UTC es 22:30 del 14 en Argentina.
     const r = respuesta("r1", { enviado_en: "2026-10-15T01:30:00+00:00" });
     expect(cuandoContesto(r)).toBe("el 14 de octubre a las 22:30");
-    expect(respuestasDelCliente({ respuestas: [r], clienteId: "c1" })[0].cuando).toBe("el 14 de octubre a las 22:30");
   });
 });
 
@@ -261,5 +244,84 @@ describe("Las respuestas agrupadas por cliente", () => {
 
   test("sin respuestas, ninguna fila", () => {
     expect(agruparPorCliente(undefined)).toEqual([]);
+  });
+});
+
+// FRONT-2: la ficha muestra la conversación entera, como un chat: lo que le
+// mandamos y lo que escribió, del más viejo al más nuevo, con un separador
+// cuando cambia el día o el caso. La forma es la de GET /clientes/:id/whatsapp.
+describe("La conversación de un cliente", () => {
+  const casos = [{ id: "k248", numero: 248 }, { id: "k253", numero: 253 }];
+  const item = (id, extra = {}) => ({ id, de: "cliente", tipo: "text", texto: "hola", enviado_en: "2026-10-13T15:00:00+00:00", caso_id: null, resolvio: null, ...extra });
+  const mensajes = (filas) => filas.filter((f) => f.tipo === "mensaje");
+  const separadores = (filas) => filas.filter((f) => f.tipo === "separador").map((f) => f.frase);
+
+  test("se lee como un chat: del más viejo al más nuevo, aunque la API mande al revés", () => {
+    const filas = conversacion({
+      mensajes: [
+        item("c2", { texto: "gracias", enviado_en: "2026-10-13T16:00:00+00:00" }),
+        item("n1", { de: "negocio", tipo: "cierre", texto: "¿Cómo te fue?", enviado_en: "2026-10-13T12:00:00+00:00" }),
+        item("c1", { texto: "bien", enviado_en: "2026-10-13T15:00:00+00:00" }),
+      ],
+      casos, rubro: "taller",
+    });
+    expect(mensajes(filas).map((m) => m.id)).toEqual(["n1", "c1", "c2"]);
+  });
+
+  test("lo nuestro dice qué aviso fue; lo suyo, no lleva etiqueta", () => {
+    const [nuestro, suyo] = mensajes(conversacion({
+      mensajes: [
+        item("n1", { de: "negocio", tipo: "turno", texto: "Te esperamos mañana", enviado_en: "2026-10-12T13:00:00+00:00" }),
+        item("c1", { texto: "dale", enviado_en: "2026-10-12T14:00:00+00:00" }),
+      ],
+      casos, rubro: "taller",
+    }));
+    expect(nuestro.delNegocio).toBe(true);
+    expect(nuestro.etiqueta).toBe("Recordatorio de su turno · automático");
+    expect(nuestro.escrito).toEqual({ literal: true, texto: "Te esperamos mañana" });
+    expect(suyo.delNegocio).toBe(false);
+    expect(suyo.etiqueta).toBeNull();
+    expect(mensajes(conversacion({ mensajes: [item("m1", { de: "negocio", tipo: "manual", texto: "Hasta las 19" })], casos }))[0].etiqueta)
+      .toBe("Lo escribió alguien del negocio");
+  });
+
+  test("un separador cuando cambia el día o el caso, y no entre mensajes del mismo", () => {
+    const filas = conversacion({
+      mensajes: [
+        item("a", { caso_id: "k248", enviado_en: "2026-10-12T15:00:00+00:00" }),
+        item("b", { caso_id: "k248", enviado_en: "2026-10-12T16:00:00+00:00" }),
+        item("c", { caso_id: "k253", enviado_en: "2026-10-12T17:00:00+00:00" }),
+        item("d", { caso_id: null, enviado_en: "2026-10-13T15:00:00+00:00" }),
+      ],
+      casos, rubro: "taller",
+    });
+    expect(separadores(filas)).toEqual(["12 de octubre · caso 248", "12 de octubre · caso 253", "13 de octubre"]);
+    expect(filas.map((f) => f.tipo)).toEqual(["separador", "mensaje", "mensaje", "separador", "mensaje", "separador", "mensaje"]);
+  });
+
+  test("el día es el de Argentina: lo de las 22:30 va con ese día", () => {
+    const filas = conversacion({ mensajes: [item("a", { enviado_en: "2026-10-15T01:30:00+00:00" })], casos });
+    expect(separadores(filas)).toEqual(["14 de octubre"]);
+    expect(mensajes(filas)[0].hora).toBe("22:30");
+  });
+
+  test("lo que se resolvió solo lo dice al pie", () => {
+    const [si, baja, nada] = mensajes(conversacion({
+      mensajes: [
+        item("a", { texto: "sí", resolvio: "confirmo", enviado_en: "2026-10-13T12:00:00+00:00" }),
+        item("b", { texto: "BAJA", resolvio: "baja", enviado_en: "2026-10-13T13:00:00+00:00" }),
+        item("c", { texto: "hola", enviado_en: "2026-10-13T14:00:00+00:00" }),
+      ],
+      casos, rubro: "medicina",
+    }));
+    expect(si.nota).toBe("Se anotó solo: confirmó su consulta.");
+    expect(baja.nota).toBe("Se anotó solo: pidió no recibir más avisos.");
+    expect(nada.nota).toBeNull();
+  });
+
+  test("un audio dice qué mandó, y sin mensajes no hay nada", () => {
+    expect(mensajes(conversacion({ mensajes: [item("a", { tipo: "audio", texto: null })], casos }))[0].escrito)
+      .toEqual({ literal: false, texto: "Mandó un audio." });
+    expect(conversacion({ mensajes: undefined, casos })).toEqual([]);
   });
 });
