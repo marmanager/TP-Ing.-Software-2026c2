@@ -346,7 +346,7 @@ export default function FichaDeCliente() {
 
       {/* Lo que hablamos por WhatsApp (FRONT-2): lo que le mandamos y lo
           que escribió, como un chat. Sin mensajes no hay sección. */}
-      <ConversacionDelCliente clienteId={cliente.id} rubro={negocio?.rubro} />
+      <ConversacionDelCliente clienteId={cliente.id} nombre={cliente.nombre} telefono={cliente.telefono} rubro={negocio?.rubro} />
 
       <TituloSeccion>{t("clientes.ficha.loQueTrajo")}</TituloSeccion>
       {suyos.length === 0 ? (

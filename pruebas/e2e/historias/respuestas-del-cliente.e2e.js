@@ -207,6 +207,29 @@ describe("Historia: las respuestas del cliente", () => {
     );
   });
 
+  it("FRONT-3: se le contesta desde la ficha mientras dura la ventana de 24 horas", async () => {
+    // Marcela escribió hace dos horas (el «sí»): se le puede escribir libre.
+    await iniciarCon(datos, "/clientes/{c1}");
+    const abierta = $('[data-escribir="abierta"]');
+    await expect(abierta).toHaveText(expect.stringContaining("Podés contestarle con texto libre hasta"));
+    // Vacío no sale.
+    await abierta.$("button=Mandar").click();
+    await expect(abierta).toHaveText(expect.stringContaining("Escribí el mensaje antes de mandarlo."));
+    await abierta.$("textarea").setValue("Hasta las 19 estamos");
+    await abierta.$("button=Mandar").click();
+    // Queda último en la conversación, firmado con el nombre del negocio.
+    const ultimo = $('[data-respuestas-del-cliente] li[data-mensaje="negocio"]:last-of-type');
+    await expect(ultimo).toHaveText(expect.stringContaining("Hasta las 19 estamos"));
+    await expect(ultimo).toHaveText(expect.stringContaining("— Taller Sur"));
+    await expect(ultimo).toHaveText(expect.stringContaining("Lo escribió alguien del negocio"));
+
+    // Ana nunca escribió: la ventana está cerrada y se ofrece su chat.
+    await iniciarCon(datos, "/clientes/{c3}");
+    const cerrada = $('[data-escribir="cerrada"]');
+    await expect(cerrada).toHaveText(expect.stringContaining("Todavía no te escribió por WhatsApp"));
+    await expect(cerrada.$("a*=Escribirle desde tu WhatsApp")).toHaveAttribute("href", "https://wa.me/5493415552222");
+  });
+
   it("AC9: sin nada pendiente, la bandeja muestra el vacío y no una lista vacía", async () => {
     await iniciarCon(await sembrar("taller-completo"), "/respuestas");
     await verTexto("No hay respuestas para leer");

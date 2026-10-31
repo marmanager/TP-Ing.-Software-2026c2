@@ -915,6 +915,19 @@ export function DatosProvider({ children }) {
         };
       },
 
+      // Contestarle por WhatsApp desde la ficha (API-3): texto libre, dentro
+      // de las 24 horas desde su último mensaje. La API lo firma con el nombre
+      // del negocio y marca vistas sus respuestas, así que salen también de
+      // las que quedan sin ver. Devuelve el mensaje con la forma de la
+      // conversación, para sumarlo sin volver a leerla.
+      async mandarWhatsapp(clienteId, texto) {
+        const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/whatsapp`, { texto },
+          await tokenDeSesion(), { idempotencia: nuevaClave() });
+        if (!r.ok) return { ok: false, error: r.error };
+        setRespuestasSinVer((s) => s && { ...s, lista: s.lista.filter((x) => x.cliente_id !== clienteId) });
+        return { ok: true, mensaje: r.datos.mensaje };
+      },
+
       // Las que nadie marcó con "Ya lo vi" (078), para el Inicio, las marcas
       // de Casos y Clientes y la bandeja. Se leen una vez y las comparten
       // todas las pantallas; "Ya lo vi" las saca de acá sin volver a pedirlas.
