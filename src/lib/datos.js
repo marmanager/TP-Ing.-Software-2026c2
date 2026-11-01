@@ -19,7 +19,7 @@ import {
   pesos,
   sePuedeMarcarHecho,
 } from "./estados";
-import { normalizarInicio } from "./inicio";
+import { conModulosPrendidos, normalizarInicio } from "./inicio";
 import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
 import { normalizarLanding } from "./landing.js";
@@ -1696,6 +1696,36 @@ export function DatosProvider({ children }) {
       cambiarPresentacionEstados(estados) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, estados } }));
         enLaApi((token) => parchar("/negocio", { estados, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
+      },
+
+      // Lo que propone el Asistente y la persona aplica (src/lib/asistente.js).
+      // Lo de la ficha —estados, cómo se nombran los casos, rubro— va en UNA
+      // sola escritura: de a uno, el segundo chocaría (409) con la versión que
+      // dejó el primero. Después los módulos, que van sin versión. A
+      // diferencia del resto, espera a la API: el chat dice si salió bien.
+      async aplicarConfiguracion({ modulos, prendidos = [], ...ficha }) {
+        const token = await tokenDeSesion();
+        if (Object.keys(ficha).length) {
+          const r = await parchar("/negocio", { ...ficha, actualizado_en: datos.negocio?.actualizado_en }, token);
+          if (!r.ok) return r;
+          ponerNegocio(r.datos.negocio);
+        }
+        if (modulos) {
+          const antes = datos.negocio?.modulos_activos ?? [];
+          const r = await reemplazar("/negocio/modulos", { valor: modulos }, token);
+          if (!r.ok) return r;
+          if (r.datos.negocio) ponerNegocio(r.datos.negocio);
+          // Las tarjetas de lo que se prendió van al final del Inicio, no al
+          // lugar viejo que guardaban escondidas (conModulosPrendidos).
+          const inicio = normalizarInicio(datos.negocio?.inicio);
+          const acomodado = conModulosPrendidos(inicio, antes, modulos, prendidos);
+          if (acomodado !== inicio) {
+            setDatos((d) => ({ ...d, negocio: { ...d.negocio, inicio: acomodado } }));
+            const ri = await reemplazar("/negocio/inicio", { valor: acomodado }, token);
+            if (ri.ok && ri.datos.negocio) ponerNegocio(ri.datos.negocio);
+          }
+        }
+        return { ok: true };
       },
 
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.

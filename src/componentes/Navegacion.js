@@ -82,6 +82,9 @@ const DESTINOS = [
   { href: "/equipo", icono: "personas", modulo: "equipo" },
   { href: "/historial", icono: "historial", modulo: "historial" },
   { href: "/dashboard", icono: "grafico", modulo: "dashboard", permiso: "ver_todos_los_casos" },
+  // El Asistente (src/lib/asistente.js) es núcleo: ayuda justamente a quien
+  // no encuentra algo, así que no puede depender de lo que tenga prendido.
+  { href: "/asistente", icono: "chat", id: "asistente" },
   // "alPie": van separados, abajo de todo. Son la configuración, no el
   // trabajo del día.
   { href: "/negocio", icono: "tienda", id: "negocio", alPie: true },

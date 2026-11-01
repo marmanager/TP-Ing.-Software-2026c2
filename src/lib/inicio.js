@@ -459,3 +459,37 @@ export const quitar = (layout, clave) => layout.filter((m) => m.clave !== clave)
 export const cambiarFiltro = (layout, clave, filtro) =>
   layout.map((m) => (m.clave === clave ? { ...m, filtro } : m));
 
+
+// Cuando se prenden módulos que estaban apagados, sus tarjetas vuelven al
+// Inicio. Escondidas guardaban el lugar de antes, pero mientras tanto la
+// persona pudo acomodar la pantalla, y ese lugar viejo cae en el medio de lo
+// que acomodó (o encima). Así que entran abajo de todo, en el orden en que
+// se prendieron y con el tamaño y el filtro que tenían, sin mover lo que se
+// ve. Lo que sigue escondido queda como estaba.
+//
+// "prendidos" es el orden en que se pidieron (las claves de módulo); lo usa
+// el Asistente (src/lib/asistente.js).
+export function conModulosPrendidos(config, activosAntes = [], activosDespues = [], prendidos = []) {
+  const vuelve = (m) => {
+    const necesita = CATALOGO[m.clave]?.modulo;
+    return necesita && !estaPrendido(necesita, activosAntes) && estaPrendido(necesita, activosDespues);
+  };
+  const vuelven = config.filter(vuelve);
+  if (!vuelven.length) return config;
+
+  const orden = (m) => {
+    const i = prendidos.indexOf(CATALOGO[m.clave].modulo);
+    return i === -1 ? prendidos.length : i;
+  };
+  const resto = config.filter((m) => !vuelve(m));
+  const enPantalla = compactar(visibles(resto, activosDespues));
+  const siguenOcultos = resto.filter((m) => !enPantalla.some((v) => v.clave === m.clave));
+
+  let abajo = enPantalla.reduce((max, m) => Math.max(max, m.y + m.alto), 0);
+  const nuevos = [...vuelven].sort((a, b) => orden(a) - orden(b)).map((m) => {
+    const item = { ...m, x: 0, y: abajo };
+    abajo += m.alto;
+    return item;
+  });
+  return [...compactar([...enPantalla, ...nuevos]), ...siguenOcultos];
+}
