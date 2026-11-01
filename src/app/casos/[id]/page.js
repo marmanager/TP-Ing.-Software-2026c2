@@ -59,6 +59,7 @@ import {
   TituloSeccion,
   Vacio,
 } from "@/componentes/ui";
+import AsistenciaCaso from "@/componentes/asistente/AsistenciaCaso";
 
 const EVENTOS_A_LA_VISTA = 5;
 
@@ -793,6 +794,11 @@ export default function VerCaso() {
           )}
         </div>
       </div>
+
+      <AsistenciaCaso
+        t={t}
+        contexto={{ caso, cliente, empleados, pasos, insumos, eventos, respuestas: respuestas.lista, rubro: negocio?.rubro, idioma, estadoNombre: nombreEstado(caso.estado) }}
+      />
 
       {/* Lo que queda acá NO son cambios de estado: esos se hacen desde el
           desplegable del chip, arriba, donde el estado se lee.

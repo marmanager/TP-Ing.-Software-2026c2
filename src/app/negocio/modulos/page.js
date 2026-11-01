@@ -32,6 +32,7 @@ import {
 import { preset } from "@/lib/presets";
 import Icono from "@/componentes/Icono";
 import { Cargando, TituloPantalla } from "@/componentes/ui";
+import RecomendadorModulos from "@/componentes/asistente/RecomendadorModulos";
 
 export default function Modulos() {
   const datos = useDatos();
@@ -39,6 +40,7 @@ export default function Modulos() {
   const { usuario } = useAuth();
   const { idioma, t } = useIdioma();
   useTitulo(t("negocio.modulosResumen.titulo"));
+  const [asistiendo, setAsistiendo] = useState(false);
 
   if (cargando) return <Cargando />;
 
@@ -68,6 +70,13 @@ export default function Modulos() {
           ? t("negocio.modulos.intro")
           : t("negocio.modulos.introSoloLectura", { quienPuede: quienPuede("configurar_negocio", t) })}
       </p>
+
+      {!asistiendo && (
+        <button type="button" data-testid="asistente-modulos-abrir" onClick={() => setAsistiendo(true)} className="mb-6 min-h-12 rounded-campo border-2 border-azul px-5 font-bold text-azul hover:bg-azul-claro">
+          {t("asistente.modulos.abrir")}
+        </button>
+      )}
+      {asistiendo && <RecomendadorModulos datos={datos} puedeConfigurar={puedeConfigurar} quienPuede={quienPuede("configurar_negocio", t)} idioma={idioma} t={t} alCerrar={() => setAsistiendo(false)} />}
 
       <ul className="grid gap-3">
         {LISTA_MODULOS.map((modulo) => {

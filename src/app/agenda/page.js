@@ -19,6 +19,7 @@ import MoverTurno from "@/componentes/MoverTurno";
 import Pestanas from "@/componentes/Pestanas";
 import RespuestaDelTurno from "@/componentes/RespuestaDelTurno";
 import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import PrepararAccion from "@/componentes/asistente/PrepararAccion";
 
 export default function Agenda() {
   const datos = useDatos();
@@ -27,6 +28,7 @@ export default function Agenda() {
   const puedeCargar = puede(usuario, "manejar_turnos");
   const { cargando, turnos, clientes, casos } = datos;
   const [abierto, setAbierto] = useState(false);
+  const [borradorAsistente, setBorradorAsistente] = useState(null);
   // El turno que se está por cancelar, esperando la confirmación.
   const [cancelando, setCancelando] = useState(null);
   // La agenda mira para adelante. Los que ya pasaron se piden aparte: sirven
@@ -109,11 +111,19 @@ export default function Agenda() {
         )}
       </div>
 
+      {puedeCargar && (
+        <div className="mb-4">
+          <PrepararAccion tipo="agenda" t={tr} alUsar={(propuesta) => { setBorradorAsistente(propuesta); setAbierto(true); }} />
+        </div>
+      )}
+
       {abierto && puedeCargar && (
         <AltaDeTurno
+          key={JSON.stringify(borradorAsistente)}
+          inicial={borradorAsistente}
           className="mb-8"
-          alGuardar={() => setAbierto(false)}
-          alCancelar={() => setAbierto(false)}
+          alGuardar={() => { setAbierto(false); setBorradorAsistente(null); }}
+          alCancelar={() => { setAbierto(false); setBorradorAsistente(null); }}
         />
       )}
 

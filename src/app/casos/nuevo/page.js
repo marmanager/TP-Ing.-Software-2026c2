@@ -35,6 +35,7 @@ import { horaYMinutos } from "@/lib/fechas";
 import { Boton, BotonPrincipalFijo, Campo, Cargando, MarcaFalta } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
+import AltaCasoAsistida from "@/componentes/asistente/AltaCasoAsistida";
 
 // useSearchParams necesita un límite de Suspense para que la pantalla se
 // pueda seguir generando estática. Adentro no hay nada que esperar: el turno
@@ -88,6 +89,7 @@ function Formulario() {
   const [saliendo, setSaliendo] = useState(false);
   const guardandoRef = useRef(false);
   const [guardando, setGuardando] = useState(false);
+  const [asistiendo, setAsistiendo] = useState(false);
 
   // Lo que había al entrar: si el caso sale de un turno, los datos del turno
   // no cuentan como "escrito", porque siguen estando en el turno.
@@ -227,6 +229,27 @@ function Formulario() {
         </p>
       )}
       <div className="mb-8" />
+
+      {!asistiendo && (
+        <div className="mb-6"><Boton variante="borde" data-testid="asistente-alta-abrir" onClick={() => setAsistiendo(true)}>{t("asistente.alta.abrir")}</Boton></div>
+      )}
+      {asistiendo && (
+        <AltaCasoAsistida
+          actual={{ nombre, telefono, identificador, servicio, responsable }}
+          empleados={empleados}
+          rubro={negocio?.rubro}
+          t={t}
+          alCerrar={() => setAsistiendo(false)}
+          alUsar={(valores) => {
+            setNombre(valores.nombre ?? nombre);
+            setTelefono(valores.telefono ?? telefono);
+            setIdentificador(valores.identificador ?? identificador);
+            setServicio(valores.servicio ?? servicio);
+            setResponsable(valores.responsable ?? responsable);
+            setElegido(null);
+          }}
+        />
+      )}
 
       <div className="max-w-[560px]">
         {/* Dos clientes pueden llamarse igual: el teléfono es lo que dice

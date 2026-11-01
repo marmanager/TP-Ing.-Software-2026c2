@@ -24,6 +24,7 @@ const VACIO = { nombreCliente: "", motivo: "", empiezaEn: "" };
 
 export default function AltaDeTurno({
   cuandoSugerido = "",
+  inicial = null,
   alGuardar,
   alCancelar,
   className = "",
@@ -31,7 +32,8 @@ export default function AltaDeTurno({
   const datos = useDatos();
   const { idioma, locale, t } = useIdioma();
   const { clientes, negocio } = datos;
-  const [form, setForm] = useState({ ...VACIO, empiezaEn: cuandoSugerido });
+  const base = { ...VACIO, empiezaEn: cuandoSugerido, ...(inicial ?? {}) };
+  const [form, setForm] = useState(base);
   // El teléfono, con el selector de país (B-1b). Sólo cuenta si es alguien
   // nuevo: al que ya está cargado no se le pide.
   const paisNegocio = paisInicial(negocio);
@@ -90,7 +92,7 @@ export default function AltaDeTurno({
     datos.avisarExito(
       [t("agenda.alta.listo", { motivo: form.motivo.trim() }), avisoAlAnotar(r.recordatorio, { t, locale, idioma })].filter(Boolean).join(" ")
     );
-    setForm({ ...VACIO, empiezaEn: cuandoSugerido });
+    setForm(base);
     tel.cargar("");
     alGuardar?.();
   }
@@ -217,7 +219,7 @@ export default function AltaDeTurno({
             icono="tacho"
             className="w-full sm:w-auto"
             onClick={() => {
-              setForm({ ...VACIO, empiezaEn: cuandoSugerido });
+              setForm(base);
               alCancelar();
             }}
           >

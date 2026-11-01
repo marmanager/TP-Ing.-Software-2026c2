@@ -12,6 +12,7 @@ import {
   nombreParaDependencia, ordenarEcuaciones, resolverEcuacionEncadenada, variablesHeredadas,
 } from "@/lib/ecuaciones";
 import { Boton, Campo, Cargando, ErrorGeneral, Tarjeta, TituloPantalla, TituloSeccion, Vacio } from "@/componentes/ui";
+import { AyudaEcuacion, CreadorEcuacionAsistido } from "@/componentes/asistente/AsistenteEcuaciones";
 
 const vacia = () => ({ nombre: "", formula: "", descripcion: "", categoria: "", unidad_resultado: "", variables: [], dependencias: [] });
 const idNuevo = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
@@ -63,7 +64,10 @@ export default function Ecuaciones() {
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-8">
       <TituloPantalla apoyo={t("ecuaciones.apoyo")}>{nombreDeModulo("ecuaciones", t)}</TituloPantalla>
-      <Boton variante="principal" icono="mas" onClick={() => setPantalla({ tipo: "crear", ecuacion: vacia() })} data-testid="ecuaciones-crear">{t("ecuaciones.crear")}</Boton>
+      <div className="flex flex-wrap gap-2">
+        <Boton variante="principal" icono="mas" onClick={() => setPantalla({ tipo: "crear", ecuacion: vacia() })} data-testid="ecuaciones-crear">{t("ecuaciones.crear")}</Boton>
+        <CreadorEcuacionAsistido t={t} alRevisar={(ecuacion) => setPantalla({ tipo: "crear", ecuacion })} />
+      </div>
 
       <TituloSeccion className="mt-10">{t("ecuaciones.guardadas")}</TituloSeccion>
       {!ecuaciones.length ? (
@@ -107,6 +111,7 @@ export default function Ecuaciones() {
                       } })}>{t("ecuaciones.duplicar")}</Boton>
                       <Boton variante="peligro" onClick={() => { setBorrando(ecuacion.id); setErrorBorrado(null); }}>{t("ecuaciones.eliminar")}</Boton>
                     </div>
+                    <AyudaEcuacion ecuacion={ecuacion} t={t} />
                     {borrando === ecuacion.id && (
                       <div className="mt-4 rounded-campo bg-superficie p-4">
                         <p>{t("ecuaciones.confirmarEliminar", { nombre: ecuacion.nombre })}</p>

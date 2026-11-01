@@ -52,6 +52,7 @@ import {
   PRODUCTO_VACIO,
 } from "@/componentes/Producto";
 import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import PrepararAccion from "@/componentes/asistente/PrepararAccion";
 
 export default function Inventario() {
   const datos = useDatos();
@@ -59,6 +60,7 @@ export default function Inventario() {
   const puedeCargar = puede(usuario, "editar_inventario");
   const { cargando, insumos, negocio } = datos;
   const [abierto, setAbierto] = useState(false);
+  const [borradorAsistente, setBorradorAsistente] = useState(null);
   const [editandoCategorias, setEditandoCategorias] = useState(false);
   // Cómo se mira el stock: todos juntos, o agrupados por categoría.
   //
@@ -151,7 +153,11 @@ export default function Inventario() {
         )}
       </div>
 
-      {abierto && puedeCargar && vista === "productos" && <AltaDeProducto alCerrar={() => setAbierto(false)} />}
+      {puedeCargar && vista === "productos" && (
+        <div className="mb-4"><PrepararAccion tipo="inventario" t={t} alUsar={(propuesta) => { setBorradorAsistente(propuesta); setAbierto(true); }} /></div>
+      )}
+
+      {abierto && puedeCargar && vista === "productos" && <AltaDeProducto key={JSON.stringify(borradorAsistente)} inicial={borradorAsistente} alCerrar={() => { setAbierto(false); setBorradorAsistente(null); }} />}
       {editandoCategorias && puedeCargar && vista === "categorias" && (
         <EdicionDeCategorias alCerrar={() => setEditandoCategorias(false)} />
       )}
@@ -358,11 +364,11 @@ export default function Inventario() {
 // ------------------------------------------------------------
 // Los campos son los de componentes/Producto.js, los mismos que pedir y editar.
 
-function AltaDeProducto({ alCerrar }) {
+function AltaDeProducto({ alCerrar, inicial = null }) {
   const datos = useDatos();
   const { insumos, negocio } = datos;
   const { idioma, t } = useIdioma();
-  const [form, setForm] = useState(PRODUCTO_VACIO);
+  const [form, setForm] = useState({ ...PRODUCTO_VACIO, ...(inicial ?? {}) });
   // Mientras la API contesta, el botón no se puede volver a tocar: un
   // segundo toque sería otro pedido y sumaría dos veces.
   const [guardando, setGuardando] = useState(false);

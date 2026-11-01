@@ -62,6 +62,7 @@ import {
 import Modulo from "@/componentes/inicio/Modulo";
 import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
+import ConsultaInicio from "@/componentes/asistente/ConsultaInicio";
 
 const FLECHAS = {
   ArrowLeft: [-1, 0],
@@ -425,6 +426,18 @@ export default function Inicio() {
           </div>
         )}
       </div>
+
+      {!acomodando && (
+        <ConsultaInicio
+          t={t}
+          datos={{
+            casos, pasos, insumos, turnos, empleados: datos.empleados ?? [], cobros: cobros ?? [],
+            modulosActivos, permisos: {
+              agenda: puede(usuario, "ver_agenda"), inventario: puede(usuario, "ver_inventario"), cobros: puede(usuario, "cobrar"),
+            },
+          }}
+        />
+      )}
 
       {/* SCRUM-95. El rubro "personalizable" arranca sin ningún módulo, a
           propósito: si trajera lo básico, quien lo eligió no se enteraría de
