@@ -94,6 +94,10 @@ const TRAZOS = {
   ),
   // Una ventana con la franja de la izquierda marcada: la barra lateral.
   // Abre y cierra la barra en la computadora.
+  // Pantalla completa y volver al panel: flechas hacia las esquinas, y hacia
+  // adentro.
+  agrandar: <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />,
+  achicar: <path d="M20 10h-6V4M4 14h6v6M14 10l6-6M10 14l-6 6" />,
   panel: (
     <>
       <rect x="3.5" y="4.5" width="17" height="15" rx="2" />

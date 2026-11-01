@@ -87,9 +87,9 @@ test("todo destino de Navegacion.js es un módulo conocido o tiene su palabra pr
   const fuente = leer("../src/componentes/Navegacion.js");
   const modulos = [...fuente.matchAll(/modulo: "(\w+)"/g)].map((m) => m[1]);
   const ids = [...fuente.matchAll(/\bid: "(\w+)"/g)].map((m) => m[1]);
-  // Los de núcleo con palabra propia: inicio, casos, el Asistente, Mi
-  // negocio y Mi perfil.
-  assert.ok(modulos.length >= 12 && ids.length === 5);
+  // Los de núcleo con palabra propia: inicio, casos, Mi negocio y Mi perfil.
+  // El Asistente ya no es un destino: es un panel (componentes/asistente).
+  assert.ok(modulos.length >= 12 && ids.length === 4);
   for (const m of modulos) assert.ok(MODULOS[m] || SUBMODULOS[m], `módulo ${m}`);
   for (const id of ids) assert.notEqual(palabraDeBarra(id, tEn), id, `palabra de ${id}`);
   assert.doesNotMatch(fuente, /palabra:/, "ya no queda una palabra escrita en la lista de destinos");

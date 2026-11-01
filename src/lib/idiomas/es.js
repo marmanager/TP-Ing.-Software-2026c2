@@ -2599,6 +2599,9 @@ export default {
   },
   asistente: {
     titulo: "Asistente",
+    pantallaCompleta: "Pantalla completa",
+    achicar: "Volver al panel",
+    cerrarPanel: "Cerrar",
     apoyo: "Preguntale cómo usar la app, contale qué problema tenés, pedile que configure tu negocio o que te arme ecuaciones. Antes de cambiar o agregar algo, te lo muestra y vos decidís.",
     vacioTitulo: "¿En qué te ayudo?",
     vacioTexto: "Podés arrancar con alguna de estas, o escribir lo tuyo.",

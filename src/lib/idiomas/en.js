@@ -2593,6 +2593,9 @@ export default {
   },
   asistente: {
     titulo: "Assistant",
+    pantallaCompleta: "Full screen",
+    achicar: "Back to panel",
+    cerrarPanel: "Close",
     apoyo: "Ask how to use the app, tell it what problem you have, ask it to set up your business or to build equations. Before changing or adding anything, it shows you and you decide.",
     vacioTitulo: "How can I help?",
     vacioTexto: "Start with one of these, or write your own.",

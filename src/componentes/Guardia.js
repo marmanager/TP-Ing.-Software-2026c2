@@ -18,6 +18,8 @@ import { useDatos } from "@/lib/datos";
 import { bloquea, RUTAS_SIN_SUSCRIPCION } from "@/lib/suscripcion";
 import { ContextoSuscripcion, useSuscripcion } from "@/lib/useSuscripcion";
 import { BarraLateral, BarraCelular } from "./Navegacion";
+import { ProveedorAsistente } from "./asistente/ContextoAsistente";
+import { BotonDelAsistente, PanelDelAsistente } from "./asistente/PanelDelAsistente";
 import PantallaEntrada from "./PantallaEntrada";
 import Aviso from "./Aviso";
 import FranjaDeVisita from "./FranjaDeVisita";
@@ -219,6 +221,9 @@ export default function Guardia({ children }) {
 
   return (
     <ContextoSuscripcion.Provider value={suscripcion}>
+    {/* El Asistente va en el marco y no en una pantalla: sigue abierto al
+        cambiar de sección (componentes/asistente). */}
+    <ProveedorAsistente>
       {/* Lo primero de la página, para quien usa teclado o lector de
           pantalla: sin esto, en cada pantalla había que pasar por las nueve
           secciones de la barra antes de llegar a lo que se vino a hacer
@@ -265,8 +270,11 @@ export default function Guardia({ children }) {
             )}
           </div>
         </main>
+        <PanelDelAsistente />
       </div>
+      <BotonDelAsistente />
       <BarraCelular />
+    </ProveedorAsistente>
     </ContextoSuscripcion.Provider>
   );
 }
