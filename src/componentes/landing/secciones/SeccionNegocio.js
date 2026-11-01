@@ -6,8 +6,10 @@ import { DIAS, cortoDelDia, normalizarHorarios } from "@/lib/horarios";
 import { useIdioma } from "@/lib/useIdioma";
 import { linkDeLlamada, linkDeWhatsAppA } from "@/lib/seguimiento";
 
-// "El negocio", en la landing: lo que cuenta de sí, cuándo atiende y cómo
-// hablarle. El nombre no se repite: ya es el título de la página.
+// "El negocio", en la landing: lo que cuenta de sí, dónde queda, cuándo
+// atiende y cómo hablarle. El nombre no se repite: ya es el título de la
+// página. La dirección (082) lleva al mapa: desde el celular, tocarla abre la
+// aplicación de mapas con el lugar ya buscado.
 //
 // Los horarios vienen null si el negocio no publicó los suyos (lo decide la
 // API). Los botones van con borde y no en azul: el botón principal de la
@@ -23,8 +25,10 @@ export default function SeccionNegocio({ negocio, horarios }) {
   // Lo que escribe el cliente por WhatsApp sale en su idioma.
   const whatsapp = linkDeWhatsAppA(negocio.telefono, t("landing.negocioSeccion.hola", { negocio: negocio.nombre }));
   const llamada = linkDeLlamada(negocio.telefono);
+  const direccion = negocio.direccion?.trim() || null;
+  const mapa = direccion ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}` : null;
 
-  if (!negocio.descripcion && dias.length === 0 && !llamada) {
+  if (!negocio.descripcion && !direccion && dias.length === 0 && !llamada) {
     return <p className="mt-2 text-tinta-media">{t("landing.negocioSeccion.sinDatos", { negocio: negocio.nombre })}</p>;
   }
 
@@ -32,6 +36,15 @@ export default function SeccionNegocio({ negocio, horarios }) {
     <>
       {negocio.descripcion && (
         <p className="mt-2 max-w-[65ch] whitespace-pre-line text-tinta-media">{negocio.descripcion}</p>
+      )}
+
+      {direccion && (
+        <p className="mt-4 flex items-start gap-2 text-tinta-media">
+          <Icono nombre="tienda" className="mt-0.5 size-5 shrink-0" />
+          <a href={mapa} target="_blank" rel="noreferrer" className="font-bold text-tinta underline underline-offset-4">
+            {direccion}
+          </a>
+        </p>
       )}
 
       {dias.length > 0 && (

@@ -63,6 +63,7 @@ export default function MiNegocio() {
   const [borrador, setBorrador] = useState({
     nombre: "",
     descripcion: "",
+    direccion: "",
     foto: null,
   });
   // El teléfono va aparte, en el campo con selector de país (B-1b).
@@ -73,11 +74,14 @@ export default function MiNegocio() {
   const [achicandoFoto, setAchicandoFoto] = useState(false);
 
   const LARGO_DESCRIPCION = 140;
+  // El tope de la API (082): entra en el mensaje del turno sin cortarlo.
+  const LARGO_DIRECCION = 200;
 
   function abrirEdicion() {
     setBorrador({
       nombre: negocio?.nombre ?? "",
       descripcion: negocio?.descripcion ?? "",
+      direccion: negocio?.direccion ?? "",
       foto: negocio?.foto ?? null,
     });
     tel.cargar(negocio?.telefono ?? "");
@@ -101,6 +105,8 @@ export default function MiNegocio() {
     ? t("ui.validaciones.faltaNombre")
     : borrador.descripcion.length > LARGO_DESCRIPCION
       ? t("negocio.ficha.descripcionMuyLarga")
+      : borrador.direccion.length > LARGO_DIRECCION
+        ? t("negocio.ficha.direccionMuyLarga")
       : errorTelefono
         ? t("negocio.ficha.telefonoInvalido")
         : achicandoFoto
@@ -273,6 +279,9 @@ export default function MiNegocio() {
                 {negocio?.telefono && (
                   <p className="mt-1 text-tinta-media">{t("negocio.ficha.telefono", { telefono: telefonoLegible(negocio.telefono) })}</p>
                 )}
+                {negocio?.direccion && (
+                  <p className="mt-1 text-tinta-media">{t("negocio.ficha.direccion", { direccion: negocio.direccion })}</p>
+                )}
               </>
             )}
           </div>
@@ -353,6 +362,22 @@ export default function MiNegocio() {
               error={errorTelefono}
               valor={tel.valor}
               onChange={tel.setValor}
+            />
+
+            {/* Dónde queda: va en el recordatorio del turno y en el aviso de
+                que está listo para retirar, y se ve en la landing. Sin ella,
+                esos avisos no salen (la plantilla de Meta no admite huecos). */}
+            <Campo
+              id="negocio-direccion"
+              etiqueta={t("negocio.ficha.direccionEtiqueta")}
+              ayuda={t("negocio.ficha.direccionAyuda")}
+              error={
+                borrador.direccion.length > LARGO_DIRECCION
+                  ? t("negocio.ficha.direccionLarga", { n: borrador.direccion.length, max: LARGO_DIRECCION })
+                  : null
+              }
+              value={borrador.direccion}
+              onChange={(e) => setBorrador((b) => ({ ...b, direccion: e.target.value }))}
             />
 
             <div className="flex flex-wrap gap-3">

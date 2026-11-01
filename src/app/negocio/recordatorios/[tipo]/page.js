@@ -10,6 +10,12 @@
 //
 // El texto sugerido según el rubro lo arma la API: llega en la
 // configuración y se edita.
+//
+// Con las plantillas de WhatsApp (FRONT-4) se elige además una versión del
+// texto aprobado por Meta, con su vista previa. Si la elegida ya está
+// aprobada, el campo del mensaje no se muestra: sale la plantilla. Y si al
+// negocio le faltan datos que van en el mensaje (la dirección, el teléfono),
+// lo dice, lleva a Mi negocio y no deja prenderlo.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -23,12 +29,15 @@ import { textoDeError } from "@/lib/idioma";
 import { estaPrendido } from "@/lib/modulos";
 import {
   cambiosDelRecordatorio,
+  conPlantilla,
   cuandoSaleEnPalabras,
   erroresDelRecordatorio,
   esTipoDeRecordatorio,
+  faltanDatosDelNegocio,
   ofreceCanal,
   recordatoriosDeLaApi,
   textosDelRecordatorio,
+  versionesParaElegir,
 } from "@/lib/recordatorios";
 import Icono from "@/componentes/Icono";
 import {
@@ -122,9 +131,17 @@ export default function Recordatorio() {
   // Los errores sólo cuentan si está prendido: lo apagado no se manda.
   const errores = borrador.activo ? erroresDelRecordatorio({ tipo, ...borrador }, lang) : {};
   const cambios = cambiosDelRecordatorio(tipo, guardado, borrador);
+  // Lo que le falta al negocio para mandarlo. Si ya estaba prendido se puede
+  // apagar o tocar, pero no prender uno apagado: saldría cancelado.
+  const faltan = faltanDatosDelNegocio(borrador.faltan, lang);
+  const prendeSinDatos = Boolean(faltan) && borrador.activo && !guardado.activo;
+  const versiones = versionesParaElegir(borrador.versiones, lang);
+  const plantilla = conPlantilla(borrador);
 
   const motivo = guardando
     ? t("negocio.recordatorios.guardando")
+    : prendeSinDatos
+      ? t("recordatorios.plantillas.noSePuedePrender")
     : errores.mensaje
       ? t("negocio.recordatorios.faltaMensaje")
       : errores.plazo
@@ -168,6 +185,18 @@ export default function Recordatorio() {
 
       <fieldset disabled={!puedeConfigurar || guardando}>
         <Tarjeta className="mb-8">
+          {faltan && (
+            <div data-faltan-datos className="mb-6 rounded-campo border-2 border-espera bg-espera-fondo p-4">
+              <p className="flex items-start gap-2 font-bold text-espera">
+                <Icono nombre="alerta" className="mt-0.5 size-5 shrink-0" />
+                <span>{faltan}</span>
+              </p>
+              <Link href="/negocio" className="mt-2 inline-flex min-h-12 items-center gap-2 font-bold text-azul">
+                {t("recordatorios.plantillas.completar")}
+                <Icono nombre="flecha-der" className="size-5" />
+              </Link>
+            </div>
+          )}
           <Interruptor
             prendido={borrador.activo}
             onChange={(activo) => cambiar({ activo })}
@@ -212,6 +241,41 @@ export default function Recordatorio() {
                   </select>
                 </Campo>
               )}
+              {versiones.length > 0 && (
+                <fieldset className="mb-6" data-versiones>
+                  <legend className="font-bold text-cuerpo">{t("recordatorios.plantillas.titulo")}</legend>
+                  <p className="mt-1 max-w-[65ch] text-etiqueta text-tinta-media">{t("recordatorios.plantillas.ayuda")}</p>
+                  <div className="mt-3 flex flex-col gap-3">
+                    {versiones.map((v) => {
+                      const elegida = borrador.version === v.version;
+                      return (
+                        <label
+                          key={v.version}
+                          data-version={v.version}
+                          className={`flex cursor-pointer gap-3 rounded-campo border-2 p-4 ${elegida ? "border-azul bg-azul-claro" : "border-borde bg-tarjeta"}`}
+                        >
+                          <input
+                            type="radio"
+                            name={`${tipo}-version`}
+                            value={v.version}
+                            checked={elegida}
+                            onChange={() => cambiar({ version: v.version })}
+                            className="mt-1 size-5 shrink-0 accent-azul"
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-bold">{v.nombre}</span>
+                            <span className="mt-1 block whitespace-pre-wrap text-etiqueta text-tinta-media [overflow-wrap:anywhere]">{v.vista_previa}</span>
+                            <span className={`mt-2 block text-apoyo ${v.prendida ? "text-completo" : "text-tinta-suave"}`}>
+                              {v.prendida ? t("recordatorios.plantillas.aprobado") : t("recordatorios.plantillas.pendiente")}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+              {!plantilla && (
               <Campo
                 id={`${tipo}-mensaje`}
                 etiqueta={t("negocio.recordatorios.mensaje")}
@@ -229,6 +293,7 @@ export default function Recordatorio() {
                   className={`mt-2 block w-full resize-y rounded-campo border-2 bg-tarjeta p-4 text-cuerpo ${errores.mensaje ? "border-rojo" : "border-borde-fuerte"}`}
                 />
               </Campo>
+              )}
             </div>
           )}
         </Tarjeta>

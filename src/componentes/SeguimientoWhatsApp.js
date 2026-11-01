@@ -6,6 +6,7 @@ import { Boton, Campo } from "./ui";
 import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
 import { textoDeError } from "@/lib/idioma";
 import { useIdioma } from "@/lib/useIdioma";
+import { conPlantilla, versionElegida } from "@/lib/recordatorios";
 
 export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar, guardando }) {
   const { t } = useIdioma();
@@ -55,6 +56,10 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
   const conTelefono = telefonoWhatsAppValido(telefono);
   const errores = erroresSeguimiento(valor, t);
   const disponible = configuracion?.activo && conTelefono && !activando;
+  // Con la plantilla del posventa aprobada (FRONT-4), el texto es el de Meta:
+  // se muestra cómo le llega, sin poder editarlo. La API le suma lo que se
+  // hizo y el link al mandarlo.
+  const plantilla = configuracion && conPlantilla(configuracion) ? versionElegida(configuracion) : null;
 
   return (
     <fieldset className="my-6 border-t border-borde pt-6" disabled={guardando}>
@@ -106,6 +111,15 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
             disabled={!valor.enviar || !disponible}
             onChange={(e) => alCambiar({ ...valor, dias: e.target.value })}
           />
+          {plantilla ? (
+            <div data-plantilla-posventa className="mb-6">
+              <p className="font-bold text-cuerpo">{t("casos.seguimiento.leVaALlegar")}</p>
+              <p className="mt-2 max-w-[65ch] whitespace-pre-wrap rounded-campo bg-superficie p-4 text-etiqueta text-tinta-media [overflow-wrap:anywhere]">
+                {plantilla.vista_previa}
+              </p>
+              <p className="mt-1 text-apoyo text-tinta-suave">{t("casos.seguimiento.textoAprobado")}</p>
+            </div>
+          ) : (
           <Campo id="seguimiento-entrega-mensaje" etiqueta={t("casos.seguimiento.mensaje")} error={errores.mensaje}>
             <textarea
               id="seguimiento-entrega-mensaje" rows={5} maxLength={3000}
@@ -117,6 +131,7 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
               className={`mt-2 block w-full resize-y rounded-campo border-2 bg-tarjeta p-4 text-cuerpo ${errores.mensaje ? "border-rojo" : "border-borde-fuerte"}`}
             />
           </Campo>
+          )}
         </div>
       )}
     </fieldset>
