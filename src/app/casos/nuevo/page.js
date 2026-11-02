@@ -35,6 +35,7 @@ import { horaYMinutos } from "@/lib/fechas";
 import { Boton, BotonPrincipalFijo, Campo, Cargando, MarcaFalta } from "@/componentes/ui";
 import Icono from "@/componentes/Icono";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
+import CampoMail, { useMail } from "@/componentes/CampoMail";
 
 // useSearchParams necesita un límite de Suspense para que la pantalla se
 // pueda seguir generando estática. Adentro no hay nada que esperar: el turno
@@ -71,6 +72,7 @@ function Formulario() {
   // carga el suyo.
   const paisNegocio = paisInicial(negocio);
   const tel = useTelefono(delTurno?.telefono ?? "", paisNegocio);
+  const mail = useMail();
   const telefono = tel.telefono;
   const setTelefono = tel.cargar;
   // El cliente elegido de la lista de sugerencias, que es a quien va el caso
@@ -168,6 +170,8 @@ function Formulario() {
         clienteId: yaEsCliente?.id ?? null,
         nombreCliente: nombre.trim(),
         telefono,
+        // Sólo para uno nuevo: el de uno que ya está se corrige en su ficha.
+        email: yaEsCliente ? null : mail.email,
         servicio: servicio.trim(),
         identificador: identificador.trim(),
         responsableId: responsable || null,
@@ -332,6 +336,8 @@ function Formulario() {
           onChange={tel.setValor}
           onBlur={() => setTocado((previo) => ({ ...previo, telefono: true }))}
         />
+
+        {!yaEsCliente && nombre.trim() && <CampoMail id="mail" mail={mail} />}
 
         {/* El identificador va acá y no "después": es lo más certero que
             tenemos para reconocer el caso, y se lo tiene enfrente. La

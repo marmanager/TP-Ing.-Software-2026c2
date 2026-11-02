@@ -808,13 +808,15 @@ export function respuestaDelTurno({ turno, rubro, ahora }, opciones) {
   const l = lang(opciones);
   const { t, idioma } = l;
   const { cita } = vocabulario(rubro, idioma);
+  // Por mail (085) se dice así; sin vía, las de antes, que fueron por WhatsApp.
+  const porMail = turno?.respuesta_cliente_via === "mail" ? "PorMail" : "";
   switch (turno?.respuesta_cliente) {
     case "confirmo":
-      return { estado: "confirmo", frase: t("recordatorios.respuestas.confirmo", { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
+      return { estado: "confirmo", frase: t(`recordatorios.respuestas.confirmo${porMail}`, { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
     // El botón "Cancelo" del recordatorio (API-4b) cancela el turno: el
     // horario queda libre. Se dice como lo que pasó, sin alarma.
     case "cancelo":
-      return { estado: "cancelo", frase: t("recordatorios.respuestas.cancelo", { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
+      return { estado: "cancelo", frase: t(`recordatorios.respuestas.cancelo${porMail}`, { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
     case "no_puede":
       return {
         estado: "no_puede",

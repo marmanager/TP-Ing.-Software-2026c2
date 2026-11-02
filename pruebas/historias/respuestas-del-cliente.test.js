@@ -74,6 +74,22 @@ describe("Historia: las respuestas del cliente", () => {
     expect(r).toEqual({ estado: "confirmo", frase: "Confirmó por WhatsApp hoy a las 08:30." });
   });
 
+  // 085: contestó desde el link del mail, no por WhatsApp.
+  test("si contestó desde el mail, la agenda lo dice así", () => {
+    const conf = respuestaDelTurno({
+      turno: turno({ estado: "confirmado", respuesta_cliente: "confirmo", respuesta_cliente_en: "2026-10-14T11:30:00+00:00", respuesta_cliente_via: "mail" }),
+      rubro: "taller",
+      ahora: AHORA,
+    });
+    expect(conf.frase).toBe("Confirmó desde el mail hoy a las 08:30.");
+    const canc = respuestaDelTurno({
+      turno: turno({ estado: "cancelado", respuesta_cliente: "cancelo", respuesta_cliente_en: "2026-10-14T11:30:00+00:00", respuesta_cliente_via: "mail" }),
+      rubro: "taller",
+      ahora: AHORA,
+    });
+    expect(canc.frase).toBe("Canceló desde el mail hoy a las 08:30.");
+  });
+
   test("la agenda dice que el cliente avisó que no puede", () => {
     const r = respuestaDelTurno({
       turno: turno({ respuesta_cliente: "no_puede", respuesta_cliente_en: "2026-10-13T22:00:00+00:00" }),

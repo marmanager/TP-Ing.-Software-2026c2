@@ -19,6 +19,7 @@ import { avisoAlAnotar } from "@/lib/recordatorios";
 import { Boton, Campo, Tarjeta, TituloSeccion, claseDeEntrada } from "@/componentes/ui";
 import HorarioDeTurno from "@/componentes/HorarioDeTurno";
 import CampoTelefono,{ useTelefono } from "@/componentes/CampoTelefono";
+import CampoMail, { useMail } from "@/componentes/CampoMail";
 
 const VACIO = { nombreCliente: "", motivo: "", empiezaEn: "" };
 
@@ -36,6 +37,7 @@ export default function AltaDeTurno({
   // nuevo: al que ya está cargado no se le pide.
   const paisNegocio = paisInicial(negocio);
   const tel = useTelefono("", paisNegocio);
+  const mail = useMail();
 
   // Si el nombre coincide con alguien ya cargado, se le suma el turno a esa
   // ficha; si no, se da de alta el cliente junto con el turno.
@@ -81,6 +83,7 @@ export default function AltaDeTurno({
     const r = await datos.agregarTurno({
       ...form,
       telefono: pideTelefono && !tel.vacio ? tel.telefono : "",
+      email: pideTelefono ? mail.email : null,
       clienteId: yaEsCliente?.id ?? null,
     });
     setGuardando(false);
@@ -92,6 +95,7 @@ export default function AltaDeTurno({
     );
     setForm({ ...VACIO, empiezaEn: cuandoSugerido });
     tel.cargar("");
+    mail.vaciar();
     alGuardar?.();
   }
 
@@ -179,6 +183,7 @@ export default function AltaDeTurno({
           onChange={tel.setValor}
         />
       )}
+      {pideTelefono && <CampoMail id="turno-mail" mail={mail} />}
 
       <Campo
         id="turno-motivo"
