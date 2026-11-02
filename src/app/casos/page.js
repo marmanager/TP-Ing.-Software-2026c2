@@ -20,7 +20,7 @@ export default function Casos() {
   const router = useRouter();
   const { t, idioma } = useIdioma();
   const { cargando, casos, clientes, negocio } = useDatos();
-  const { casosConRespuesta } = useRespuestasSinVer();
+  const { sinVerDelCaso } = useRespuestasSinVer();
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
   const [orden, setOrden] = useState("estado");
@@ -194,7 +194,7 @@ export default function Casos() {
       ) : (
         <ul className="overflow-hidden rounded-tarjeta border border-borde bg-tarjeta">
           {visibles.map((caso) => (
-            <FilaCaso key={caso.id} caso={caso} conRespuesta={casosConRespuesta.has(caso.id)} />
+            <FilaCaso key={caso.id} caso={caso} sinVer={sinVerDelCaso(caso.id)} />
           ))}
         </ul>
       )}

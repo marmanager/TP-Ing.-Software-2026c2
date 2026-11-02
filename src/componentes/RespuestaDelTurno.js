@@ -16,6 +16,9 @@ import Icono from "./Icono";
 const COMO_SE_VE = {
   confirmo: { icono: "listo", clase: "text-completo" },
   no_puede: { icono: "whatsapp", clase: "font-bold text-espera" },
+  // "Cancelo" del recordatorio (API-4b): el turno ya está cancelado y el
+  // horario libre. Neutro: lo resolvió el cliente.
+  cancelo: { icono: "whatsapp", clase: "text-tinta-media" },
   sin_respuesta: { icono: "reloj", clase: "text-tinta-media" },
 };
 

@@ -1345,6 +1345,18 @@ export default function VerCaso() {
               {t("respuestas.verMas")}
             </Boton>
           )}
+          {/* Acá sólo lo de este caso. La conversación entera (con lo que le
+              mandamos, y para contestarle) está en la ficha del cliente. */}
+          {cliente && (
+            <Link
+              href={`/clientes/${cliente.id}#conversacion-whatsapp`}
+              data-ir-a-la-conversacion
+              className="mt-3 inline-flex min-h-12 items-center gap-2 rounded-campo border-2 border-azul bg-tarjeta px-4 font-bold text-azul hover:bg-azul-claro"
+            >
+              <Icono nombre="chat" className="size-5" />
+              {t("casos.detalle.verConversacion", { nombre: cliente.nombre.split(" ")[0] })}
+            </Link>
+          )}
         </section>
       )}
 

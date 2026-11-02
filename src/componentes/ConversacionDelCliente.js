@@ -5,7 +5,8 @@
 // con un separador cuando cambia el día o el caso. Cómo se arma está en
 // conversacion() (lib/recordatorios.js), con sus pruebas.
 //
-// Se ven los últimos A_LA_VISTA y el resto se abre de a DE_A, pidiendo otra
+// Se ven los últimos A_LA_VISTA y el resto se abre de a DE_A (y se vuelve a
+// cerrar con "Mostrar sólo los últimos"), pidiendo otra
 // página a la API cuando hace falta: un cliente que escribió cincuenta veces
 // no tapa sus casos, que vienen abajo. "Sólo lo que escribió" esconde
 // nuestros avisos. Aunque haya pedido la baja, lo que dijo se muestra: la
@@ -69,6 +70,15 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
     return () => { vivo = false; };
   }, [autorizado, clienteId]);
 
+  // Desde el caso se llega con #conversacion-whatsapp, pero la sección
+  // aparece recién cuando llegan los mensajes: ahí se baja hasta ella.
+  const hayMensajes = Boolean(mensajes?.length);
+  useEffect(() => {
+    if (hayMensajes && window.location.hash === "#conversacion-whatsapp") {
+      document.getElementById("conversacion-whatsapp")?.scrollIntoView({ block: "start" });
+    }
+  }, [hayMensajes]);
+
   if (!autorizado) return null;
   if (error) {
     return (
@@ -104,7 +114,8 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
   }
 
   return (
-    <section data-respuestas-del-cliente className="mb-12">
+    // El id es el destino del link "Ver la conversación" del caso.
+    <section id="conversacion-whatsapp" data-respuestas-del-cliente className="mb-12 scroll-mt-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <TituloSeccion>{t("recordatorios.conversacion.titulo")}</TituloSeccion>
         <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -121,11 +132,18 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
       </div>
 
       <div className="rounded-tarjeta border border-borde bg-tarjeta px-4 py-4 sm:px-6">
-        {hayMas && (
-          <div className="mb-3 flex justify-center">
-            <Boton variante="plano" icono="flecha-arriba" motivo={leyendo ? t("recordatorios.conversacion.cargando") : null} onClick={verAnteriores}>
-              {t("recordatorios.conversacion.verAnteriores")}
-            </Boton>
+        {(hayMas || cuantos > A_LA_VISTA) && (
+          <div className="mb-3 flex flex-wrap justify-center gap-2">
+            {hayMas && (
+              <Boton variante="plano" icono="flecha-arriba" motivo={leyendo ? t("recordatorios.conversacion.cargando") : null} onClick={verAnteriores}>
+                {t("recordatorios.conversacion.verAnteriores")}
+              </Boton>
+            )}
+            {cuantos > A_LA_VISTA && (
+              <Boton variante="plano" icono="flecha-abajo" onClick={() => setCuantos(A_LA_VISTA)}>
+                {t("recordatorios.conversacion.soloLosUltimos")}
+              </Boton>
+            )}
           </div>
         )}
         <ol className="flex flex-col gap-3">
@@ -163,6 +181,8 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
           telefono={telefono}
           ventanaHasta={ventanaHasta}
           escribio={mensajes.some((m) => m.de === "cliente")}
+          // Lo último que pasó fue nuestro "retomar": falta que conteste.
+          esperandoRetomar={mensajes[0]?.de === "negocio" && mensajes[0]?.tipo === "retomar"}
           alMandar={(mensaje) => {
             // Lo nuevo arriba, como lo manda la API: queda último en el chat.
             setMensajes((antes) => [mensaje, ...antes]);
@@ -178,12 +198,15 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
 
 // El pie de la conversación: el campo para contestarle, o por qué no se
 // puede y su chat desde el teléfono del negocio.
-function Escribir({ clienteId, nombre, telefono, ventanaHasta, escribio, alMandar, alCerrarse }) {
+function Escribir({ clienteId, nombre, telefono, ventanaHasta, escribio, esperandoRetomar, alMandar, alCerrarse }) {
   const datos = useDatos();
   const { idioma, locale, t } = useIdioma();
   const [texto, setTexto] = useState("");
   const [error, setError] = useState(null);
   const [mandando, setMandando] = useState(false);
+  const [retomando, setRetomando] = useState(false);
+  // Sin la plantilla de retomar aprobada no se ofrece más (queda wa.me).
+  const [sinRetomar, setSinRetomar] = useState(false);
   const ventana = ventanaParaEscribir({ ventanaHasta, telefono, escribio }, { t, locale, idioma });
   const primerNombre = nombre?.split(" ")[0] ?? "";
 
@@ -202,11 +225,46 @@ function Escribir({ clienteId, nombre, telefono, ventanaHasta, escribio, alManda
     datos.avisarExito(t("recordatorios.conversacion.mandado", { nombre: primerNombre }));
   }
 
+  // Pasadas las 24 horas: la plantilla para retomar (API-4). Cuando conteste,
+  // la ventana se abre de nuevo y vuelve el campo para escribir.
+  async function retomar() {
+    setError(null);
+    setRetomando(true);
+    const r = await datos.retomarConversacion(clienteId);
+    setRetomando(false);
+    if (!r.ok) {
+      if (r.error?.codigo === "plantilla_no_configurada") return setSinRetomar(true);
+      return setError(textoDeError(t, r.error));
+    }
+    alMandar(r.mensaje);
+    datos.avisarExito(t("recordatorios.conversacion.retomado", { nombre: primerNombre }));
+  }
+
+  if (!ventana.abierta && esperandoRetomar) {
+    return (
+      <div data-escribir="esperando" className="mt-4 border-t border-borde pt-4">
+        <p className="flex items-start gap-2 text-tinta-media">
+          <Icono nombre="reloj" className="mt-0.5 size-5 shrink-0" />
+          <span>{t("recordatorios.conversacion.esperandoRetomar", { nombre: primerNombre })}</span>
+        </p>
+      </div>
+    );
+  }
+
   if (!ventana.abierta) {
     return (
       <div data-escribir="cerrada" className="mt-4 border-t border-borde pt-4">
         <p className="font-bold">{ventana.frase}</p>
         <p className="mt-1 max-w-[65ch] text-tinta-media">{ventana.porQue}</p>
+        {escribio && !sinRetomar && (
+          <div className="mt-3">
+            <Boton variante="principal" icono="chat" motivo={retomando ? t("recordatorios.conversacion.mandando") : null} onClick={retomar}>
+              {t("recordatorios.conversacion.retomar")}
+            </Boton>
+            <p className="mt-1 max-w-[65ch] text-apoyo text-tinta-suave">{t("recordatorios.conversacion.retomarAyuda")}</p>
+          </div>
+        )}
+        {error && <p className="mt-2 font-bold text-rojo">{error}</p>}
         {ventana.link ? (
           <a
             href={ventana.link}

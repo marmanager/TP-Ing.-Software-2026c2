@@ -19,7 +19,7 @@ import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 export default function Clientes() {
   const { cargando, clientes, casos, negocio, agregarCliente, avisarExito } = useDatos();
   // Los que escribieron por WhatsApp algo que nadie vio llevan la marca.
-  const { clientesConRespuesta } = useRespuestasSinVer();
+  const { sinVerDelCliente } = useRespuestasSinVer();
   const { usuario } = useAuth();
   const puedeCargar = puede(usuario, "editar_clientes");
   const [busqueda, setBusqueda] = useState("");
@@ -162,7 +162,7 @@ export default function Clientes() {
                     {cliente.nombre}
                     <Icono nombre="volver" className="size-5 rotate-180" />
                   </Link>
-                  {clientesConRespuesta.has(cliente.id) && <MarcaSinVer />}
+                  <MarcaSinVer cantidad={sinVerDelCliente(cliente.id)} />
                   {cliente.telefono && <TelefonoDelCliente cliente={cliente} t={t} />}
                   <p className="mt-1 text-tinta-media">
                     {abiertos > 0
@@ -206,7 +206,7 @@ export default function Clientes() {
                     {cliente.nombre}
                     <Icono nombre="volver" className="size-5 rotate-180" />
                   </Link>
-                  {clientesConRespuesta.has(cliente.id) && <MarcaSinVer />}
+                  <MarcaSinVer cantidad={sinVerDelCliente(cliente.id)} />
                   {cliente.telefono && <TelefonoDelCliente cliente={cliente} t={t} />}
                   <p className="mt-1 flex items-center gap-1.5 text-etiqueta text-tinta-suave">
                     <Icono nombre="reloj" className="size-5" />

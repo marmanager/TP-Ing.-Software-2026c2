@@ -928,6 +928,16 @@ export function DatosProvider({ children }) {
         return { ok: true, mensaje: r.datos.mensaje };
       },
 
+      // Retomar la conversación (API-4): pasadas las 24 horas, la plantilla
+      // retomar_conversacion. Cuando conteste, se le puede volver a escribir
+      // libre. Sin la plantilla aprobada, 503 plantilla_no_configurada.
+      async retomarConversacion(clienteId) {
+        const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/whatsapp/retomar`, {},
+          await tokenDeSesion(), { idempotencia: nuevaClave() });
+        if (!r.ok) return { ok: false, error: r.error };
+        return { ok: true, mensaje: r.datos.mensaje };
+      },
+
       // Las que nadie marcó con "Ya lo vi" (078), para el Inicio, las marcas
       // de Casos y Clientes y la bandeja. Se leen una vez y las comparten
       // todas las pantallas; "Ya lo vi" las saca de acá sin volver a pedirlas.
@@ -1559,7 +1569,7 @@ export function DatosProvider({ children }) {
       //
       // La foto viene como data URL ya achicado por src/lib/imagen.js, o null
       // para volver al ícono.
-      guardarNegocio({ nombre, descripcion, foto, telefono }) {
+      guardarNegocio({ nombre, descripcion, foto, telefono, direccion }) {
         const cambios = {
           nombre: nombre.trim(),
           // Vacío es que no hay descripción, no una descripción en blanco.
@@ -1568,6 +1578,9 @@ export function DatosProvider({ children }) {
           // El teléfono nace en 020_telefono_del_negocio.sql: en una base sin
           // esa migración la ficha se guarda igual, sin él.
           telefono: (telefono ?? "").trim() || null,
+          // La dirección (082): va en el recordatorio del turno y en el aviso
+          // de "listo", y se ve en la landing. En una línea, como la pide la API.
+          direccion: (direccion ?? "").replace(/\s+/g, " ").trim() || null,
         };
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
         enLaApi((token) => parchar("/negocio", { ...cambios, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));

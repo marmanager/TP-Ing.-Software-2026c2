@@ -125,14 +125,24 @@ export default function FilaDeRespuestas({ grupo, verlo, desplegable = false }) 
   );
 }
 
-// La marca de las listas de Casos y Clientes: sólo el ícono, ni el texto ni
-// cuántos. El detalle está en el caso o en la ficha.
-export function MarcaSinVer() {
+// La marca de las listas de Casos y Clientes: el globo de chat con cuántos
+// mensajes hay sin ver, como en cualquier aplicación de mensajes. Más de 9
+// se dice "9+": el número exacto está en la bandeja. El texto entero va para
+// los lectores de pantalla y en el title.
+export function MarcaSinVer({ cantidad }) {
   const { t } = useIdioma();
+  if (!cantidad) return null;
+  const frase = t("respuestas.sinVerCuantos", { n: cantidad });
   return (
-    <span title={t("respuestas.sinVer")} className="ml-2 inline-flex align-middle text-azul">
-      <Icono nombre="chat" className="size-5" />
-      <span className="sr-only">{t("respuestas.sinVer")}</span>
+    <span title={frase} data-sin-ver={cantidad} className="relative ml-2 inline-flex align-middle text-azul">
+      <Icono nombre="chat" className="size-6" />
+      <span
+        aria-hidden="true"
+        className="absolute -top-1.5 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-azul px-1 text-[11px] leading-none font-bold text-white"
+      >
+        {cantidad > 9 ? "9+" : cantidad}
+      </span>
+      <span className="sr-only">{frase}</span>
     </span>
   );
 }

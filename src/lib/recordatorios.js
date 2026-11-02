@@ -342,14 +342,18 @@ export function cuandoSaleEnPalabras({ tipo, plazo, rubro }, opciones) {
 
 // Lo que falta para poder guardar un recordatorio, por campo. El plazo va
 // en su unidad y con el rango que valida la API.
-export function erroresDelRecordatorio({ tipo, plazo, mensaje }, opciones) {
+export function erroresDelRecordatorio({ tipo, plazo, mensaje, version, versiones }, opciones) {
   const { t } = lang(opciones);
   const { min, max, errorDelPlazo } = definicion(tipo);
   const valor = String(plazo ?? "").trim();
   const entero = /^\d+$/.test(valor) ? Number(valor) : null;
   const plazoMal = (entero === null || entero < min || entero > max) && errorDelPlazo(t);
   const texto = String(mensaje ?? "").trim();
-  const mensajeMal = !texto
+  // Con la plantilla de la versión elegida prendida, el texto es el de Meta:
+  // el campo no se usa y no hace falta escribirlo.
+  const mensajeMal = conPlantilla({ version, versiones })
+    ? false
+    : !texto
     ? t("recordatorios.errorMensaje.vacio")
     : texto.length > 3000 && t("recordatorios.errorMensaje.largo");
   return {
@@ -413,10 +417,18 @@ export function avisoEnPalabras({ aviso, ahora }, opciones) {
       return { estado: "enviado", frase: t("recordatorios.aviso.enviado", { momento: momentoEnPalabras(aviso.procesado_en ?? aviso.enviar_en, ahora, l) }) };
     case "fallido":
       return { estado: "fallido", frase: t("recordatorios.aviso.fallido") };
+    // Con las plantillas (API-4b), un recordatorio sin los datos que lleva el
+    // mensaje queda cancelado al salir: se dice qué falta, para cargarlo.
+    case "cancelado":
+      return NO_SALE_EL_TURNO.includes(aviso.motivo)
+        ? { estado: "no_sale", motivo: aviso.motivo, frase: t(`recordatorios.aviso.noSale.${aviso.motivo}`) }
+        : null;
     default:
       return null;
   }
 }
+
+const NO_SALE_EL_TURNO = ["faltan_datos_del_negocio", "falta_nombre_del_negocio"];
 
 // El aviso de un turno, como lo trae la API: el último de la cola, en el
 // listado (turno.aviso), o el que quedó después de un cambio, en la
@@ -461,7 +473,51 @@ const paraEditar = (c, plazo) => ({
   plazo: plazo == null ? "" : String(plazo),
   mensaje: c?.mensaje ?? "",
   canal: c?.canal === "email" ? "email" : "whatsapp",
+  // Las plantillas de WhatsApp (API-4): la versión elegida, las que hay con
+  // su vista previa, y los datos del negocio que faltan para mandarlo.
+  version: c?.version ?? null,
+  versiones: Array.isArray(c?.versiones) ? c.versiones : [],
+  faltan: Array.isArray(c?.faltan) ? c.faltan : [],
 });
+
+// ------------------------------------------------------------
+// Las plantillas de WhatsApp (FRONT-4)
+// ------------------------------------------------------------
+// Fuera de las 24 h desde el último mensaje del cliente, Meta sólo deja
+// mandar plantillas aprobadas: texto fijo con variables. Cada aviso tiene una
+// versión por rubro (taller, salud, general) y el negocio elige cuál; la API
+// manda la lista con la vista previa armada con sus datos, y si esa
+// plantilla ya está prendida (aprobada por Meta y habilitada en la API).
+//
+// Con la elegida prendida, el texto es el de Meta y el campo del mensaje no
+// se usa. Si no, sale el texto libre de siempre.
+const VERSIONES = ["taller", "salud", "general"];
+
+export const versionElegida = ({ version, versiones }) =>
+  (versiones ?? []).find((v) => v.version === version) ?? null;
+
+export const conPlantilla = (recordatorio) => Boolean(versionElegida(recordatorio)?.prendida);
+
+// Las versiones para elegir, con su nombre en palabras y en el orden de siempre.
+export function versionesParaElegir(versiones, opciones) {
+  const { t } = lang(opciones);
+  return [...(versiones ?? [])]
+    .sort((a, b) => VERSIONES.indexOf(a.version) - VERSIONES.indexOf(b.version))
+    .map((v) => ({ ...v, nombre: t(`recordatorios.plantillas.version.${VERSIONES.includes(v.version) ? v.version : "otra"}`) }));
+}
+
+// Los datos del negocio que faltan para mandar el aviso (la API los dice en
+// "faltan"): la frase, o null si no falta nada. Sin ellos la plantilla
+// quedaría con un hueco, que Meta no deja mandar.
+const DATOS = ["nombre", "direccion", "telefono"];
+
+export function faltanDatosDelNegocio(faltan, opciones) {
+  const { t } = lang(opciones);
+  const cuales = DATOS.filter((d) => (faltan ?? []).includes(d)).map((d) => t(`recordatorios.plantillas.dato.${d}`));
+  if (!cuales.length) return null;
+  const lista = cuales.length === 1 ? cuales[0] : t("recordatorios.plantillas.y", { antes: cuales.slice(0, -1).join(", "), ultimo: cuales.at(-1) });
+  return t("recordatorios.plantillas.faltan", { lista });
+}
 
 // Un tipo que la API no manda no se ofrece: una API sin R-2a no tiene
 // "volver", y configurarlo no haría nada.
@@ -485,6 +541,7 @@ export function cambiosDelRecordatorio(tipo, antes, ahora) {
   if (ahora.activo !== antes.activo) cambios.activo = ahora.activo;
   if (String(ahora.plazo).trim() !== String(antes.plazo).trim()) cambios[def.plazo] = Number(ahora.plazo);
   if (ahora.mensaje.trim() !== antes.mensaje.trim()) cambios.mensaje = ahora.mensaje.trim();
+  if ((ahora.version ?? null) !== (antes.version ?? null)) cambios.version = ahora.version;
   // El posventa (arriba de todo en la API) no tiene canal: sale siempre por WhatsApp.
   if (def.enLaApi && ahora.canal !== antes.canal) cambios.canal = ahora.canal;
   if (!Object.keys(cambios).length) return {};
@@ -528,7 +585,8 @@ export function filasDeRecordatorios({ configuracion, rubro, conAgenda }, opcion
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07): si mañana cambia, la pantalla sigue diciendo lo mismo.
-const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes"];
+// falta_nombre_del_negocio (API-4b): la plantilla lleva el nombre del negocio.
+const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes", "falta_nombre_del_negocio"];
 
 // El texto de cada motivo, en el idioma de t (sin t, en castellano).
 export function porQueNoVolver(motivo, opciones) {
@@ -645,7 +703,9 @@ export function avisoDeLaProximaVisita({ casos, cliente, volver = null, hoy }, o
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07).
-const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso"];
+// link_revocado y falta_nombre_del_negocio (API-4): el negocio dejó de compartir
+// el link, que va en el botón de la plantilla, o no tiene nombre.
+const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso", "link_revocado", "falta_nombre_del_negocio"];
 
 export function porQueNoPresupuesto(motivo, opciones) {
   const { t } = lang(opciones);
@@ -751,6 +811,10 @@ export function respuestaDelTurno({ turno, rubro, ahora }, opciones) {
   switch (turno?.respuesta_cliente) {
     case "confirmo":
       return { estado: "confirmo", frase: t("recordatorios.respuestas.confirmo", { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
+    // El botón "Cancelo" del recordatorio (API-4b) cancela el turno: el
+    // horario queda libre. Se dice como lo que pasó, sin alarma.
+    case "cancelo":
+      return { estado: "cancelo", frase: t("recordatorios.respuestas.cancelo", { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
     case "no_puede":
       return {
         estado: "no_puede",
@@ -813,7 +877,7 @@ export function loQueEscribio(respuesta, opciones) {
 // suyo, tal cual (loQueEscribio). Si su mensaje resolvió algo solo (resolvio,
 // 079), se dice al pie: es lo que explica por qué no está en la bandeja.
 const DE_NEGOCIO = ["turno", "volver", "presupuesto", "cierre", "estado", "manual", "retomar"];
-const RESOLVIO = ["confirmo", "no_puede", "baja"];
+const RESOLVIO = ["confirmo", "no_puede", "cancelo", "baja"];
 
 export function conversacion({ mensajes, casos, rubro }, opciones) {
   const l = lang(opciones);
