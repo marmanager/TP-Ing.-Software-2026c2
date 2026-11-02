@@ -109,6 +109,21 @@ export async function buscarSeguimiento(codigo) {
   return s.problema ? { sirve: false, problema: s.problema, error: r.error } : { sirve: false };
 }
 
+// El link de baja de los mails (083, FRONT-3). Suelto, como el seguimiento:
+// quien lo abre no tiene sesión. Devuelve { sirve, de_baja, negocio }, o
+// { sirve: false } si el link no existe, o { problema } si la API no contestó.
+const bajaDeLaApi = (r) => (r.ok ? r.datos : { sirve: false, problema: true });
+
+export async function verBajaPorLink(token) {
+  if (!API) return { sirve: false, problema: true };
+  return bajaDeLaApi(await traer(`/publico/baja/${encodeURIComponent(token)}`));
+}
+
+export async function usarBajaPorLink(token) {
+  if (!API) return { sirve: false, problema: true };
+  return bajaDeLaApi(await mandar(`/publico/baja/${encodeURIComponent(token)}`, {}));
+}
+
 // La respuesta del cliente a un paso del presupuesto, desde el link
 // (SCRUM-68, segunda parte).
 //
@@ -570,6 +585,7 @@ export function DatosProvider({ children }) {
         clienteId,
         nombreCliente,
         telefono,
+        email = null,
         servicio,
         identificador,
         responsableId,
@@ -579,7 +595,7 @@ export function DatosProvider({ children }) {
           servicio, identificador: identificador || null, responsable_id: responsableId || null,
           turno_id: turnoId, ...(clienteId
             ? { cliente_id: clienteId, telefono: telefono || null }
-            : { cliente: { nombre: nombreCliente, telefono: telefono || null } }),
+            : { cliente: { nombre: nombreCliente, telefono: telefono || null, ...(email ? { email } : {}) } }),
         }, { idempotencia: nuevaClave() });
         if (!r.ok) { setAviso(r.error); return null; }
         incorporarCasoApi(r.datos);
@@ -1387,19 +1403,20 @@ export function DatosProvider({ children }) {
       },
 
       // ---------- clientes ----------
-      agregarCliente({ nombre, telefono, notas }) {
+      agregarCliente({ nombre, telefono, email = null, notas }) {
         const cliente = {
           id: nuevoId(),
           negocio_id: datos.negocio.id,
           nombre,
           telefono,
+          email,
           notas: notas || "",
           // Alguien lo escribió a propósito: no hay nada que confirmar.
           confirmado: true,
         };
         setDatos((d) => ({ ...d, clientes: [...d.clientes, cliente] }));
         enLaApi(async (token) => {
-          const r = await mandar("/clientes", { nombre, telefono, notas: notas || "" }, token, {
+          const r = await mandar("/clientes", { nombre, telefono, ...(email ? { email } : {}), notas: notas || "" }, token, {
             idempotencia: nuevaClave(),
           });
           if (r.ok) {
@@ -1467,10 +1484,10 @@ export function DatosProvider({ children }) {
       // está tomado, la API lo dice ("Ya hay un turno a esa hora") y el turno
       // no aparece. Antes aparecía igual y después fallaba la base. La clave
       // de idempotencia hace que un reintento no anote dos turnos.
-      async agregarTurno({ clienteId, nombreCliente, telefono, motivo, empiezaEn }) {
+      async agregarTurno({ clienteId, nombreCliente, telefono, email = null, motivo, empiezaEn }) {
         const r = await mandar(
           "/turnos",
-          turnoParaLaApi({ clienteId, nombreCliente, telefono, motivo, empiezaEn }),
+          turnoParaLaApi({ clienteId, nombreCliente, telefono, email, motivo, empiezaEn }),
           await tokenDeSesion(),
           { idempotencia: nuevaClave() }
         );

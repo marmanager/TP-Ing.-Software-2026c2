@@ -86,9 +86,9 @@ export function turnosSinVer(turnos = [], { ahora = Date.now() } = {}) {
 // formulario es hora local ("2026-10-05T10:00"); a la API va como instante.
 export const instanteParaLaApi = (horaLocal) => new Date(horaLocal).toISOString();
 
-export function turnoParaLaApi({ clienteId, nombreCliente, telefono, motivo, empiezaEn }) {
+export function turnoParaLaApi({ clienteId, nombreCliente, telefono, email = null, motivo, empiezaEn }) {
   const nuevo = !clienteId && nombreCliente?.trim()
-    ? { nombre: nombreCliente.trim(), telefono: telefono?.trim() || null }
+    ? { nombre: nombreCliente.trim(), telefono: telefono?.trim() || null, ...(email ? { email } : {}) }
     : null;
   return {
     empieza_en: instanteParaLaApi(empiezaEn),
