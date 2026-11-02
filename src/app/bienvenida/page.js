@@ -191,7 +191,7 @@ function NumeroCelular({ numero, color }) {
   );
 }
 
-const HOJA = "mx-auto w-full max-w-[1440px] px-6 md:pl-[290px] md:pr-[130px]";
+const HOJA = "mx-auto w-full max-w-[1440px] px-6 md:pl-[230px] md:pr-12 xl:pl-[290px] xl:pr-[130px]";
 const HILO =
   "hilo pointer-events-none absolute left-[135px] top-0 bottom-0 hidden w-0.5 md:block";
 const BOTON =
@@ -435,13 +435,13 @@ export default function Bienvenida() {
           <p className="mb-6 text-etiqueta font-extrabold tracking-[0.06em] text-terracota md:mb-4">
             {L("recorte.ejemplo")}
           </p>
-          <div className="md:-mr-[130px] md:h-[634px] md:overflow-hidden md:rounded-tl-tarjeta md:border-l md:border-t md:border-borde md:pt-7 md:pl-8">
-            <div className="flex flex-col gap-5 md:h-[88px] md:flex-row md:items-start md:justify-between md:gap-6 md:pr-8">
+          <div className="xl:-mr-[130px] xl:h-[634px] xl:overflow-hidden xl:rounded-tl-tarjeta xl:border-l xl:border-t xl:border-borde xl:pt-7 xl:pl-8">
+            <div className="flex flex-col gap-5 xl:h-[88px] xl:flex-row xl:items-start xl:justify-between xl:gap-6 xl:pr-8">
               <div>
-                <h2 className="font-titulo text-[26px]/[30px] font-extrabold tracking-[-0.02em] md:text-pantalla md:tracking-[-0.02em]">
+                <h2 className="font-titulo text-[26px]/[30px] font-extrabold tracking-[-0.02em] xl:text-pantalla xl:tracking-[-0.02em]">
                   {L("recorte.titulo")}
                 </h2>
-                <p className="mt-2 text-cuerpo text-tinta-media md:mt-5">
+                <p className="mt-2 text-cuerpo text-tinta-media xl:mt-5">
                   {L("recorte.apoyo")}
                 </p>
               </div>
@@ -449,7 +449,7 @@ export default function Bienvenida() {
                   CONTORNO ya trae `inline-flex` y las dos son utilidades de
                   display, así que la que gana la decide el orden del CSS y
                   no el del atributo. */}
-              <span className="hidden shrink-0 md:block">
+              <span className="hidden shrink-0 xl:block">
                 <span className={CONTORNO}>
                   <Icono nombre="mas" className="size-5 text-azul" />
                   {L("recorte.abrir")}
@@ -459,7 +459,7 @@ export default function Bienvenida() {
 
             {/* fila de filtros: en celular es una fila con scroll propio, que
                 es lo que es — una fila de controles, no una tabla */}
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 tabular-nums md:mt-0 md:mb-5 md:overflow-visible md:pr-8 md:pb-0">
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 tabular-nums xl:mt-0 xl:mb-5 xl:overflow-visible xl:pr-8 xl:pb-0">
               <span className="inline-flex h-12 shrink-0 items-center rounded-full border-2 border-azul bg-azul-claro px-4 text-etiqueta font-bold text-azul">
                 {L("recorte.todos", { n: TOTAL })}
               </span>
@@ -474,10 +474,10 @@ export default function Bienvenida() {
               ))}
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 md:mt-0 md:mr-8 md:block md:gap-0 md:overflow-hidden md:rounded-t-tarjeta md:border md:border-b-0 md:border-borde md:bg-tarjeta">
+            <div className="mt-4 flex flex-col gap-3 xl:mt-0 xl:mr-8 xl:block xl:gap-0 xl:overflow-hidden xl:rounded-t-tarjeta xl:border xl:border-b-0 xl:border-borde xl:bg-tarjeta">
               {/* rótulos de columna: la marca de 1 px sale del borde, como una
                   leyenda de anatomía. Se usa una sola vez y para algo. */}
-              <div className="hidden h-10 grid-cols-[6px_170px_1.4fr_0.8fr_1.1fr_200px] items-end gap-4 border-b border-borde pr-4 pb-1 text-apoyo font-bold tracking-[0.06em] text-tinta-suave md:grid">
+              <div className="hidden h-10 grid-cols-[6px_170px_1.4fr_0.8fr_1.1fr_200px] items-end gap-4 border-b border-borde pr-4 pb-1 text-apoyo font-bold tracking-[0.06em] text-tinta-suave xl:grid">
                 <i />
                 {["estado", "caso", "loTiene", "queFalta"].map((r) => (
                   <span key={r} className="flex flex-col gap-1">
@@ -493,18 +493,18 @@ export default function Bienvenida() {
                 return (
                 <div
                   key={c.numero}
-                  className={`fila overflow-hidden rounded-tarjeta border border-borde-fuerte bg-tarjeta transition-colors duration-100 md:grid md:h-[82px] md:grid-cols-[6px_170px_1.4fr_0.8fr_1.1fr_200px] md:items-center md:gap-4 md:rounded-none md:border-0 md:border-b md:border-borde md:pr-4 md:hover:bg-fondo ${
-                    c.soloEscritorio ? "hidden md:grid" : ""
+                  className={`fila overflow-hidden rounded-tarjeta border border-borde-fuerte bg-tarjeta transition-colors duration-100 xl:grid xl:h-[82px] xl:grid-cols-[6px_170px_1.4fr_0.8fr_1.1fr_200px] xl:items-center xl:gap-4 xl:rounded-none xl:border-0 xl:border-b xl:border-borde xl:pr-4 xl:hover:bg-fondo ${
+                    c.soloEscritorio ? "hidden xl:grid" : ""
                   }`}
                 >
                   <i
-                    className={`m-baja block h-1.5 w-full md:h-full md:w-1.5 ${ESTADOS[c.estado].barra}`}
+                    className={`m-baja block h-1.5 w-full xl:h-full xl:w-1.5 ${ESTADOS[c.estado].barra}`}
                   />
-                  <div className="p-4 md:contents">
-                    <Chip estado={c.estado} className="md:h-10">
+                  <div className="p-4 xl:contents">
+                    <Chip estado={c.estado} className="xl:h-10">
                       {etiqueta("taller", c.estado)}
                     </Chip>
-                    <span className="mt-3 flex flex-col tabular-nums md:mt-0">
+                    <span className="mt-3 flex flex-col tabular-nums xl:mt-0">
                       <span className="font-titulo text-ident tracking-[-0.01em]">
                         {L("recorte.numero", { n: c.numero })}
                       </span>
@@ -512,14 +512,14 @@ export default function Bienvenida() {
                         {L(`casos.${c.estado}.asunto`)} · {c.cliente}
                       </span>
                     </span>
-                    <span className="mt-3 flex flex-col md:mt-0 md:block">
-                      <span className="text-apoyo text-tinta-suave md:hidden">{L("recorte.loTieneCelular")}</span>
+                    <span className="mt-3 flex flex-col xl:mt-0 xl:block">
+                      <span className="text-apoyo text-tinta-suave xl:hidden">{L("recorte.loTieneCelular")}</span>
                       <span className={`text-cuerpo ${c.sinAsignar ? "text-tinta-suave" : ""}`}>
                         {L(`casos.${c.estado}.tiene`)}
                       </span>
                     </span>
-                    <span className="mt-3 flex flex-col md:mt-0 md:block">
-                      <span className="text-apoyo text-tinta-suave md:hidden">{L("recorte.queFaltaCelular")}</span>
+                    <span className="mt-3 flex flex-col xl:mt-0 xl:block">
+                      <span className="text-apoyo text-tinta-suave xl:hidden">{L("recorte.queFaltaCelular")}</span>
                       <span className="text-cuerpo text-tinta-media">{L(`casos.${c.estado}.falta`)}</span>
                     </span>
                     {/* Acá NO va un botón con caja. Es una captura, no un
@@ -528,7 +528,7 @@ export default function Bienvenida() {
                         Plano, con su ícono y en azul, es el mismo lenguaje
                         del sistema —la variante «plano» de Boton— y deja que
                         manden los chips, que son el argumento. */}
-                    <span className="mt-3 inline-flex items-center gap-2 text-etiqueta font-bold text-azul md:mt-0">
+                    <span className="mt-3 inline-flex items-center gap-2 text-etiqueta font-bold text-azul xl:mt-0">
                       <Icono nombre={accion.icono} className="size-5" />
                       {accion.etiqueta}
                     </span>
@@ -673,7 +673,7 @@ export default function Bienvenida() {
                       />
                       <div className={`p-4 ${marcado ? ESTADOS[e].fondo : ""}`}>
                         <span
-                          className={`flex items-center gap-2 font-titulo text-subtitulo font-black tabular-nums ${ESTADOS[e].texto}`}
+                          className={`flex flex-wrap items-center gap-x-2 font-titulo text-subtitulo font-black tabular-nums ${ESTADOS[e].texto}`}
                         >
                           {i + 1}
                           <Icono nombre={ESTADOS[e].icono} className="size-[18px]" />
@@ -733,7 +733,7 @@ export default function Bienvenida() {
             {L("dia.titulo")}
           </h2>
 
-          <div className="mt-6 grid gap-8 md:mt-10 md:grid-cols-[430px_1fr] md:items-start md:gap-14">
+          <div className="mt-6 grid gap-8 md:mt-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:items-start xl:gap-14">
             <div>
               <div className="rv flex flex-col gap-3">
                 {DIA.map((d) => (
@@ -767,14 +767,14 @@ export default function Bienvenida() {
                   <Chip estado="revision_final">{etiqueta("taller", "revision_final")}</Chip>
                 </div>
 
-                <div className="mt-4 flex flex-col gap-2 border-t border-borde pt-3 md:flex-row md:gap-10 md:border-0 md:pt-0">
+                <div className="mt-4 flex flex-col gap-2 border-t border-borde pt-3 md:flex-row md:flex-wrap md:gap-x-10 md:gap-y-2 md:border-0 md:pt-0">
                   {[
                     [L("dia.patente"), "AB 123 CD", true],
                     [L("dia.loTiene"), L("casos.revision_final.tiene"), false],
                     [L("dia.queFalta"), L("casos.revision_final.falta"), false],
                   ].map(([r, v, num]) => (
                     <span key={r} className="flex justify-between gap-4 md:block">
-                      <span className="text-apoyo text-tinta-suave">{r}</span>
+                      <span className="block text-apoyo text-tinta-suave">{r}</span>
                       <span className={`text-cuerpo font-bold ${num ? "tabular-nums" : ""}`}>
                         {v}
                       </span>
