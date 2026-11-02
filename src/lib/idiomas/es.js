@@ -168,7 +168,6 @@ export default {
       volverSinCrear: "Volver sin crear",
     },
     landing: {
-      titulo: "Bienvenida",
       iniciarSesion: "Iniciar sesión",
       crearCuenta: "Crear una cuenta",
       yaTenes: "¿Ya tenés cuenta?",

@@ -165,7 +165,6 @@ export default {
       volverSinCrear: "Back without creating",
     },
     landing: {
-      titulo: "Welcome",
       iniciarSesion: "Sign in",
       crearCuenta: "Create an account",
       yaTenes: "Already have an account?",
