@@ -251,7 +251,10 @@ export default function Guardia({ children }) {
                 barra lateral se lleva 256 px, y con los puntos de quiebre de la
                 ventana quedaban tarjetas apretadas entre 768 y 1024 px
                 (auditoría, Responsive). */}
-            <div className={`@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8${enVista ? " lg:pr-64" : ""}`}>
+            {/* Sin lugar guardado para el selector de la vista maestra: flota
+                encima y se corre con su manija. Reservarle lugar aplastaba la
+                pantalla con el chat de Remi abierto. */}
+            <div className="@container mx-auto w-full max-w-hoja px-4 py-6 sm:px-6 sm:py-8">
             <Aviso />
             {sinSuscripcion ? (
               <Vacio icono="alerta" titulo={t("vistaMaestra.sinSuscripcion")}>

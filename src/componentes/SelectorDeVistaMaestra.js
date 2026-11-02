@@ -4,6 +4,10 @@
 // la vez, con su foto y su nombre para saber cuál es cuál. Tocar uno cambia la
 // pantalla en la que se está a ese negocio, sin moverse de sección. Alt+1…9
 // eligen por posición. El puntito avisa si hay casos atrasados o stock bajo.
+//
+// En computadora es una tarjeta flotante que se lleva a cualquier lado de la
+// pantalla con la manija de puntos de arriba. Con el chat de Remi abierto se
+// queda a la izquierda del chat, así no se pisan.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -11,6 +15,11 @@ import { useIdioma } from "@/lib/useIdioma";
 import { delSelector, hayUrgencia, negocioDelAtajo, verVistaMaestra } from "@/lib/vista-maestra";
 import Icono from "./Icono";
 import { ErrorGeneral } from "./ui";
+import { useAsistente } from "./asistente/ContextoAsistente";
+
+// El ancho de la pantalla sin la barra de desplazamiento: contra eso se mide
+// el `right` de lo que es fixed.
+const anchoVisible = () => document.documentElement.clientWidth;
 
 export default function SelectorDeVistaMaestra() {
   const { usuario, sesion, mirarEnVistaMaestra } = useAuth();
@@ -25,6 +34,22 @@ export default function SelectorDeVistaMaestra() {
   // respuestas llegan cruzadas, la vieja no pisa a la nueva.
   const cambiando = useRef(false);
   const pedido = useRef(0);
+  const tarjeta = useRef(null);
+  // Dónde la dejó el usuario, en px desde la derecha y desde arriba. Null:
+  // donde arranca, a la derecha y a media altura.
+  const [lugar, setLugar] = useState(null);
+  const [arrastrando, setArrastrando] = useState(false);
+  // Lo que ocupa el chat de Remi desde el borde derecho (0 si está cerrado).
+  // Se vuelve a medir cuando lo achican o agrandan arrastrando su borde.
+  const { modo } = useAsistente();
+  const [chat, setChat] = useState(0);
+  useEffect(() => {
+    const el = modo === "panel" && document.getElementById("panel-asistente");
+    if (!el) { setChat(0); return; }
+    const medir = new ResizeObserver(() => setChat(Math.max(0, anchoVisible() - el.getBoundingClientRect().left)));
+    medir.observe(el);
+    return () => medir.disconnect();
+  }, [modo]);
 
   const pedir = useCallback(() => {
     const mio = ++pedido.current;
@@ -71,6 +96,62 @@ export default function SelectorDeVistaMaestra() {
   }, [enVista, selector, mirar]);
 
   if (!enVista || !vista) return null;
+
+  // Siempre adentro de la pantalla y nunca abajo del chat.
+  const acomodar = (right, top) => {
+    const r = tarjeta.current.getBoundingClientRect();
+    return {
+      right: Math.min(Math.max(right, chat ? chat + 16 : 0), anchoVisible() - r.width),
+      top: Math.min(Math.max(top, 0), window.innerHeight - r.height),
+    };
+  };
+
+  // Mientras se arrastra se escribe directo en el estilo, una vez por cuadro
+  // y sin pasar por React: así sigue al mouse liso. Al soltar se guarda.
+  const alApretar = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const el = tarjeta.current;
+    const r = el.getBoundingClientRect();
+    // De dónde se la agarró, así no salta a quedar con la esquina en el mouse.
+    const dx = e.clientX - r.right;
+    const dy = e.clientY - r.top;
+    let ultimo = { right: anchoVisible() - r.right, top: r.top };
+    let cuadro = 0;
+    setLugar(ultimo);
+    setArrastrando(true);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+    const mover = (ev) => {
+      ultimo = acomodar(anchoVisible() - ev.clientX + dx, ev.clientY - dy);
+      cancelAnimationFrame(cuadro);
+      cuadro = requestAnimationFrame(() => {
+        el.style.right = `${ultimo.right}px`;
+        el.style.top = `${ultimo.top}px`;
+      });
+    };
+    const soltar = () => {
+      cancelAnimationFrame(cuadro);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+      setArrastrando(false);
+      setLugar(ultimo);
+    };
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+  };
+
+  const alTeclado = (e) => {
+    const paso = { ArrowLeft: [16, 0], ArrowRight: [-16, 0], ArrowUp: [0, -16], ArrowDown: [0, 16] }[e.key];
+    if (!paso) return;
+    e.preventDefault();
+    const r = tarjeta.current.getBoundingClientRect();
+    setLugar(acomodar(anchoVisible() - r.right + paso[0], r.top + paso[1]));
+  };
+
+  const derecha = Math.max(lugar?.right ?? 16, chat ? chat + 16 : 0);
 
   const urgencia = (id) => vista.urgencias?.find((u) => u.negocio_id === id);
   const textoDeUrgencia = (u) => hayUrgencia(u)
@@ -120,8 +201,30 @@ export default function SelectorDeVistaMaestra() {
 
   return (
     <>
-      <nav aria-label={t("vistaMaestra.selector")}
-        className="fixed top-1/2 right-4 z-30 hidden max-h-[70dvh] w-56 -translate-y-1/2 overflow-y-auto rounded-campo border border-borde bg-fondo p-2 shadow-lg lg:block">
+      <nav ref={tarjeta} aria-label={t("vistaMaestra.selector")}
+        style={{ right: derecha, top: lugar?.top }}
+        // Se desliza al abrir o cerrar el chat y con las flechas; mientras se
+        // arrastra, no: iría atrasada del mouse. Agarrada se levanta un poco.
+        className={`fixed z-30 hidden max-h-[70dvh] w-56 overflow-y-auto rounded-campo border border-borde bg-fondo px-2 pb-2 lg:block ${
+          lugar ? "" : "top-1/2 -translate-y-1/2"
+        } ${
+          arrastrando
+            ? "scale-[1.02] shadow-2xl"
+            : "shadow-lg transition-[right,top,scale,box-shadow] duration-300 ease-out motion-reduce:transition-none"
+        }`}>
+        {/* La manija para llevarla a otro lado: seis puntos, tres y tres. */}
+        <div className="sticky top-0 z-10 flex justify-end bg-fondo pt-1">
+          <button
+            type="button"
+            onPointerDown={alApretar}
+            onKeyDown={alTeclado}
+            aria-label={t("vistaMaestra.mover")}
+            title={t("vistaMaestra.mover")}
+            className="flex h-6 w-8 cursor-grab touch-none items-center justify-center rounded-campo text-tinta-suave hover:bg-superficie hover:text-azul active:cursor-grabbing"
+          >
+            <span aria-hidden="true" className="leading-none">⋮⋮</span>
+          </button>
+        </div>
         <ul className="flex flex-col gap-1">{selector.map((n, i) => boton(n, i, false))}</ul>
         {fallo}
       </nav>

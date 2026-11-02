@@ -380,12 +380,26 @@ export function AuthProvider({ children }) {
 
       // Vuelve al negocio de antes; si ya no está ahí, a ninguno, y la
       // Guardia lleva al selector de negocios.
+      //
+      // La vista se puede terminar desde otro lado (Inicio rápido en otro
+      // dispositivo, "Editar en este negocio" en otra pestaña) y esta pantalla
+      // no se entera. Si la base dice que no, se relee la cuenta: si ya no
+      // está en vista, salir ya pasó y se sigue como si hubiera salido.
       async salirDeVistaMaestra() {
         if (!hayCuentas) return { ok: false, error: { codigo: "sin_sesion", mensaje: "No hay una sesión abierta." } };
         const r = await quitar("/vista-maestra", sesion?.access_token);
-        if (!r.ok) return { ok: false, error: r.error };
-        if (sesion?.user) setUsuario(await traerUsuario(sesion.user, sesion.access_token));
-        return { ok: true, negocioId: r.datos.negocio_id ?? null };
+        const fila = sesion?.user ? await traerUsuario(sesion.user, sesion.access_token) : null;
+        if (r.ok) {
+          if (fila) setUsuario(fila);
+          return { ok: true, negocioId: r.datos.negocio_id ?? null };
+        }
+        // Sólo vale la fila leída de la base: si /cuenta también falló,
+        // traerUsuario devuelve una de relleno, sin este campo.
+        if (fila && "vista_maestra_desde" in fila && !fila.vista_maestra_desde) {
+          setUsuario(fila);
+          return { ok: true, negocioId: fila.negocio_id ?? null };
+        }
+        return { ok: false, error: r.error };
       },
 
       // El predeterminado y el Inicio rápido: valen para la cuenta, en todos
