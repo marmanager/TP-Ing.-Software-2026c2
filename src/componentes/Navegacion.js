@@ -35,6 +35,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Icono from "./Icono";
+import BordeParaAchicar, { useAnchoDeBarra } from "./BordeParaAchicar";
 import { useAuth } from "@/lib/auth";
 import { textoDeError } from "@/lib/idioma";
 import { ErrorGeneral } from "./ui";
@@ -256,6 +257,8 @@ function Encabezado({ negocio, enVista, extra }) {
 // Si la barra está cerrada, en este navegador. Es una comodidad de cada
 // persona en su computadora, no algo del negocio: no va a la base.
 const LLAVE_BARRA = "marmanager.barra-cerrada";
+// El ancho, que se cambia arrastrando el borde derecho. También del navegador.
+const ANCHO_BARRA = { inicial: 256, minimo: 200, maximo: 480 };
 
 export function BarraLateral() {
   const { t } = useIdioma();
@@ -268,6 +271,7 @@ export function BarraLateral() {
   const [cerrada, setCerrada] = useState(false);
   const boton = useRef(null);
   const recienTocado = useRef(false);
+  const [ancho, cambiarAncho] = useAnchoDeBarra("marmanager.barra-ancho", ANCHO_BARRA.inicial, ANCHO_BARRA.minimo, ANCHO_BARRA.maximo);
 
   // Se lee después de montar: en el servidor no hay localStorage, y leerlo
   // antes haría que lo de los dos lados no coincida.
@@ -325,11 +329,12 @@ export function BarraLateral() {
   }
 
   return (
-    <nav aria-label={t("navegacion.secciones")} className="hidden w-64 shrink-0 border-r border-borde bg-fondo md:block">
+    <nav aria-label={t("navegacion.secciones")} style={{ width: ancho }} className="hidden shrink-0 border-r border-borde bg-fondo md:block">
       {/* Del alto de la pantalla y quieta mientras la página se mueve, así el
           pie queda siempre abajo. Si las secciones no entran, se mueve sólo
           la lista de arriba y el pie no se tapa. */}
       <div className="sticky top-0 flex h-dvh flex-col p-4">
+        <BordeParaAchicar ancho={ancho} cambiar={cambiarAncho} lado="derecha" etiqueta={t("navegacion.anchoDeBarra")} minimo={ANCHO_BARRA.minimo} maximo={ANCHO_BARRA.maximo} />
         <Encabezado negocio={negocio} enVista={enVista} extra={botonDeBarra} />
         <div className="min-h-0 flex-1 overflow-y-auto">
           <ListaDeSecciones destinos={arriba} ruta={ruta} />

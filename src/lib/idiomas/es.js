@@ -2641,6 +2641,7 @@ export default {
     },
   },
   asistente: {
+    anchoDelPanel: "Ancho del panel",
     titulo: "Asistente",
     pantallaCompleta: "Pantalla completa",
     achicar: "Volver al panel",
@@ -2719,6 +2720,7 @@ export default {
     incompletas: "Hay más respuestas viejas sin ver que no entraron acá.",
   },
   navegacion: {
+    anchoDeBarra: "Ancho de la barra",
     ecuaciones: "Ecuaciones",
     respuestas: "Respuestas por WhatsApp",
     secciones: "Secciones",
