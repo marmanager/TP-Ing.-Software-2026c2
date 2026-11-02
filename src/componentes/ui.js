@@ -107,10 +107,13 @@ export function Interruptor({
       <span>
         <span className="block font-bold">{children}</span>
         {ayuda && <span className="block text-tinta-media">{ayuda}</span>}
-        <span className="block text-apoyo text-tinta-suave">
-          {prendido ? prendidoDice : sinPrender}
-          {motivo && ` · ${motivo}`}
-        </span>
+        {/* palabras={["", ""]} la saca: donde el interruptor ya se explica solo. */}
+        {(sinPrender || motivo) && (
+          <span className="block text-apoyo text-tinta-suave">
+            {prendido ? prendidoDice : sinPrender}
+            {motivo && ` · ${motivo}`}
+          </span>
+        )}
       </span>
     </button>
   );

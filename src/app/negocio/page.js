@@ -505,25 +505,6 @@ export default function MiNegocio() {
         </div>
       </Tarjeta>
 
-      {/* La copia de seguridad (docs/copia-de-seguridad.md): sólo con su permiso. */}
-      {puede(usuario, "copia_de_seguridad") && (
-        <>
-          <TituloSeccion id="copia-de-seguridad">{t("negocio.copias.titulo")}</TituloSeccion>
-          <Tarjeta className="mb-12">
-            <p className="max-w-[65ch] text-tinta-media">{t("negocio.copias.apoyo")}</p>
-            <div className="mt-4">
-              <Link
-                href="/negocio/copia-de-seguridad"
-                className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
-              >
-                <Icono nombre="historial" />
-                {t("negocio.copias.ver")}
-              </Link>
-            </div>
-          </Tarjeta>
-        </>
-      )}
-
       {/* La landing la arma sólo el dueño: el resto del equipo no tiene nada
           que hacer en esa pantalla. */}
       {puedeConfigurar && (
@@ -611,6 +592,29 @@ export default function MiNegocio() {
       <TituloSeccion id="recordatorios">{t("negocio.recordatorios.titulo")}</TituloSeccion>
       <ResumenRecordatorios puedeConfigurar={puede(usuario, "entregar_y_reabrir")} />
 
+      {/* La copia de seguridad (docs/copia-de-seguridad.md): sólo con su permiso. */}
+      {puede(usuario, "copia_de_seguridad") && (
+        <>
+          <TituloSeccion id="copia-de-seguridad">{t("negocio.copias.titulo")}</TituloSeccion>
+          <Tarjeta className="mb-12">
+            <p className="max-w-[65ch] text-tinta-media">{t("negocio.copias.apoyo")}</p>
+            <div className="mt-4">
+              <Link
+                href="/negocio/copia-de-seguridad"
+                className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
+              >
+                <Icono nombre="historial" />
+                {t("negocio.copias.ver")}
+              </Link>
+            </div>
+          </Tarjeta>
+        </>
+      )}
+
+      {/* Con el primer caso el rubro queda fijo y la sección se va: no hay
+          nada que hacer con ella. Antes avisa que después no se va a poder. */}
+      {!rubroFijo && (
+      <>
       <TituloSeccion id="rubro">{t("negocio.rubro.titulo")}</TituloSeccion>
       <Tarjeta className="mb-12">
         {!cambiandoRubro ? (
@@ -621,11 +625,11 @@ export default function MiNegocio() {
                 partes={{ rubro: <span className="font-bold text-tinta">{actual.nombre}</span> }}
               />
             </p>
-            {rubroFijo ? (
-              <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
-                {t("negocio.rubro.fijo", { rubro: actual.nombre.toLowerCase(), identificador: actual.identificador.enFrase })}
-              </p>
-            ) : puedeConfigurar ? (
+            <p className="mt-2 flex max-w-[65ch] items-start gap-2 font-bold text-tinta">
+              <Icono nombre="alerta" className="size-6 shrink-0" />
+              <span>{t("negocio.rubro.avisoPrimerCaso")}</span>
+            </p>
+            {puedeConfigurar ? (
               <div className="mt-4">
                 <Boton icono="tienda" onClick={() => setCambiandoRubro(true)} data-testid="negocio-rubro-cambiar">
                   {t("negocio.rubro.cambiar")}
@@ -730,6 +734,8 @@ export default function MiNegocio() {
           </>
         )}
       </Tarjeta>
+      </>
+      )}
 
       <BorrarNegocio />
     </>

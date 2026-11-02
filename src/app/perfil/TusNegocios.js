@@ -79,6 +79,18 @@ export default function TusNegocios({ negocios, sinLista }) {
           <li key={n.id}>
             <Tarjeta className="flex flex-wrap items-center gap-3">
               <FilaNegocio negocio={n} rol={nombreDelRol(n.rol_nombre, t)} />
+              {/* Entre el nombre y el botón: abajo, a lo ancho, ocupaba una
+                  fila entera para un dato que se toca una vez. */}
+              <div className="flex flex-1 justify-center">
+                <Interruptor
+                  prendido={predeterminado === n.id}
+                  palabras={["", ""]}
+                  disabled={ocupado}
+                  onChange={(v) => guardar(v ? n.id : null, inicioRapido)}
+                >
+                  {t("cuenta.negocios.predeterminado")}
+                </Interruptor>
+              </div>
               {n.id === usuario?.negocio_id ? (
                 <span className="flex min-h-12 items-center gap-2 font-bold text-completo">
                   <Icono nombre="listo" className="size-6" />
@@ -89,16 +101,6 @@ export default function TusNegocios({ negocios, sinLista }) {
                   {t("cuenta.negocios.entrar")}
                 </Boton>
               )}
-              <div className="basis-full">
-                <Interruptor
-                  prendido={predeterminado === n.id}
-                  palabras={[t("cuenta.negocios.no"), t("cuenta.negocios.si")]}
-                  disabled={ocupado}
-                  onChange={(v) => guardar(v ? n.id : null, inicioRapido)}
-                >
-                  {t("cuenta.negocios.predeterminado")}
-                </Interruptor>
-              </div>
             </Tarjeta>
           </li>
         ))}
