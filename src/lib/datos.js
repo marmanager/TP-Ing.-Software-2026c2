@@ -1427,6 +1427,20 @@ export function DatosProvider({ children }) {
         return;
       },
 
+      // El mail y el canal del cliente, desde su ficha (083). Como el
+      // teléfono: se ve enseguida y la fila de la API lo confirma.
+      corregirEmail(clienteId, email) {
+        setDatos((d) => ({ ...d, clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, email } : c)) }));
+        enLaApi((token) => parchar(`/clientes/${clienteId}`, { email: email ?? "", actualizado_en: version(datos.clientes, clienteId) }, token),
+          ({ cliente }) => setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, cliente) })));
+      },
+
+      cambiarCanal(clienteId, canal) {
+        setDatos((d) => ({ ...d, clientes: d.clientes.map((c) => (c.id === clienteId ? { ...c, canal } : c)) }));
+        enLaApi((token) => parchar(`/clientes/${clienteId}`, { canal, actualizado_en: version(datos.clientes, clienteId) }, token),
+          ({ cliente }) => setDatos((d) => ({ ...d, clientes: ponerFila(d.clientes, cliente) })));
+      },
+
       // Que el cliente vuelva a recibir avisos (R-8b). La baja la pidió él
       // por WhatsApp y sólo se deshace por acá: la API saca la fecha y deja
       // en su historial quién y cuándo. Se espera la respuesta, porque es el

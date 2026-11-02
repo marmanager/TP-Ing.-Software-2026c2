@@ -1,6 +1,6 @@
 "use client";
 
-// La tarjeta de "Recordatorios por WhatsApp" en Mi negocio: cómo está cada
+// La tarjeta de "Recordatorios" en Mi negocio: cómo está cada
 // uno, en una línea, y el camino a /negocio/recordatorios para cambiarlos.
 // Igual que Módulos y Cuándo atendés: el resumen acá, la edición en su
 // pantalla. Las líneas salen de las mismas filas que esa pantalla
