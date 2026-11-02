@@ -5,7 +5,7 @@
 // dejar la pantalla en la que se está trabajando.
 //
 // Cómo se ve, según el modo de ContextoAsistente:
-//   cerrado  -> sólo el botón "Asistente", abajo a la derecha (computadora).
+//   cerrado  -> sólo el botón "Remi", abajo a la derecha (computadora).
 //               En el celular se abre desde "Más": un botón flotante taparía
 //               el botón principal fijo de cada pantalla.
 //   panel    -> computadora ancha: una columna a la derecha que achica el
@@ -28,6 +28,7 @@ import { puede } from "@/lib/permisos";
 import { useIdioma } from "@/lib/useIdioma";
 import { describirPropuesta, igualA, leerVariable, partirTexto, prendidoEn } from "@/lib/asistente";
 import Icono from "@/componentes/Icono";
+import BordeParaAchicar, { useAnchoDeBarra } from "@/componentes/BordeParaAchicar";
 import { Boton, Cargando, ErrorGeneral } from "@/componentes/ui";
 import { useAsistente } from "./ContextoAsistente";
 
@@ -64,12 +65,17 @@ export function BotonDelAsistente() {
   );
 }
 
+// El ancho del panel en computadora, que se cambia arrastrando su borde
+// izquierdo. Se recuerda en el navegador.
+const ANCHO_PANEL = { inicial: 416, minimo: 320, maximo: 800 };
+
 export function PanelDelAsistente() {
   const { t } = useIdioma();
   const asistente = useAsistente();
   const { modo, pedidoDeFoco, cerrar, agrandar, achicar, conversacion, empezarDeNuevo } = asistente;
   const panel = useRef(null);
   const completo = modo === "completo";
+  const [ancho, cambiarAncho] = useAnchoDeBarra("marmanager.asistente-ancho", ANCHO_PANEL.inicial, ANCHO_PANEL.minimo, ANCHO_PANEL.maximo);
 
   // Al abrirlo o agrandarlo, el foco va al campo para escribir: se abrió
   // para preguntar.
@@ -106,9 +112,9 @@ export function PanelDelAsistente() {
         // Celular: toda la pantalla.
         "fixed inset-0 z-40",
         // Computadora angosta: tarjeta flotante a la derecha.
-        "md:inset-auto md:top-4 md:right-4 md:bottom-4 md:w-[26rem] md:rounded-tarjeta md:border md:border-borde md:shadow-2xl",
+        "md:inset-auto md:top-4 md:right-4 md:bottom-4 md:w-[calc(var(--ancho-panel)*1px)] md:max-w-[calc(100vw-2rem)] md:rounded-tarjeta md:border md:border-borde md:shadow-2xl",
         // Computadora ancha: columna al costado del contenido, que se achica.
-        "lg:sticky lg:top-0 lg:z-20 lg:h-dvh lg:w-[26rem] lg:shrink-0 lg:self-start lg:rounded-none lg:border-0 lg:border-l lg:shadow-none",
+        "lg:sticky lg:top-0 lg:z-20 lg:h-dvh lg:shrink-0 lg:self-start lg:rounded-none lg:border-0 lg:border-l lg:shadow-none",
       ].join(" ");
 
   return (
@@ -117,9 +123,33 @@ export function PanelDelAsistente() {
       id="panel-asistente"
       aria-labelledby="panel-asistente-titulo"
       onKeyDown={alTeclado}
-      className={`${ubicacion} flex flex-col overflow-hidden bg-fondo`}
+      // El ancho sólo lo usan las clases md: de arriba: en el celular y a
+      // pantalla completa el panel ocupa todo.
+      style={{ "--ancho-panel": ancho }}
+      // Sin overflow-hidden: la flecha de cerrar sale por el borde izquierdo.
+      className={`${ubicacion} flex flex-col bg-fondo`}
     >
+      {!completo && (
+        <BordeParaAchicar barra={panel} variable="--ancho-panel" ancho={ancho} cambiar={cambiarAncho} lado="izquierda" etiqueta={t("asistente.anchoDelPanel")} minimo={ANCHO_PANEL.minimo} maximo={ANCHO_PANEL.maximo} />
+      )}
       <header className="flex flex-wrap items-center gap-2 border-b border-borde px-3 py-2">
+        {/* Cerrar es la misma flecha en círculo que la barra de la izquierda,
+            montada sobre el borde a la altura del título. En el celular y a
+            pantalla completa no hay borde a la vista: va primera en el
+            encabezado. Sólo el ícono; el texto lo dicen aria-label y title. */}
+        <button
+          type="button"
+          onClick={cerrar}
+          aria-label={t("asistente.cerrarPanel")}
+          title={t("asistente.cerrarPanel")}
+          className={`group flex size-10 shrink-0 cursor-pointer items-center justify-center ${
+            completo ? "" : "md:absolute md:top-3 md:right-full md:z-20 md:translate-x-1/2"
+          }`}
+        >
+          <span className="flex size-7 items-center justify-center rounded-full border border-borde bg-fondo text-tinta-media shadow-sm transition-colors group-hover:border-borde-fuerte group-hover:text-azul">
+            <Icono nombre="flecha-der" className="size-4" />
+          </span>
+        </button>
         <h2 id="panel-asistente-titulo" className="mr-auto flex items-center gap-2 pl-1 font-titulo text-subtitulo font-extrabold">
           <img src="/asistente.png" alt="" className="size-8" />
           {t("asistente.titulo")}
@@ -133,14 +163,6 @@ export function PanelDelAsistente() {
         >
           <Icono nombre={completo ? "achicar" : "agrandar"} className="size-5" />
           {completo ? t("asistente.achicar") : t("asistente.pantallaCompleta")}
-        </button>
-        <button
-          type="button"
-          onClick={cerrar}
-          className="flex min-h-12 cursor-pointer items-center gap-2 rounded-campo px-3 font-bold text-tinta-media hover:bg-superficie"
-        >
-          <Icono nombre="cruz" className="size-5" />
-          {t("asistente.cerrarPanel")}
         </button>
       </header>
 
@@ -197,6 +219,9 @@ function Conversacion({ completo, alEmpezarDeNuevo }) {
         <div className={columna}>
           {conversacion.length === 0 && (
             <section className="rounded-tarjeta border border-borde bg-tarjeta p-4">
+              {/* Remi, la mascota, saluda en cada conversación nueva. Sin
+                  texto alternativo: el saludo de abajo ya dice quién es. */}
+              <img src="/remi.jpg" alt="" width={1024} height={559} className="mb-4 h-auto w-full rounded-campo" />
               <p className="font-bold text-subtitulo">{t("asistente.vacioTitulo")}</p>
               <p className="mt-2 text-tinta-media">{t("asistente.apoyo")}</p>
               <p className="mt-2 text-tinta-media">{t("asistente.vacioTexto")}</p>
@@ -280,7 +305,11 @@ function Conversacion({ completo, alEmpezarDeNuevo }) {
       </div>
 
       <form
-        className="border-t border-borde bg-fondo px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4"
+        className={`border-t border-borde bg-fondo px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 ${
+          // Como tarjeta flotante el panel tiene las esquinas redondas, y el
+          // fondo del pie no las tiene que tapar.
+          completo ? "" : "md:rounded-b-tarjeta lg:rounded-none"
+        }`}
         onSubmit={(e) => {
           e.preventDefault();
           mandar(borrador);
@@ -306,11 +335,19 @@ function Conversacion({ completo, alEmpezarDeNuevo }) {
                   mandar(borrador);
                 }
               }}
-              className="max-h-48 min-h-12 w-full resize-y rounded-campo border-2 border-borde-fuerte bg-tarjeta px-3 py-2 text-cuerpo"
+              className="max-h-48 min-h-12 min-w-0 flex-1 resize-y rounded-campo border-2 border-borde-fuerte bg-tarjeta px-3 py-2 text-cuerpo"
             />
-            <Boton type="submit" variante="principal" icono="flecha" disabled={pensando || !borrador.trim()}>
-              {t("asistente.enviar")}
-            </Boton>
+            {/* Mandar es una flecha en un círculo azul, sin palabra, para que
+                la caja se quede con casi todo el ancho. */}
+            <button
+              type="submit"
+              disabled={pensando || !borrador.trim()}
+              aria-label={t("asistente.enviar")}
+              title={t("asistente.enviar")}
+              className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-azul text-white hover:bg-azul-apretado disabled:cursor-default disabled:opacity-40 disabled:hover:bg-azul"
+            >
+              <Icono nombre="flecha" className="size-5" />
+            </button>
           </div>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3">
             <p id="ayuda-asistente" className="text-apoyo text-tinta-suave">
