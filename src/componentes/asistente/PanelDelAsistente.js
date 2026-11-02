@@ -5,7 +5,7 @@
 // dejar la pantalla en la que se está trabajando.
 //
 // Cómo se ve, según el modo de ContextoAsistente:
-//   cerrado  -> sólo el botón "Asistente", abajo a la derecha (computadora).
+//   cerrado  -> sólo el botón "Remi", abajo a la derecha (computadora).
 //               En el celular se abre desde "Más": un botón flotante taparía
 //               el botón principal fijo de cada pantalla.
 //   panel    -> computadora ancha: una columna a la derecha que achica el

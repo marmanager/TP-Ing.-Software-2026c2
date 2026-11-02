@@ -159,6 +159,7 @@ const CLASE_PALABRA = "min-w-0 truncate";
 // la barra está tan angosta que no se leen, y la palabra sale al pasar el mouse.
 function ListaDeSecciones({ destinos, ruta, grande = false, soloIconos = false }) {
   const { t } = useIdioma();
+  const { usuario } = useAuth();
   return (
     <ul className="flex flex-col gap-1">
       {destinos.map((d) => {
@@ -178,7 +179,13 @@ function ListaDeSecciones({ destinos, ruta, grande = false, soloIconos = false }
                 acá ? "bg-azul-claro font-bold text-azul" : "text-tinta-media hover:bg-superficie",
               ].join(" ")}
             >
-              <Icono nombre={d.icono} className="size-7 shrink-0" />
+              {/* Mi perfil lleva la foto de la persona, si tiene. Sin texto
+                  alternativo: la palabra de al lado ya dice qué es. */}
+              {d.id === "perfil" && usuario?.foto ? (
+                <img src={usuario.foto} alt="" className="size-7 shrink-0 rounded-full object-cover" />
+              ) : (
+                <Icono nombre={d.icono} className="size-7 shrink-0" />
+              )}
               <span style={PALABRA} className={CLASE_PALABRA}>{palabra}</span>
             </Link>
           </li>
