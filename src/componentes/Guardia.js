@@ -84,6 +84,10 @@ const esLanding = (ruta) => ruta.startsWith("/n/");
 // cliente del negocio, sin cuenta. Mismas reglas que las anteriores.
 const esBaja = (ruta) => ruta.startsWith("/baja/");
 
+// "/turno/<token>" es para contestar el recordatorio del turno desde el mail
+// (085). Con la barra, para no confundirla con "/turnos/<código>".
+const esTurnoPorLink = (ruta) => ruta.startsWith("/turno/");
+
 // La pantalla de un módulo apagado se sigue pudiendo escribir en la barra de
 // direcciones: un favorito viejo, un link que alguien pasó, el módulo apagado
 // hace un rato. No alcanza con sacarlo de la navegación.
@@ -130,7 +134,7 @@ export default function Guardia({ children }) {
   // del sistema, para quien eligió seguirlo.
   useEffect(seguirAlSistema, []);
 
-  const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta) || esBaja(ruta);
+  const publica = esSeguimiento(ruta) || esAgendaPublica(ruta) || esLanding(ruta) || esBaja(ruta) || esTurnoPorLink(ruta);
   const hayEntrada = Boolean(sesion);
   const tieneNegocio = Boolean(usuario?.negocio_id);
   const enVista = Boolean(usuario?.vista_maestra_desde);

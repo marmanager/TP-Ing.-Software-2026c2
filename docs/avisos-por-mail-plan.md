@@ -102,7 +102,20 @@ Migración `083_canal_del_cliente.sql`, en la rama `avisos-por-mail` del front.
   cancela los avisos automáticos pendientes de ese cliente.
 - Contestar BAJA por WhatsApp anota la vía `whatsapp`.
 
-## API-6 · Contestar el turno por mail
+## API-6 · Contestar el turno por mail — hecho
+- Migración 085: `turno_por_link`, con un link por recordatorio que se guarda con huella,
+  y `turno.respuesta_cliente_via` (`whatsapp` o `mail`).
+- Los botones son los mismos que tiene hoy el WhatsApp (082), «Confirmo» y «Cancelo»
+  (no «No puedo»). «Cancelo» cancela el turno, y la página pide confirmarlo una vez.
+- El mail trae "Para confirmar o cancelar, entrá acá: {link}". `GET` y
+  `POST /v1/publico/turno/:token` (`{ respuesta }`). Un link contesta una sola vez, y sólo
+  si el turno sigue en pie.
+- La página es `/turno/[token]`. La agenda dice "Confirmó desde el mail" o "Canceló desde
+  el mail".
+- **Mail del negocio (084):** `negocio.email`, en Mi negocio. Va como «Responder a» en
+  cada aviso por mail.
+
+### Lo planeado
 - `POST /v1/turno/{token}/confirmo` y `/no-puedo`: anotan lo mismo que la respuesta por
   WhatsApp (070). El token es uno por aviso y de un solo uso.
 
@@ -136,7 +149,7 @@ Migración `083_canal_del_cliente.sql`, en la rama `avisos-por-mail` del front.
   después dice "Listo, ya no te escribimos" (o "Ya estabas dado de baja" si se vuelve a
   abrir), con el nombre del negocio y las palabras de su rubro. Un link que no existe dice
   "Este link no sirve".
-- `/turnos/[token]`: pendiente, va con API-6.
+- `/turno/[token]`: hecho con API-6.
 - **El mail también se carga al crear un cliente** (Clientes, Nuevo caso, Nuevo turno), y
   siempre es opcional. En Nuevo turno el teléfono también es opcional, así que un cliente
   con sólo mail arranca en mail.

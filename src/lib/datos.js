@@ -124,6 +124,18 @@ export async function usarBajaPorLink(token) {
   return bajaDeLaApi(await mandar(`/publico/baja/${encodeURIComponent(token)}`, {}));
 }
 
+// Contestar el recordatorio del turno desde el mail (085). Igual que la baja:
+// { sirve, negocio, turno, en_pie, respuesta }, o { problema } sin API.
+export async function verTurnoPorLink(token) {
+  if (!API) return { sirve: false, problema: true };
+  return bajaDeLaApi(await traer(`/publico/turno/${encodeURIComponent(token)}`));
+}
+
+export async function responderTurnoPorLink(token, respuesta) {
+  if (!API) return { sirve: false, problema: true };
+  return bajaDeLaApi(await mandar(`/publico/turno/${encodeURIComponent(token)}`, { respuesta }));
+}
+
 // La respuesta del cliente a un paso del presupuesto, desde el link
 // (SCRUM-68, segunda parte).
 //
