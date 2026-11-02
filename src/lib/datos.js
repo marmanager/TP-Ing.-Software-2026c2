@@ -19,7 +19,7 @@ import {
   pesos,
   sePuedeMarcarHecho,
 } from "./estados";
-import { normalizarInicio } from "./inicio";
+import { conModulosPrendidos, normalizarInicio } from "./inicio";
 import { respuestaDeLaApi, seguimientoDeLaApi } from "./seguimiento.js";
 import { agendaDeLaApi } from "./horarios.js";
 import { normalizarLanding } from "./landing.js";
@@ -74,10 +74,11 @@ const Contexto = createContext(null);
 const PAGINAS_DE_RESPUESTAS = 10;
 const sinLoCrudo = ({ contenido, contacto_id, numero_emisor_id, ...respuesta }) => respuesta;
 
-async function paginaDeRespuestas(ruta, { limite, cursor }, token) {
+async function paginaDeRespuestas(ruta, { limite, cursor, pendientes }, token) {
   const consulta = new URLSearchParams({
     ...(limite ? { limite: String(limite) } : {}),
     ...(cursor ? { cursor } : {}),
+    ...(pendientes ? { pendientes: "true" } : {}),
   });
   const r = await traer(consulta.toString() ? `${ruta}?${consulta}` : ruta, token);
   // El error de la API, con su código: la pantalla lo dice con textoDeError.
@@ -344,6 +345,11 @@ export function DatosProvider({ children }) {
   // Si desde otro dispositivo la cuenta pasó a otro negocio (o la sacaron de
   // éste): { nombre } del nuevo, o nombre null. Ver docs/multinegocio.md.
   const [otroNegocio, setOtroNegocio] = useState(null);
+  // Las respuestas por WhatsApp sin ver: null hasta que alguna pantalla las
+  // pide (leerRespuestasSinVer), y de nuevo null al cambiar de negocio o
+  // refrescar, para que se vuelvan a leer.
+  const [respuestasSinVer, setRespuestasSinVer] = useState(null);
+  const leyendoSinVer = useRef(false);
 
   // Carga inicial. Corre sólo en el navegador, así no hay diferencia entre
   // lo que renderiza el servidor y lo que renderiza el cliente. Espera a que
@@ -888,22 +894,91 @@ export function DatosProvider({ children }) {
         );
       },
 
-      // Todas las del negocio, página por página, para la ficha de un
-      // cliente: la API no filtra por cliente. Con tope, para que un negocio
-      // con años de mensajes no se quede leyendo; "completas" dice si llegó
-      // al final.
-      async leerTodasLasRespuestas() {
+      // La conversación por WhatsApp de un cliente (API-2), para su ficha: lo
+      // que le mandamos y lo que escribió, del más nuevo al más viejo, de a
+      // una página. Trae además hasta cuándo se le puede escribir libre
+      // (ventana_hasta) y cuántas respuestas suyas nadie vio (pendientes).
+      async leerConversacion(clienteId, { limite, cursor } = {}) {
+        const consulta = new URLSearchParams({
+          ...(limite ? { limite: String(limite) } : {}),
+          ...(cursor ? { cursor } : {}),
+        });
+        const ruta = `/clientes/${encodeURIComponent(clienteId)}/whatsapp`;
+        const r = await traer(consulta.toString() ? `${ruta}?${consulta}` : ruta, await tokenDeSesion());
+        if (!r.ok) return { ok: false, error: r.error };
+        return {
+          ok: true,
+          mensajes: r.datos ?? [],
+          siguiente: r.siguiente ?? null,
+          ventanaHasta: r.ventana_hasta ?? null,
+          pendientes: r.pendientes ?? 0,
+        };
+      },
+
+      // Contestarle por WhatsApp desde la ficha (API-3): texto libre, dentro
+      // de las 24 horas desde su último mensaje. La API lo firma con el nombre
+      // del negocio y marca vistas sus respuestas, así que salen también de
+      // las que quedan sin ver. Devuelve el mensaje con la forma de la
+      // conversación, para sumarlo sin volver a leerla.
+      async mandarWhatsapp(clienteId, texto) {
+        const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/whatsapp`, { texto },
+          await tokenDeSesion(), { idempotencia: nuevaClave() });
+        if (!r.ok) return { ok: false, error: r.error };
+        setRespuestasSinVer((s) => s && { ...s, lista: s.lista.filter((x) => x.cliente_id !== clienteId) });
+        return { ok: true, mensaje: r.datos.mensaje };
+      },
+
+      // Retomar la conversación (API-4): pasadas las 24 horas, la plantilla
+      // retomar_conversacion. Cuando conteste, se le puede volver a escribir
+      // libre. Sin la plantilla aprobada, 503 plantilla_no_configurada.
+      async retomarConversacion(clienteId) {
+        const r = await mandar(`/clientes/${encodeURIComponent(clienteId)}/whatsapp/retomar`, {},
+          await tokenDeSesion(), { idempotencia: nuevaClave() });
+        if (!r.ok) return { ok: false, error: r.error };
+        return { ok: true, mensaje: r.datos.mensaje };
+      },
+
+      // Las que nadie marcó con "Ya lo vi" (078), para el Inicio, las marcas
+      // de Casos y Clientes y la bandeja. Se leen una vez y las comparten
+      // todas las pantallas; "Ya lo vi" las saca de acá sin volver a pedirlas.
+      async leerRespuestasSinVer() {
+        if (leyendoSinVer.current) return;
+        leyendoSinVer.current = true;
         const token = await tokenDeSesion();
-        const respuestas = [];
+        const lista = [];
         let cursor = null;
+        let completas = false;
         for (let i = 0; i < PAGINAS_DE_RESPUESTAS; i++) {
-          const r = await paginaDeRespuestas("/seguimiento/respuestas", { limite: 200, cursor }, token);
-          if (!r.ok) return r;
-          respuestas.push(...r.respuestas);
+          const r = await paginaDeRespuestas("/seguimiento/respuestas", { limite: 200, cursor, pendientes: true }, token);
+          if (!r.ok) {
+            leyendoSinVer.current = false;
+            return setRespuestasSinVer({ lista: [], error: r.error, completas: true });
+          }
+          lista.push(...r.respuestas);
           cursor = r.siguiente;
-          if (!cursor) return { ok: true, respuestas, completas: true };
+          if (!cursor) {
+            completas = true;
+            break;
+          }
         }
-        return { ok: true, respuestas, completas: false };
+        leyendoSinVer.current = false;
+        setRespuestasSinVer({ lista, error: null, completas });
+      },
+
+      // "Ya lo vi": todo lo de ese cliente, o lo de ese teléfono si no es
+      // cliente de nadie. Si después escribe otra vez, vuelve a aparecer.
+      async marcarRespuestasVistas({ clienteId, telefono }) {
+        const token = await tokenDeSesion();
+        const r = clienteId
+          ? await mandar(`/clientes/${encodeURIComponent(clienteId)}/whatsapp/visto`, {}, token)
+          : await mandar("/seguimiento/respuestas/visto", { telefono }, token);
+        if (!r.ok) {
+          setAviso(r.error);
+          return { ok: false };
+        }
+        const esDeEse = (x) => (clienteId ? x.cliente_id === clienteId : !x.cliente_id && x.telefono === telefono);
+        setRespuestasSinVer((s) => s && { ...s, lista: s.lista.filter((x) => !esDeEse(x)) });
+        return { ok: true };
       },
 
       // Los recordatorios van por el mismo camino: arriba el posventa
@@ -1494,7 +1569,7 @@ export function DatosProvider({ children }) {
       //
       // La foto viene como data URL ya achicado por src/lib/imagen.js, o null
       // para volver al ícono.
-      guardarNegocio({ nombre, descripcion, foto, telefono }) {
+      guardarNegocio({ nombre, descripcion, foto, telefono, direccion }) {
         const cambios = {
           nombre: nombre.trim(),
           // Vacío es que no hay descripción, no una descripción en blanco.
@@ -1503,6 +1578,9 @@ export function DatosProvider({ children }) {
           // El teléfono nace en 020_telefono_del_negocio.sql: en una base sin
           // esa migración la ficha se guarda igual, sin él.
           telefono: (telefono ?? "").trim() || null,
+          // La dirección (082): va en el recordatorio del turno y en el aviso
+          // de "listo", y se ve en la landing. En una línea, como la pide la API.
+          direccion: (direccion ?? "").replace(/\s+/g, " ").trim() || null,
         };
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
         enLaApi((token) => parchar("/negocio", { ...cambios, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
@@ -1633,6 +1711,36 @@ export function DatosProvider({ children }) {
         enLaApi((token) => parchar("/negocio", { estados, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
       },
 
+      // Lo que propone el Asistente y la persona aplica (src/lib/asistente.js).
+      // Lo de la ficha —estados, cómo se nombran los casos, rubro— va en UNA
+      // sola escritura: de a uno, el segundo chocaría (409) con la versión que
+      // dejó el primero. Después los módulos, que van sin versión. A
+      // diferencia del resto, espera a la API: el chat dice si salió bien.
+      async aplicarConfiguracion({ modulos, prendidos = [], ...ficha }) {
+        const token = await tokenDeSesion();
+        if (Object.keys(ficha).length) {
+          const r = await parchar("/negocio", { ...ficha, actualizado_en: datos.negocio?.actualizado_en }, token);
+          if (!r.ok) return r;
+          ponerNegocio(r.datos.negocio);
+        }
+        if (modulos) {
+          const antes = datos.negocio?.modulos_activos ?? [];
+          const r = await reemplazar("/negocio/modulos", { valor: modulos }, token);
+          if (!r.ok) return r;
+          if (r.datos.negocio) ponerNegocio(r.datos.negocio);
+          // Las tarjetas de lo que se prendió van al final del Inicio, no al
+          // lugar viejo que guardaban escondidas (conModulosPrendidos).
+          const inicio = normalizarInicio(datos.negocio?.inicio);
+          const acomodado = conModulosPrendidos(inicio, antes, modulos, prendidos);
+          if (acomodado !== inicio) {
+            setDatos((d) => ({ ...d, negocio: { ...d.negocio, inicio: acomodado } }));
+            const ri = await reemplazar("/negocio/inicio", { valor: acomodado }, token);
+            if (ri.ok && ri.datos.negocio) ponerNegocio(ri.datos.negocio);
+          }
+        }
+        return { ok: true };
+      },
+
       // Prende y apaga módulos (SCRUM-38). Recibe la lista completa nueva.
       cambiarModulos(claves) {
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, modulos_activos: claves } }));
@@ -1664,11 +1772,15 @@ export function DatosProvider({ children }) {
     };
   }, [datos, sesion]);
 
+  const negocioId = datos.negocio?.id;
+  useEffect(() => setRespuestasSinVer(null), [negocioId, refresco]);
+
   // El Inicio se sirve ya normalizado: las pantallas nunca ven una
   // configuración a medias guardada por una versión anterior.
   const valor = {
     ...datos,
     inicio: normalizarInicio(datos.negocio?.inicio),
+    respuestasSinVer,
     cargando,
     aviso,
     otroNegocio,

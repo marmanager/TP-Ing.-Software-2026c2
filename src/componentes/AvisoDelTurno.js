@@ -24,6 +24,9 @@ const COMO_SE_VE = {
   programado: { icono: "whatsapp", clase: "text-tinta-media" },
   enviado: { icono: "listo", clase: "text-completo" },
   fallido: { icono: "alerta", clase: "font-bold text-rojo" },
+  // No salió porque al negocio le faltan datos que van en el mensaje
+  // (API-4b): se arregla en Mi negocio, no en la ficha del cliente.
+  no_sale: { icono: "alerta", clase: "font-bold text-espera" },
 };
 
 export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActivo, ahora }) {
@@ -47,6 +50,11 @@ export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActiv
           <span>{enPalabras.frase}</span>
         </p>
         {enPalabras.estado === "fallido" && fichaDelCliente}
+        {enPalabras.estado === "no_sale" && (
+          <Link href="/negocio" className="inline-flex min-h-12 items-center font-bold text-azul">
+            {t("recordatorios.plantillas.completar")}
+          </Link>
+        )}
       </div>
     );
   }

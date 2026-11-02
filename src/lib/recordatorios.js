@@ -31,6 +31,7 @@ import { cadaCuantoVuelve, mayuscula, vocabulario } from "./presets.js";
 import { telefonoWhatsAppValido } from "./seguimiento-whatsapp.js";
 import { diaEnPalabras } from "./fechas.js";
 import { tCastellano } from "./idioma.js";
+import { casoEnFrase } from "./nombres.js";
 import { normalizarTelefono } from "./telefono.js";
 
 // Los textos para mostrar salen del diccionario (recordatorios.*). Lo último
@@ -341,14 +342,18 @@ export function cuandoSaleEnPalabras({ tipo, plazo, rubro }, opciones) {
 
 // Lo que falta para poder guardar un recordatorio, por campo. El plazo va
 // en su unidad y con el rango que valida la API.
-export function erroresDelRecordatorio({ tipo, plazo, mensaje }, opciones) {
+export function erroresDelRecordatorio({ tipo, plazo, mensaje, version, versiones }, opciones) {
   const { t } = lang(opciones);
   const { min, max, errorDelPlazo } = definicion(tipo);
   const valor = String(plazo ?? "").trim();
   const entero = /^\d+$/.test(valor) ? Number(valor) : null;
   const plazoMal = (entero === null || entero < min || entero > max) && errorDelPlazo(t);
   const texto = String(mensaje ?? "").trim();
-  const mensajeMal = !texto
+  // Con la plantilla de la versión elegida prendida, el texto es el de Meta:
+  // el campo no se usa y no hace falta escribirlo.
+  const mensajeMal = conPlantilla({ version, versiones })
+    ? false
+    : !texto
     ? t("recordatorios.errorMensaje.vacio")
     : texto.length > 3000 && t("recordatorios.errorMensaje.largo");
   return {
@@ -412,10 +417,18 @@ export function avisoEnPalabras({ aviso, ahora }, opciones) {
       return { estado: "enviado", frase: t("recordatorios.aviso.enviado", { momento: momentoEnPalabras(aviso.procesado_en ?? aviso.enviar_en, ahora, l) }) };
     case "fallido":
       return { estado: "fallido", frase: t("recordatorios.aviso.fallido") };
+    // Con las plantillas (API-4b), un recordatorio sin los datos que lleva el
+    // mensaje queda cancelado al salir: se dice qué falta, para cargarlo.
+    case "cancelado":
+      return NO_SALE_EL_TURNO.includes(aviso.motivo)
+        ? { estado: "no_sale", motivo: aviso.motivo, frase: t(`recordatorios.aviso.noSale.${aviso.motivo}`) }
+        : null;
     default:
       return null;
   }
 }
+
+const NO_SALE_EL_TURNO = ["faltan_datos_del_negocio", "falta_nombre_del_negocio"];
 
 // El aviso de un turno, como lo trae la API: el último de la cola, en el
 // listado (turno.aviso), o el que quedó después de un cambio, en la
@@ -460,7 +473,51 @@ const paraEditar = (c, plazo) => ({
   plazo: plazo == null ? "" : String(plazo),
   mensaje: c?.mensaje ?? "",
   canal: c?.canal === "email" ? "email" : "whatsapp",
+  // Las plantillas de WhatsApp (API-4): la versión elegida, las que hay con
+  // su vista previa, y los datos del negocio que faltan para mandarlo.
+  version: c?.version ?? null,
+  versiones: Array.isArray(c?.versiones) ? c.versiones : [],
+  faltan: Array.isArray(c?.faltan) ? c.faltan : [],
 });
+
+// ------------------------------------------------------------
+// Las plantillas de WhatsApp (FRONT-4)
+// ------------------------------------------------------------
+// Fuera de las 24 h desde el último mensaje del cliente, Meta sólo deja
+// mandar plantillas aprobadas: texto fijo con variables. Cada aviso tiene una
+// versión por rubro (taller, salud, general) y el negocio elige cuál; la API
+// manda la lista con la vista previa armada con sus datos, y si esa
+// plantilla ya está prendida (aprobada por Meta y habilitada en la API).
+//
+// Con la elegida prendida, el texto es el de Meta y el campo del mensaje no
+// se usa. Si no, sale el texto libre de siempre.
+const VERSIONES = ["taller", "salud", "general"];
+
+export const versionElegida = ({ version, versiones }) =>
+  (versiones ?? []).find((v) => v.version === version) ?? null;
+
+export const conPlantilla = (recordatorio) => Boolean(versionElegida(recordatorio)?.prendida);
+
+// Las versiones para elegir, con su nombre en palabras y en el orden de siempre.
+export function versionesParaElegir(versiones, opciones) {
+  const { t } = lang(opciones);
+  return [...(versiones ?? [])]
+    .sort((a, b) => VERSIONES.indexOf(a.version) - VERSIONES.indexOf(b.version))
+    .map((v) => ({ ...v, nombre: t(`recordatorios.plantillas.version.${VERSIONES.includes(v.version) ? v.version : "otra"}`) }));
+}
+
+// Los datos del negocio que faltan para mandar el aviso (la API los dice en
+// "faltan"): la frase, o null si no falta nada. Sin ellos la plantilla
+// quedaría con un hueco, que Meta no deja mandar.
+const DATOS = ["nombre", "direccion", "telefono"];
+
+export function faltanDatosDelNegocio(faltan, opciones) {
+  const { t } = lang(opciones);
+  const cuales = DATOS.filter((d) => (faltan ?? []).includes(d)).map((d) => t(`recordatorios.plantillas.dato.${d}`));
+  if (!cuales.length) return null;
+  const lista = cuales.length === 1 ? cuales[0] : t("recordatorios.plantillas.y", { antes: cuales.slice(0, -1).join(", "), ultimo: cuales.at(-1) });
+  return t("recordatorios.plantillas.faltan", { lista });
+}
 
 // Un tipo que la API no manda no se ofrece: una API sin R-2a no tiene
 // "volver", y configurarlo no haría nada.
@@ -484,6 +541,7 @@ export function cambiosDelRecordatorio(tipo, antes, ahora) {
   if (ahora.activo !== antes.activo) cambios.activo = ahora.activo;
   if (String(ahora.plazo).trim() !== String(antes.plazo).trim()) cambios[def.plazo] = Number(ahora.plazo);
   if (ahora.mensaje.trim() !== antes.mensaje.trim()) cambios.mensaje = ahora.mensaje.trim();
+  if ((ahora.version ?? null) !== (antes.version ?? null)) cambios.version = ahora.version;
   // El posventa (arriba de todo en la API) no tiene canal: sale siempre por WhatsApp.
   if (def.enLaApi && ahora.canal !== antes.canal) cambios.canal = ahora.canal;
   if (!Object.keys(cambios).length) return {};
@@ -527,7 +585,8 @@ export function filasDeRecordatorios({ configuracion, rubro, conAgenda }, opcion
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07): si mañana cambia, la pantalla sigue diciendo lo mismo.
-const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes"];
+// falta_nombre_del_negocio (API-4b): la plantilla lleva el nombre del negocio.
+const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes", "falta_nombre_del_negocio"];
 
 // El texto de cada motivo, en el idioma de t (sin t, en castellano).
 export function porQueNoVolver(motivo, opciones) {
@@ -644,7 +703,9 @@ export function avisoDeLaProximaVisita({ casos, cliente, volver = null, hoy }, o
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07).
-const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso"];
+// link_revocado y falta_nombre_del_negocio (API-4): el negocio dejó de compartir
+// el link, que va en el botón de la plantilla, o no tiene nombre.
+const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso", "link_revocado", "falta_nombre_del_negocio"];
 
 export function porQueNoPresupuesto(motivo, opciones) {
   const { t } = lang(opciones);
@@ -750,6 +811,10 @@ export function respuestaDelTurno({ turno, rubro, ahora }, opciones) {
   switch (turno?.respuesta_cliente) {
     case "confirmo":
       return { estado: "confirmo", frase: t("recordatorios.respuestas.confirmo", { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
+    // El botón "Cancelo" del recordatorio (API-4b) cancela el turno: el
+    // horario queda libre. Se dice como lo que pasó, sin alarma.
+    case "cancelo":
+      return { estado: "cancelo", frase: t("recordatorios.respuestas.cancelo", { momento: momentoEnPalabras(turno.respuesta_cliente_en, ahora, l) }) };
     case "no_puede":
       return {
         estado: "no_puede",
@@ -802,13 +867,54 @@ export function loQueEscribio(respuesta, opciones) {
   return { literal: false, texto: t(`recordatorios.respuestas.noEsTexto.${tipo}`) };
 }
 
-// Lo que contestó un cliente, para su ficha: de lo más nuevo a lo más viejo,
-// como el resto de su historial, con cuándo lo escribió.
-export function respuestasDelCliente({ respuestas, clienteId }, opciones) {
-  return (respuestas ?? [])
-    .filter((r) => r.cliente_id === clienteId)
-    .sort((a, b) => Date.parse(b.enviado_en) - Date.parse(a.enviado_en))
-    .map((r) => ({ ...r, cuando: cuandoContesto(r, opciones) }));
+// La conversación por WhatsApp de un cliente, para su ficha (FRONT-2): lo
+// que le mandamos y lo que escribió, como lo devuelve GET
+// /clientes/:id/whatsapp (del más nuevo al más viejo). Sale como se lee un
+// chat, del más viejo al más nuevo, con un separador cada vez que cambia el
+// día (de Argentina) o el caso del que se habla.
+//
+// Lo nuestro dice qué aviso fue (o que lo escribió alguien del negocio); lo
+// suyo, tal cual (loQueEscribio). Si su mensaje resolvió algo solo (resolvio,
+// 079), se dice al pie: es lo que explica por qué no está en la bandeja.
+const DE_NEGOCIO = ["turno", "volver", "presupuesto", "cierre", "estado", "manual", "retomar"];
+const RESOLVIO = ["confirmo", "no_puede", "cancelo", "baja"];
+
+export function conversacion({ mensajes, casos, rubro }, opciones) {
+  const l = lang(opciones);
+  const { t, locale, idioma } = l;
+  const { cita } = vocabulario(rubro, idioma);
+  const ordenados = [...(mensajes ?? [])].sort((a, b) => Date.parse(a.enviado_en) - Date.parse(b.enviado_en));
+  const filas = [];
+  let antes = null;
+  for (const m of ordenados) {
+    const cuando = enArgentina(m.enviado_en);
+    const dia = cuando?.dia ?? null;
+    const casoId = m.caso_id ?? null;
+    if (!antes || antes.dia !== dia || antes.casoId !== casoId) {
+      const caso = casoId ? (casos ?? []).find((c) => c.id === casoId) : null;
+      const enPalabras = dia ? mayuscula(diaEnPalabrasSinAño(dia, locale)) : "";
+      filas.push({
+        tipo: "separador",
+        clave: `${dia}|${casoId}|${m.id}`,
+        frase: caso ? t("recordatorios.conversacion.separadorConCaso", { dia: enPalabras, caso: casoEnFrase(caso, t) }) : enPalabras,
+      });
+    }
+    antes = { dia, casoId };
+    const delNegocio = m.de === "negocio";
+    filas.push({
+      tipo: "mensaje",
+      clave: m.id,
+      id: m.id,
+      delNegocio,
+      etiqueta: delNegocio
+        ? t(`recordatorios.conversacion.de.${DE_NEGOCIO.includes(m.tipo) ? m.tipo : "otro"}`, { cita: cita.palabra() })
+        : null,
+      escrito: delNegocio ? { literal: true, texto: m.texto ?? "" } : loQueEscribio(m, l),
+      hora: cuando?.hora ?? "",
+      nota: RESOLVIO.includes(m.resolvio) ? t(`recordatorios.conversacion.resolvio.${m.resolvio}`, { cita: cita.palabra() }) : null,
+    });
+  }
+  return filas;
 }
 
 // La bandeja: lo que no resolvió nada solo. Un "sí" o un "no" que la API
@@ -819,6 +925,10 @@ export function respuestasDelCliente({ respuestas, clienteId }, opciones) {
 //
 // Quedan adentro los que repiten algo ya dicho (un segundo "sí"): la API no
 // los anota de nuevo, así que no hay cómo distinguirlos de otro mensaje.
+//
+// Desde la 079 la API dice qué resolvió cada una (resolvio) y, desde la 078,
+// si alguien ya la vio (vista_en): esas tampoco quedan. Lo de la hora sigue
+// para las anteriores a la 079, que vienen con resolvio en null.
 export function respuestasPendientes({ respuestas, turnos, clientes }) {
   const resueltas = new Set();
   const clave = (clienteId, instante) => `${clienteId}|${Date.parse(instante)}`;
@@ -828,7 +938,57 @@ export function respuestasPendientes({ respuestas, turnos, clientes }) {
   for (const c of clientes ?? []) {
     if (c.avisos_baja_en) resueltas.add(clave(c.id, c.avisos_baja_en));
   }
-  return (respuestas ?? []).filter((r) => !resueltas.has(clave(r.cliente_id, r.enviado_en)));
+  return (respuestas ?? []).filter(
+    (r) => !r.resolvio && !r.vista_en && !resueltas.has(clave(r.cliente_id, r.enviado_en))
+  );
+}
+
+// Las pendientes de a una por cliente: alguien que manda quince mensajes es
+// una fila ("15 mensajes"), no quince. Sin cliente, el teléfono hace de
+// cliente. La más reciente arriba; de cada uno, sus mensajes del más viejo al
+// más nuevo, el último, y el caso del que habla (el del último que diga uno).
+export function agruparPorCliente(respuestas) {
+  const grupos = new Map();
+  for (const r of respuestas ?? []) {
+    const clave = r.cliente_id ? `cliente:${r.cliente_id}` : `telefono:${r.telefono ?? ""}`;
+    const grupo = grupos.get(clave) ?? { clave, clienteId: r.cliente_id ?? null, telefono: r.telefono ?? null, mensajes: [] };
+    grupo.mensajes.push(r);
+    grupos.set(clave, grupo);
+  }
+  return [...grupos.values()]
+    .map((g) => {
+      const mensajes = [...g.mensajes].sort((a, b) => Date.parse(a.enviado_en) - Date.parse(b.enviado_en));
+      const ultima = mensajes[mensajes.length - 1];
+      const conCaso = mensajes.findLast((m) => m.caso_id);
+      return { ...g, mensajes, cantidad: mensajes.length, ultima, casoId: conCaso?.caso_id ?? null };
+    })
+    .sort((a, b) => Date.parse(b.ultima.enviado_en) - Date.parse(a.ultima.enviado_en));
+}
+
+// Si se le puede escribir libre desde la app (FRONT-3): WhatsApp lo deja
+// durante las 24 horas siguientes a su último mensaje (ventana_hasta, que
+// calcula la API). Abierta, hasta cuándo; cerrada (o si nunca escribió:
+// "escribio"), por qué no y el chat de
+// su número para escribirle desde el teléfono del negocio, si tiene uno que
+// sirva. "Retomar la conversación" con una plantilla llega con API-4.
+export function ventanaParaEscribir({ ventanaHasta, ahora = Date.now(), telefono, escribio = true }, opciones) {
+  const l = lang(opciones);
+  const { t } = l;
+  const hasta = ventanaHasta ? Date.parse(ventanaHasta) : NaN;
+  if (Number.isFinite(hasta) && hasta > ahora) {
+    return {
+      abierta: true,
+      frase: t("recordatorios.conversacion.ventana.abierta", { cuando: momentoEnPalabras(ventanaHasta, ahora, l) }),
+    };
+  }
+  const link = linkParaContestar(telefono);
+  return {
+    abierta: false,
+    frase: t(`recordatorios.conversacion.ventana.${escribio ? "cerrada" : "nuncaEscribio"}`),
+    porQue: t("recordatorios.conversacion.ventana.porQue"),
+    link,
+    sinLink: link ? null : t("recordatorios.conversacion.ventana.sinTelefono"),
+  };
 }
 
 // Para contestarle a mano: el chat de WhatsApp con su número internacional,

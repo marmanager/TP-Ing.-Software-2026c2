@@ -17,9 +17,12 @@ import { useDatos } from "@/lib/datos";
 import { useIdioma } from "@/lib/useIdioma";
 import { lineaDelCaso, subtituloDelCaso, tituloDelCaso } from "@/lib/nombres";
 import ChipEstado from "./ChipEstado";
+import { MarcaSinVer } from "./FilaDeRespuestas";
 import { Boton } from "./ui";
 
-export default function FilaCaso({ caso }) {
+// sinVer: cuántos mensajes de este caso mandó el cliente por WhatsApp que
+// nadie vio todavía.
+export default function FilaCaso({ caso, sinVer = 0 }) {
   const router = useRouter();
   const datos = useDatos();
   const { t, idioma } = useIdioma();
@@ -77,6 +80,7 @@ export default function FilaCaso({ caso }) {
           {subtituloDelCaso(caso, t) && (
             <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(caso, t)}</span>
           )}
+          <MarcaSinVer cantidad={sinVer} />
           <p className="truncate text-tinta-media">{lineaDelCaso(caso, cliente?.nombre, t)}</p>
         </div>
 

@@ -65,7 +65,7 @@ export default function Aviso() {
 
   return (
     <div
-      className="fixed inset-x-3 bottom-[calc(var(--alto-barra,4rem)+0.75rem)] z-30 flex flex-col gap-2 md:inset-x-auto md:right-6 md:bottom-6 md:w-[min(32rem,calc(100vw-3rem))]"
+      className="fixed inset-x-3 bottom-[calc(var(--alto-barra,4rem)+0.75rem)] z-30 flex flex-col gap-2 md:inset-x-auto md:right-6 md:bottom-24 md:w-[min(32rem,calc(100vw-3rem))]"
     >
       {exito && (
         <Banda

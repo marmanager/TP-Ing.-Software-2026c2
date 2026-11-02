@@ -47,13 +47,16 @@ describe("Historia: las respuestas del cliente", () => {
     }
 
     // Lo que contestaron al recordatorio, como lo deja la API: el mensaje
-    // en las respuestas y lo que quiso decir en el turno, con la misma hora.
+    // en las respuestas, con lo que resolvió (079), y lo que quiso decir en
+    // el turno, con la misma hora.
     const confirmo = instante(ahora - 2 * HORA);
-    await respuesta({ aviso: anotados.c1.aviso, cliente_id: ids.c1, texto: "sí", enviado_en: confirmo, citada: true });
+    const si = await respuesta({ aviso: anotados.c1.aviso, cliente_id: ids.c1, texto: "sí", enviado_en: confirmo, citada: true });
+    await cambiar("seguimiento_whatsapp_respuesta", si.id, { resolvio: "confirmo" });
     await cambiar("turno", anotados.c1.fila.id, { estado: "confirmado", respuesta_cliente: "confirmo", respuesta_cliente_en: confirmo });
 
     const noPuede = instante(ahora - HORA);
-    await respuesta({ aviso: anotados.c2.aviso, cliente_id: ids.c2, texto: "no puedo", enviado_en: noPuede });
+    const noPuedo = await respuesta({ aviso: anotados.c2.aviso, cliente_id: ids.c2, texto: "no puedo", enviado_en: noPuede });
+    await cambiar("seguimiento_whatsapp_respuesta", noPuedo.id, { resolvio: "no_puede" });
     await cambiar("turno", anotados.c2.fila.id, { respuesta_cliente: "no_puede", respuesta_cliente_en: noPuede });
 
     // Dos preguntas sobre el caso 248, que no resolvió nada sola. La
@@ -75,8 +78,8 @@ describe("Historia: las respuestas del cliente", () => {
 
     // La agenda viene apagada en la siembra.
     await iniciarCon(datos, "/negocio/modulos");
-    await $("button=Prender Agenda").click();
-    await expect($("button=Apagar Agenda")).toBeDisplayed();
+    await $('[data-testid="modulo-alternar-agenda"]').click();
+    await expect($('[data-testid="modulo-alternar-agenda"]')).toHaveAttribute("aria-checked", "true");
   });
 
   it("AC4 y AC5: la agenda dice quién confirmó, quién no puede y quién no contestó", async () => {
@@ -118,32 +121,80 @@ describe("Historia: las respuestas del cliente", () => {
     expect(color).not.toBe("rgb(163, 33, 22)");
   });
 
-  it("AC7, AC10 y AC12: la bandeja tiene sólo lo que no se resolvió, tal cual y con wa.me", async () => {
+  it("AC7 y AC12: la bandeja tiene sólo lo que no se resolvió, una fila por cliente y tal cual", async () => {
     await iniciarCon(datos, "/respuestas");
     await expect($("h1")).toHaveText("Respuestas por WhatsApp");
-    const pendientes = $$("[data-respuesta-pendiente]");
-    await expect(pendientes).toBeElementsArrayOfSize(2);
-    // De la más vieja a la más nueva.
-    await expect(pendientes[0]).toHaveText(expect.stringContaining("¿Cuánto sale la pieza?"));
-    await expect(pendientes[1]).toHaveText(expect.stringContaining("dale, gracias"));
+    // Las dos que quedan son del mismo cliente: una sola fila, con la última.
+    const filas = $$("[data-respuestas-de]");
+    await expect(filas).toBeElementsArrayOfSize(1);
+    await expect(filas[0]).toHaveText(expect.stringContaining("2 mensajes"));
+    await expect(filas[0]).toHaveText(expect.stringContaining("dale, gracias"));
     // El «sí» y el «no puedo» ya se ven en la agenda: acá no.
     await noVerTexto("no puedo");
-    // El texto tal cual, con su salto de línea y sus espacios.
-    const escrito = await pendientes[0].$("blockquote").getProperty("textContent");
-    expect(escrito).toBe("¿Cuánto sale la pieza?  🙏\nla de adelante");
-    await expect(pendientes[0].$("a*=Contestarle por WhatsApp"))
-      .toHaveAttribute("href", "https://wa.me/5493414567890");
+    // Desplegada, se leen las dos, de la más vieja a la más nueva, y el texto
+    // va tal cual, con su salto de línea y sus espacios.
+    await filas[0].$("button[aria-expanded]").click();
+    const mensajes = filas[0].$$("ul li p.whitespace-pre-wrap");
+    await expect(mensajes).toBeElementsArrayOfSize(2);
+    expect(await mensajes[0].getProperty("textContent")).toBe("¿Cuánto sale la pieza?  🙏\nla de adelante");
+    await expect(mensajes[1]).toHaveText("dale, gracias");
   });
 
-  it("AC2 y AC13: la ficha lista lo que contestó, con la fecha de Argentina", async () => {
+  it("el Inicio y las listas avisan sin repetir los mensajes", async () => {
+    // Inicio: el bloque "Te contestaron", con Marcela una sola vez.
+    await iniciarCon(datos, "/");
+    const bloque = $('[data-modulo="respuestas"]');
+    await expect(bloque).toHaveText(expect.stringContaining("Te contestaron"));
+    await expect(bloque.$$("[data-respuestas-de]")).toBeElementsArrayOfSize(1);
+    await expect(bloque).toHaveText(expect.stringContaining("2 mensajes"));
+    // Entra todo: no hay "Y N clientes más", y la bandeja está en el "Ver todo" del título.
+    await expect(bloque.$("a*=clientes más")).not.toExist();
+    await expect(bloque.$('a[href="/respuestas"]')).toBeDisplayed();
+    if (process.env.E2E_CAPTURAS) {
+      await bloque.scrollIntoView();
+      await bloque.saveScreenshot(`${process.env.E2E_CAPTURAS}/inicio.png`);
+    }
+
+    // Casos: la marca sólo en el 248, que es de lo que habló, con cuántos
+    // mensajes hay sin leer.
+    await iniciarCon(datos, "/casos");
+    await expect($$("[data-sin-ver]")).toBeElementsArrayOfSize(1);
+    await expect($("[data-sin-ver]")).toHaveAttribute("data-sin-ver", "2");
+    await expect($("li*=2 mensajes por WhatsApp sin leer")).toHaveText(expect.stringContaining("248"));
+    if (process.env.E2E_CAPTURAS) await browser.saveScreenshot(`${process.env.E2E_CAPTURAS}/casos.png`);
+
+    // Clientes: la marca en Marcela.
+    await iniciarCon(datos, "/clientes");
+    await expect($('[title="2 mensajes por WhatsApp sin leer"]')).toBeDisplayed();
+    if (process.env.E2E_CAPTURAS) await browser.saveScreenshot(`${process.env.E2E_CAPTURAS}/clientes.png`);
+
+    // La bandeja desplegada.
+    await iniciarCon(datos, "/respuestas");
+    await $("[data-respuestas-de]").$("button[aria-expanded]").click();
+    if (process.env.E2E_CAPTURAS) await browser.saveScreenshot(`${process.env.E2E_CAPTURAS}/bandeja.png`);
+  });
+
+  it("Ya lo vi: el cliente sale de la bandeja", async () => {
+    await iniciarCon(datos, "/respuestas");
+    await $("[data-respuestas-de]").$("button=Ya lo vi").click();
+    await verTexto("No hay respuestas para leer");
+  });
+
+  it("AC2 y AC13: la ficha muestra la conversación, con la fecha de Argentina", async () => {
     await iniciarCon(datos, "/clientes/{c1}");
-    const lista = $("[data-respuestas-del-cliente]");
-    await expect(lista).toHaveText(expect.stringContaining("Lo que te contestó"));
-    const filas = lista.$$("[data-respuesta]");
-    await expect(filas).toBeElementsArrayOfSize(3);
-    // De la más nueva a la más vieja: el «sí» de hoy, después las del caso.
-    await expect(filas[0]).toHaveText(expect.stringContaining("sí"));
-    await expect(filas[2]).toHaveText(expect.stringContaining("19 de octubre a las 22:30"));
+    const seccion = $("[data-respuestas-del-cliente]");
+    await expect(seccion).toHaveText(expect.stringContaining("Lo que hablamos por WhatsApp"));
+    // Lo suyo (el «sí» y las dos del caso) y lo nuestro (el recordatorio y el
+    // aviso del presupuesto), como un chat.
+    await expect(seccion.$$('[data-mensaje="cliente"]')).toBeElementsArrayOfSize(3);
+    await expect(seccion.$$('[data-mensaje="negocio"]')).toBeElementsArrayOfSize(2);
+    // El «sí» dice que se anotó solo.
+    await expect(seccion).toHaveText(expect.stringContaining("Se anotó solo: confirmó su turno."));
+    // Lo de las 22:30 del 19 en Argentina va con ese día, y con su caso.
+    await expect(seccion).toHaveText(expect.stringContaining("19 de octubre · caso 248"));
+    // «Sólo lo que escribió» esconde lo nuestro.
+    await seccion.$("input[type=checkbox]").click();
+    await expect(seccion.$$('[data-mensaje="negocio"]')).toBeElementsArrayOfSize(0);
   });
 
   it("AC3 y AC11: el caso dice a qué contestó, y si es una deducción lo dice", async () => {
@@ -156,11 +207,38 @@ describe("Historia: las respuestas del cliente", () => {
     await expect(seccion.$('[data-certeza="deducida"]')).toHaveText(
       "Parece contestar al aviso del presupuesto sin respuesta, que fue lo último que le mandamos, el 19 de octubre."
     );
+    // Y lleva a la conversación entera, en la ficha de Marcela.
+    await expect(seccion.$("[data-ir-a-la-conversacion]")).toHaveAttribute("href", expect.stringContaining("#conversacion-whatsapp"));
+    await seccion.$("[data-ir-a-la-conversacion]").click();
+    await expect($("#conversacion-whatsapp")).toBeDisplayed();
+  });
+
+  it("FRONT-3: se le contesta desde la ficha mientras dura la ventana de 24 horas", async () => {
+    // Marcela escribió hace dos horas (el «sí»): se le puede escribir libre.
+    await iniciarCon(datos, "/clientes/{c1}");
+    const abierta = $('[data-escribir="abierta"]');
+    await expect(abierta).toHaveText(expect.stringContaining("Podés contestarle con texto libre hasta"));
+    // Vacío no sale.
+    await abierta.$("button=Mandar").click();
+    await expect(abierta).toHaveText(expect.stringContaining("Escribí el mensaje antes de mandarlo."));
+    await abierta.$("textarea").setValue("Hasta las 19 estamos");
+    await abierta.$("button=Mandar").click();
+    // Queda último en la conversación, firmado con el nombre del negocio.
+    const ultimo = $('[data-respuestas-del-cliente] li[data-mensaje="negocio"]:last-of-type');
+    await expect(ultimo).toHaveText(expect.stringContaining("Hasta las 19 estamos"));
+    await expect(ultimo).toHaveText(expect.stringContaining("— Taller Sur"));
+    await expect(ultimo).toHaveText(expect.stringContaining("Lo escribió alguien del negocio"));
+
+    // Ana nunca escribió: la ventana está cerrada y se ofrece su chat.
+    await iniciarCon(datos, "/clientes/{c3}");
+    const cerrada = $('[data-escribir="cerrada"]');
+    await expect(cerrada).toHaveText(expect.stringContaining("Todavía no te escribió por WhatsApp"));
+    await expect(cerrada.$("a*=Escribirle desde tu WhatsApp")).toHaveAttribute("href", "https://wa.me/5493415552222");
   });
 
   it("AC9: sin nada pendiente, la bandeja muestra el vacío y no una lista vacía", async () => {
     await iniciarCon(await sembrar("taller-completo"), "/respuestas");
     await verTexto("No hay respuestas para leer");
-    await expect($$("[data-respuesta-pendiente]")).toBeElementsArrayOfSize(0);
+    await expect($$("[data-respuestas-de]")).toBeElementsArrayOfSize(0);
   });
 });

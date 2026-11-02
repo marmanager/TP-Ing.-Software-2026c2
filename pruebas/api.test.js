@@ -140,6 +140,12 @@ test("una lista viaja con su cursor para pedir la página siguiente", async () =
   assert.deepEqual(r, { ok: true, datos: [{ id: "a" }], siguiente: "cursor-1" });
 });
 
+test("lo que una lista trae al lado de los datos viaja tal cual", async () => {
+  const { fetcher } = apiFalsa(200, { ok: true, datos: [], siguiente: null, ventana_hasta: "2026-10-14T12:30:00.000Z", pendientes: 2 });
+  const r = await traer("/clientes/c1/whatsapp", "t", { base: BASE, fetcher });
+  assert.deepEqual(r, { ok: true, datos: [], ventana_hasta: "2026-10-14T12:30:00.000Z", pendientes: 2 });
+});
+
 test("los campos que no conocemos no molestan: la API puede agregar sin romper nada", async () => {
   const { fetcher } = apiFalsa(200, ok({ id: "c1", prioridad: "alta", lo_que_venga: 1 }));
   const r = await traer("/casos/c1", "t", { base: BASE, fetcher });

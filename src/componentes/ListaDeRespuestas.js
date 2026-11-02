@@ -1,6 +1,7 @@
 "use client";
 
-// Lo que escribió el cliente por WhatsApp (R-10b), en la ficha y en el caso:
+// Lo que escribió el cliente por WhatsApp (R-10b), en el caso (la ficha usa
+// ConversacionDelCliente, con lo que le mandamos al lado):
 // cuándo, lo que escribió tal cual y, si la API lo sabe, a qué aviso
 // contestaba. Las frases salen de lib/recordatorios.js; el orden lo pone
 // quien la usa.

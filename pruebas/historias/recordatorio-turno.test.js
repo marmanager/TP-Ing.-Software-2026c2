@@ -27,6 +27,10 @@ import {
   recordatoriosDeLaApi,
   cambiosDelRecordatorio,
   ofreceCanal,
+  conPlantilla,
+  faltanDatosDelNegocio,
+  versionesParaElegir,
+  porQueNoPresupuesto,
 } from "../../src/lib/recordatorios.js";
 
 // Martes 13 de octubre de 2026, 10:00 en Argentina.
@@ -188,8 +192,8 @@ describe("Historia: recordarle el turno al cliente", () => {
 
   test("la configuración de la API se edita con cada plazo en su unidad", () => {
     expect(recordatoriosDeLaApi(DE_LA_API)).toEqual({
-      cierre: { activo: true, plazo: "7", mensaje: "¿Cómo te fue?", canal: "whatsapp" },
-      turno: { activo: false, plazo: "24", mensaje: "Te esperamos mañana.", canal: "whatsapp" },
+      cierre: { activo: true, plazo: "7", mensaje: "¿Cómo te fue?", canal: "whatsapp", version: null, versiones: [], faltan: [] },
+      turno: { activo: false, plazo: "24", mensaje: "Te esperamos mañana.", canal: "whatsapp", version: null, versiones: [], faltan: [] },
     });
   });
 
@@ -240,5 +244,65 @@ describe("Historia: el canal del recordatorio (WhatsApp o mail)", () => {
     expect(ofreceCanal("cierre")).toBe(false);
     expect(ofreceCanal("turno")).toBe(true);
     expect(recordatoriosDeLaApi({ ...DE_LA_API, turno: { activo: true, horas: 24, mensaje: "x" } }).turno.canal).toBe("whatsapp");
+  });
+});
+
+// FRONT-4: las plantillas de WhatsApp en la configuración. La API manda, por
+// aviso, la versión elegida, las que hay con su vista previa y si ya están
+// prendidas, y los datos del negocio que faltan para mandarlo.
+describe("Las plantillas en la configuración", () => {
+  const versiones = [
+    { version: "general", plantilla: "turno_general", vista_previa: "Hola, te escribimos de Taller Sur…", prendida: false },
+    { version: "taller", plantilla: "turno_taller", vista_previa: "Hola, te escribimos de Taller Sur para recordarte…", prendida: true },
+    { version: "salud", plantilla: "turno_salud", vista_previa: "Hola, te escribimos de Taller Sur…", prendida: false },
+  ];
+  const conVersiones = {
+    activo: true, dias: 7, mensaje: "¿Cómo te fue?",
+    turno: { activo: false, horas: 24, mensaje: "Te esperamos mañana.", version: "taller", versiones, faltan: [] },
+  };
+
+  test("las versiones salen en orden y con su nombre", () => {
+    expect(versionesParaElegir(versiones).map((v) => [v.version, v.nombre]))
+      .toEqual([["taller", "Para un taller"], ["salud", "Para un consultorio"], ["general", "Para cualquier negocio"]]);
+  });
+
+  test("con la plantilla elegida aprobada, el mensaje no hace falta", () => {
+    const turno = recordatoriosDeLaApi(conVersiones).turno;
+    expect(conPlantilla(turno)).toBe(true);
+    expect(erroresDelRecordatorio({ tipo: "turno", ...turno, mensaje: "" }).mensaje).toBeUndefined();
+    // Con otra que todavía no está aprobada, sale el texto libre: hace falta.
+    const general = { ...turno, version: "general" };
+    expect(conPlantilla(general)).toBe(false);
+    expect(erroresDelRecordatorio({ tipo: "turno", ...general, mensaje: "" }).mensaje).toBeTruthy();
+  });
+
+  test("elegir otra versión manda sólo la versión", () => {
+    const guardado = recordatoriosDeLaApi(conVersiones);
+    const borrador = { ...guardado, turno: { ...guardado.turno, version: "general" } };
+    expect(cambiosDeRecordatorios(guardado, borrador)).toEqual({ turno: { version: "general" } });
+  });
+
+  test("dice qué datos del negocio faltan, o nada si están todos", () => {
+    expect(faltanDatosDelNegocio(["direccion"])).toBe("Para mandar este aviso falta cargar la dirección del negocio.");
+    expect(faltanDatosDelNegocio(["telefono", "direccion"]))
+      .toBe("Para mandar este aviso falta cargar la dirección y el teléfono del negocio.");
+    expect(faltanDatosDelNegocio([])).toBeNull();
+    expect(faltanDatosDelNegocio(undefined)).toBeNull();
+  });
+});
+
+// Los motivos nuevos de las plantillas (API-4/4b): lo que no salió se dice en
+// palabras, con qué hacer.
+describe("Los avisos que no salen por las plantillas", () => {
+  test("el recordatorio sin la dirección o el teléfono del negocio dice qué cargar", () => {
+    const r = avisoEnPalabras({ aviso: { estado: "cancelado", motivo: "faltan_datos_del_negocio" }, ahora: AHORA });
+    expect(r.estado).toBe("no_sale");
+    expect(r.frase).toMatch(/Mi negocio/);
+    // Otro cancelado (lo movieron, lo cancelaron) no dice nada.
+    expect(avisoEnPalabras({ aviso: { estado: "cancelado", motivo: "turno_movido" }, ahora: AHORA })).toBeNull();
+  });
+
+  test("el aviso del presupuesto con el link revocado lo dice", () => {
+    expect(porQueNoPresupuesto("link_revocado")).toMatch(/Dejaste de compartir el link/);
   });
 });

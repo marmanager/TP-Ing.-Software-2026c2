@@ -191,7 +191,7 @@ describe("Historia: el aviso de volver sale solo", () => {
 
   test("guardar uno no manda los campos de los otros", () => {
     const guardado = recordatoriosDeLaApi(DE_LA_API);
-    expect(guardado.volver).toEqual({ activo: true, plazo: "7", mensaje: "Ya te toca el service.", canal: "whatsapp" });
+    expect(guardado.volver).toEqual({ activo: true, plazo: "7", mensaje: "Ya te toca el service.", canal: "whatsapp", version: null, versiones: [], faltan: [] });
 
     const volver = { ...guardado.volver, plazo: "14" };
     expect(cambiosDelRecordatorio("volver", guardado.volver, volver)).toEqual({ volver: { dias: 14 } });

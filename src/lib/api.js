@@ -4,7 +4,8 @@
 // espera, reintentos— y de acá no sale. Quien llama recibe siempre lo mismo
 // que devuelve cualquier acción del sistema:
 //
-//   { ok: true,  datos }                      (y "siguiente" si es una lista)
+//   { ok: true,  datos }                      (y "siguiente" si es una lista,
+//                                              más lo que la lista traiga al lado)
 //   { ok: false, error: { codigo, mensaje } }
 //
 // "mensaje" ya está escrito para mostrarlo tal cual en pantalla, y "codigo"
@@ -192,10 +193,14 @@ async function unIntento(ruta, { metodo, cuerpo, token, autorizacion, idempotenc
   }
 
   if (r.ok && cuerpoDeLaRespuesta?.ok) {
+    // Lo que una lista trae al lado de los datos (la conversación de un
+    // cliente: ventana_hasta y pendientes) viaja tal cual, junto a "siguiente".
+    const { ok: _ok, datos, siguiente, ...alLado } = cuerpoDeLaRespuesta;
     return {
+      ...alLado,
       ok: true,
-      datos: cuerpoDeLaRespuesta.datos,
-      ...(cuerpoDeLaRespuesta.siguiente ? { siguiente: cuerpoDeLaRespuesta.siguiente } : {}),
+      datos,
+      ...(siguiente ? { siguiente } : {}),
     };
   }
 

@@ -171,6 +171,20 @@ export const CATALOGO = {
       { clave: "plata", palabra: "La plata" },
     ],
   },
+  // Lo que contestaron los clientes por WhatsApp y nadie vio: una fila por
+  // cliente, no por mensaje. No depende de un módulo, porque cualquier aviso
+  // puede tener respuesta; sí de un permiso, que la pantalla mira.
+  respuestas: {
+    clave: "respuestas",
+    nombre: "Te contestaron",
+    icono: "chat",
+    ruta: "/respuestas",
+    modulo: null,
+    queMuestra: "Lo que te escribieron los clientes por WhatsApp y todavía no viste.",
+    ancho: 6,
+    alto: 3,
+    filtros: null,
+  },
   // El Resumen del módulo Estadísticas, en filas. Lleva al módulo completo.
   dashboard: {
     clave: "dashboard",
@@ -202,13 +216,16 @@ export const traducirDelCatalogo = (def, t = tCastellano) =>
 // de todo, a todo el ancho, el historial.
 //
 // El historial está desde el principio porque en el celular es la única
-// forma de llegar a esa sección: la barra de abajo tiene cuatro lugares.
+// forma de llegar a esa sección: la barra de abajo tiene cuatro lugares. Las
+// respuestas por WhatsApp, también: no tienen lugar en la barra lateral, y
+// éste es el camino a la bandeja.
 export const INICIO_POR_DEFECTO = [
   { clave: "pendientes", x: 0, y: 0, ancho: 6, alto: 2, filtro: null },
   { clave: "casos", x: 0, y: 2, ancho: 4, alto: 3, filtro: "abiertos" },
   { clave: "agenda", x: 4, y: 2, ancho: 2, alto: 2, filtro: "hoy" },
   { clave: "inventario", x: 4, y: 4, ancho: 2, alto: 1, filtro: "bajo" },
-  { clave: "historial", x: 0, y: 5, ancho: 6, alto: 2, filtro: "todo" },
+  { clave: "respuestas", x: 0, y: 5, ancho: 6, alto: 3, filtro: null },
+  { clave: "historial", x: 0, y: 8, ancho: 6, alto: 2, filtro: "todo" },
 ];
 
 const entre = (n, minimo, maximo) => Math.min(maximo, Math.max(minimo, n));
@@ -442,3 +459,37 @@ export const quitar = (layout, clave) => layout.filter((m) => m.clave !== clave)
 export const cambiarFiltro = (layout, clave, filtro) =>
   layout.map((m) => (m.clave === clave ? { ...m, filtro } : m));
 
+
+// Cuando se prenden módulos que estaban apagados, sus tarjetas vuelven al
+// Inicio. Escondidas guardaban el lugar de antes, pero mientras tanto la
+// persona pudo acomodar la pantalla, y ese lugar viejo cae en el medio de lo
+// que acomodó (o encima). Así que entran abajo de todo, en el orden en que
+// se prendieron y con el tamaño y el filtro que tenían, sin mover lo que se
+// ve. Lo que sigue escondido queda como estaba.
+//
+// "prendidos" es el orden en que se pidieron (las claves de módulo); lo usa
+// el Asistente (src/lib/asistente.js).
+export function conModulosPrendidos(config, activosAntes = [], activosDespues = [], prendidos = []) {
+  const vuelve = (m) => {
+    const necesita = CATALOGO[m.clave]?.modulo;
+    return necesita && !estaPrendido(necesita, activosAntes) && estaPrendido(necesita, activosDespues);
+  };
+  const vuelven = config.filter(vuelve);
+  if (!vuelven.length) return config;
+
+  const orden = (m) => {
+    const i = prendidos.indexOf(CATALOGO[m.clave].modulo);
+    return i === -1 ? prendidos.length : i;
+  };
+  const resto = config.filter((m) => !vuelve(m));
+  const enPantalla = compactar(visibles(resto, activosDespues));
+  const siguenOcultos = resto.filter((m) => !enPantalla.some((v) => v.clave === m.clave));
+
+  let abajo = enPantalla.reduce((max, m) => Math.max(max, m.y + m.alto), 0);
+  const nuevos = [...vuelven].sort((a, b) => orden(a) - orden(b)).map((m) => {
+    const item = { ...m, x: 0, y: abajo };
+    abajo += m.alto;
+    return item;
+  });
+  return [...compactar([...enPantalla, ...nuevos]), ...siguenOcultos];
+}
