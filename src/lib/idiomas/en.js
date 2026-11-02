@@ -2635,6 +2635,7 @@ export default {
     },
   },
   asistente: {
+    anchoDelPanel: "Panel width",
     titulo: "Assistant",
     pantallaCompleta: "Full screen",
     achicar: "Back to panel",
@@ -2713,6 +2714,7 @@ export default {
     incompletas: "There are more old unseen replies that didn't fit here.",
   },
   navegacion: {
+    anchoDeBarra: "Sidebar width",
     ecuaciones: "Custom equations",
     respuestas: "WhatsApp replies",
     secciones: "Sections",

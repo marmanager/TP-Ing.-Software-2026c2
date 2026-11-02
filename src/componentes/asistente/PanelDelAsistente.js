@@ -28,6 +28,7 @@ import { puede } from "@/lib/permisos";
 import { useIdioma } from "@/lib/useIdioma";
 import { describirPropuesta, igualA, leerVariable, partirTexto, prendidoEn } from "@/lib/asistente";
 import Icono from "@/componentes/Icono";
+import BordeParaAchicar, { useAnchoDeBarra } from "@/componentes/BordeParaAchicar";
 import { Boton, Cargando, ErrorGeneral } from "@/componentes/ui";
 import { useAsistente } from "./ContextoAsistente";
 
@@ -64,12 +65,17 @@ export function BotonDelAsistente() {
   );
 }
 
+// El ancho del panel en computadora, que se cambia arrastrando su borde
+// izquierdo. Se recuerda en el navegador.
+const ANCHO_PANEL = { inicial: 416, minimo: 320, maximo: 800 };
+
 export function PanelDelAsistente() {
   const { t } = useIdioma();
   const asistente = useAsistente();
   const { modo, pedidoDeFoco, cerrar, agrandar, achicar, conversacion, empezarDeNuevo } = asistente;
   const panel = useRef(null);
   const completo = modo === "completo";
+  const [ancho, cambiarAncho] = useAnchoDeBarra("marmanager.asistente-ancho", ANCHO_PANEL.inicial, ANCHO_PANEL.minimo, ANCHO_PANEL.maximo);
 
   // Al abrirlo o agrandarlo, el foco va al campo para escribir: se abrió
   // para preguntar.
@@ -106,9 +112,9 @@ export function PanelDelAsistente() {
         // Celular: toda la pantalla.
         "fixed inset-0 z-40",
         // Computadora angosta: tarjeta flotante a la derecha.
-        "md:inset-auto md:top-4 md:right-4 md:bottom-4 md:w-[26rem] md:rounded-tarjeta md:border md:border-borde md:shadow-2xl",
+        "md:inset-auto md:top-4 md:right-4 md:bottom-4 md:w-(--ancho-panel) md:max-w-[calc(100vw-2rem)] md:rounded-tarjeta md:border md:border-borde md:shadow-2xl",
         // Computadora ancha: columna al costado del contenido, que se achica.
-        "lg:sticky lg:top-0 lg:z-20 lg:h-dvh lg:w-[26rem] lg:shrink-0 lg:self-start lg:rounded-none lg:border-0 lg:border-l lg:shadow-none",
+        "lg:sticky lg:top-0 lg:z-20 lg:h-dvh lg:shrink-0 lg:self-start lg:rounded-none lg:border-0 lg:border-l lg:shadow-none",
       ].join(" ");
 
   return (
@@ -117,8 +123,14 @@ export function PanelDelAsistente() {
       id="panel-asistente"
       aria-labelledby="panel-asistente-titulo"
       onKeyDown={alTeclado}
+      // El ancho sólo lo usan las clases md: de arriba: en el celular y a
+      // pantalla completa el panel ocupa todo.
+      style={{ "--ancho-panel": `${ancho}px` }}
       className={`${ubicacion} flex flex-col overflow-hidden bg-fondo`}
     >
+      {!completo && (
+        <BordeParaAchicar ancho={ancho} cambiar={cambiarAncho} lado="izquierda" etiqueta={t("asistente.anchoDelPanel")} minimo={ANCHO_PANEL.minimo} maximo={ANCHO_PANEL.maximo} />
+      )}
       <header className="flex flex-wrap items-center gap-2 border-b border-borde px-3 py-2">
         <h2 id="panel-asistente-titulo" className="mr-auto flex items-center gap-2 pl-1 font-titulo text-subtitulo font-extrabold">
           <img src="/asistente.png" alt="" className="size-8" />
