@@ -7,6 +7,7 @@ import { useIdioma } from "@/lib/useIdioma";
 import { textoDeError } from "@/lib/idioma";
 import { nombreDeModulo } from "@/lib/modulos";
 import Frase from "@/componentes/Frase";
+import BibliotecaDeEcuaciones from "@/componentes/BibliotecaDeEcuaciones";
 import {
   entradasDeEcuacionEncadenada, errorDeVariables, filtrarEcuaciones,
   nombreParaDependencia, ordenarEcuaciones, resolverEcuacionEncadenada, variablesHeredadas,
@@ -57,17 +58,21 @@ export default function Ecuaciones() {
     }
   }
 
+  if (pantalla?.tipo === "biblioteca") return <BibliotecaDeEcuaciones alVolver={cerrar} alTerminar={cerrar} />;
   if (pantalla?.tipo === "resolver") return <Resolver ecuacion={pantalla.ecuacion} ecuaciones={ecuaciones} alCerrar={cerrar} />;
   if (pantalla) return <Editor inicial={pantalla.ecuacion} ecuaciones={ecuaciones} titulo={pantalla.tipo === "editar" ? t("ecuaciones.editarTitulo") : t("ecuaciones.crear")} alGuardar={guardar} alCancelar={cerrar} />;
 
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-8">
       <TituloPantalla apoyo={t("ecuaciones.apoyo")}>{nombreDeModulo("ecuaciones", t)}</TituloPantalla>
-      <Boton variante="principal" icono="mas" onClick={() => setPantalla({ tipo: "crear", ecuacion: vacia() })} data-testid="ecuaciones-crear">{t("ecuaciones.crear")}</Boton>
+      <div className="flex flex-wrap gap-2">
+        <Boton variante="principal" icono="mas" onClick={() => setPantalla({ tipo: "crear", ecuacion: vacia() })} data-testid="ecuaciones-crear">{t("ecuaciones.crear")}</Boton>
+        <Boton variante="borde" icono="secciones" onClick={() => setPantalla({ tipo: "biblioteca" })} data-testid="ecuaciones-biblioteca">{t("ecuaciones.biblioteca.abrir")}</Boton>
+      </div>
 
       <TituloSeccion className="mt-10">{t("ecuaciones.guardadas")}</TituloSeccion>
       {!ecuaciones.length ? (
-        <Vacio titulo={t("ecuaciones.vacioTitulo")}>{t("ecuaciones.vacio")}</Vacio>
+        <Vacio titulo={t("ecuaciones.vacioTitulo")}>{t("ecuaciones.vacioConBiblioteca")}</Vacio>
       ) : (
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
