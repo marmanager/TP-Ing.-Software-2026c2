@@ -319,7 +319,9 @@ function usarPasos(activo, cuantos) {
 
 export default function Bienvenida() {
   const { t, idioma } = useIdioma();
-  useTitulo(t("acceso.landing.titulo"));
+  // La landing del producto se llama como el producto: la pestaña dice
+  // "MarManager" a secas.
+  useTitulo();
   const activo = usarMovimiento();
   const [caja, paso] = usarPasos(activo, ORDEN_ESTADOS.length);
   const etiqueta = (rubro, estado) => preset(rubro, idioma).etiquetas[estado];
