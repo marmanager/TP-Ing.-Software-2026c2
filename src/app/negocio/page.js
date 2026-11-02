@@ -35,6 +35,7 @@ import SedesVinculadas from "@/componentes/SedesVinculadas";
 import VincularGoogleCalendar from "@/componentes/VincularGoogleCalendar";
 import ConfiguracionEstados from "@/componentes/ConfiguracionEstados";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion } from "@/componentes/ui";
+import { emailValido } from "@/lib/recordatorios";
 import ResumenRecordatorios from "@/componentes/ResumenRecordatorios";
 import BorrarNegocio from "@/componentes/BorrarNegocio";
 
@@ -64,6 +65,7 @@ export default function MiNegocio() {
     nombre: "",
     descripcion: "",
     direccion: "",
+    email: "",
     foto: null,
   });
   // El teléfono va aparte, en el campo con selector de país (B-1b).
@@ -82,6 +84,7 @@ export default function MiNegocio() {
       nombre: negocio?.nombre ?? "",
       descripcion: negocio?.descripcion ?? "",
       direccion: negocio?.direccion ?? "",
+      email: negocio?.email ?? "",
       foto: negocio?.foto ?? null,
     });
     tel.cargar(negocio?.telefono ?? "");
@@ -107,6 +110,8 @@ export default function MiNegocio() {
       ? t("negocio.ficha.descripcionMuyLarga")
       : borrador.direccion.length > LARGO_DIRECCION
         ? t("negocio.ficha.direccionMuyLarga")
+      : borrador.email.trim() && !emailValido(borrador.email)
+        ? t("negocio.ficha.mailMalo")
       : errorTelefono
         ? t("negocio.ficha.telefonoInvalido")
         : achicandoFoto
@@ -282,6 +287,9 @@ export default function MiNegocio() {
                 {negocio?.direccion && (
                   <p className="mt-1 text-tinta-media">{t("negocio.ficha.direccion", { direccion: negocio.direccion })}</p>
                 )}
+                {negocio?.email && (
+                  <p className="mt-1 text-tinta-media [overflow-wrap:anywhere]">{t("negocio.ficha.mail", { email: negocio.email })}</p>
+                )}
               </>
             )}
           </div>
@@ -378,6 +386,19 @@ export default function MiNegocio() {
               }
               value={borrador.direccion}
               onChange={(e) => setBorrador((b) => ({ ...b, direccion: e.target.value }))}
+            />
+
+            {/* A dónde le contestan los clientes de mail (084): va como
+                «Responder a» en cada aviso. Opcional. */}
+            <Campo
+              id="negocio-mail"
+              etiqueta={t("negocio.ficha.mailEtiqueta")}
+              ayuda={t("negocio.ficha.mailAyuda")}
+              type="email"
+              inputMode="email"
+              error={borrador.email.trim() && !emailValido(borrador.email) ? t("clientes.ficha.mailNoSirve") : null}
+              value={borrador.email}
+              onChange={(e) => setBorrador((b) => ({ ...b, email: e.target.value }))}
             />
 
             <div className="flex flex-wrap gap-3">

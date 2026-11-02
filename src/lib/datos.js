@@ -1600,7 +1600,7 @@ export function DatosProvider({ children }) {
       //
       // La foto viene como data URL ya achicado por src/lib/imagen.js, o null
       // para volver al ícono.
-      guardarNegocio({ nombre, descripcion, foto, telefono, direccion }) {
+      guardarNegocio({ nombre, descripcion, foto, telefono, direccion, email }) {
         const cambios = {
           nombre: nombre.trim(),
           // Vacío es que no hay descripción, no una descripción en blanco.
@@ -1612,6 +1612,8 @@ export function DatosProvider({ children }) {
           // La dirección (082): va en el recordatorio del turno y en el aviso
           // de "listo", y se ve en la landing. En una línea, como la pide la API.
           direccion: (direccion ?? "").replace(/\s+/g, " ").trim() || null,
+          // El mail (084): va como «Responder a» en los avisos por mail.
+          email: (email ?? "").trim() || null,
         };
         setDatos((d) => ({ ...d, negocio: { ...d.negocio, ...cambios } }));
         enLaApi((token) => parchar("/negocio", { ...cambios, actualizado_en: datos.negocio?.actualizado_en }, token), ({ negocio }) => ponerNegocio(negocio));
