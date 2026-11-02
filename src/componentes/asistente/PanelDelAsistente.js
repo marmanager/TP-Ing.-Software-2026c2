@@ -57,7 +57,8 @@ export function BotonDelAsistente() {
       aria-expanded={false}
       className="fixed right-6 bottom-6 z-30 hidden min-h-14 cursor-pointer items-center gap-2 rounded-full bg-azul px-5 font-bold text-white shadow-lg hover:brightness-110 md:flex"
     >
-      <Icono nombre="chat" className="size-6" />
+      {/* La mascota es azul como el botón: el círculo claro la despega. */}
+      <img src="/asistente.png" alt="" className="size-10 rounded-full bg-fondo" />
       {t("asistente.titulo")}
     </button>
   );
@@ -120,7 +121,7 @@ export function PanelDelAsistente() {
     >
       <header className="flex flex-wrap items-center gap-2 border-b border-borde px-3 py-2">
         <h2 id="panel-asistente-titulo" className="mr-auto flex items-center gap-2 pl-1 font-titulo text-subtitulo font-extrabold">
-          <Icono nombre="chat" className="size-6" />
+          <img src="/asistente.png" alt="" className="size-8" />
           {t("asistente.titulo")}
         </h2>
         {/* Pantalla completa sólo tiene sentido en computadora: en el celular

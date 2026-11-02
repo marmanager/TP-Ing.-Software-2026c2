@@ -544,7 +544,7 @@ function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
           }}
           className="mt-1 flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-campo px-3 text-cuerpo text-tinta-media hover:bg-superficie"
         >
-          <Icono nombre="chat" className="size-7" />
+          <img src="/asistente.png" alt="" className="size-8" />
           {t("asistente.titulo")}
         </button>
         <div className="mt-4 border-t border-borde pt-4">
