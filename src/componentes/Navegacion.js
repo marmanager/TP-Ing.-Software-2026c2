@@ -42,6 +42,7 @@ import { puede } from "@/lib/permisos";
 import { useDatos } from "@/lib/datos";
 import { estaPrendido, hijosActivos, palabraDeBarra } from "@/lib/modulos";
 import { useIdioma } from "@/lib/useIdioma";
+import { useAbrirAsistente } from "./asistente/ContextoAsistente";
 
 const DESTINOS = [
   { href: "/", icono: "sol", id: "inicio", celular: true },
@@ -82,6 +83,10 @@ const DESTINOS = [
   { href: "/equipo", icono: "personas", modulo: "equipo" },
   { href: "/historial", icono: "historial", modulo: "historial" },
   { href: "/dashboard", icono: "grafico", modulo: "dashboard", permiso: "ver_todos_los_casos" },
+  // El Asistente (src/lib/asistente.js) NO está en esta lista: no es una
+  // sección a la que se va, es un panel que se abre encima de cualquiera
+  // (componentes/asistente). En computadora lo abre el botón de abajo a la
+  // derecha; en el celular, el botón al final de "Más".
   // "alPie": van separados, abajo de todo. Son la configuración, no el
   // trabajo del día.
   { href: "/negocio", icono: "tienda", id: "negocio", alPie: true },
@@ -393,11 +398,11 @@ export function BarraCelular() {
 
   // Estable entre renders: el panel la usa en un efecto, y si cambiara cada
   // vez le devolvería el foco a "Cerrar" a cada rato.
-  const cerrarPanel = useCallback(() => {
+  const cerrarPanel = useCallback(({ sinFoco = false } = {}) => {
     setAbierto(false);
     // El foco vuelve a donde estaba: quien usa teclado o lector de pantalla
     // sigue desde "Más" y no desde el principio de la página.
-    botonMas.current?.focus();
+    if (!sinFoco) botonMas.current?.focus();
   }, []);
 
   return (
@@ -462,6 +467,7 @@ export function BarraCelular() {
 function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
   const { t } = useIdioma();
   const [salir, saliendo, errorAlSalir] = usarSalida();
+  const { abrir: abrirAsistente } = useAbrirAsistente();
   const cerrar = useRef(null);
 
   useEffect(() => {
@@ -527,6 +533,20 @@ function PanelDeSecciones({ destinos, ruta, negocio, enVista, alCerrar }) {
           perfil en un grupo aparte, al final. */}
       <nav aria-label={t("navegacion.todasLasSecciones")}>
         <ListaDeSecciones destinos={partir(destinos)[0]} ruta={ruta} grande />
+        {/* No lleva a otra pantalla: abre el chat del Asistente. Por eso es un
+            botón y no un Link, y el panel se cierra sin mover el foco a "Más"
+            (lo toma el campo del chat). */}
+        <button
+          type="button"
+          onClick={() => {
+            alCerrar({ sinFoco: true });
+            abrirAsistente();
+          }}
+          className="mt-1 flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-campo px-3 text-cuerpo text-tinta-media hover:bg-superficie"
+        >
+          <Icono nombre="chat" className="size-7" />
+          {t("asistente.titulo")}
+        </button>
         <div className="mt-4 border-t border-borde pt-4">
           <ListaDeSecciones destinos={partir(destinos)[1]} ruta={ruta} grande />
           {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} errorAlSalir={errorAlSalir} grande />}
