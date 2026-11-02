@@ -112,7 +112,7 @@ export function PanelDelAsistente() {
         // Celular: toda la pantalla.
         "fixed inset-0 z-40",
         // Computadora angosta: tarjeta flotante a la derecha.
-        "md:inset-auto md:top-4 md:right-4 md:bottom-4 md:w-(--ancho-panel) md:max-w-[calc(100vw-2rem)] md:rounded-tarjeta md:border md:border-borde md:shadow-2xl",
+        "md:inset-auto md:top-4 md:right-4 md:bottom-4 md:w-[calc(var(--ancho-panel)*1px)] md:max-w-[calc(100vw-2rem)] md:rounded-tarjeta md:border md:border-borde md:shadow-2xl",
         // Computadora ancha: columna al costado del contenido, que se achica.
         "lg:sticky lg:top-0 lg:z-20 lg:h-dvh lg:shrink-0 lg:self-start lg:rounded-none lg:border-0 lg:border-l lg:shadow-none",
       ].join(" ");
@@ -125,11 +125,11 @@ export function PanelDelAsistente() {
       onKeyDown={alTeclado}
       // El ancho sólo lo usan las clases md: de arriba: en el celular y a
       // pantalla completa el panel ocupa todo.
-      style={{ "--ancho-panel": `${ancho}px` }}
+      style={{ "--ancho-panel": ancho }}
       className={`${ubicacion} flex flex-col overflow-hidden bg-fondo`}
     >
       {!completo && (
-        <BordeParaAchicar ancho={ancho} cambiar={cambiarAncho} lado="izquierda" etiqueta={t("asistente.anchoDelPanel")} minimo={ANCHO_PANEL.minimo} maximo={ANCHO_PANEL.maximo} />
+        <BordeParaAchicar barra={panel} variable="--ancho-panel" ancho={ancho} cambiar={cambiarAncho} lado="izquierda" etiqueta={t("asistente.anchoDelPanel")} minimo={ANCHO_PANEL.minimo} maximo={ANCHO_PANEL.maximo} />
       )}
       <header className="flex flex-wrap items-center gap-2 border-b border-borde px-3 py-2">
         <h2 id="panel-asistente-titulo" className="mr-auto flex items-center gap-2 pl-1 font-titulo text-subtitulo font-extrabold">

@@ -146,9 +146,18 @@ const paraCelular = (destinos, negocio, quien) => {
     .sort((a, b) => disponibles.indexOf(a) - disponibles.indexOf(b));
 };
 
+// Las palabras de la barra se apagan a medida que se achica (entre 180 y 120
+// px de ancho) hasta que quedan sólo los íconos. Siguen el ancho en vivo,
+// también mientras se arrastra, sin pasar por React. Nunca saltan de renglón:
+// lo que no entra se corta. En el panel de "Más" la variable no existe y se
+// ven siempre.
+const PALABRA = { opacity: "clamp(0, (var(--ancho-barra, 999) - 120) / 60, 1)" };
+const CLASE_PALABRA = "min-w-0 truncate";
+
 // La lista de secciones con ícono y palabra. La usan la barra lateral y el
-// panel de "Más", así las dos muestran lo mismo en el mismo orden.
-function ListaDeSecciones({ destinos, ruta, grande = false }) {
+// panel de "Más", así las dos muestran lo mismo en el mismo orden. "soloIconos":
+// la barra está tan angosta que no se leen, y la palabra sale al pasar el mouse.
+function ListaDeSecciones({ destinos, ruta, grande = false, soloIconos = false }) {
   const { t } = useIdioma();
   return (
     <ul className="flex flex-col gap-1">
@@ -156,19 +165,21 @@ function ListaDeSecciones({ destinos, ruta, grande = false }) {
         // "/agenda" marca la sección también estando en "/agenda/calendario":
         // las dos son la Agenda, y cuál de las dos lo dicen las pestañas.
         const acá = activo(ruta, d.href);
+        const palabra = palabraDeBarra(d.modulo ?? d.id, t);
         return (
           <li key={d.href}>
             <Link
               href={d.href}
               aria-current={acá ? "page" : undefined}
+              title={soloIconos ? palabra : undefined}
               className={[
                 "flex items-center gap-3 rounded-campo px-3 text-cuerpo",
                 grande ? "min-h-14" : "min-h-12",
                 acá ? "bg-azul-claro font-bold text-azul" : "text-tinta-media hover:bg-superficie",
               ].join(" ")}
             >
-              <Icono nombre={d.icono} className="size-7" />
-              {palabraDeBarra(d.modulo ?? d.id, t)}
+              <Icono nombre={d.icono} className="size-7 shrink-0" />
+              <span style={PALABRA} className={CLASE_PALABRA}>{palabra}</span>
             </Link>
           </li>
         );
@@ -198,7 +209,7 @@ function usarSalida() {
   return [salir, saliendo, errorAlSalir];
 }
 
-function BotonSalirDeVista({ salir, saliendo, errorAlSalir, grande = false }) {
+function BotonSalirDeVista({ salir, saliendo, errorAlSalir, grande = false, soloIconos = false }) {
   const { t } = useIdioma();
   return (
     <>
@@ -207,10 +218,11 @@ function BotonSalirDeVista({ salir, saliendo, errorAlSalir, grande = false }) {
       type="button"
       onClick={salir}
       disabled={saliendo}
+      title={soloIconos ? t("vistaMaestra.salir") : undefined}
       className={`mt-1 flex w-full cursor-pointer items-center gap-3 rounded-campo px-3 text-cuerpo text-tinta-media hover:bg-superficie ${grande ? "min-h-14" : "min-h-12"}`}
     >
-      <Icono nombre="salir" className="size-7" />
-      {t("vistaMaestra.salir")}
+      <Icono nombre="salir" className="size-7 shrink-0" />
+      <span style={PALABRA} className={CLASE_PALABRA}>{t("vistaMaestra.salir")}</span>
     </button>
     </>
   );
@@ -218,12 +230,12 @@ function BotonSalirDeVista({ salir, saliendo, errorAlSalir, grande = false }) {
 
 // Foto + nombre de hoy, o el ojo y "Vista maestra" cuando se está en ella.
 // Los negocios y grupos se arman antes de entrar, en Mi perfil: adentro sólo
-// se mira. "extra" es el botón de cerrar la barra.
-function Encabezado({ negocio, enVista, extra }) {
+// se mira. El nombre, como las secciones, se apaga al achicar la barra.
+function Encabezado({ negocio, enVista }) {
   const { t } = useIdioma();
   if (!enVista) {
     return (
-      <div className="mb-6 flex items-center gap-3 pl-3">
+      <div className="mb-6 flex items-center gap-3 pl-1.5">
         {/* La foto va sin texto alternativo a propósito: el nombre del
             negocio está al lado, y describirla otra vez haría que un lector
             de pantalla lo diga dos veces seguidas. */}
@@ -234,22 +246,20 @@ function Encabezado({ negocio, enVista, extra }) {
             <Icono nombre="tienda" />
           </span>
         )}
-        <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
+        <span style={PALABRA} className={`${CLASE_PALABRA} flex-1 font-titulo font-extrabold text-subtitulo leading-tight`}>
           {negocio?.nombre ?? t("negocio.titulo")}
         </span>
-        {extra}
       </div>
     );
   }
   return (
-    <div className="mb-6 flex items-center gap-3 pl-3">
+    <div className="mb-6 flex items-center gap-3 pl-1.5">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-campo bg-espera text-white">
           <Icono nombre="ojo" />
         </span>
-        <span className="min-w-0 flex-1 font-titulo font-extrabold text-subtitulo leading-tight">
+        <span style={PALABRA} className={`${CLASE_PALABRA} flex-1 font-titulo font-extrabold text-subtitulo leading-tight`}>
           {t("vistaMaestra.titulo")}
         </span>
-        {extra}
     </div>
   );
 }
@@ -258,7 +268,13 @@ function Encabezado({ negocio, enVista, extra }) {
 // persona en su computadora, no algo del negocio: no va a la base.
 const LLAVE_BARRA = "marmanager.barra-cerrada";
 // El ancho, que se cambia arrastrando el borde derecho. También del navegador.
-const ANCHO_BARRA = { inicial: 256, minimo: 200, maximo: 480 };
+// El mínimo deja justo los íconos (y la foto del negocio) con su margen.
+const ANCHO_BARRA = { inicial: 256, minimo: 84, maximo: 480 };
+// Por debajo de esto ya no se leen las palabras: salen al pasar el mouse.
+const SOLO_ICONOS = 150;
+// Cerrada queda una franja angosta para que el botón de abrirla tenga dónde
+// apoyarse.
+const ANCHO_CERRADA = 12;
 
 export function BarraLateral() {
   const { t } = useIdioma();
@@ -269,9 +285,12 @@ export function BarraLateral() {
   const [arriba, alPie] = partir(conModulo(DESTINOS, negocio, usuario));
   const [salir, saliendo, errorAlSalir] = usarSalida();
   const [cerrada, setCerrada] = useState(false);
-  const boton = useRef(null);
-  const recienTocado = useRef(false);
+  // Sólo se anima al abrir o cerrar con el botón: ni al cargar la página (con
+  // lo que quedó guardado) ni al arrastrar, que tiene que seguir al mouse.
+  const [animar, setAnimar] = useState(false);
+  const nav = useRef(null);
   const [ancho, cambiarAncho] = useAnchoDeBarra("marmanager.barra-ancho", ANCHO_BARRA.inicial, ANCHO_BARRA.minimo, ANCHO_BARRA.maximo);
+  const soloIconos = ancho < SOLO_ICONOS;
 
   // Se lee después de montar: en el servidor no hay localStorage, y leerlo
   // antes haría que lo de los dos lados no coincida.
@@ -283,16 +302,8 @@ export function BarraLateral() {
     }
   }, []);
 
-  // Al abrir o cerrar, el foco pasa al botón que quedó: el de antes ya no
-  // existe, y quien usa teclado no tiene que volver a buscarlo.
-  useEffect(() => {
-    if (!recienTocado.current) return;
-    recienTocado.current = false;
-    boton.current?.focus();
-  }, [cerrada]);
-
   const cambiar = (valor) => {
-    recienTocado.current = true;
+    setAnimar(true);
     setCerrada(valor);
     try {
       if (valor) window.localStorage.setItem(LLAVE_BARRA, "1");
@@ -302,47 +313,66 @@ export function BarraLateral() {
     }
   };
 
-  // Sólo un ícono, sin la palabra, a pedido del equipo: el texto lo dicen
-  // aria-label para el lector de pantalla y title al pasar el mouse.
-  const botonDeBarra = (
-    <button
-      ref={boton}
-      type="button"
-      onClick={() => cambiar(!cerrada)}
-      aria-label={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
-      title={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
-      aria-expanded={!cerrada}
-      className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-campo text-tinta-media hover:bg-superficie hover:text-azul"
-    >
-      <Icono nombre="panel" />
-    </button>
-  );
-
-  // Cerrada queda sólo el botón para abrirla, quieto arriba a la izquierda.
-  // El contenido se queda con el resto del ancho.
-  if (cerrada) {
-    return (
-      <div className="hidden shrink-0 px-2 py-4 md:block">
-        <div className="sticky top-4">{botonDeBarra}</div>
-      </div>
-    );
-  }
+  // La barra va y vuelve al ancho que tenía. Lo de adentro conserva su ancho
+  // mientras tanto: se tapa y se destapa como un cajón, sin re-acomodarse.
+  const anchoDeAdentro = "calc(var(--ancho-barra) * 1px)";
 
   return (
-    <nav aria-label={t("navegacion.secciones")} style={{ width: ancho }} className="hidden shrink-0 border-r border-borde bg-fondo md:block">
+    <nav
+      ref={nav}
+      aria-label={t("navegacion.secciones")}
+      style={{ "--ancho-barra": ancho, width: cerrada ? ANCHO_CERRADA : anchoDeAdentro }}
+      onTransitionEnd={(e) => e.target === e.currentTarget && setAnimar(false)}
+      className={`relative hidden shrink-0 border-r border-borde bg-fondo md:block ${
+        animar ? "transition-[width] duration-200 ease-out motion-reduce:transition-none" : ""
+      }`}
+    >
       {/* Del alto de la pantalla y quieta mientras la página se mueve, así el
           pie queda siempre abajo. Si las secciones no entran, se mueve sólo
           la lista de arriba y el pie no se tapa. */}
-      <div className="sticky top-0 flex h-dvh flex-col p-4">
-        <BordeParaAchicar ancho={ancho} cambiar={cambiarAncho} lado="derecha" etiqueta={t("navegacion.anchoDeBarra")} minimo={ANCHO_BARRA.minimo} maximo={ANCHO_BARRA.maximo} />
-        <Encabezado negocio={negocio} enVista={enVista} extra={botonDeBarra} />
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <ListaDeSecciones destinos={arriba} ruta={ruta} />
+      <div className="sticky top-0 z-10 h-dvh">
+        {/* Cerrada, lo de adentro no se alcanza con Tab. */}
+        <div inert={cerrada} className="h-full overflow-hidden">
+          <div style={{ width: anchoDeAdentro }} className="flex h-full flex-col p-4">
+            <Encabezado negocio={negocio} enVista={enVista} />
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+              <ListaDeSecciones destinos={arriba} ruta={ruta} soloIconos={soloIconos} />
+            </div>
+            <div className="mt-4 border-t border-borde pt-4">
+              <ListaDeSecciones destinos={enVista ? sinNegocio(alPie) : alPie} ruta={ruta} soloIconos={soloIconos} />
+              {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} errorAlSalir={errorAlSalir} soloIconos={soloIconos} />}
+            </div>
+          </div>
         </div>
-        <div className="mt-4 border-t border-borde pt-4">
-          <ListaDeSecciones destinos={enVista ? sinNegocio(alPie) : alPie} ruta={ruta} />
-          {enVista && <BotonSalirDeVista salir={salir} saliendo={saliendo} errorAlSalir={errorAlSalir} />}
-        </div>
+        {!cerrada && (
+          <BordeParaAchicar
+            barra={nav}
+            variable="--ancho-barra"
+            ancho={ancho}
+            cambiar={cambiarAncho}
+            lado="derecha"
+            etiqueta={t("navegacion.anchoDeBarra")}
+            minimo={ANCHO_BARRA.minimo}
+            maximo={ANCHO_BARRA.maximo}
+          />
+        )}
+        {/* Montado sobre el borde, a la altura de la foto del negocio: así no
+            se pisa con el nombre por más angosta que esté la barra. Sólo un
+            ícono, sin la palabra, a pedido del equipo: el texto lo dicen
+            aria-label para el lector de pantalla y title al pasar el mouse.
+            Lo que se ve es un círculo chico; lo que se puede tocar, más. */}
+        <button
+          type="button"
+          onClick={() => cambiar(!cerrada)}
+          aria-label={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
+          title={cerrada ? t("navegacion.abrirMenu") : t("navegacion.cerrarMenu")}
+          aria-expanded={!cerrada}
+          className="group absolute top-[18px] left-full z-20 flex size-10 -translate-x-1/2 cursor-pointer items-center justify-center"
+        >
+          <span className="flex size-7 items-center justify-center rounded-full border border-borde bg-fondo text-tinta-media shadow-sm transition-colors group-hover:border-borde-fuerte group-hover:text-azul">
+            <Icono nombre={cerrada ? "flecha-der" : "flecha-izq"} className="size-4" />
+          </span>
+        </button>
       </div>
     </nav>
   );
