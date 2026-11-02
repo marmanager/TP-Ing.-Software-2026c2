@@ -752,6 +752,7 @@ export default {
       fechaSacada: "Done. You removed the return date.",
       volverAAbrirlo: "Reopen it",
       loQuePaso: "What happened with this case",
+      verConversacion: "See the conversation with {nombre} and reply",
       loQueContesto: "What the customer replied",
       anotarAlgo: "Add a note",
       queQueresAnotar: "What do you want to note down",
@@ -1845,6 +1846,7 @@ export default {
     conversacion: {
       titulo: "Our WhatsApp conversation",
       soloSuyo: "Only what they wrote",
+      soloLosUltimos: "Show only the latest",
       verAnteriores: "See earlier messages",
       cargando: "loading",
       ventana: {
@@ -2650,7 +2652,7 @@ export default {
     nadaPorLeer: "Nothing left to read.",
     ymas: { one: "And {n} more customer", other: "And {n} more customers" },
     anteriores: { one: "{n} earlier message · See everything in their profile", other: "{n} earlier messages · See everything in their profile" },
-    sinVer: "Wrote something you haven't seen yet",
+    sinVerCuantos: { one: "{n} unread WhatsApp message", other: "{n} unread WhatsApp messages" },
     sinPermiso: "WhatsApp replies are visible to whoever can hand over and reopen cases.",
     incompletas: "There are more old unseen replies that didn't fit here.",
   },

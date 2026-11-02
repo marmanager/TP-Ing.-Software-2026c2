@@ -20,9 +20,9 @@ import ChipEstado from "./ChipEstado";
 import { MarcaSinVer } from "./FilaDeRespuestas";
 import { Boton } from "./ui";
 
-// conRespuesta: el cliente escribió algo de este caso por WhatsApp y nadie
-// lo vio todavía.
-export default function FilaCaso({ caso, conRespuesta = false }) {
+// sinVer: cuántos mensajes de este caso mandó el cliente por WhatsApp que
+// nadie vio todavía.
+export default function FilaCaso({ caso, sinVer = 0 }) {
   const router = useRouter();
   const datos = useDatos();
   const { t, idioma } = useIdioma();
@@ -80,7 +80,7 @@ export default function FilaCaso({ caso, conRespuesta = false }) {
           {subtituloDelCaso(caso, t) && (
             <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(caso, t)}</span>
           )}
-          {conRespuesta && <MarcaSinVer />}
+          <MarcaSinVer cantidad={sinVer} />
           <p className="truncate text-tinta-media">{lineaDelCaso(caso, cliente?.nombre, t)}</p>
         </div>
 

@@ -155,15 +155,17 @@ describe("Historia: las respuestas del cliente", () => {
       await bloque.saveScreenshot(`${process.env.E2E_CAPTURAS}/inicio.png`);
     }
 
-    // Casos: la marca sólo en el 248, que es de lo que habló.
+    // Casos: la marca sólo en el 248, que es de lo que habló, con cuántos
+    // mensajes hay sin leer.
     await iniciarCon(datos, "/casos");
-    await expect($$('[title="Te escribió algo que todavía no viste"]')).toBeElementsArrayOfSize(1);
-    await expect($('li*=Te escribió algo que todavía no viste')).toHaveText(expect.stringContaining("248"));
+    await expect($$("[data-sin-ver]")).toBeElementsArrayOfSize(1);
+    await expect($("[data-sin-ver]")).toHaveAttribute("data-sin-ver", "2");
+    await expect($("li*=2 mensajes por WhatsApp sin leer")).toHaveText(expect.stringContaining("248"));
     if (process.env.E2E_CAPTURAS) await browser.saveScreenshot(`${process.env.E2E_CAPTURAS}/casos.png`);
 
     // Clientes: la marca en Marcela.
     await iniciarCon(datos, "/clientes");
-    await expect($('[title="Te escribió algo que todavía no viste"]')).toBeDisplayed();
+    await expect($('[title="2 mensajes por WhatsApp sin leer"]')).toBeDisplayed();
     if (process.env.E2E_CAPTURAS) await browser.saveScreenshot(`${process.env.E2E_CAPTURAS}/clientes.png`);
 
     // La bandeja desplegada.
@@ -205,6 +207,10 @@ describe("Historia: las respuestas del cliente", () => {
     await expect(seccion.$('[data-certeza="deducida"]')).toHaveText(
       "Parece contestar al aviso del presupuesto sin respuesta, que fue lo último que le mandamos, el 19 de octubre."
     );
+    // Y lleva a la conversación entera, en la ficha de Marcela.
+    await expect(seccion.$("[data-ir-a-la-conversacion]")).toHaveAttribute("href", expect.stringContaining("#conversacion-whatsapp"));
+    await seccion.$("[data-ir-a-la-conversacion]").click();
+    await expect($("#conversacion-whatsapp")).toBeDisplayed();
   });
 
   it("FRONT-3: se le contesta desde la ficha mientras dura la ventana de 24 horas", async () => {

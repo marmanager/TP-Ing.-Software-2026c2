@@ -37,9 +37,10 @@ export function useRespuestasSinVer() {
     // Si eran demasiadas para leerlas todas, las que faltan son las más viejas.
     completas: respuestasSinVer?.completas ?? true,
     grupos,
-    // Para las marcas: qué casos y qué clientes tienen algo sin ver.
-    casosConRespuesta: new Set(grupos.flatMap((g) => g.mensajes.map((m) => m.caso_id).filter(Boolean))),
-    clientesConRespuesta: new Set(grupos.map((g) => g.clienteId).filter(Boolean)),
+    // Para las marcas de Casos y Clientes: cuántos mensajes sin ver tiene
+    // cada caso y cada cliente (0 si ninguno).
+    sinVerDelCaso: (casoId) => grupos.reduce((n, g) => n + g.mensajes.filter((m) => m.caso_id === casoId).length, 0),
+    sinVerDelCliente: (clienteId) => grupos.find((g) => g.clienteId === clienteId)?.cantidad ?? 0,
     verlo: (grupo) => acciones.current.marcarRespuestasVistas({ clienteId: grupo.clienteId, telefono: grupo.telefono }),
   };
 }

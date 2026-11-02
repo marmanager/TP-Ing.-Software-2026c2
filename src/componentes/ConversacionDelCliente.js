@@ -5,7 +5,8 @@
 // con un separador cuando cambia el día o el caso. Cómo se arma está en
 // conversacion() (lib/recordatorios.js), con sus pruebas.
 //
-// Se ven los últimos A_LA_VISTA y el resto se abre de a DE_A, pidiendo otra
+// Se ven los últimos A_LA_VISTA y el resto se abre de a DE_A (y se vuelve a
+// cerrar con "Mostrar sólo los últimos"), pidiendo otra
 // página a la API cuando hace falta: un cliente que escribió cincuenta veces
 // no tapa sus casos, que vienen abajo. "Sólo lo que escribió" esconde
 // nuestros avisos. Aunque haya pedido la baja, lo que dijo se muestra: la
@@ -69,6 +70,15 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
     return () => { vivo = false; };
   }, [autorizado, clienteId]);
 
+  // Desde el caso se llega con #conversacion-whatsapp, pero la sección
+  // aparece recién cuando llegan los mensajes: ahí se baja hasta ella.
+  const hayMensajes = Boolean(mensajes?.length);
+  useEffect(() => {
+    if (hayMensajes && window.location.hash === "#conversacion-whatsapp") {
+      document.getElementById("conversacion-whatsapp")?.scrollIntoView({ block: "start" });
+    }
+  }, [hayMensajes]);
+
   if (!autorizado) return null;
   if (error) {
     return (
@@ -104,7 +114,8 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
   }
 
   return (
-    <section data-respuestas-del-cliente className="mb-12">
+    // El id es el destino del link "Ver la conversación" del caso.
+    <section id="conversacion-whatsapp" data-respuestas-del-cliente className="mb-12 scroll-mt-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <TituloSeccion>{t("recordatorios.conversacion.titulo")}</TituloSeccion>
         <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -121,11 +132,18 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
       </div>
 
       <div className="rounded-tarjeta border border-borde bg-tarjeta px-4 py-4 sm:px-6">
-        {hayMas && (
-          <div className="mb-3 flex justify-center">
-            <Boton variante="plano" icono="flecha-arriba" motivo={leyendo ? t("recordatorios.conversacion.cargando") : null} onClick={verAnteriores}>
-              {t("recordatorios.conversacion.verAnteriores")}
-            </Boton>
+        {(hayMas || cuantos > A_LA_VISTA) && (
+          <div className="mb-3 flex flex-wrap justify-center gap-2">
+            {hayMas && (
+              <Boton variante="plano" icono="flecha-arriba" motivo={leyendo ? t("recordatorios.conversacion.cargando") : null} onClick={verAnteriores}>
+                {t("recordatorios.conversacion.verAnteriores")}
+              </Boton>
+            )}
+            {cuantos > A_LA_VISTA && (
+              <Boton variante="plano" icono="flecha-abajo" onClick={() => setCuantos(A_LA_VISTA)}>
+                {t("recordatorios.conversacion.soloLosUltimos")}
+              </Boton>
+            )}
           </div>
         )}
         <ol className="flex flex-col gap-3">

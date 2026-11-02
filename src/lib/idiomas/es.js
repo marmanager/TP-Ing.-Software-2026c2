@@ -758,6 +758,7 @@ export default {
       fechaSacada: "Listo. Sacaste la fecha para volver.",
       volverAAbrirlo: "Volver a abrirlo",
       loQuePaso: "Lo que pasó con este caso",
+      verConversacion: "Ver la conversación con {nombre} y contestarle",
       loQueContesto: "Lo que contestó el cliente",
       anotarAlgo: "Anotar algo",
       queQueresAnotar: "Qué querés dejar anotado",
@@ -1851,6 +1852,7 @@ export default {
     conversacion: {
       titulo: "Lo que hablamos por WhatsApp",
       soloSuyo: "Sólo lo que escribió",
+      soloLosUltimos: "Mostrar sólo los últimos",
       verAnteriores: "Ver mensajes anteriores",
       cargando: "cargando",
       ventana: {
@@ -2656,7 +2658,7 @@ export default {
     nadaPorLeer: "No te queda nada por leer.",
     ymas: { one: "Y {n} cliente más", other: "Y {n} clientes más" },
     anteriores: { one: "{n} mensaje anterior · Ver todo en la ficha", other: "{n} mensajes anteriores · Ver todo en la ficha" },
-    sinVer: "Te escribió algo que todavía no viste",
+    sinVerCuantos: { one: "{n} mensaje por WhatsApp sin leer", other: "{n} mensajes por WhatsApp sin leer" },
     sinPermiso: "Las respuestas por WhatsApp las ve quien puede entregar y reabrir casos.",
     incompletas: "Hay más respuestas viejas sin ver que no entraron acá.",
   },
