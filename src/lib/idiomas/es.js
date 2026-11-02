@@ -1758,6 +1758,10 @@ export default {
       programado: "Le va a llegar el recordatorio {momento}.",
       enviado: "Le mandamos el recordatorio {momento}.",
       fallido: "No se pudo enviar el recordatorio. Revisá que el teléfono del cliente tenga código de país.",
+      noSale: {
+        faltan_datos_del_negocio: "No salió: falta la dirección o el teléfono del negocio, que van en el recordatorio. Cargalos en Mi negocio.",
+        falta_nombre_del_negocio: "No salió: falta el nombre del negocio, que va en el recordatorio. Cargalo en Mi negocio.",
+      },
     },
     volver: {
       noSale: "No se va a mandar el aviso de cuándo le toca volver.",
@@ -1772,6 +1776,7 @@ export default {
         ya_esta_aca: "Tiene un caso abierto, así que no hace falta avisarle.",
         ya_volvio: "El cliente ya volvió después de este caso, así que no se le avisa.",
         tope_del_mes: "Ya le llegó un mensaje automático este mes, así que no se le manda otro.",
+        falta_nombre_del_negocio: "Falta el nombre del negocio, que va en el mensaje. Cargalo en Mi negocio.",
       },
       programado: "Le llega un aviso por WhatsApp el {dia}.",
       enviado: "Le mandamos el aviso por WhatsApp el {dia}.",
@@ -1791,6 +1796,8 @@ export default {
         todo_contestado: "Ya contestó todo lo que tenía para contestar, así que no se le avisó.",
         caso_cerrado: "El caso se cerró, así que no se le avisó del presupuesto.",
         ya_se_aviso: "Ya se le avisó una vez de este presupuesto: no se le manda otro.",
+        link_revocado: "Dejaste de compartir el link del caso, que va en el aviso, así que no se le mandó.",
+        falta_nombre_del_negocio: "Falta el nombre del negocio, que va en el mensaje. Cargalo en Mi negocio.",
       },
       programado: "Si no contesta antes, le llega un aviso por WhatsApp {momento}.",
       enviado: "Ya le avisamos por WhatsApp {momento}. No se le manda otro.",

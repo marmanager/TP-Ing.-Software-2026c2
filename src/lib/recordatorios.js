@@ -417,10 +417,18 @@ export function avisoEnPalabras({ aviso, ahora }, opciones) {
       return { estado: "enviado", frase: t("recordatorios.aviso.enviado", { momento: momentoEnPalabras(aviso.procesado_en ?? aviso.enviar_en, ahora, l) }) };
     case "fallido":
       return { estado: "fallido", frase: t("recordatorios.aviso.fallido") };
+    // Con las plantillas (API-4b), un recordatorio sin los datos que lleva el
+    // mensaje queda cancelado al salir: se dice qué falta, para cargarlo.
+    case "cancelado":
+      return NO_SALE_EL_TURNO.includes(aviso.motivo)
+        ? { estado: "no_sale", motivo: aviso.motivo, frase: t(`recordatorios.aviso.noSale.${aviso.motivo}`) }
+        : null;
     default:
       return null;
   }
 }
+
+const NO_SALE_EL_TURNO = ["faltan_datos_del_negocio", "falta_nombre_del_negocio"];
 
 // El aviso de un turno, como lo trae la API: el último de la cola, en el
 // listado (turno.aviso), o el que quedó después de un cambio, en la
@@ -577,7 +585,8 @@ export function filasDeRecordatorios({ configuracion, rubro, conAgenda }, opcion
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07): si mañana cambia, la pantalla sigue diciendo lo mismo.
-const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes"];
+// falta_nombre_del_negocio (API-4b): la plantilla lleva el nombre del negocio.
+const CODIGOS_NO_VOLVER = ["sin_cliente", "telefono_invalido", "desactivado", "ya_paso", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "ya_esta_aca", "ya_volvio", "tope_del_mes", "falta_nombre_del_negocio"];
 
 // El texto de cada motivo, en el idioma de t (sin t, en castellano).
 export function porQueNoVolver(motivo, opciones) {
@@ -694,7 +703,9 @@ export function avisoDeLaProximaVisita({ casos, cliente, volver = null, hoy }, o
 
 // Por qué no sale, por el código de la API. Su texto no se muestra nunca
 // (cartilla, 07).
-const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso"];
+// link_revocado y falta_nombre_del_negocio (API-4): el negocio dejó de compartir
+// el link, que va en el botón de la plantilla, o no tiene nombre.
+const CODIGOS_NO_PRESUPUESTO = ["sin_cliente", "telefono_invalido", "desactivado", "whatsapp_no_configurado", "email_invalido", "mail_no_configurado", "sin_link", "todo_contestado", "caso_cerrado", "ya_se_aviso", "link_revocado", "falta_nombre_del_negocio"];
 
 export function porQueNoPresupuesto(motivo, opciones) {
   const { t } = lang(opciones);

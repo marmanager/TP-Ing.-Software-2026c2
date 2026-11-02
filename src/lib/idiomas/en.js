@@ -1752,6 +1752,10 @@ export default {
       programado: "The reminder will reach them {momento}.",
       enviado: "We sent the reminder {momento}.",
       fallido: "The reminder couldn't be sent. Check that the customer's phone number includes the country code.",
+      noSale: {
+        faltan_datos_del_negocio: "Not sent: the business address or phone number is missing, and they go in the reminder. Add them in My business.",
+        falta_nombre_del_negocio: "Not sent: the business name is missing, and it goes in the reminder. Add it in My business.",
+      },
     },
     volver: {
       noSale: "The notice about when it's time to come back won't be sent.",
@@ -1766,6 +1770,7 @@ export default {
         ya_esta_aca: "They have an open case, so there's no need to tell them.",
         ya_volvio: "The customer already came back after this case, so they won't be told.",
         tope_del_mes: "They already got an automatic message this month, so they won't get another.",
+        falta_nombre_del_negocio: "The business name is missing, and it goes in the message. Add it in My business.",
       },
       programado: "A WhatsApp notice will reach them on {dia}.",
       enviado: "We sent the notice by WhatsApp on {dia}.",
@@ -1785,6 +1790,8 @@ export default {
         todo_contestado: "They already answered everything, so they weren't told.",
         caso_cerrado: "The case was closed, so they weren't told about the quote.",
         ya_se_aviso: "They were already told once about this quote: they won't get another.",
+        link_revocado: "You stopped sharing the case link, which goes in the notice, so it wasn't sent.",
+        falta_nombre_del_negocio: "The business name is missing, and it goes in the message. Add it in My business.",
       },
       programado: "If they don't answer before then, a WhatsApp notice will reach them {momento}.",
       enviado: "We already told them by WhatsApp {momento}. They won't get another.",

@@ -30,6 +30,7 @@ import {
   conPlantilla,
   faltanDatosDelNegocio,
   versionesParaElegir,
+  porQueNoPresupuesto,
 } from "../../src/lib/recordatorios.js";
 
 // Martes 13 de octubre de 2026, 10:00 en Argentina.
@@ -287,5 +288,21 @@ describe("Las plantillas en la configuración", () => {
       .toBe("Para mandar este aviso falta cargar la dirección y el teléfono del negocio.");
     expect(faltanDatosDelNegocio([])).toBeNull();
     expect(faltanDatosDelNegocio(undefined)).toBeNull();
+  });
+});
+
+// Los motivos nuevos de las plantillas (API-4/4b): lo que no salió se dice en
+// palabras, con qué hacer.
+describe("Los avisos que no salen por las plantillas", () => {
+  test("el recordatorio sin la dirección o el teléfono del negocio dice qué cargar", () => {
+    const r = avisoEnPalabras({ aviso: { estado: "cancelado", motivo: "faltan_datos_del_negocio" }, ahora: AHORA });
+    expect(r.estado).toBe("no_sale");
+    expect(r.frase).toMatch(/Mi negocio/);
+    // Otro cancelado (lo movieron, lo cancelaron) no dice nada.
+    expect(avisoEnPalabras({ aviso: { estado: "cancelado", motivo: "turno_movido" }, ahora: AHORA })).toBeNull();
+  });
+
+  test("el aviso del presupuesto con el link revocado lo dice", () => {
+    expect(porQueNoPresupuesto("link_revocado")).toMatch(/Dejaste de compartir el link/);
   });
 });
