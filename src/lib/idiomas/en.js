@@ -2639,7 +2639,7 @@ export default {
     pantallaCompleta: "Full screen",
     achicar: "Back to panel",
     cerrarPanel: "Close",
-    apoyo: "Ask how to use the app, tell it what problem you have, ask it to set up your business or to build equations. Before changing or adding anything, it shows you and you decide.",
+    apoyo: "Hi, I'm Remi. Ask me how to use the app, tell me what problem you have, ask me to set up your business or to build equations. Before changing or adding anything, I show you and you decide.",
     vacioTitulo: "How can I help?",
     vacioTexto: "Start with one of these, or write your own.",
     sugerencias: {
