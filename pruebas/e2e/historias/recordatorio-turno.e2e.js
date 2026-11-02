@@ -80,7 +80,7 @@ const filaDe = (motivo) => $(`li*=${motivo}`);
 describe("Historia: recordarle el turno al cliente", () => {
   it("AC12: con la agenda apagada, sólo está el de después de entregar", async () => {
     await entrar("/negocio/recordatorios");
-    await expect($("h1")).toHaveText("Recordatorios por WhatsApp");
+    await expect($("h1")).toHaveText("Recordatorios");
     await verTexto("Después de entregar");
     await noVerTexto("Antes del turno");
   });

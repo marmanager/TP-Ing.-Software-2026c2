@@ -13,6 +13,7 @@
 import { describe, expect, test } from "@jest/globals";
 import {
   bajaDeAvisos,
+  emailValido,
   errorAlRevertirBaja,
   porQueNoHayAviso,
   porQueNoSeAviso,
@@ -75,10 +76,26 @@ describe("Historia: el cliente pidió no recibir avisos", () => {
     expect(deNoche.frase).toMatch(/el 14 de octubre de 2026/);
   });
 
+  // 083: una sola baja para los dos canales, y la ficha dice por dónde la pidió.
+  test("la baja dice por dónde la pidió; las de antes, sin vía, como siempre", () => {
+    const porMail = bajaDeAvisos({ cliente: { id: "c1", avisos_baja_en: PIDIO_LA_BAJA, avisos_baja_via: "mail" }, rubro: "taller" });
+    expect(porMail.via).toBe("mail");
+    expect(porMail.frase).toBe("Pidió no recibir mensajes automáticos el 14 de octubre de 2026, desde el mail.");
+    const porWhatsapp = bajaDeAvisos({ cliente: { id: "c1", avisos_baja_en: PIDIO_LA_BAJA, avisos_baja_via: "whatsapp" }, rubro: "taller" });
+    expect(porWhatsapp.frase).toMatch(/, por WhatsApp\.$/);
+    const deAntes = bajaDeAvisos({ cliente: { id: "c1", avisos_baja_en: PIDIO_LA_BAJA }, rubro: "taller" });
+    expect(deAntes.via).toBeNull();
+  });
+
+  test("un mail sirve para avisos con la misma regla que la API", () => {
+    expect(emailValido(" marcela@correo.com ")).toBe(true);
+    for (const malo of ["", null, "marcela", "marcela@correo", "a@b.com, c@d.com", "a b@c.com"]) expect(emailValido(malo)).toBe(false);
+  });
+
   test("el texto de la baja usa el vocabulario del rubro", () => {
     const taller = bajaDeAvisos({ cliente: { id: "c1", avisos_baja_en: PIDIO_LA_BAJA }, rubro: "taller" });
     expect(taller.consecuencia)
-      .toBe("No le van a llegar los recordatorios de sus turnos ni los mensajes de seguimiento por WhatsApp.");
+      .toBe("No le van a llegar los recordatorios de sus turnos ni ningún otro aviso automático, ni por WhatsApp ni por mail.");
 
     const consultorio = bajaDeAvisos({ cliente: { id: "c1", avisos_baja_en: PIDIO_LA_BAJA }, rubro: "medicina" });
     expect(consultorio.consecuencia).toMatch(/los recordatorios de sus consultas/);

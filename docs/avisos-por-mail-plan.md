@@ -106,7 +106,16 @@ Migración `083_canal_del_cliente.sql`, en la rama `avisos-por-mail` del front.
 - `POST /v1/turno/{token}/confirmo` y `/no-puedo`: anotan lo mismo que la respuesta por
   WhatsApp (070). El token es uno por aviso y de un solo uso.
 
-## FRONT-1 · El canal en la ficha del cliente (necesita API-2 y API-3)
+## FRONT-1 · El canal en la ficha del cliente — hecho
+- No había cómo cargar el mail de un cliente: ni la API lo aceptaba ni la ficha lo mostraba.
+  Ahora `PATCH /v1/clientes/:id` acepta `email` (vacío lo saca) y la ficha lo muestra y lo
+  corrige, igual que el teléfono.
+- El canal se elige con dos opciones que dicen a dónde llega cada una
+  (`componentes/CanalDelCliente.js`). Si eligió mail y no tiene mail, se avisa al lado.
+- La baja dice por dónde la pidió, y la conversación de un cliente de mail no ofrece
+  contestar por WhatsApp.
+
+### Lo planeado
 - Elegir WhatsApp o mail, con una frase que explique qué significa: "Los avisos automáticos le
   llegan por acá. Uno solo, no los dos." Si elige mail y no hay mail cargado, se avisa al lado
   del campo.
@@ -114,7 +123,7 @@ Migración `083_canal_del_cliente.sql`, en la rama `avisos-por-mail` del front.
   como ya hace R-8.
 - En un cliente de mail no aparece "Contestar" en la conversación.
 
-## FRONT-2 · Recordatorios sin canal
+## FRONT-2 · Recordatorios sin canal — hecho (además, el título pasa a "Recordatorios")
 - Se saca el selector de `src/app/negocio/recordatorios/[tipo]/page.js` y `canal` de
   `cambiosDelRecordatorio`.
 - Donde se dice cuándo le llega el aviso, se dice también por dónde: "por WhatsApp o por mail,

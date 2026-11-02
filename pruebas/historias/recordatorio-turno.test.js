@@ -26,7 +26,6 @@ import {
   porQueNoHayAviso,
   recordatoriosDeLaApi,
   cambiosDelRecordatorio,
-  ofreceCanal,
   conPlantilla,
   faltanDatosDelNegocio,
   versionesParaElegir,
@@ -192,8 +191,8 @@ describe("Historia: recordarle el turno al cliente", () => {
 
   test("la configuración de la API se edita con cada plazo en su unidad", () => {
     expect(recordatoriosDeLaApi(DE_LA_API)).toEqual({
-      cierre: { activo: true, plazo: "7", mensaje: "¿Cómo te fue?", canal: "whatsapp", version: null, versiones: [], faltan: [] },
-      turno: { activo: false, plazo: "24", mensaje: "Te esperamos mañana.", canal: "whatsapp", version: null, versiones: [], faltan: [] },
+      cierre: { activo: true, plazo: "7", mensaje: "¿Cómo te fue?", version: null, versiones: [], faltan: [] },
+      turno: { activo: false, plazo: "24", mensaje: "Te esperamos mañana.", version: null, versiones: [], faltan: [] },
     });
   });
 
@@ -227,23 +226,16 @@ describe("Historia: recordarle el turno al cliente", () => {
   });
 });
 
-describe("Historia: el canal del recordatorio (WhatsApp o mail)", () => {
-  const DE_LA_API = {
-    activo: true, dias: 7, mensaje: "¿Cómo te fue?",
-    turno: { activo: true, horas: 24, mensaje: "Te esperamos mañana.", canal: "email" },
-  };
-
-  test("el canal llega de la API y cambiarlo manda sólo el canal", () => {
-    const guardado = recordatoriosDeLaApi(DE_LA_API);
-    expect(guardado.turno.canal).toBe("email");
-    const aWhatsApp = { ...guardado.turno, canal: "whatsapp" };
-    expect(cambiosDelRecordatorio("turno", guardado.turno, aWhatsApp)).toEqual({ turno: { canal: "whatsapp" } });
-  });
-
-  test("el posventa no ofrece canal y una API sin canal se lee como WhatsApp", () => {
-    expect(ofreceCanal("cierre")).toBe(false);
-    expect(ofreceCanal("turno")).toBe(true);
-    expect(recordatoriosDeLaApi({ ...DE_LA_API, turno: { activo: true, horas: 24, mensaje: "x" } }).turno.canal).toBe("whatsapp");
+// 083: el canal es del cliente, no del recordatorio. La configuración ya no
+// tiene canal, y un canal que mande una API vieja no se lee ni se manda.
+describe("Historia: el recordatorio no tiene canal", () => {
+  test("ni se lee de la API ni se manda al guardar", () => {
+    const guardado = recordatoriosDeLaApi({
+      activo: true, dias: 7, mensaje: "¿Cómo te fue?",
+      turno: { activo: true, horas: 24, mensaje: "Te esperamos mañana.", canal: "email" },
+    });
+    expect(guardado.turno).not.toHaveProperty("canal");
+    expect(cambiosDelRecordatorio("turno", guardado.turno, { ...guardado.turno, plazo: "12" })).toEqual({ turno: { horas: 12 } });
   });
 });
 

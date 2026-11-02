@@ -472,7 +472,6 @@ const paraEditar = (c, plazo) => ({
   activo: Boolean(c?.activo),
   plazo: plazo == null ? "" : String(plazo),
   mensaje: c?.mensaje ?? "",
-  canal: c?.canal === "email" ? "email" : "whatsapp",
   // Las plantillas de WhatsApp (API-4): la versión elegida, las que hay con
   // su vista previa, y los datos del negocio que faltan para mandarlo.
   version: c?.version ?? null,
@@ -531,8 +530,8 @@ export function recordatoriosDeLaApi(config) {
   return editables;
 }
 
-// Si la API deja elegir por dónde sale: turno, volver y presupuesto sí; el posventa no.
-export const ofreceCanal = (tipo) => Boolean(definicion(tipo).enLaApi);
+// Un mail que sirve para mandarle avisos. La misma regla que la API.
+export const emailValido = (texto) => /^[^\s<>,;"]+@[^\s<>,;"]+\.[^\s<>,;"]+$/.test((texto ?? "").trim());
 
 // Lo que cambió de uno, con los nombres de la API y en su lugar del PATCH.
 export function cambiosDelRecordatorio(tipo, antes, ahora) {
@@ -542,8 +541,6 @@ export function cambiosDelRecordatorio(tipo, antes, ahora) {
   if (String(ahora.plazo).trim() !== String(antes.plazo).trim()) cambios[def.plazo] = Number(ahora.plazo);
   if (ahora.mensaje.trim() !== antes.mensaje.trim()) cambios.mensaje = ahora.mensaje.trim();
   if ((ahora.version ?? null) !== (antes.version ?? null)) cambios.version = ahora.version;
-  // El posventa (arriba de todo en la API) no tiene canal: sale siempre por WhatsApp.
-  if (def.enLaApi && ahora.canal !== antes.canal) cambios.canal = ahora.canal;
   if (!Object.keys(cambios).length) return {};
   return def.enLaApi ? { [def.enLaApi]: cambios } : cambios;
 }
@@ -758,9 +755,12 @@ export function bajaDeAvisos({ cliente, rubro }, opciones) {
   const cuando = cliente?.avisos_baja_en ? enArgentina(cliente.avisos_baja_en) : null;
   if (!cuando) return null;
   const { cita } = vocabulario(rubro, idioma);
+  // Por dónde la pidió (083): las de antes no lo dicen.
+  const via = ["whatsapp", "mail"].includes(cliente.avisos_baja_via) ? cliente.avisos_baja_via : null;
   return {
     dia: cuando.dia,
-    frase: t("recordatorios.baja.frase", { dia: diaEnPalabras(cuando.dia, locale) }),
+    via,
+    frase: t(via ? `recordatorios.baja.fraseVia.${via}` : "recordatorios.baja.frase", { dia: diaEnPalabras(cuando.dia, locale) }),
     consecuencia: t("recordatorios.baja.consecuencia", { citas: cita.palabra(2) }),
   };
 }

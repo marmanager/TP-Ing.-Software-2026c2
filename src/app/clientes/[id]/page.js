@@ -35,6 +35,7 @@ import Icono from "@/componentes/Icono";
 import { Boton, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
 import ConversacionDelCliente from "@/componentes/ConversacionDelCliente";
+import CanalDelCliente from "@/componentes/CanalDelCliente";
 
 export default function FichaDeCliente() {
   const { id } = useParams();
@@ -203,15 +204,17 @@ export default function FichaDeCliente() {
           </p>
         )}
 
+        <CanalDelCliente cliente={cliente} puedeCargar={puedeCargar} />
+
         {/* La baja de avisos (R-8b). No es un error: el cliente ejerció un
             derecho, y la ficha lo informa sin rojo ni ícono de alerta.
             Revertirla es para cuando el cliente pide volver, y el botón lo
             aclara al lado en vez de preguntar "¿está seguro?". */}
         {baja && (
           <div data-baja-de-avisos className="mt-6 max-w-[65ch]">
-            <p className="font-bold text-cuerpo">{t("clientes.ficha.avisosWhatsapp")}</p>
+            <p className="font-bold text-cuerpo">{t("clientes.ficha.avisosAutomaticos")}</p>
             <p className="mt-1 flex items-start gap-2 text-tinta-media">
-              <Icono nombre="whatsapp" className="mt-0.5 size-5 shrink-0" />
+              <Icono nombre={baja.via === "mail" ? "sobre" : "whatsapp"} className="mt-0.5 size-5 shrink-0" />
               <span>
                 {baja.frase} {baja.consecuencia}
               </span>
@@ -346,7 +349,7 @@ export default function FichaDeCliente() {
 
       {/* Lo que hablamos por WhatsApp (FRONT-2): lo que le mandamos y lo
           que escribió, como un chat. Sin mensajes no hay sección. */}
-      <ConversacionDelCliente clienteId={cliente.id} nombre={cliente.nombre} telefono={cliente.telefono} rubro={negocio?.rubro} />
+      <ConversacionDelCliente clienteId={cliente.id} nombre={cliente.nombre} telefono={cliente.telefono} rubro={negocio?.rubro} porMail={cliente.canal === "email"} />
 
       <TituloSeccion>{t("clientes.ficha.loQueTrajo")}</TituloSeccion>
       {suyos.length === 0 ? (
