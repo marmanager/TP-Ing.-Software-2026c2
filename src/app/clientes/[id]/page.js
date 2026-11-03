@@ -338,7 +338,7 @@ export default function FichaDeCliente() {
               · {tituloDelCaso(proximaVuelta.caso, t)}
               {proximaVuelta.aviso && (
                 <span className="mt-1 flex items-start gap-2 text-tinta-media">
-                  <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+                  <Icono nombre="reloj" className="mt-1 size-5 shrink-0" />
                   <span>{proximaVuelta.aviso.frase}</span>
                 </span>
               )}

@@ -63,7 +63,7 @@ export default function ResumenRecordatorios({ puedeConfigurar }) {
           href="/negocio/recordatorios"
           className="inline-flex min-h-12 items-center gap-2 font-bold text-azul"
         >
-          <Icono nombre="whatsapp" />
+          <Icono nombre="reloj" />
           {puedeConfigurar ? t("negocio.recordatorios.verCambiar") : t("negocio.recordatorios.ver")}
         </Link>
       </div>

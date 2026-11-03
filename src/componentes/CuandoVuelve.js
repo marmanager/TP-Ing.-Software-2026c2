@@ -59,7 +59,7 @@ export default function CuandoVuelve({ id = "volver-en", valor, alCambiar, hoy, 
         <div className="-mt-3 mb-6">
           {aviso && (
             <p id={`${id}-aviso`} role="status" className="mb-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
-              <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+              <Icono nombre="reloj" className="mt-1 size-5 shrink-0" />
               <span>{aviso}</span>
             </p>
           )}

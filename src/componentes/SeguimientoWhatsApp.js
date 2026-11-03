@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Icono from "./Icono";
 import { Boton, Campo } from "./ui";
-import { erroresSeguimiento, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
+import { erroresSeguimiento, SEGUIMIENTO_VACIO } from "@/lib/seguimiento-whatsapp";
 import { textoDeError } from "@/lib/idioma";
 import { useIdioma } from "@/lib/useIdioma";
-import { conPlantilla, versionElegida } from "@/lib/recordatorios";
+import { avisosDelCliente, conPlantilla, versionElegida } from "@/lib/recordatorios";
 
-export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar, guardando }) {
+// Sale por el canal del cliente (083): por WhatsApp o por mail. El nombre del
+// componente quedó de cuando era sólo WhatsApp.
+export default function SeguimientoWhatsApp({ datos, cliente, valor, alCambiar, guardando }) {
   const { t } = useIdioma();
   const [configuracion, setConfiguracion] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -54,9 +56,10 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
     setConfiguracion(r.configuracion);
   }
 
-  const conTelefono = telefonoWhatsAppValido(telefono);
+  const avisos = avisosDelCliente(cliente);
+  const porMail = avisos.canal === "email";
   const errores = erroresSeguimiento(valor, t);
-  const disponible = configuracion?.activo && conTelefono && !activando;
+  const disponible = configuracion?.activo && avisos.puede && !activando;
   // Con la plantilla del posventa aprobada (FRONT-4), el texto es el de Meta:
   // se muestra cómo le llega, sin poder editarlo. La API le suma lo que se
   // hizo y el link al mandarlo.
@@ -68,11 +71,16 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
       {/* Flotando, la leyenda deja de ir encima del borde de arriba: queda
           debajo de la línea, como cualquier otro título. */}
       <legend className="float-left flex w-full items-center gap-2 font-titulo font-extrabold text-seccion">
-        <Icono nombre="whatsapp" className="size-6 text-completo" />
-        {t("casos.seguimiento.titulo")}
+        {porMail ? (
+          <Icono nombre="sobre" className="size-6 text-azul" />
+        ) : (
+          <Icono nombre="whatsapp" className="size-6 text-completo" />
+        )}
+        {t(porMail ? "casos.seguimiento.tituloMail" : "casos.seguimiento.titulo")}
       </legend>
       <p className="clear-left mb-3 pt-2 text-etiqueta text-tinta-media">
         {plantilla ? t("casos.seguimiento.apoyoConPlantilla") : t("casos.seguimiento.apoyo")}
+        {porMail && avisos.puede && <> {t("casos.seguimiento.leLlegaA", { email: avisos.destino })}</>}
       </p>
       <label className="inline-flex min-h-12 cursor-pointer items-center gap-3 font-bold text-cuerpo">
         <input
@@ -86,9 +94,9 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
         {t("casos.seguimiento.enviar")}
       </label>
       <p id="seguimiento-entrega-ayuda" className="mb-4 text-etiqueta text-tinta-media">
-        {!conTelefono
-          ? t("casos.seguimiento.sinTelefono")
-          : t("casos.seguimiento.soloSiAcepto")}
+        {avisos.puede ? t("casos.seguimiento.soloSiAcepto")
+          : porMail ? t("casos.seguimiento.sinMail")
+            : t("casos.seguimiento.sinTelefono")}
       </p>
       {cargando && <p role="status" className="mb-4 text-tinta-media">{t("casos.seguimiento.cargando")}</p>}
       {error && <p role="alert" className="mb-4 font-bold text-rojo">{textoDeError(t, error)}</p>}
@@ -133,7 +141,7 @@ export default function SeguimientoWhatsApp({ datos, telefono, valor, alCambiar,
               </div>
               <p className="mt-2 max-w-[65ch] text-apoyo text-tinta-suave">
                 {conDetalle && `${t("casos.seguimiento.resumenDeEjemplo")} `}
-                {t("casos.seguimiento.textoAprobado")}{" "}
+                {t(porMail ? "casos.seguimiento.textoAprobadoMail" : "casos.seguimiento.textoAprobado")}{" "}
                 <Link href="/negocio/recordatorios/cierre" className="font-bold text-azul underline">
                   {t("casos.seguimiento.irARecordatorios")}
                 </Link>

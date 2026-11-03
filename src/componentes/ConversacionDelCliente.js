@@ -8,7 +8,9 @@
 // Se ven los últimos A_LA_VISTA y el resto se abre de a DE_A (y se vuelve a
 // cerrar con "Mostrar sólo los últimos"), pidiendo otra
 // página a la API cuando hace falta: un cliente que escribió cincuenta veces
-// no tapa sus casos, que vienen abajo. "Sólo lo que escribió" esconde
+// no tapa sus casos, que vienen abajo. Los mensajes van en una caja de alto
+// fijo con scroll adentro, que abre en el último: abrir los anteriores no
+// estira la ficha, y el lugar para contestar queda siempre a la vista. "Sólo lo que escribió" esconde
 // nuestros avisos. Aunque haya pedido la baja, lo que dijo se muestra: la
 // baja es de lo que se le manda.
 //
@@ -19,7 +21,7 @@
 // de 24 horas de WhatsApp desde su último mensaje, y si no, con el chat de su
 // número desde el teléfono del negocio (ventanaParaEscribir).
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useDatos } from "@/lib/datos";
 import { useAuth } from "@/lib/auth";
 import { useIdioma } from "@/lib/useIdioma";
@@ -54,11 +56,30 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
   const acciones = useRef(datos);
   acciones.current = datos;
 
+  // Dónde dejar el scroll de la caja después de dibujar: abajo de todo (al
+  // abrir, al mandar, al filtrar) o en el mismo mensaje que se estaba leyendo
+  // cuando se suman los anteriores arriba (se guarda la distancia al fondo).
+  const caja = useRef(null);
+  const ajuste = useRef({ modo: "fondo" });
+  useLayoutEffect(() => {
+    const el = caja.current;
+    const { modo, desdeElFondo } = ajuste.current;
+    if (!el || !modo) return;
+    el.scrollTop = modo === "fondo" ? el.scrollHeight : el.scrollHeight - desdeElFondo;
+    ajuste.current = { modo: null };
+  });
+  const quedarseEnElMensaje = () => {
+    const el = caja.current;
+    if (el) ajuste.current = { modo: "mantener", desdeElFondo: el.scrollHeight - el.scrollTop };
+  };
+  const irAlFondo = () => { ajuste.current = { modo: "fondo" }; };
+
   useEffect(() => {
     if (!autorizado || !clienteId) return;
     let vivo = true;
     setMensajes(null);
     setCuantos(A_LA_VISTA);
+    irAlFondo();
     acciones.current.leerConversacion(clienteId, { limite: POR_PAGINA }).then((r) => {
       if (!vivo) return;
       if (!r.ok) return setError(r.error);
@@ -96,11 +117,13 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
   const filas = conversacion({ mensajes: visibles, casos, rubro }, { t, locale, idioma });
 
   async function verAnteriores() {
+    quedarseEnElMensaje();
     if (filtrados.length >= cuantos + DE_A || !siguiente) return setCuantos((n) => n + DE_A);
     setLeyendo(true);
     const r = await acciones.current.leerConversacion(clienteId, { limite: POR_PAGINA, cursor: siguiente });
     setLeyendo(false);
     if (!r.ok) return setError(r.error);
+    quedarseEnElMensaje();
     setMensajes((antes) => [...antes, ...r.mensajes]);
     setSiguiente(r.siguiente);
     setCuantos((n) => n + DE_A);
@@ -120,7 +143,7 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
         <TituloSeccion>{t("recordatorios.conversacion.titulo")}</TituloSeccion>
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 text-tinta-media">
-            <input type="checkbox" checked={soloSuyo} onChange={(e) => setSoloSuyo(e.target.checked)} className="size-5 accent-azul" />
+            <input type="checkbox" checked={soloSuyo} onChange={(e) => { irAlFondo(); setSoloSuyo(e.target.checked); }} className="size-5 accent-azul" />
             {t("recordatorios.conversacion.soloSuyo")}
           </label>
           {pendientes > 0 && (
@@ -132,6 +155,14 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
       </div>
 
       <div className="rounded-tarjeta border border-borde bg-tarjeta px-4 py-4 sm:px-6">
+        <div
+          ref={caja}
+          tabIndex={0}
+          role="region"
+          aria-label={t("recordatorios.conversacion.titulo")}
+          data-conversacion-caja
+          className="-mx-2 max-h-[26rem] overflow-y-auto overscroll-contain px-2"
+        >
         {(hayMas || cuantos > A_LA_VISTA) && (
           <div className="mb-3 flex flex-wrap justify-center gap-2">
             {hayMas && (
@@ -140,7 +171,7 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
               </Boton>
             )}
             {cuantos > A_LA_VISTA && (
-              <Boton variante="plano" icono="flecha-abajo" onClick={() => setCuantos(A_LA_VISTA)}>
+              <Boton variante="plano" icono="flecha-abajo" onClick={() => { irAlFondo(); setCuantos(A_LA_VISTA); }}>
                 {t("recordatorios.conversacion.soloLosUltimos")}
               </Boton>
             )}
@@ -174,6 +205,7 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
             )
           )}
         </ol>
+        </div>
 
         {/* A un cliente de mail no se le escribe por WhatsApp desde acá
             (083): lo que contestó antes queda a la vista. */}
@@ -193,6 +225,7 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
           esperandoRetomar={mensajes[0]?.de === "negocio" && mensajes[0]?.tipo === "retomar"}
           alMandar={(mensaje) => {
             // Lo nuevo arriba, como lo manda la API: queda último en el chat.
+            irAlFondo();
             setMensajes((antes) => [mensaje, ...antes]);
             setCuantos((n) => n + 1);
             setPendientes(0);
