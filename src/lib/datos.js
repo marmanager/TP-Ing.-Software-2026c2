@@ -53,6 +53,12 @@ const AVISO_QUE_NO_SALIO = {
   link_revocado: "estado_aviso_sin_link",
 };
 
+// El aviso sale por el canal del cliente (083), y la fila que devuelve la API
+// lo dice en "canal": lo que se muestra en pantalla nombra ese canal. Cada
+// texto de mail es la misma clave con "Mail" (o "_mail") al final.
+const conCanal = (clave, aviso) =>
+  aviso?.canal === "email" ? `${clave}${clave.includes("_") ? "_mail" : "Mail"}` : clave;
+
 const VACIO = {
   negocio: null,
   empleados: [],
@@ -711,14 +717,14 @@ export function DatosProvider({ children }) {
           setDeshacerExito(null);
           setExito(tt("datos.estadoListoSinAviso", { motivo: porQueNoSeAviso(r.datos.sin_aviso, idiomaRef.current) }));
         } else if (r.datos.notificacion?.estado === "fallido") {
-          setAviso(errorLocal("estado_sin_aviso"));
+          setAviso(errorLocal(conCanal("estado_sin_aviso", r.datos.notificacion)));
         } else if (r.datos.notificacion?.estado === "cancelado") {
           // Con plantilla, la API no lo manda si le falta algo que el mensaje
           // lleva (API-4): se dice qué, para cargarlo. No es "pendiente".
-          setAviso(errorLocal(AVISO_QUE_NO_SALIO[r.datos.notificacion.motivo] ?? "estado_sin_aviso"));
+          setAviso(errorLocal(conCanal(AVISO_QUE_NO_SALIO[r.datos.notificacion.motivo] ?? "estado_sin_aviso", r.datos.notificacion)));
         } else if (r.datos.notificacion) {
           setDeshacerExito(null);
-          setExito(tt(r.datos.notificacion.estado === "enviado" ? "datos.estadoListoEnviado" : "datos.estadoListoPendiente"));
+          setExito(tt(conCanal(r.datos.notificacion.estado === "enviado" ? "datos.estadoListoEnviado" : "datos.estadoListoPendiente", r.datos.notificacion)));
         }
         return r.datos.caso;
       },
@@ -1062,7 +1068,7 @@ export function DatosProvider({ children }) {
         if (!noSeAviso && seguimiento?.enviar && !r.datos.seguimiento) {
           avisos.push(tt("datos.cierre.seguimientoApagado"));
         } else if (r.datos.seguimiento?.estado === "fallido") {
-          avisos.push(tt("datos.cierre.seguimientoFallo"));
+          avisos.push(tt(conCanal("datos.cierre.seguimientoFallo", r.datos.seguimiento)));
         }
         // El borrador conserva el texto guardado al abrir el formulario. Sólo
         // actualizamos el predeterminado después de usarlo en un cierre confirmado.
