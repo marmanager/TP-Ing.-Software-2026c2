@@ -34,7 +34,6 @@ import {
   erroresDelRecordatorio,
   esTipoDeRecordatorio,
   faltanDatosDelNegocio,
-  ofreceCanal,
   recordatoriosDeLaApi,
   textosDelRecordatorio,
   versionesParaElegir,
@@ -210,7 +209,9 @@ export default function Recordatorio() {
             <div className="mt-6">
               {plazoValido && (
                 <p id={`${tipo}-frase`} className="mb-6 max-w-[65ch] font-bold text-tinta">
-                  {cuandoSaleEnPalabras({ tipo, plazo: borrador.plazo, rubro: negocio?.rubro }, lang)}
+                  {cuandoSaleEnPalabras({ tipo, plazo: borrador.plazo, rubro: negocio?.rubro }, lang)}{" "}
+                  {/* El canal es de cada cliente (083), no de este aviso. */}
+                  <span data-por-donde>{t("negocio.recordatorios.porDonde")}</span>
                 </p>
               )}
               <Campo
@@ -222,24 +223,11 @@ export default function Recordatorio() {
                 error={errores.plazo}
                 onChange={(e) => cambiar({ plazo: e.target.value })}
               />
-              {ofreceCanal(tipo) && (
-                <Campo
-                  id={`${tipo}-canal`}
-                  etiqueta={t("negocio.recordatorios.canal")}
-                  ayuda={t("negocio.recordatorios.canalAyuda")}
-                >
-                  <select
-                    id={`${tipo}-canal`}
-                    aria-describedby={`${tipo}-canal-ayuda`}
-                    value={borrador.canal}
-                    onChange={(e) => cambiar({ canal: e.target.value })}
-                    data-testid={`recordatorio-${tipo}-canal`}
-                    className="mt-2 block min-h-12 w-full rounded-campo border-2 border-borde-fuerte bg-tarjeta px-4 text-cuerpo"
-                  >
-                    <option value="whatsapp">{t("negocio.recordatorios.canalWhatsapp")}</option>
-                    <option value="email">{t("negocio.recordatorios.canalEmail")}</option>
-                  </select>
-                </Campo>
+              {tipo === "turno" && plazoValido && Number(borrador.plazo) < 24 && (
+                <p data-mail-con-un-dia className="-mt-3 mb-6 flex max-w-[65ch] items-start gap-2 text-etiqueta text-tinta-media">
+                  <Icono nombre="sobre" className="mt-0.5 size-5 shrink-0" />
+                  <span>{t("negocio.recordatorios.mailConUnDia")}</span>
+                </p>
               )}
               {versiones.length > 0 && (
                 <fieldset className="mb-6" data-versiones>

@@ -15,6 +15,7 @@ import { MarcaSinVer } from "@/componentes/FilaDeRespuestas";
 import { useRespuestasSinVer } from "@/lib/useRespuestasSinVer";
 import { Boton, Campo, Cargando, Tarjeta, TituloSeccion, Vacio } from "@/componentes/ui";
 import CampoTelefono, { useTelefono } from "@/componentes/CampoTelefono";
+import CampoMail, { useMail } from "@/componentes/CampoMail";
 
 export default function Clientes() {
   const { cargando, clientes, casos, negocio, agregarCliente, avisarExito } = useDatos();
@@ -27,6 +28,7 @@ export default function Clientes() {
   const [nombre, setNombre] = useState("");
   const paisNegocio = paisInicial(negocio);
   const tel = useTelefono("", paisNegocio);
+  const mail = useMail();
   const [tocado, setTocado] = useState(false);
   const { locale, t } = useIdioma();
   useTitulo(t("clientes.titulo"));
@@ -50,13 +52,16 @@ export default function Clientes() {
     ? t("ui.validaciones.faltaNombre")
     : !tel.armado.ok
       ? t("ui.validaciones.faltaTelefono")
-      : null;
+      : mail.malo
+        ? t("clientes.ficha.mailNoSirve")
+        : null;
 
   function guardar() {
-    agregarCliente({ nombre: nombre.trim(), telefono: tel.telefono });
+    agregarCliente({ nombre: nombre.trim(), telefono: tel.telefono, email: mail.email });
     avisarExito(t("clientes.guardado", { nombre: nombre.trim() }));
     setNombre("");
     tel.cargar("");
+    mail.vaciar();
     setTocado(false);
     setAbierto(false);
   }
@@ -97,6 +102,7 @@ export default function Clientes() {
             onChange={tel.setValor}
             onBlur={() => setTocado(true)}
           />
+          <CampoMail id="nuevo-mail" mail={mail} />
           <Boton variante="principal" icono="check" motivo={motivo} onClick={guardar} data-testid="clientes-guardar">
             {t("clientes.guardar")}
           </Boton>

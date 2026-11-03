@@ -164,13 +164,15 @@ test("recordatorios: presupuesto, baja de avisos y por qué no hay aviso", () =>
   const cliente = { avisos_baja_en: "2026-10-12T01:30:00.000Z" };
   assert.deepEqual(bajaDeAvisos({ cliente, rubro: "medicina" }), {
     dia: "2026-10-11",
+    via: null,
     frase: "Pidió no recibir mensajes automáticos el 11 de octubre de 2026.",
-    consecuencia: "No le van a llegar los recordatorios de sus consultas ni los mensajes de seguimiento por WhatsApp.",
+    consecuencia: "No le van a llegar los recordatorios de sus consultas ni ningún otro aviso automático, ni por WhatsApp ni por mail.",
   });
   assert.deepEqual(bajaDeAvisos({ cliente, rubro: "medicina" }, EN), {
     dia: "2026-10-11",
+    via: null,
     frase: "They asked not to receive automatic messages on October 11, 2026.",
-    consecuencia: "They won't get reminders for their consultations or follow-up messages by WhatsApp.",
+    consecuencia: "They won't get reminders for their consultations or any other automatic notice, by WhatsApp or by email.",
   });
   assert.equal(porQueNoSeAviso({ motivo: "baja_de_avisos" }), "No se programó el mensaje porque el cliente pidió no recibir avisos.");
   assert.equal(porQueNoSeAviso({ motivo: "x" }, EN), "The WhatsApp message wasn't scheduled.");

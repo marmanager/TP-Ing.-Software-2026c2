@@ -33,7 +33,7 @@ const A_LA_VISTA = 6;
 const DE_A = 10;
 const POR_PAGINA = 30;
 
-export default function ConversacionDelCliente({ clienteId, nombre, telefono, rubro }) {
+export default function ConversacionDelCliente({ clienteId, nombre, telefono, rubro, porMail = false }) {
   const datos = useDatos();
   const { casos } = datos;
   const { usuario } = useAuth();
@@ -175,6 +175,14 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
           )}
         </ol>
 
+        {/* A un cliente de mail no se le escribe por WhatsApp desde acá
+            (083): lo que contestó antes queda a la vista. */}
+        {porMail ? (
+          <p data-conversacion-por-mail className="mt-4 flex max-w-[65ch] items-start gap-2 text-tinta-media">
+            <Icono nombre="sobre" className="mt-0.5 size-5 shrink-0" />
+            <span>{t("recordatorios.conversacion.porMail")}</span>
+          </p>
+        ) : (
         <Escribir
           clienteId={clienteId}
           nombre={nombre}
@@ -191,6 +199,7 @@ export default function ConversacionDelCliente({ clienteId, nombre, telefono, ru
           }}
           alCerrarse={() => setVentanaHasta(null)}
         />
+        )}
       </div>
     </section>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-// "Recordatorios por WhatsApp" — los mensajes que le llegan solos al cliente.
+// "Recordatorios" — los mensajes que le llegan solos al cliente.
 //
 // Son cuatro: el de después de entregar, el de antes del turno (R-4b), el de
 // cuando le toca volver (R-2b) y el del presupuesto sin respuesta (R-5b).
