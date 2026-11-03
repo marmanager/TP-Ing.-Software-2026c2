@@ -220,7 +220,7 @@ export default function Clientes() {
 function NoRecibeAvisos({ t }) {
   return (
     <p data-baja-de-avisos className="mt-1 flex items-center gap-1.5 text-etiqueta text-tinta-suave">
-      <Icono nombre="whatsapp" className="size-5" />
+      <Icono nombre="cruz" className="size-5" />
       {t("clientes.sinAvisos")}
     </p>
   );

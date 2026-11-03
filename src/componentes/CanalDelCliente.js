@@ -26,11 +26,16 @@ export default function CanalDelCliente({ cliente, puedeCargar }) {
   const escrito = email.trim();
   const errorEmail = tocado && escrito && !emailValido(escrito) ? t("clientes.ficha.mailNoSirve") : null;
 
+  // "Le llega a" en un renglón y la dirección en el siguiente, entera: un
+  // mail largo partido en cualquier letra ("gmail.c / om") no se leía. Si no
+  // entra, termina en "…" y se lee completo arriba, en "Mail".
   const opciones = [
     { canal: "whatsapp", icono: "whatsapp", nombre: t("clientes.ficha.canalWhatsapp"),
-      destino: cliente.telefono ? t("clientes.ficha.canalAl", { destino: telefonoLegible(cliente.telefono) }) : t("clientes.ficha.sinTelefono") },
+      prefijo: t("clientes.ficha.canalLeLlegaAl"),
+      destino: cliente.telefono ? telefonoLegible(cliente.telefono) : null, falta: t("clientes.ficha.sinTelefono") },
     { canal: "email", icono: "sobre", nombre: t("clientes.ficha.canalMail"),
-      destino: conMail ? t("clientes.ficha.canalA", { destino: cliente.email }) : t("clientes.ficha.sinMail") },
+      prefijo: t("clientes.ficha.canalLeLlegaA"),
+      destino: conMail ? cliente.email : null, falta: t("clientes.ficha.sinMail") },
   ];
 
   return (
@@ -97,10 +102,10 @@ export default function CanalDelCliente({ cliente, puedeCargar }) {
         </div>
       )}
 
-      <fieldset className="mt-6 max-w-[65ch]" data-canal-del-cliente>
+      <fieldset className="mt-6 max-w-[760px]" data-canal-del-cliente>
         <legend className="font-bold text-cuerpo">{t("clientes.ficha.canal")}</legend>
         <p className="mt-1 text-etiqueta text-tinta-media">{t("clientes.ficha.canalAyuda")}</p>
-        <div className="mt-3 grid gap-3 @lg:grid-cols-2">
+        <div className="mt-3 grid gap-3 @lg:grid-cols-[repeat(2,minmax(0,1fr))]">
           {opciones.map((o) => {
             const elegida = canal === o.canal;
             return (
@@ -121,12 +126,19 @@ export default function CanalDelCliente({ cliente, puedeCargar }) {
                   }}
                   className="mt-1 size-5 shrink-0 accent-azul"
                 />
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 font-bold">
                     <Icono nombre={o.icono} className="size-5" />
                     {o.nombre}
                   </span>
-                  <span className="mt-1 block text-etiqueta text-tinta-media [overflow-wrap:anywhere]">{o.destino}</span>
+                  {o.destino ? (
+                    <>
+                      <span className="mt-1 block text-etiqueta text-tinta-media">{o.prefijo}</span>
+                      <span className="block truncate text-etiqueta text-tinta" title={o.destino}>{o.destino}</span>
+                    </>
+                  ) : (
+                    <span className="mt-1 block text-etiqueta text-tinta-media">{o.falta}</span>
+                  )}
                 </span>
               </label>
             );

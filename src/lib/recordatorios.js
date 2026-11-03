@@ -533,6 +533,17 @@ export function recordatoriosDeLaApi(config) {
 // Un mail que sirve para mandarle avisos. La misma regla que la API.
 export const emailValido = (texto) => /^[^\s<>,;"]+@[^\s<>,;"]+\.[^\s<>,;"]+$/.test((texto ?? "").trim());
 
+// Por dónde le llegan los avisos a un cliente (083): el canal, si hay a dónde
+// mandarlos, y a dónde. La API manda el aviso de avance y el posventa por el
+// mismo canal (canalDe en preparar.ts), así que la pantalla ofrece ese y no
+// otro: a un cliente de mail no se le ofrece "por WhatsApp".
+export function avisosDelCliente(cliente) {
+  const canal = cliente?.canal === "email" ? "email" : "whatsapp";
+  return canal === "email"
+    ? { canal, puede: emailValido(cliente?.email), destino: cliente?.email ?? null }
+    : { canal, puede: telefonoWhatsAppValido(cliente?.telefono), destino: cliente?.telefono ?? null };
+}
+
 // Lo que cambió de uno, con los nombres de la API y en su lugar del PATCH.
 export function cambiosDelRecordatorio(tipo, antes, ahora) {
   const def = definicion(tipo);

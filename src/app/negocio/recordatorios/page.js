@@ -107,7 +107,7 @@ function FilaRecordatorio({ fila, puedeConfigurar }) {
     <Tarjeta>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`${fila.tipo}-nombre`} className="flex items-center gap-2 text-subtitulo font-bold">
-          <Icono nombre="whatsapp" className="size-6 text-completo" />
+          <Icono nombre="reloj" className="size-6 text-azul" />
           {fila.nombre}
         </h2>
         <span

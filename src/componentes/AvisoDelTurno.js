@@ -67,7 +67,7 @@ export default function AvisoDelTurno({ turno, cliente, rubro, recordatorioActiv
   if (falta?.motivo === "baja_de_avisos") {
     return (
       <p data-aviso={falta.motivo} className="mt-1 flex items-start gap-1.5 text-etiqueta text-tinta-media">
-        <Icono nombre="whatsapp" className="mt-0.5 size-5 shrink-0" />
+        <Icono nombre="cruz" className="mt-0.5 size-5 shrink-0" />
         <span>{falta.frase}</span>
       </p>
     );

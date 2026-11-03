@@ -9,7 +9,7 @@
 //
 // El botón de la fila va con borde, nunca azul: un solo botón azul por pantalla.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ESTADOS, accionDeFila, queFalta, quienLoTiene } from "@/lib/estados";
@@ -28,6 +28,21 @@ export default function FilaCaso({ caso, sinVer = 0 }) {
   const { t, idioma } = useIdioma();
   const { clientes, empleados, pasos, insumos } = datos;
   const [eligiendo, setEligiendo] = useState(false);
+  const menu = useRef(null);
+
+  // El menú de quién lo toma se cierra al tocar afuera o con Escape, como
+  // cualquier desplegable: si no, quedaba abierto encima de la lista.
+  useEffect(() => {
+    if (!eligiendo) return;
+    const afuera = (e) => !menu.current?.contains(e.target) && setEligiendo(false);
+    const escape = (e) => e.key === "Escape" && setEligiendo(false);
+    document.addEventListener("pointerdown", afuera);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", afuera);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [eligiendo]);
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const accion = accionDeFila(caso, { pasos, insumos }, t);
@@ -61,7 +76,9 @@ export default function FilaCaso({ caso, sinVer = 0 }) {
   }
 
   return (
-    <li className="relative flex gap-0 border-b border-borde last:border-b-0">
+    // Con el menú abierto la fila sube por encima de las de abajo: cada fila
+    // es su propia capa, y si no el botón de la siguiente tapaba el menú.
+    <li className={`relative flex gap-0 border-b border-borde last:border-b-0 ${eligiendo ? "z-30" : ""}`}>
       <span className={`w-1.5 shrink-0 ${barra}`} aria-hidden="true" />
 
       <div className="grid flex-1 items-center gap-x-4 gap-y-2 p-4 md:min-h-[72px] md:grid-cols-[minmax(150px,auto)_minmax(0,1.4fr)_minmax(0,.8fr)_minmax(0,1.2fr)_auto] md:py-3">
@@ -91,29 +108,33 @@ export default function FilaCaso({ caso, sinVer = 0 }) {
 
         <p className="text-tinta-media">{falta}</p>
 
-        <div className="relative z-10 justify-self-start md:justify-self-end">
-          <Boton icono={accion.icono} onClick={tocarAccion}>
+        <div ref={menu} className="relative z-10 justify-self-start md:justify-self-end">
+          <Boton icono={accion.icono} onClick={tocarAccion} aria-expanded={accion.tipo === "asignar" ? eligiendo : undefined}>
             {accion.etiqueta}
           </Boton>
 
           {eligiendo && (
-            <ul className="mt-2 flex flex-wrap gap-2 md:absolute md:right-0 md:z-20 md:mt-1 md:w-56 md:flex-col md:rounded-tarjeta md:border md:border-borde md:bg-tarjeta md:p-2 md:shadow-sm">
-              {empleados.map((e) => (
-                <li key={e.id}>
-                  <Boton
-                    variante="plano"
-                    icono="persona"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      datos.asignarResponsable(caso.id, e.id);
-                      setEligiendo(false);
-                    }}
-                  >
-                    {e.nombre}
-                  </Boton>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-2 md:absolute md:right-0 md:mt-1 md:w-72 md:rounded-tarjeta md:border md:border-borde md:bg-tarjeta md:p-2 md:shadow-md">
+              <p className="px-3 pb-1 text-apoyo text-tinta-media">{t("casos.fila.quienLoToma")}</p>
+              <ul className="flex flex-wrap gap-2 md:flex-col md:gap-0">
+                {empleados.map((e) => (
+                  <li key={e.id} className="min-w-0">
+                    <Boton
+                      variante="plano"
+                      icono="persona"
+                      className="w-full min-w-0 justify-start [&>span]:truncate"
+                      title={e.nombre}
+                      onClick={() => {
+                        datos.asignarResponsable(caso.id, e.id);
+                        setEligiendo(false);
+                      }}
+                    >
+                      {e.nombre}
+                    </Boton>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       </div>

@@ -32,6 +32,7 @@ import { cadaCuantoVuelve, comoSeIdentifica, vocabulario } from "@/lib/presets";
 import {
   avisoAlAnotarVolver,
   avisoDeVolver,
+  avisosDelCliente,
   errorDeVolverEn,
   fechaSugerida,
   intervaloDeducido,
@@ -46,8 +47,7 @@ import SelectorEstado from "@/componentes/SelectorEstado";
 import SeguimientoWhatsApp from "@/componentes/SeguimientoWhatsApp";
 import CuandoVuelve from "@/componentes/CuandoVuelve";
 import ListaDeRespuestas from "@/componentes/ListaDeRespuestas";
-import { erroresSeguimiento, linkDelAvisoDeAvance, SEGUIMIENTO_VACIO, telefonoWhatsAppValido } from "@/lib/seguimiento-whatsapp";
-import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
+import { erroresSeguimiento, linkDelAvisoDeAvance, SEGUIMIENTO_VACIO } from "@/lib/seguimiento-whatsapp";import SeccionCobros, { ElegirMedio, fraseDeLaCuenta } from "@/componentes/Cobros";
 import { telefonoLegible, telefonoParaLlamar } from "@/lib/telefono";
 import Icono from "@/componentes/Icono";
 import {
@@ -182,7 +182,11 @@ export default function VerCaso() {
 
   const cliente = clientes.find((c) => c.id === caso.cliente_id);
   const nombreEstado = (estado) => presentacionEstado(negocio, estado, idioma).nombre;
-  const puedeNotificar = telefonoWhatsAppValido(cliente?.telefono);
+  // El aviso de avance sale por el canal del cliente (083): si es de mail,
+  // se ofrece por mail y hace falta el mail, no el teléfono.
+  const avisos = avisosDelCliente(cliente);
+  const porMail = avisos.canal === "email";
+  const puedeNotificar = avisos.puede;
   // Sin link, el aviso de avance sale sin él: se dice antes y se ofrece generarlo.
   const sinLinkEnElAviso = notificarCliente && puedeNotificar ? linkDelAvisoDeAvance({ caso, pasos }, t) : null;
   const errorSeguimientoEntrega = Object.values(erroresSeguimiento(seguimientoEntrega, t))[0];
@@ -357,8 +361,12 @@ export default function VerCaso() {
                       className="size-5 accent-azul"
                     />
                     <span className="inline-flex items-center gap-1">
-                      <Icono nombre="whatsapp" className="size-6 text-completo" />
-                      <span>{t("casos.detalle.notificar")}</span>
+                      {porMail ? (
+                        <Icono nombre="sobre" className="size-6 text-azul" />
+                      ) : (
+                        <Icono nombre="whatsapp" className="size-6 text-completo" />
+                      )}
+                      <span>{t(porMail ? "casos.detalle.notificarMail" : "casos.detalle.notificar")}</span>
                     </span>
                   </label>
                 )}
@@ -371,8 +379,24 @@ export default function VerCaso() {
               </div>
               {sePuedeEditar && (
                 <p id="notificar-estado-ayuda" className="mt-1 max-w-[36ch] text-apoyo text-tinta-media">
-                  {!puedeNotificar ? t("casos.detalle.notificarFalta")
-                    : t("casos.detalle.notificarAyuda")}
+                  {!porMail ? (!puedeNotificar ? t("casos.detalle.notificarFalta") : t("casos.detalle.notificarAyuda"))
+                    // El mail en su renglón, entero o con "…": partido en
+                    // cualquier letra ("gmail.co / m") no se leía.
+                    : puedeNotificar ? (
+                      <>
+                        {t("casos.detalle.notificarAyudaMail")}
+                        <span className="block truncate text-tinta" title={avisos.destino}>{avisos.destino}</span>
+                      </>
+                    ) : (
+                        <>
+                          {t("casos.detalle.notificarFaltaMail")}{" "}
+                          {cliente && (
+                            <Link href={`/clientes/${cliente.id}`} className="font-bold text-azul">
+                              {t("casos.detalle.cargarElMail")}
+                            </Link>
+                          )}
+                        </>
+                      )}
                 </p>
               )}
               {sePuedeEditar && sinLinkEnElAviso && (
@@ -930,8 +954,13 @@ export default function VerCaso() {
 
                 {/* Si ya dejó algo (una seña), se dice antes que nada: el
                     monto de abajo es lo que falta, no el total. */}
+                {/* La cuenta va junta en un recuadro —lo que ya pagó y lo que
+                    se anota—, separada del aviso de arriba y de los botones de
+                    abajo: antes eran renglones sueltos y no se leía qué era qué. */}
+                {(cobrosDeEste.length > 0 || !cambiandoCobro) && (
+                <div className="mt-4 rounded-campo bg-superficie p-4">
                 {cobrosDeEste.length > 0 && (
-                  <p className="mt-4 text-tinta-media">
+                  <p className="text-tinta-media">
                     {conElementos(
                       t(
                         cuenta.pendiente > 0
@@ -951,8 +980,8 @@ export default function VerCaso() {
                     casos se cobra lo que falta, y lo que hay que hacer es
                     confirmar, no escribir. Cambiarlo es la excepción y pide un
                     toque más, con su propio aviso. */}
-                {!cambiandoCobro ? (
-                  <div className="mt-4">
+                {!cambiandoCobro && (
+                  <div className={cobrosDeEste.length > 0 ? "mt-3" : ""}>
                     {cuenta.falta > 0 ? (
                       <>
                         <p className="text-tinta-media">{t("casos.detalle.vasAAnotar")}</p>
@@ -969,8 +998,10 @@ export default function VerCaso() {
                       (() => {
                         const frase = fraseDeLaCuenta(cuenta, t, locale);
                         return (
+                          // Una frase neutra (sin presupuesto) va en letra
+                          // común: en negrita parecía un error.
                           frase && (
-                            <p className={`flex items-start gap-2 font-bold ${frase.color}`}>
+                            <p className={`flex items-start gap-2 ${frase.color === "text-tinta-media" ? "" : "font-bold"} ${frase.color}`}>
                               <Icono nombre={frase.icono} className="mt-0.5 size-6 shrink-0" />
                               <span>{frase.texto}</span>
                             </p>
@@ -978,19 +1009,26 @@ export default function VerCaso() {
                         );
                       })()
                     )}
-                    <div className="mt-3">
-                      <Boton
-                        variante="plano"
-                        icono="nota"
-                        data-testid="caso-cobro-otra-cosa"
-                        onClick={() => {
-                          if (cuenta.falta === 0) setCobro("");
-                          setCambiandoCobro(true);
-                        }}
-                      >
-                        {cuenta.falta > 0 ? t("casos.detalle.cobreOtraCosa") : t("casos.detalle.cobreAlgoMas")}
-                      </Boton>
-                    </div>
+                  </div>
+                )}
+                </div>
+                )}
+
+                {/* El botón plano trae su margen para el fondo al pasar el
+                    mouse: el -ml lo deja alineado con el texto de arriba. */}
+                {!cambiandoCobro ? (
+                  <div className="mt-3 -ml-3">
+                    <Boton
+                      variante="plano"
+                      icono="nota"
+                      data-testid="caso-cobro-otra-cosa"
+                      onClick={() => {
+                        if (cuenta.falta === 0) setCobro("");
+                        setCambiandoCobro(true);
+                      }}
+                    >
+                      {cuenta.falta > 0 ? t("casos.detalle.cobreOtraCosa") : t("casos.detalle.cobreAlgoMas")}
+                    </Boton>
                   </div>
                 ) : (
                   <div className="mt-4">
@@ -1078,7 +1116,7 @@ export default function VerCaso() {
                   </p>
                 )}
 
-                <div className="flex flex-wrap gap-3">
+                <div className="mt-6 flex flex-wrap gap-3 border-t border-borde pt-4">
                   <Boton
                     icono="flecha"
                     motivo={!cobroValido(cobro) ? t("casos.detalle.revisaElMonto") : null}
@@ -1119,7 +1157,7 @@ export default function VerCaso() {
                   <SeguimientoWhatsApp
                     key={caso.id}
                     datos={datos}
-                    telefono={cliente?.telefono}
+                    cliente={cliente}
                     valor={seguimientoEntrega}
                     alCambiar={setSeguimientoEntrega}
                     guardando={cerrando || cambiandoEstado}
@@ -1238,7 +1276,7 @@ export default function VerCaso() {
                       la baja no se dice nada: la ficha ya lo dice. */}
                   {avisoVolver && (
                     <p className="mt-2 flex max-w-[65ch] items-start gap-2 text-tinta-media">
-                      <Icono nombre="whatsapp" className="mt-1 size-5 shrink-0" />
+                      <Icono nombre="reloj" className="mt-1 size-5 shrink-0" />
                       <span>{avisoVolver.frase}</span>
                     </p>
                   )}
