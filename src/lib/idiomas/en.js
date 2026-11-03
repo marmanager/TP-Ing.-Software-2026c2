@@ -279,6 +279,88 @@ export default {
         cinco: "Five taps in two days. That's everything that was entered by hand.",
         cuandoLlama: "When the customer calls, you open the case and answer without hanging up or asking anyone.",
       },
+      modulos: {
+        eyebrow: "THE MODULES",
+        titulo: "Add what your business uses",
+        apoyo: "Each business turns on the modules it needs and turns off the rest. Turning one off doesn't delete anything.",
+        ejemplo: "EXAMPLE · PICK A MODULE AND SEE ITS SCREEN",
+        lista: "The modules",
+        yAdemas: "And also: {modulos}.",
+        frase: {
+          agenda: "See who's coming today and at what time. Appointments booked through your link show up on their own.",
+          clientes: "Every customer with their phone and everything they've brought you. Message them on WhatsApp with one tap.",
+          inventario: "It tells you when something drops below the minimum. When what a case was waiting for arrives, the case moves on by itself.",
+          ecuaciones: "Save the formula once and quote with numbers, not from memory. There are 38 ready to use.",
+          lienzo: "A blank sheet to sketch for the customer what's going on. Download it as an image and send it.",
+          dashboard: "How many cases came in, how much you collected and how the month is going, without building a spreadsheet.",
+        },
+        pantallas: {
+          agenda: {
+            hoy: "Today · Tuesday 4",
+            t1: "10,000 km service",
+            t2: "Noise in the brakes",
+          },
+          clientes: {
+            whatsapp: "WhatsApp",
+            llamar: "Call",
+          },
+          inventario: {
+            pastillas: "Brake pads",
+            aceite: "10W-40 oil",
+            filtro: "Oil filter",
+            quedanMinimo: "{n} left · the minimum is {minimo}",
+            quedan: "{n} left",
+            bajo: "Below the minimum",
+            paraCaso: "Case {n} is waiting for it",
+          },
+          ecuaciones: {
+            nombre: "Final price",
+            formula: "(hours * rate + parts) * (1 + vat)",
+            nombres: { horas: "hours", tarifa: "rate", repuestos: "parts", iva: "vat" },
+            valores: "{horas} h · ${tarifa} an hour · ${repuestos} in parts · {iva}% VAT",
+            listas: "38 formulas ready to use",
+          },
+          lienzo: {
+            nota: "it's leaking oil here",
+            bajar: "Download as an image",
+          },
+          dashboard: {
+            casosDelMes: "Cases this month",
+            cobrado: "Collected",
+            porSemana: "Cases per week",
+          },
+        },
+      },
+      remi: {
+        eyebrow: "REMI, THE ASSISTANT",
+        titulo: "Ask Remi",
+        ejemplo: "This is an example · Try it inside the app",
+        pausar: "Pause",
+        seguir: "Resume",
+        transcripcion: "The example chats with Remi",
+        charlas: {
+          taller: {
+            pregunta: "I have a car repair shop, which modules are useful for me?",
+            respuesta:
+              "For a repair shop you'll want the **{agenda}** for appointments, **{inventario}** for parts and **{equipo}** if you work with other people. If that works for you, tap “{aplicar}”.",
+          },
+          ecuacion: {
+            pregunta: "Make me an equation for the final price of a job",
+            respuesta: "I put this equation together. Check what I understood and, if it works for you, add it.",
+          },
+          inventario: {
+            pregunta: "Inventory doesn't show up in my menu",
+            respuesta:
+              "That's because the **{inventario}** module is turned off. Turning it off doesn't delete anything: if you turn it on, everything you had comes back.",
+          },
+        },
+        variables: {
+          horas: "the hours of work",
+          tarifa: "what you charge per hour",
+          repuestos: "what the parts cost",
+          iva: "the VAT",
+        },
+      },
       cierre: {
         linea1: "THE FIRST CASE",
         linea2: "IS THE ONE ON",
