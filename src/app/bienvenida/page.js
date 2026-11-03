@@ -8,7 +8,9 @@
 //    de 2 px por el margen izquierdo y, en cada sección, lo interrumpe un
 //    tramo del color del estado que esa sección está contando. El hilo es el
 //    único elemento de la página atado al scroll, porque es el único cuyo
-//    trabajo es decir en qué parte del argumento está el lector.
+//    trabajo es decir en qué parte del argumento está el lector. La 04
+//    (módulos) y la 05 (Remi) no cuentan un estado: su tramo va en
+//    terracota, el color de los rótulos de ejemplo.
 //
 // 2. Los nombres de los cinco estados salen de presets.js y no están
 //    escritos acá. Si alguien renombra un estado de un rubro, las tabletas
@@ -19,8 +21,10 @@
 // contrato es que la página se lee entera sin él: nada esconde nada por su
 // cuenta, todo lo que esconde cuelga de la clase "mov".
 //
-// Los casos del recorte son de ejemplo. Son la única invención de la página:
-// no hay testimonios, ni logos, ni cantidades de usuarios, ni precios.
+// Los casos del recorte, las pantallas de los módulos (04) y la charla de
+// Remi (05) son de ejemplo, y se presentan como ejemplo. Son las únicas
+// invenciones de la página: no hay testimonios, ni logos, ni cantidades de
+// usuarios, ni precios.
 //
 // Los textos salen del diccionario (acceso.landing.*). Acá quedan sólo los
 // datos que no son texto: el estado de cada caso, su número, el nombre de
@@ -33,6 +37,8 @@ import { accionDeFila, ESTADOS, ORDEN_ESTADOS } from "@/lib/estados";
 import { preset } from "@/lib/presets";
 import { useIdioma } from "@/lib/useIdioma";
 import SelectorIdioma from "@/componentes/SelectorIdioma";
+import SelectorDeModulos from "@/componentes/bienvenida/SelectorDeModulos";
+import ChatDeRemi from "@/componentes/bienvenida/ChatDeRemi";
 import { useTitulo } from "@/lib/useTitulo";
 
 // Los rubros que se comparan en la sección 02. Su nombre corto sale del
@@ -817,6 +823,62 @@ export default function Bienvenida() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================== 04 · los módulos ======================= */}
+      {/* Lo que se le puede sumar al día a día. La lista y las pantallas
+          viven en SelectorDeModulos; acá, el esqueleto de toda sección. */}
+      <section className="relative py-14 md:py-24">
+        <div aria-hidden className={`${HILO} bg-borde-fuerte`} />
+        <Tramo numero="04" alto="56px" color="bg-terracota" />
+
+        <div className={`${HOJA} mt-4 md:mt-0`}>
+          <div className="flex items-center gap-3">
+            <NumeroCelular numero="04" color="text-terracota" />
+            <Eyebrow>{L("modulos.eyebrow")}</Eyebrow>
+          </div>
+          <h2 className="mt-2 font-titulo text-[26px]/[30px] font-black tracking-[-0.02em] md:text-pantalla md:font-black md:tracking-[-0.02em]">
+            {L("modulos.titulo")}
+          </h2>
+          <p className="mt-3 max-w-[62ch] text-cuerpo text-tinta-media md:mt-4">{L("modulos.apoyo")}</p>
+
+          <p className="mt-8 mb-4 text-etiqueta font-extrabold tracking-[0.06em] text-terracota md:mt-10">
+            {L("modulos.ejemplo")}
+          </p>
+          {/* rv en el contenedor que no cambia: la pantalla que se
+              intercambia se monta después y nunca lo vería. */}
+          <div className="rv">
+            <div className="m-sube">
+              <SelectorDeModulos />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================= 05 · Remi =========================== */}
+      {/* Remi como se ve adentro de la app: el panel abierto encima de una
+          pantalla. La charla es un guion (ChatDeRemi). */}
+      <section className="relative py-14 md:py-24">
+        <div aria-hidden className={`${HILO} bg-borde-fuerte`} />
+        <Tramo numero="05" alto="56px" color="bg-terracota" />
+
+        <div className={`${HOJA} mt-4 md:mt-0`}>
+          <div className="flex items-center gap-3">
+            <NumeroCelular numero="05" color="text-terracota" />
+            <Eyebrow>{L("remi.eyebrow")}</Eyebrow>
+          </div>
+          <h2 className="mt-2 flex items-center gap-3 font-titulo text-[26px]/[30px] font-black tracking-[-0.02em] md:text-pantalla md:font-black md:tracking-[-0.02em]">
+            <img src="/asistente.png" alt="" width={192} height={192} className="size-10 shrink-0 md:size-12" />
+            {L("remi.titulo")}
+          </h2>
+          <p className="mt-3 max-w-[62ch] text-cuerpo text-tinta-media md:mt-4">{t("asistente.apoyo")}</p>
+
+          <div className="rv mt-8 md:mt-10">
+            <div className="m-sube">
+              <ChatDeRemi />
             </div>
           </div>
         </div>
