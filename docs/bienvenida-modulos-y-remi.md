@@ -1,6 +1,8 @@
 # Bienvenida: los módulos y Remi — diseño
 
-Estado: **diseño aprobado; falta el plan de trabajo.**
+Estado: **hecho en la rama; falta el PR a `development`.** Se implementó sin un
+plan aparte (el orden de trabajo está al final); lo que cambió al hacerlo está en
+"Archivos".
 Fecha: 2 de noviembre de 2026. Rama: `bienvenida-modulos-y-remi` (sale de
 `development`). Sólo front: la API no se toca.
 
@@ -42,7 +44,7 @@ dos secciones, antes del cierre:
 | Forma de la 05 | **Remi como aparece en la app:** la pantalla de Casos atenuada de fondo y el panel de Remi al costado. En el celular, sólo el panel. | Cuenta que Remi está en todas las pantallas, no en una sección aparte. |
 | La charla | **Tres charlas que rotan:** qué módulos le sirven a un taller, una ecuación para el precio final y "no me aparece el inventario". Cada una termina con la persona tocando el botón de la tarjeta. | Son las tres cosas que Remi sabe hacer, y el toque muestra que nada cambia sin que la persona decida. |
 | Cómo está armado | **Componentes aparte** y la lógica pura en `src/lib/bienvenida.js`, con pruebas. Copian el estilo del panel real de Remi, sin depender de él. | Las piezas del panel real piden sesión y negocio; un cambio adentro de la app no tiene que romper la landing. `page.js` ya tiene 900 líneas. |
-| Datos de ejemplo | **Del mismo taller que el resto de la página** (Marcela Suárez, AB 123 CD). | La página cuenta un solo negocio de punta a punta. |
+| Datos de ejemplo | **Los mismos clientes y casos del recorte**, contando una sola mañana: Marcela vino a las 9 (su caso 251, «Ruido raro»), Lucía tiene turno y todavía no llegó, y el filtro que espera el caso 246 está en camino. | La página cuenta un solo negocio de punta a punta, y un dato que contradice otro se nota. |
 | Textos | Los nombres y la línea de cada módulo salen de `modulos.<clave>.nombre` y `.descripcion`; los de la tarjeta de Remi, de `asistente.*`. Lo nuevo va bajo `acceso.landing.modulos.*` y `acceso.landing.remi.*`, en castellano y en inglés. | Si un módulo cambia de nombre adentro, la landing lo acompaña: no queda texto que mienta. |
 
 ## Cómo está hoy
@@ -86,9 +88,9 @@ hace" de la app habla de prender y apagar desde el menú.
 
 | Módulo | Qué muestra |
 |---|---|
-| Agenda | Pestañas Turnos/Calendario; "Hoy · martes 4" con tres turnos (hora, motivo, cliente o "pidió por link", estado y la acción que sigue). |
-| Clientes | Dos fichas (nombre, teléfono, cantidad de trabajos, WhatsApp y Llamar) y una punteada de "Todavía no vinieron". |
-| Inventario | Pestañas En stock/En camino; un repuesto bajo el mínimo, uno con stock y unos amortiguadores en camino para AB 123 CD. |
+| Agenda | Pestañas Turnos/Calendario; "Hoy · martes 4" con tres turnos en orden: Marcela ya vino, Lucía confirmada ("Vino · abrirle el caso") y uno pedido por el link ("Confirmar"). Las acciones son las de la pantalla real. |
+| Clientes | Dos fichas (nombre, teléfono, cantidad de casos, WhatsApp y Llamar) y una punteada de "Todavía no vinieron" con Lucía. |
+| Inventario | Los rótulos En stock y En camino, uno abajo del otro (las dos listas a la vez, para mostrar que un caso se destraba): pastillas bajo el mínimo, aceite con stock y el filtro que espera el caso 246, con "Marcar que llegó". |
 | Ecuaciones | "Precio final": `(horas * tarifa + repuestos) * (1 + iva)`, sus valores (3 h, $25.000, $48.000, 21 %) y el resultado, $148.830; abajo, "38 fórmulas listas para usar". |
 | Lienzo | La barra de herramientas y un dibujo con una flecha: "acá pierde aceite"; "Bajar como imagen". |
 | Estadísticas | Pestañas Resumen/Casos/Cobros; casos del mes, lo cobrado y barras por semana dibujadas con CSS (sin `recharts` en la landing). |
@@ -122,7 +124,8 @@ Preguntame cómo usar la app… te lo muestro y vos decidís.").
 panel de Remi a la derecha (~60 % del ancho). En el celular, sólo el panel. El
 panel copia el real: cabecera con la cara y "Remi", mensajes de "Vos" en globos
 azules a la derecha, los de Remi en tarjetas con borde, "Pensando…" con el punto
-que pulsa. En la cabecera, un botón **Pausar / Seguir** (`aria-pressed`). Donde
+que pulsa. En la cabecera, un botón **Pausar / Seguir**: cambia de nombre y por
+eso no lleva `aria-pressed` (las dos cosas juntas confunden al lector). Donde
 iría el campo para escribir: "Esto es un ejemplo · Probalo adentro de la app".
 
 **Las tres charlas** (con los textos y las tarjetas de la app):
@@ -164,21 +167,29 @@ cuántos pasos se ven; el componente sólo suma el tiempo con
   charlas siguen rotando, con la misma pausa.
 - **Lectores de pantalla:** la animación va `aria-hidden` (un chat que cambia
   solo, leído en voz alta, es un caos). Las tres charlas van como texto
-  `sr-only` debajo. El botón de pausa sí es accesible.
+  `sr-only` debajo, con su tarjeta ya resuelta. El botón de pausa sí es
+  accesible, y en pausa tampoco titila el punto de "Pensando…".
+- **El alto no salta.** Debajo de la charla que corre, en la misma celda, van
+  las tres en su paso más alto (la tarjeta con sus botones), invisibles: la
+  caja mide siempre lo de la más larga, en cualquier ancho e idioma, y el
+  cierre de abajo no se mueve cada vez que cambia la charla.
 
 ## Archivos
 
 - `src/lib/bienvenida.js` (nuevo): `MODULOS_DE_LA_BIENVENIDA` (las 6 claves y las
   3 del pie), `CHARLAS_DE_REMI` (el guion: claves y esperas),
   `estadoDeLaCharla(ms)` y `siguientePestana(actual, tecla, cuantas)`. Sin React.
-- `src/componentes/bienvenida/SeccionModulos.js` (nuevo): la 04, con la lista y
-  las pestañas.
+- `src/componentes/bienvenida/SelectorDeModulos.js` (nuevo): la lista de la 04
+  con las pestañas, la pantalla del elegido y el pie.
 - `src/componentes/bienvenida/PantallasDeModulos.js` (nuevo): las 6 pantallas de
   ejemplo, una función por módulo.
-- `src/componentes/bienvenida/SeccionRemi.js` (nuevo): la 05, el panel y el
-  reproductor.
-- `src/app/bienvenida/page.js`: ubica las dos secciones y actualiza dos
-  comentarios (los colores del hilo; "la única invención de la página").
+- `src/componentes/bienvenida/ChatDeRemi.js` (nuevo): la maqueta de la 05, el
+  panel, el reproductor y la transcripción.
+- `src/app/bienvenida/page.js`: el esqueleto de las dos secciones (hilo, tramo,
+  rótulo, título y bajada), que usa las piezas de la página (`Tramo`, `HOJA`,
+  `Eyebrow`…), y dos comentarios actualizados (los colores del hilo; "la única
+  invención de la página"). Por eso los componentes no se llaman "Sección…":
+  traen sólo lo de adentro.
 - `src/app/globals.css`: el escalonado de entrada de las dos secciones, bajo
   `.landing`.
 - `src/lib/idiomas/es.js` y `en.js`: las claves nuevas.
@@ -198,9 +209,10 @@ de `page.js` pasa a decirlo.
     a la primera.
   - Todas las claves nuevas (`acceso.landing.modulos.*`, `acceso.landing.remi.*`)
     y las que usa el guion existen en los dos idiomas.
-- `pruebas/e2e/historias/bienvenida.e2e.js` (WebdriverIO, sin sesión ni
-  siembra): tocar "Inventario" muestra su pantalla y la marca de elegido;
-  "Pausar" queda apretado.
+- `pruebas/e2e/bienvenida.e2e.js` (WebdriverIO, sin sesión ni siembra, junto a
+  `idioma.e2e.js`): tocar "Inventario" muestra su pantalla y la marca de
+  elegido; las flechas y Inicio recorren la lista; "Pausar" pasa a "Seguir" y
+  vuelve.
 - A mano: computadora y celular, modo oscuro, movimiento reducido, castellano e
   inglés.
 

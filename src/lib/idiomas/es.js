@@ -282,6 +282,92 @@ export default {
         cinco: "Cinco toques en dos días. Eso es todo lo que se cargó a mano.",
         cuandoLlama: "Cuando llama el cliente, abrís el caso y le contestás sin cortar ni preguntarle a nadie.",
       },
+      // 04: la lista de módulos y la pantalla de ejemplo del elegido. Los
+      // nombres y la línea de cada uno salen de modulos.<clave>.
+      modulos: {
+        eyebrow: "LOS MÓDULOS",
+        titulo: "Sumá lo que tu negocio usa",
+        apoyo: "Cada negocio prende los módulos que necesita y apaga los que no. Apagar uno no borra nada.",
+        ejemplo: "EJEMPLO · ELEGÍ UN MÓDULO Y MIRÁ SU PANTALLA",
+        lista: "Los módulos",
+        yAdemas: "Y además: {modulos}.",
+        frase: {
+          agenda: "Ves quién viene hoy y a qué hora. Los turnos que te piden por el link aparecen solos.",
+          clientes: "Cada cliente con su teléfono y todo lo que te trajo. Le escribís por WhatsApp con un toque.",
+          inventario: "Te avisa cuando algo baja del mínimo. Cuando llega lo que un caso esperaba, el caso sigue solo.",
+          ecuaciones: "Guardás la fórmula una vez y presupuestás con números, no de memoria. Hay 38 listas para usar.",
+          lienzo: "Un papel en blanco para dibujarle al cliente lo que tiene. Lo bajás como imagen y se lo mandás.",
+          dashboard: "Cuántos casos entraron, cuánto cobraste y cómo viene el mes, sin armar una planilla.",
+        },
+        pantallas: {
+          agenda: {
+            hoy: "Hoy · martes 4",
+            t1: "Service de 10.000 km",
+            t2: "Ruido en los frenos",
+          },
+          clientes: {
+            whatsapp: "WhatsApp",
+            llamar: "Llamar",
+          },
+          inventario: {
+            pastillas: "Pastillas de freno",
+            aceite: "Aceite 10W-40",
+            filtro: "Filtro de aceite",
+            quedanMinimo: "Quedan {n} · el mínimo es {minimo}",
+            quedan: "Quedan {n}",
+            bajo: "Por debajo del mínimo",
+            paraCaso: "Lo espera el caso {n}",
+          },
+          ecuaciones: {
+            nombre: "Precio final",
+            formula: "(horas * tarifa + repuestos) * (1 + iva)",
+            nombres: { horas: "horas", tarifa: "tarifa", repuestos: "repuestos", iva: "iva" },
+            valores: "{horas} h · ${tarifa} la hora · ${repuestos} de repuestos · {iva} % de IVA",
+            listas: "38 fórmulas listas para usar",
+          },
+          lienzo: {
+            nota: "acá pierde aceite",
+            bajar: "Bajar como imagen",
+          },
+          dashboard: {
+            casosDelMes: "Casos del mes",
+            cobrado: "Cobrado",
+            porSemana: "Casos por semana",
+          },
+        },
+      },
+      // 05: Remi, como aparece adentro de la app. La charla es un guion
+      // (src/lib/bienvenida.js): las tarjetas usan los textos de asistente.*.
+      remi: {
+        eyebrow: "REMI, EL ASISTENTE",
+        titulo: "Preguntale a Remi",
+        ejemplo: "Esto es un ejemplo · Probalo adentro de la app",
+        pausar: "Pausar",
+        seguir: "Seguir",
+        transcripcion: "Las charlas de ejemplo con Remi",
+        charlas: {
+          taller: {
+            pregunta: "Tengo un taller mecánico, ¿qué módulos me sirven?",
+            respuesta:
+              "Para un taller te sirven la **{agenda}** para los turnos, el **{inventario}** para los repuestos y el **{equipo}** si trabajás con más gente. Si te sirve, tocá «{aplicar}».",
+          },
+          ecuacion: {
+            pregunta: "Armame una ecuación para el precio final de un trabajo",
+            respuesta: "Te armé esta ecuación. Revisá lo que interpreté y, si te sirve, agregala.",
+          },
+          inventario: {
+            pregunta: "No me aparece el inventario en el menú",
+            respuesta:
+              "Es que el módulo **{inventario}** está apagado. Apagarlo no borra nada: si lo prendés, vuelve todo lo que tenías.",
+          },
+        },
+        variables: {
+          horas: "las horas de trabajo",
+          tarifa: "lo que cobrás la hora",
+          repuestos: "lo que salen los repuestos",
+          iva: "el IVA",
+        },
+      },
       cierre: {
         linea1: "EL PRIMER CASO",
         linea2: "ES EL QUE TENÉS",

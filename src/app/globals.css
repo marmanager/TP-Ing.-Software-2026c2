@@ -475,6 +475,22 @@
     transform var(--d, 0.4s) var(--e-salida) var(--r, 0s);
 }
 
+/* 04 y 05: lo que cambia adentro de una sección ya revelada. La pantalla
+   del módulo elegido y cada mensaje de la charla de Remi entran con un
+   fundido corto. Es una animación y no algo colgado de .vi: se montan
+   después del revelado, y el observador busca los .rv una sola vez. Con
+   movimiento reducido la regla de .landing la apaga entera. */
+.landing .pantalla-modulo,
+.landing .charla .mensaje {
+  animation: aparece 0.32s var(--e-salida) both;
+}
+@keyframes aparece {
+  from {
+    opacity: 0.001;
+    translate: 0 6px;
+  }
+}
+
 /* El tramo de color de cada sección. ESTO es la transición entre
    secciones: no hay crossfade, ni pin, ni snap. */
 .landing .tramo .m-baja {
