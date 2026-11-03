@@ -80,7 +80,7 @@ export default function FilaCaso({ caso, sinVer = 0 }) {
           {subtituloDelCaso(caso, t) && (
             <span className="ml-2 text-apoyo text-tinta-suave">{subtituloDelCaso(caso, t)}</span>
           )}
-          <MarcaSinVer cantidad={sinVer} />
+          <MarcaSinVer cantidad={sinVer} className="ml-2" />
           <p className="truncate text-tinta-media">{lineaDelCaso(caso, cliente?.nombre, t)}</p>
         </div>
 

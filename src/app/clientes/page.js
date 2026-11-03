@@ -161,14 +161,7 @@ export default function Clientes() {
             return (
               <li key={cliente.id}>
                 <Tarjeta className="h-full">
-                  <Link
-                    href={`/clientes/${cliente.id}`}
-                    className="inline-flex min-h-12 items-center gap-2 font-bold text-subtitulo text-azul"
-                  >
-                    {cliente.nombre}
-                    <Icono nombre="volver" className="size-5 rotate-180" />
-                  </Link>
-                  <MarcaSinVer cantidad={sinVerDelCliente(cliente.id)} />
+                  <NombreDelCliente cliente={cliente} sinVer={sinVerDelCliente(cliente.id)} />
                   {cliente.telefono && <TelefonoDelCliente cliente={cliente} t={t} />}
                   <p className="mt-1 text-tinta-media">
                     {abiertos > 0
@@ -205,14 +198,7 @@ export default function Clientes() {
             {porVenir.map((cliente) => (
               <li key={cliente.id}>
                 <Tarjeta className="h-full border-dashed">
-                  <Link
-                    href={`/clientes/${cliente.id}`}
-                    className="inline-flex min-h-12 items-center gap-2 font-bold text-subtitulo text-azul"
-                  >
-                    {cliente.nombre}
-                    <Icono nombre="volver" className="size-5 rotate-180" />
-                  </Link>
-                  <MarcaSinVer cantidad={sinVerDelCliente(cliente.id)} />
+                  <NombreDelCliente cliente={cliente} sinVer={sinVerDelCliente(cliente.id)} />
                   {cliente.telefono && <TelefonoDelCliente cliente={cliente} t={t} />}
                   <p className="mt-1 flex items-center gap-1.5 text-etiqueta text-tinta-suave">
                     <Icono nombre="reloj" className="size-5" />
@@ -248,12 +234,29 @@ function porTelefono(telefono, texto) {
 
 // El teléfono legible, con el código separado. Uno de antes, sin país, lo
 // dice: así no le llegan los WhatsApp, y se corrige desde la ficha.
+// El nombre, que lleva a la ficha, y a la derecha cuántos mensajes de él no
+// vio nadie. El teléfono va en su renglón, abajo.
+function NombreDelCliente({ cliente, sinVer }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <Link
+        href={`/clientes/${cliente.id}`}
+        className="inline-flex min-h-12 min-w-0 items-center gap-2 font-bold text-subtitulo text-azul"
+      >
+        <span className="truncate">{cliente.nombre}</span>
+        <Icono nombre="volver" className="size-5 shrink-0 rotate-180" />
+      </Link>
+      <MarcaSinVer cantidad={sinVer} />
+    </div>
+  );
+}
+
 function TelefonoDelCliente({ cliente, t }) {
   return (
     <>
       <a
         href={`tel:${telefonoParaLlamar(cliente.telefono)}`}
-        className="mt-1 inline-flex min-h-12 items-center gap-2 text-azul"
+        className="flex min-h-12 w-fit items-center gap-2 text-azul"
       >
         <Icono nombre="telefono" className="size-5" />
         {telefonoLegible(cliente.telefono)}
