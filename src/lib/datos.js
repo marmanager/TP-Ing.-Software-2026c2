@@ -46,6 +46,13 @@ import { useIdioma } from "./useIdioma";
 // idioma. El castellano sale del diccionario (errores.<codigo>), una sola vez.
 const errorLocal = (codigo) => ({ codigo, mensaje: tCastellano(`errores.${codigo}`) });
 
+// Por qué no salió el aviso de un cambio de estado, según el motivo de la API.
+const AVISO_QUE_NO_SALIO = {
+  faltan_datos_del_negocio: "estado_aviso_sin_datos_del_negocio",
+  falta_nombre_del_negocio: "estado_aviso_sin_nombre_del_negocio",
+  link_revocado: "estado_aviso_sin_link",
+};
+
 const VACIO = {
   negocio: null,
   empleados: [],
@@ -705,6 +712,10 @@ export function DatosProvider({ children }) {
           setExito(tt("datos.estadoListoSinAviso", { motivo: porQueNoSeAviso(r.datos.sin_aviso, idiomaRef.current) }));
         } else if (r.datos.notificacion?.estado === "fallido") {
           setAviso(errorLocal("estado_sin_aviso"));
+        } else if (r.datos.notificacion?.estado === "cancelado") {
+          // Con plantilla, la API no lo manda si le falta algo que el mensaje
+          // lleva (API-4): se dice qué, para cargarlo. No es "pendiente".
+          setAviso(errorLocal(AVISO_QUE_NO_SALIO[r.datos.notificacion.motivo] ?? "estado_sin_aviso"));
         } else if (r.datos.notificacion) {
           setDeshacerExito(null);
           setExito(tt(r.datos.notificacion.estado === "enviado" ? "datos.estadoListoEnviado" : "datos.estadoListoPendiente"));
